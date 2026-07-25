@@ -92,9 +92,15 @@ ABD_HİSSELERİ = [
 
 VARSAYILAN_TICKERS = ["AAPL", "MSFT", "TSLA", "NVDA", "THYAO.IS", "FROTO.IS", "TOASO.IS"]
 
-# --- SESSION STATE BAŞLATMA ---
+# --- SESSION STATE & URL KONTROLÜ (BENİ HATIRLA İÇİN) ---
 if "user_email" not in st.session_state:
-    st.session_state.user_email = None
+    # Eğer URL parametrelerinde kayıtlı oturum varsa onu al
+    query_params = st.query_params
+    if "user" in query_params:
+        st.session_state.user_email = query_params["user"]
+    else:
+        st.session_state.user_email = None
+
 if "tarama_durumu" not in st.session_state:
     st.session_state.tarama_durumu = False
 if "sonuclar" not in st.session_state:
@@ -126,6 +132,10 @@ if st.session_state.user_email is None:
                 try:
                     user = auth.get_user_by_email(g_email)
                     st.session_state.user_email = g_email
+                    
+                    # Eğer beni hatırla seçiliyse URL çerezine / parametresine kaydet
+                    if beni_hatirla:
+                        st.query_params["user"] = g_email
                     
                     if db:
                         doc_ref = db.collection("kullanici_listeleri").document(g_email)
@@ -256,6 +266,9 @@ st.sidebar.header("⚙️ Kontrol Paneli")
 st.sidebar.markdown(f"👤 **Oturum:** `{st.session_state.user_email}`")
 if st.sidebar.button("🚪 Çıkış Yap"):
     st.session_state.user_email = None
+    # Çıkış yapıldığında hatırlama parametresini temizle
+    if "user" in st.query_params:
+        del st.query_params["user"]
     st.rerun()
 
 st.sidebar.markdown("---")
