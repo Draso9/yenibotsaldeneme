@@ -7,18 +7,17 @@ import os
 import firebase_admin
 from firebase_admin import credentials, firestore, auth
 import streamlit as st
-import json
 
 # --- FIREBASE BAŞLATMA (CLOUD & LOCAL UYUMLU) ---
 if not firebase_admin._apps:
     try:
-        # Önce Streamlit Secrets'dan okumayı dene (Cloud için)
+        # 1. Önce Streamlit Cloud Secrets üzerinden bağlanmayı dene
         firebase_secrets = dict(st.secrets["firebase"])
         cred = credentials.Certificate(firebase_secrets)
         firebase_admin.initialize_app(cred)
     except Exception:
         try:
-            # Secrets yoksa yereldeki dosyadan okumayı dene (Lokal geliştirme için)
+            # 2. Secrets yoksa yereldeki dosyadan bağlanmayı dene
             cred = credentials.Certificate("serviceAccountKey.json")
             firebase_admin.initialize_app(cred)
         except Exception as e:
