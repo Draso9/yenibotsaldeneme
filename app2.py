@@ -141,22 +141,38 @@ if st.session_state.user_email is None:
                 st.error(f"Giriş başarısız: E-posta bulunamadı veya şifre hatalı.")
 
     with col2:
+        with col2:
         st.subheader("📝 Yeni Kayıt Ol")
-        k_email = st.text_input("E-posta Adresi", key="kayit_email")
-        k_sifre = st.text_input("Şifre (En az 6 karakter)", type="password", key="kayit_sifre")
-        if st.button("Kayıt Ol"):
-            try:
-                user = auth.create_user(email=k_email, password=k_sifre)
-                # Kayıt olur olmaz varsayılan listesini Firestore'a kaydedelim
-                if db:
-                    db.collection("kullanici_listeleri").document(k_email).set({
-                        "tickers": VARSAYILAN_TICKERS
-                    })
-                st.success("Kayıt başarıyla oluşturuldu! Şimdi sol taraftan giriş yapabilirsiniz.")
-            except Exception as e:
-                st.error(f"Kayıt olunamadı: {e}")
+        
+        # Profesyonel görünüm için form yapısı kullanabiliriz
+        with st.form("kayit_formu"):
+            k_email = st.text_input("E-posta Adresi", placeholder="ornek@mail.com")
+            
+            col_sifre1, col_sifre2 = st.columns(2)
+            with col_sifre1:
+                k_sifre = st.text_input("Şifre", type="password", placeholder="En az 6 karakter")
+            with col_sifre2:
+                k_sifre_tekrar = st.text_input("Şifre Tekrar", type="password", placeholder="Şifreyi onaylayın")
                 
-    st.stop() # Giriş yapılmadıysa uygulamanın geri kalanını durdur
+            kayit_butonu = st.form_submit_button("Hesap Oluştur", type="primary", use_container_width=True)
+            
+            if kayit_butonu:
+                if not k_email or not k_sifre or not k_sifre_tekrar:
+                    st.warning("Lütfen tüm alanları eksiksiz doldurun.")
+                elif k_sifre != k_sifre_tekrar:
+                    st.error("Girdiğiniz şifreler birbiriyle eşleşmiyor. Lütfen kontrol edin.")
+                elif len(k_sifre) < 6:
+                    st.warning("Güvenliğiniz için şifreniz en az 6 karakter olmalıdır.")
+                else:
+                    try:
+                        user = auth.create_user(email=k_email, password=k_sifre)
+                        if db:
+                            db.collection("kullanici_listeleri").document(k_email).set({
+                                "tickers": VARSAYILAN_TICKERS
+                            })
+                        st.success("Kayıt başarıyla oluşturuldu! Sol taraftan giriş yapabilirsiniz.")
+                    except Exception as e:
+                        st.error(f"Kayıt olunamadı: {e}")
 
 # --- KULLANICI GİRİŞ YAPTIKTAN SONRAKİ ASIL UYGULAMA ---
 
