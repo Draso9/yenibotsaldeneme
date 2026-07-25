@@ -34,7 +34,12 @@ st.set_page_config(
     layout="wide"
 )
 
-st.markdown("""
+from datetime import datetime, timedelta
+
+# Türkiye saati için UTC'ye 3 saat ekliyoruz
+tr_saati = datetime.utcnow() + timedelta(hours=3)
+
+st.markdown(f"**Tarama Zamanı:** {tr_saati.strftime('%d.%m.%Y %H:%M:%S')} | **Mod:** fast_info Gerçek Fiyat Motoru")
 <style>
     .kpi-card {
         background-color: #1E1E1E;
