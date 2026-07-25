@@ -115,27 +115,32 @@ if st.session_state.user_email is None:
     
     with col1:
         st.subheader("🔑 Giriş Yap")
-        g_email = st.text_input("E-posta Adresi", key="giris_email")
-        g_sifre = st.text_input("Şifre", type="password", key="giris_sifre")
-        if st.button("Giriş Yap", type="primary"):
-            try:
-                user = auth.get_user_by_email(g_email)
-                st.session_state.user_email = g_email
-                
-                if db:
-                    doc_ref = db.collection("kullanici_listeleri").document(g_email)
-                    doc = doc_ref.get()
-                    if doc.exists:
-                        st.session_state.custom_tickers = doc.to_dict().get("tickers", VARSAYILAN_TICKERS)
+        with st.form("giris_formu"):
+            g_email = st.text_input("E-posta Adresi", placeholder="ornek@mail.com")
+            g_sifre = st.text_input("Şifre", type="password", placeholder="Şifreniz")
+            beni_hatirla = st.checkbox("Beni Hatırla", value=True)
+            
+            giris_butonu = st.form_submit_button("Giriş Yap", type="primary", use_container_width=True)
+            
+            if giris_butonu:
+                try:
+                    user = auth.get_user_by_email(g_email)
+                    st.session_state.user_email = g_email
+                    
+                    if db:
+                        doc_ref = db.collection("kullanici_listeleri").document(g_email)
+                        doc = doc_ref.get()
+                        if doc.exists:
+                            st.session_state.custom_tickers = doc.to_dict().get("tickers", VARSAYILAN_TICKERS)
+                        else:
+                            st.session_state.custom_tickers = VARSAYILAN_TICKERS.copy()
                     else:
                         st.session_state.custom_tickers = VARSAYILAN_TICKERS.copy()
-                else:
-                    st.session_state.custom_tickers = VARSAYILAN_TICKERS.copy()
-                    
-                st.success("Giriş başarılı! Yönlendiriliyorsunuz...")
-                st.rerun()
-            except Exception as e:
-                st.error("Giriş başarısız: E-posta bulunamadı veya şifre hatalı.")
+                        
+                    st.success("Giriş başarılı! Yönlendiriliyorsunuz...")
+                    st.rerun()
+                except Exception as e:
+                    st.error("Giriş başarısız: E-posta bulunamadı veya şifre hatalı.")
 
     with col2:
         st.subheader("📝 Yeni Kayıt Ol")
