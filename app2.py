@@ -2,7 +2,7 @@ import streamlit as st
 import yfinance as yf
 import pandas as pd
 import numpy as np
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 import os
 import firebase_admin
 from firebase_admin import credentials, firestore, auth
@@ -34,12 +34,7 @@ st.set_page_config(
     layout="wide"
 )
 
-from datetime import datetime, timedelta
-
-# Türkiye saati için UTC'ye 3 saat ekliyoruz
-tr_saati = datetime.utcnow() + timedelta(hours=3)
-
-st.markdown(f"**Tarama Zamanı:** {tr_saati.strftime('%d.%m.%Y %H:%M:%S')} | **Mod:** fast_info Gerçek Fiyat Motoru")
+st.markdown("""
 <style>
     .kpi-card {
         background-color: #1E1E1E;
@@ -244,8 +239,12 @@ for varliklar in preset_options.values():
     tum_varliklar_havuzu.extend(varliklar)
 tum_varliklar_havuzu = list(set(tum_varliklar_havuzu))
 
+# Türkiye saati (UTC+3) hesaplama
+tr_zaman_dilimi = timezone(timedelta(hours=3))
+tr_saati = datetime.now(tr_zaman_dilimi)
+
 st.title("📈 Hibrit Portföy Komuta Merkezi")
-st.markdown(f"**Tarama Zamanı:** {datetime.now().strftime('%d.%m.%Y %H:%M:%S')} | **Mod:** fast_info Gerçek Fiyat Motoru")
+st.markdown(f"**Tarama Zamanı:** {tr_saati.strftime('%d.%m.%Y %H:%M:%S')} | **Mod:** fast_info Gerçek Fiyat Motoru")
 st.markdown("---")
 
 st.sidebar.header("⚙️ Kontrol Paneli")
