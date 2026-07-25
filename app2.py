@@ -6,15 +6,23 @@ from datetime import datetime
 import os
 import firebase_admin
 from firebase_admin import credentials, firestore, auth
+import streamlit as st
+import json
 
-# --- FIREBASE BAŞLATMA ---
+# --- FIREBASE BAŞLATMA (CLOUD & LOCAL UYUMLU) ---
 if not firebase_admin._apps:
     try:
-        cred = credentials.Certificate("serviceAccountKey.json")
+        # Önce Streamlit Secrets'dan okumayı dene (Cloud için)
+        firebase_secrets = dict(st.secrets["firebase"])
+        cred = credentials.Certificate(firebase_secrets)
         firebase_admin.initialize_app(cred)
-    except Exception as e:
-        # Eğer henüz json dosyası eklenmediyse hata vermemesi için geçici blok
-        pass
+    except Exception:
+        try:
+            # Secrets yoksa yereldeki dosyadan okumayı dene (Lokal geliştirme için)
+            cred = credentials.Certificate("serviceAccountKey.json")
+            firebase_admin.initialize_app(cred)
+        except Exception as e:
+            st.error(f"Firebase başlatılamadı: {e}")
 
 try:
     db = firestore.client()
