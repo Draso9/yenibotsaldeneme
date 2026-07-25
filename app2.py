@@ -6,7 +6,6 @@ from datetime import datetime
 import os
 import firebase_admin
 from firebase_admin import credentials, firestore, auth
-import streamlit as st
 
 # --- FIREBASE BAŞLATMA (CLOUD & LOCAL UYUMLU) ---
 if not firebase_admin._apps:
@@ -120,11 +119,9 @@ if st.session_state.user_email is None:
         g_sifre = st.text_input("Şifre", type="password", key="giris_sifre")
         if st.button("Giriş Yap", type="primary"):
             try:
-                # Kullanıcının var olup olmadığını kontrol et
                 user = auth.get_user_by_email(g_email)
                 st.session_state.user_email = g_email
                 
-                # Kullanıcıya özel listeyi Firestore'dan çekelim
                 if db:
                     doc_ref = db.collection("kullanici_listeleri").document(g_email)
                     doc = doc_ref.get()
@@ -138,13 +135,10 @@ if st.session_state.user_email is None:
                 st.success("Giriş başarılı! Yönlendiriliyorsunuz...")
                 st.rerun()
             except Exception as e:
-                st.error(f"Giriş başarısız: E-posta bulunamadı veya şifre hatalı.")
+                st.error("Giriş başarısız: E-posta bulunamadı veya şifre hatalı.")
 
     with col2:
-        with col2:
         st.subheader("📝 Yeni Kayıt Ol")
-        
-        # Profesyonel görünüm için form yapısı kullanabiliriz
         with st.form("kayit_formu"):
             k_email = st.text_input("E-posta Adresi", placeholder="ornek@mail.com")
             
@@ -170,14 +164,15 @@ if st.session_state.user_email is None:
                             db.collection("kullanici_listeleri").document(k_email).set({
                                 "tickers": VARSAYILAN_TICKERS
                             })
-                        st.success("Kayıt başarıyla oluşturuldu! Sol taraftan giriş yapabilirsiniz.")
+                        st.success("Kayıt başarıyla oluşturuldu! Şimdi sol taraftan giriş yapabilirsiniz.")
                     except Exception as e:
                         st.error(f"Kayıt olunamadı: {e}")
+            
+    st.stop()
 
 # --- KULLANICI GİRİŞ YAPTIKTAN SONRAKİ ASIL UYGULAMA ---
 
 if "custom_tickers" not in st.session_state:
-    # Firestore'dan kullanıcının özel listesini çek
     try:
         doc_ref = db.collection("kullanici_listeleri").document(st.session_state.user_email)
         doc = doc_ref.get()
@@ -204,7 +199,6 @@ if "secilen_varliklar_multiselect" not in st.session_state:
 if "ek_hisse_input_field" not in st.session_state:
     st.session_state.ek_hisse_input_field = ""
 
-# --- CALLBACK FONKSİYONLARI ---
 def hisse_ekle_callback():
     input_val = st.session_state.ek_hisse_input_field
     if input_val and input_val.strip():
@@ -217,7 +211,6 @@ def hisse_ekle_callback():
                 yeni_eklendi = True
                 
         if yeni_eklendi and db:
-            # Firestore'a kullanıcıya özel güncel listeyi kaydet
             db.collection("kullanici_listeleri").document(st.session_state.user_email).set({
                 "tickers": st.session_state.custom_tickers
             })
@@ -250,7 +243,6 @@ st.title("📈 Hibrit Portföy Komuta Merkezi")
 st.markdown(f"**Tarama Zamanı:** {datetime.now().strftime('%d.%m.%Y %H:%M:%S')} | **Mod:** fast_info Gerçek Fiyat Motoru")
 st.markdown("---")
 
-# --- 3. KENAR ÇUBUĞU ---
 st.sidebar.header("⚙️ Kontrol Paneli")
 st.sidebar.markdown(f"👤 **Oturum:** `{st.session_state.user_email}`")
 if st.sidebar.button("🚪 Çıkış Yap"):
@@ -259,7 +251,7 @@ if st.sidebar.button("🚪 Çıkış Yap"):
 
 st.sidebar.markdown("---")
 
-with st.sidebar.expander("💰 Kasa dan Risk Parametreleri", expanded=True):
+with st.sidebar.expander("💰 Kasa ve Risk Parametreleri", expanded=True):
     bist_kasa = st.number_input("BIST Sanal Kasa (TL)", value=100000, step=10000)
     nasdaq_kasa = st.number_input("NASDAQ Sanal Kasa ($)", value=10000, step=1000)
     risk_orani = st.slider("İşlem Başına Risk Oranı (%)", min_value=1.0, max_value=5.0, value=2.0, step=0.5) / 100.0
@@ -284,7 +276,6 @@ with st.sidebar.expander("📋 Varlık Seçimi ve Profiller", expanded=True):
 st.sidebar.markdown("---")
 tarama_tetiklendi = st.sidebar.button("🚀 Piyasayı Tara ve Raporu Oluştur", type="primary", use_container_width=True)
 
-# --- 4. ANA TARAMA MOTORU ---
 if tarama_tetiklendi:
     if not selected_tickers:
         st.warning("Lütfen taranacak en az bir varlık seçin.")
@@ -471,7 +462,6 @@ if tarama_tetiklendi:
             st.session_state.alim_firsati = alim_firsati
             st.session_state.tarama_durumu = True
 
-# --- 5. ARAYÜZÜ ÇİZ ---
 if st.session_state.tarama_durumu and st.session_state.sonuclar:
     col1, col2, col3 = st.columns(3)
     with col1:
