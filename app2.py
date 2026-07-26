@@ -72,6 +72,19 @@ BIST_30 = [
     "TCELL.IS", "THYAO.IS", "TOASO.IS", "TUPRS.IS", "YKBNK.IS"
 ]
 
+BIST_100 = BIST_30 + [
+    "AEFES.IS", "AGHOL.IS", "AHGAZ.IS", "AKCNS.IS", "AKFGY.IS", "AKSA.IS", "AKSEN.IS", 
+    "ALFAS.IS", "ARCLK.IS", "ASGYO.IS", "AYDEM.IS", "BAGFS.IS", "BERA.IS", "BIOEN.IS", 
+    "BOBET.IS", "BRYAT.IS", "BUCIM.IS", "CANTE.IS", "CEMAS.IS", "CIMSA.IS", "CWENE.IS", 
+    "DOAS.IS", "DOHOL.IS", "ECILC.IS", "EGEEN.IS", "EKGYO.IS", "ENJSA.IS", "ERBOS.IS", 
+    "EUPWR.IS", "EUREN.IS", "GESAN.IS", "GLYHO.IS", "GSDHO.IS", "GWIND.IS", "HALKB.IS", 
+    "IPEKE.IS", "ISGYO.IS", "ISMEN.IS", "IZMDC.IS", "KARSN.IS", "KAYSE.IS", "KCAER.IS", 
+    "KMPUR.IS", "KORDS.IS", "KZBGY.IS", "MAVI.IS", "MGROS.IS", "MIATK.IS", "ODAS.IS", 
+    "OTKAR.IS", "PENTI.IS", "PSGYO.IS", "QUAGR.IS", "SARKY.IS", "SMRTG.IS", "SNGYO.IS", 
+    "SOKM.IS", "TATGD.IS", "TAVHL.IS", "TKFEN.IS", "TKNSA.IS", "TTKOM.IS", "TTRAK.IS", 
+    "TUKAS.IS", "ULKER.IS", "VAKBN.IS", "VESBE.IS", "VESTL.IS", "YYLGD.IS", "ZOREN.IS"
+]
+
 ABD_HİSSELERİ = [
     "AAPL", "MSFT", "GOOGL", "AMZN", "META", "TSLA", "NVDA", "AMD", "INTC", "NFLX"
 ]
@@ -96,7 +109,7 @@ if st.session_state.user_email is None:
                 try:
                     user = auth.get_user_by_email(g_email)
                     st.session_state.user_email = g_email
-                    st.session_state.logout_triggered = False # Giriş yapıldığında çıkış flag'ini sıfırla
+                    st.session_state.logout_triggered = False 
                     if beni_hatirla:
                         cookie_manager.set("user_email", g_email, expires_at=datetime.now() + timedelta(days=30))
                     if db:
@@ -109,16 +122,25 @@ if st.session_state.user_email is None:
     with col2:
         st.subheader("📝 Yeni Kayıt Ol")
         with st.form("kayit_formu"):
-            k_email = st.text_input("E-posta Adresi")
-            k_sifre = st.text_input("Şifre", type="password")
+            k_email = st.text_input("E-posta Adresi", placeholder="ornek@mail.com")
+            k_sifre = st.text_input("Şifre", type="password", placeholder="En az 6 karakter")
+            k_sifre_tekrar = st.text_input("Şifre (Tekrar)", type="password", placeholder="Şifrenizi tekrar girin")
             kayit_butonu = st.form_submit_button("Hesap Oluştur", type="primary", use_container_width=True)
-            if kayit_butonu and k_email and len(k_sifre)>=6:
-                try:
-                    auth.create_user(email=k_email, password=k_sifre)
-                    if db: db.collection("kullanici_listeleri").document(k_email).set({"tickers": VARSAYILAN_TICKERS})
-                    st.success("Kayıt başarılı! Giriş yapabilirsiniz.")
-                except Exception as e:
-                    st.error(f"Kayıt olunamadı: {e}")
+            
+            if kayit_butonu:
+                if not k_email:
+                    st.error("E-posta adresi boş bırakılamaz.")
+                elif len(k_sifre) < 6:
+                    st.error("Şifre en az 6 karakter olmalıdır.")
+                elif k_sifre != k_sifre_tekrar:
+                    st.error("Şifreler birbiriyle eşleşmiyor!")
+                else:
+                    try:
+                        auth.create_user(email=k_email, password=k_sifre)
+                        if db: db.collection("kullanici_listeleri").document(k_email).set({"tickers": VARSAYILAN_TICKERS})
+                        st.success("Kayıt başarılı! Giriş yapabilirsiniz.")
+                    except Exception as e:
+                        st.error(f"Kayıt olunamadı: {e}")
     st.stop()
 
 # --- ASIL UYGULAMA MANTIĞI ---
@@ -130,6 +152,7 @@ def get_preset_options():
     return {
         "Kendi Listem": st.session_state.custom_tickers,
         "BIST 30": BIST_30,
+        "BIST 100": BIST_100,
         "ABD Büyük Teknoloji": ABD_HİSSELERİ
     }
 
@@ -158,20 +181,20 @@ st.markdown("---")
 
 st.sidebar.header("⚙️ Kontrol Paneli")
 if st.sidebar.button("🚪 Çıkış Yap"):
-    cookie_manager.delete("user_email") # Önce çerezi sil
+    cookie_manager.delete("user_email") 
     st.session_state.user_email = None
-    st.session_state.logout_triggered = True # Otomatik girişi engelle
-    time.sleep(0.5) # Çerezin silinmesi için tarayıcıya zaman tanı
+    st.session_state.logout_triggered = True 
+    time.sleep(0.5) 
     st.rerun()
 st.sidebar.markdown("---")
 
-with st.sidebar.expander("💰 Kasa ve Risk Parametreleri", expanded=True):
+with st.sidebar.expander("💰 Kasa and Risk Parametreleri", expanded=True):
     bist_kasa = st.number_input("BIST Kasa (TL)", value=100000, step=10000)
-    nasdaq_kasa = st.number_input("NASDAQ Kasa ($)", value=10000, step=1000)
+    nasdaq_kasa = st.number_input("NASDAQ Kasa ($)", value=1000, step=1000)
     risk_orani = st.slider("Risk Oranı (%)", 1.0, 5.0, 2.0, 0.5) / 100.0
 
 with st.sidebar.expander("📋 Varlık Seçimi", expanded=True):
-    st.text_input("Varlık Ekle:", key="ek_hisse_input_field")
+    st.text_input("Varlık Ekle:", key="ek_hisse_input_field", placeholder="Örn: KCHOL.IS, INTC")
     st.button("➕ Ekle", on_click=hisse_ekle_callback)
     st.selectbox("Profil", list(preset_options.keys()), key="profil_secim_kutusu", on_change=lambda: st.session_state.update({"secilen_varliklar_multiselect": get_preset_options()[st.session_state.profil_secim_kutusu].copy()}))
     selected_tickers = st.multiselect("Taranacak Varlıklar", options=tum_varliklar_havuzu, key="secilen_varliklar_multiselect")
