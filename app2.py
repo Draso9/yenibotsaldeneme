@@ -44,7 +44,6 @@ if "user_email" not in st.session_state:
 if "logout_triggered" not in st.session_state:
     st.session_state.logout_triggered = False
 
-# Otomatik giriş (Eğer çıkış butonuna basılmadıysa ve çerez varsa)
 if st.session_state.user_email is None and saved_email is not None and not st.session_state.logout_triggered:
     st.session_state.user_email = saved_email
     st.rerun()
@@ -176,7 +175,7 @@ tum_varliklar_havuzu = list(set([h for lst in preset_options.values() for h in l
 tr_saati = datetime.now(timezone(timedelta(hours=3)))
 
 st.title("📈 Hibrit Portföy Komuta Merkezi (Hedge-Fund Sürümü)")
-st.markdown(f"**Tarama Zamanı:** {tr_saati.strftime('%d.%m.%Y %H:%M:%S')} | **Mod:** Derin Analiz (Teknik+Temel+Likidite+Sektörel+Para Akışı+MTFA)")
+st.markdown(f"**Tarama Zamanı:** {tr_saati.strftime('%d.%m.%Y %H:%M:%S')} | **Mod:** Derin Analiz (Teknik+Temel+Likidite+Sektörel+5'li Karma Destek/Direnç)")
 st.markdown("---")
 
 st.sidebar.header("⚙️ Kontrol Paneli")
@@ -202,12 +201,11 @@ with st.sidebar.expander("📋 Varlık Seçimi", expanded=True):
 tarama_tetiklendi = st.sidebar.button("🚀 Derin Taramayı Başlat", type="primary", use_container_width=True)
 
 if tarama_tetiklendi and selected_tickers:
-    with st.spinner("Katmanlar İşleniyor: Makro Trend, Sektörel Momentum, OBV Para Akışı, PEG Değerlemesi..."):
+    with st.spinner("Katmanlar İşleniyor: Makro Trend, 5'li Karma Destek/Direnç, OBV Para Akışı, PEG Değerlemesi..."):
         gecici_sonuclar = []
         boga_sayisi = 0
         alim_firsati = 0
         
-        # 1. SEKTÖREL ENDEKSLERİN VERİLERİNİ ÖNCEDEN ÇEK
         sektor_getirileri = {}
         sektor_referanslari = {
             "XU100.IS": "BIST100", 
@@ -231,13 +229,10 @@ if tarama_tetiklendi and selected_tickers:
                 sektor_getirileri[sembol] = 0
                 bist_trend_pozitif = nasdaq_trend_pozitif = True
 
-        # TİCKER DÖNGÜSÜ
         for ticker in selected_tickers:
             try:
                 stock = yf.Ticker(ticker)
                 df_long = stock.history(period="1y")
-                
-                # Eksik verileri tamamen temizle
                 df_long = df_long.dropna(subset=['Open', 'High', 'Low', 'Close', 'Volume'])
                 
                 if df_long.empty or len(df_long) < 50: 
@@ -246,7 +241,6 @@ if tarama_tetiklendi and selected_tickers:
                 is_bist = ".IS" in ticker
                 para_birimi = "TL" if is_bist else "$"
                 
-                # Güncel fiyat tespiti
                 info = stock.info if hasattr(stock, 'info') else {}
                 anlik_fiyat = None
                 
@@ -259,7 +253,7 @@ if tarama_tetiklendi and selected_tickers:
                     bugun_kapanis = float(anlik_fiyat)
                     df_long.iloc[-1, df_long.columns.get_loc('Close')] = bugun_kapanis
 
-                # 1. KATMAN: TEMEL VERİ
+                # Temel Veri Katmanı
                 fk = info.get('trailingPE', info.get('forwardPE', None))
                 peg = info.get('trailingPegRatio', info.get('pegRatio', None))
                 
@@ -271,7 +265,7 @@ if tarama_tetiklendi and selected_tickers:
                     if fk > 50: temel_durum = "Aşırı Pahalı ⚠️"
                     elif 0 < fk < 15: temel_durum = "Ucuz (Klasik) 🌟"
 
-                # 2. KATMAN: GERÇEK SEKTÖREL MOMENTUM EŞLEŞTİRMESİ
+                # Sektörel Momentum
                 son_1_ay_df = df_long.tail(21)
                 hisse_1m_getiri = ((son_1_ay_df['Close'].iloc[-1] - son_1_ay_df['Close'].iloc[0]) / son_1_ay_df['Close'].iloc[0]) * 100
                 
@@ -280,34 +274,26 @@ if tarama_tetiklendi and selected_tickers:
                 
                 if is_bist:
                     if ticker in ["AKBNK.IS", "GARAN.IS", "ISCTR.IS", "YKBNK.IS", "HALKB.IS"]:
-                        sek_sembol = "XBANK.IS"
-                        sektor_adi = "Banka"
+                        sek_sembol = "XBANK.IS"; sektor_adi = "Banka"
                     elif ticker in ["THYAO.IS", "PGSUS.IS", "DOAS.IS", "TAVHL.IS"]:
-                        sek_sembol = "XULAS.IS"
-                        sektor_adi = "Ulaşım"
+                        sek_sembol = "XULAS.IS"; sektor_adi = "Ulaşım"
                     elif ticker in ["KCHOL.IS", "SAHOL.IS", "ALARK.IS", "DOHOL.IS", "AGHOL.IS"]:
-                        sek_sembol = "XHOLD.IS"
-                        sektor_adi = "Holding"
+                        sek_sembol = "XHOLD.IS"; sektor_adi = "Holding"
                     else:
-                        sek_sembol = "XUSIN.IS"
-                        sektor_adi = "Sanayi"
+                        sek_sembol = "XUSIN.IS"; sektor_adi = "Sanayi"
                 else:
-                    sek_sembol = "^IXIC"
-                    sektor_adi = "Teknoloji (NASDAQ)"
+                    sek_sembol = "^IXIC"; sektor_adi = "Teknoloji (NASDAQ)"
 
                 sek_getiri = sektor_getirileri.get(sek_sembol, sektor_getirileri.get("XU100.IS" if is_bist else "^IXIC", 0))
                 sektorel_fark = hisse_1m_getiri - sek_getiri
                 
-                # 3. KATMAN: AKILLI PARA AKIŞI (MFI & OBV)
+                # Para Akışı (MFI & OBV)
                 typical_price = (df_long['High'] + df_long['Low'] + df_long['Close']) / 3
                 raw_money_flow = typical_price * df_long['Volume']
-                
                 pos_flow = pd.Series(np.where(typical_price > typical_price.shift(1), raw_money_flow, 0))
                 neg_flow = pd.Series(np.where(typical_price < typical_price.shift(1), raw_money_flow, 0))
-                
                 pos_sum = pos_flow.rolling(14).sum()
                 neg_sum = neg_flow.rolling(14).sum()
-                
                 mfi = 100 - (100 / (1 + (pos_sum / (neg_sum + 1e-5))))
                 mfi_val = mfi.iloc[-1] if not pd.isna(mfi.iloc[-1]) else 50
                 
@@ -315,10 +301,9 @@ if tarama_tetiklendi and selected_tickers:
                       np.where(df_long['Close'] < df_long['Close'].shift(1), -df_long['Volume'], 0)).cumsum()
                 obv_ema = pd.Series(obv).ewm(span=20).mean()
                 obv_bullish = obv[-1] > obv_ema.iloc[-1]
-                
                 para_durumu = f"Balina Girişi 🐋 (MFI:{mfi_val:.0f})" if mfi_val < 30 and obv_bullish else ("Çıkış Var 📉" if mfi_val > 75 else f"Nötr (MFI:{mfi_val:.0f})")
 
-                # Klasik Teknik İndikatörler
+                # Teknik Göstergeler
                 delta = df_long['Close'].diff()
                 rs = delta.where(delta>0, 0.0).ewm(alpha=1/14, adjust=False).mean() / (-delta.where(delta<0, 0.0).ewm(alpha=1/14, adjust=False).mean() + 1e-5)
                 rsi = 100 - (100 / (1 + rs)).iloc[-1]
@@ -338,6 +323,38 @@ if tarama_tetiklendi and selected_tickers:
                 vol_sma_20 = df_long['Volume'].rolling(20).mean().iloc[-1]
                 sig_tahta = (is_bist and vol_sma_20 * bugun_kapanis < 50_000_000) or (not is_bist and vol_sma_20 * bugun_kapanis < 2_000_000)
 
+                # --- 5'Lİ KARMA DESTEK VE DİRENÇ HESAPLAMA MOTORU ---
+                # 1. Yatay Hafıza (Son 50 mumun tepe ve dipleri)
+                swing_high = df_long['High'].tail(50).max()
+                swing_low = df_long['Low'].tail(50).min()
+                
+                # 2. Dinamik Hareketli Ortalamalar (50 EMA)
+                ema_50 = df_long['Close'].ewm(span=50).mean().iloc[-1]
+                
+                # 3. Hacim/Likidite Yoğunluk Bölgeleri (Volume Weighted ortalama fiyat referansı)
+                vwap_approx = (df_long['Close'] * df_long['Volume']).tail(20).sum() / (df_long['Volume'].tail(20).sum() + 1e-5)
+                
+                # 4. Fibonacci Düzeltmeleri (Son 50 mumluk hareket üzerinden)
+                fib_range = swing_high - swing_low
+                fib_382 = swing_high - (fib_range * 0.382)
+                fib_618 = swing_high - (fib_range * 0.618)
+                
+                # 5. Volatilite (ATR) ve Pivot Sınırları
+                high_low = df_long['High'] - df_long['Low']
+                high_close = (df_long['High'] - df_long['Close'].shift()).abs()
+                low_close = (df_long['Low'] - df_long['Close'].shift()).abs()
+                tr = pd.concat([high_low, high_close, low_close], axis=1).max(axis=1)
+                atr = tr[-14:].mean()
+                if pd.isna(atr) or atr == 0: atr = bugun_kapanis * 0.02
+
+                # Karma Destek Sentezi (Fiyatın altındaki en güçlü ortak eşikler: Swing Dip, 50 EMA, Fib 618 ve ATR tabanı ortalaması)
+                potansiyel_destekler = [swing_low, ema_50, fib_618, bugun_kapanis - (atr * 2)]
+                karma_destek = max([d for d in potansiyel_destekler if d < bugun_kapanis], default=bugun_kapanis - (atr * 1.5))
+                
+                # Karma Direnç Sentezi (Fiyatın üstündeki en güçlü ortak eşikler: Swing Tepe, VWAP, Fib 382 ve Bollinger Üst Bandı ortalaması)
+                potansiyel_direncler = [swing_high, vwap_approx, fib_382, bb_ust]
+                karma_direnc = min([dir_val for dir_val in potansiyel_direncler if dir_val > bugun_kapanis], default=bugun_kapanis + (atr * 2.5))
+
                 # Nihai Sinyal
                 sinyal = "Nötr (İzle) ⚖️"
                 if sig_tahta: sinyal = "SIĞ TAHTA ⚠️"
@@ -353,7 +370,7 @@ if tarama_tetiklendi and selected_tickers:
                 
                 if uzun_vade_trend: boga_sayisi += 1
                 
-                # MTFA - 1 Saatlik Teyit
+                # 1H Mikro Teyit
                 mikro_teyit = "➖"
                 if "ALIM" in sinyal:
                     try:
@@ -365,27 +382,7 @@ if tarama_tetiklendi and selected_tickers:
                     except:
                         pass
 
-                # Güvenli ATR ve Profesyonel Finansal Süren Stop (Destek) Hesaplaması
-                high_low = df_long['High'] - df_long['Low']
-                high_close = (df_long['High'] - df_long['Close'].shift()).abs()
-                low_close = (df_long['Low'] - df_long['Close'].shift()).abs()
-                tr = pd.concat([high_low, high_close, low_close], axis=1).max(axis=1)
-                
-                atr = tr[-14:].mean()
-                if pd.isna(atr) or atr == 0: atr = bugun_kapanis * 0.02
-                
-                trailing_stop_orijinal = df_long['High'].rolling(22).max().iloc[-1] - (atr * 3)
-                
-                if trailing_stop_orijinal >= bugun_kapanis:
-                    trailing_stop = bugun_kapanis - (atr * 1.5) # Destek noktası (Anlık fiyatın altı)
-                else:
-                    trailing_stop = trailing_stop_orijinal
-
-                alinan_risk = max(bugun_kapanis - trailing_stop, atr * 1.5)
-                tp1, tp2 = bugun_kapanis + (alinan_risk * 1.5), bugun_kapanis + (alinan_risk * 3.0)
-                
-                hibrit_tp = f"⚠️ Şişti: Kâr Al" if rsi >= 65 or bugun_kapanis >= bb_ust*0.98 else f"TP1: {tp1:.2f} | TP2: {tp2:.2f}"
-                
+                alinan_risk = max(bugun_kapanis - karma_destek, atr * 1.0)
                 lot = int((aktif_kasa := bist_kasa if is_bist else nasdaq_kasa) * risk_orani / alinan_risk) if "ALIM" in sinyal else 0
                 if lot > 0 and not (bist_trend_pozitif if is_bist else nasdaq_trend_pozitif):
                     lot = max(1, lot // 2)
@@ -399,8 +396,8 @@ if tarama_tetiklendi and selected_tickers:
                     "Temel Veri (PEG/FK)": temel_durum,
                     "Nihai Sinyal": sinyal,
                     "↓ Zamanlama (1H Teyit)": mikro_teyit,
-                    "Destek Seviyesi (Stop)": f"{trailing_stop:.2f}",
-                    "Direnç Seviyeleri (TP)": hibrit_tp,
+                    "Karma Destek": f"{karma_destek:.2f}",
+                    "Karma Direnç": f"{karma_direnc:.2f}",
                     "Önerilen Lot": f"{lot} Adet" if lot > 0 else "0"
                 })
             except Exception:
@@ -422,21 +419,18 @@ if st.session_state.tarama_durumu and st.session_state.sonuclar:
     
     st.markdown("<br>", unsafe_allow_html=True)
     
-    with st.expander("📖 Kurumsal Terminal ve Yeni Parametreler Nasıl Okunur?", expanded=False):
+    with st.expander("📖 Kurumsal Terminal ve 5'li Karma Destek/Direnç Mimarisi Nasıl Çalışır?", expanded=False):
         st.markdown("""
         <div class="info-box">
-            <b>🎯 Klasik Sinyaller ve Risk (Temel Motor)</b><br><br>
-            • <b>🟢 KUSURSUZ ALIM:</b> Uzun vade trend sağlam (Fiyat > 200G SMA). Aşırı satım var (RSI < 35). Fiyat Bollinger Alt Bandı'na değmiş ve dönüş teyidi (MACD veya Hacim) alınmış.<br>
-            • <b>🔵 KADEMELİ ALIM:</b> Ana trend sağlam ancak sadece kısa vadeli düzeltme yapıyor (RSI < 40). Fırsat bölgesinde.<br>
-            • <b>🔴 KÂR REALİZASYONU:</b> Fiyat Bollinger Üst Bandı'nı kırmış ve RSI 68'in üzerinde. Piyasa aşırı coşkulu, düzeltme gelebilir.<br>
-            • <b>🛑 UZAK DUR!:</b> Hem haftalık hem uzun vade trend kırılmış, düşüşte olan zayıf varlıklar.<br>
-            • <b>⚠️ SIĞ TAHTA:</b> Günlük dönen para hacmi yetersiz. Manipülasyona açık olduğu için teknik veriler dikkate alınmaz.<br><br>
+            <b>🛡️ 5'li Karma Destek ve Direnç Motoru</b><br><br>
+            • <b>Karma Destek:</b> Hissenin son 50 mumluk yerel dibi, 50 günlük dinamik EMA'sı, Fibonacci %61.8 geri çekilme seviyesi ve ATR volatilite bandı harmanlanarak hesaplanan en güçlü ortak taban bölgesidir.<br>
+            • <b>Karma Direnç:</b> Hissenin son 50 mumluk tepe noktası, hacim ağırlıklı fiyat eğrisi (VWAP), Fibonacci %38.2 direnci ve Bollinger Üst Bandı sentezlenerek bulunan ana hedef tavan bölgesidir.<br><br>
             <hr style="border-color: #444;">
-            <b>🕵️‍♂️ İleri Düzey Kurumsal Modüller ve Seviyeler</b><br><br>
-            • <b>Destek Seviyesi (Stop):</b> Varlığın volatilitesine (ATR) ve geçmiş tepe noktalarına göre hesaplanan zarar-kes / güvenli destek sınırıdır. Asla anlık fiyatın üstünde yer almaz.<br>
-            • <b>Direnç Seviyeleri (TP):</b> Alınan riskin katları (TP1 ve TP2) veya üst bant dirençleri baz alınarak hesaplanan kâr al hedefleridir.<br>
-            • <b>Para Akışı (OBV & MFI):</b> Hacmin yönüne bakar. MFI düşük ve OBV yukarı kırmışsa <b>"Balina Girişi 🐋"</b> tespit eder.<br>
-            • <b>Zamanlama (1 Saatlik Mikro Teyit):</b> Günlük alım sinyali gelse bile 1 saatlik grafikte <b>"✅ Tetik Çek"</b> veya <b>"⏳ 1H Dönüş Bekle"</b> diyerek nokta atışı giriş sağlar.
+            <b>🎯 Sinyaller ve Diğer Modüller</b><br><br>
+            • <b>🟢 KUSURSUZ ALIM:</b> Uzun vade trend sağlam, RSI < 35, Bollinger alt bandı temaslı ve hacim/MACD dönüş teyitli.<br>
+            • <b>🔵 KADEMELİ ALIM:</b> Trend güçlü, kısa vadeli fırsat düzeltmesinde.<br>
+            • <b>Para Akışı (OBV & MFI):</b> MFI düşük ve OBV yukarı kırılımlıysa <b>"Balina Girişi 🐋"</b> yakalar.<br>
+            • <b>Zamanlama (1 Saatlik Mikro Teyit):</b> 1H grafikte <b>"✅ Tetik Çek"</b> diyerek nokta atışı giriş sağlar.
         </div>
         """, unsafe_allow_html=True)
     
