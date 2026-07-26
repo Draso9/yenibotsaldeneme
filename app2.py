@@ -331,9 +331,9 @@ if tarama_tetiklendi:
                     avg_daily_value = vol_sma_20 * bugun_kapanis
                     
                     sig_tahta = False
-                    if is_bist and avg_daily_value < 50_000_000: # BIST için 50 Milyon TL altı
+                    if is_bist and avg_daily_value < 50_000_000:
                         sig_tahta = True
-                    elif not is_bist and not is_emtia and avg_daily_value < 2_000_000: # ABD için 2 Milyon Dolar altı
+                    elif not is_bist and not is_emtia and avg_daily_value < 2_000_000:
                         sig_tahta = True
 
                     # --- 3. TEMEL ANALİZ (HİBRİT) FİLTRESİ ---
@@ -368,7 +368,7 @@ if tarama_tetiklendi:
                     sma_200 = df_long['SMA_200'].iloc[-1] if len(df_long) >= 200 and not pd.isna(df_long['SMA_200'].iloc[-1]) else bugun_kapanis
                     uzun_vade_trend = bugun_kapanis > sma_200
     
-                    # RSI (TradingView Standart)
+                    # RSI 
                     delta = df_long['Close'].diff()
                     gain = delta.where(delta > 0, 0.0)
                     loss = -delta.where(delta < 0, 0.0)
@@ -399,18 +399,25 @@ if tarama_tetiklendi:
                     hacim_carpan = df_long['Volume'].iloc[-1] / vol_sma_20 if vol_sma_20 and vol_sma_20 > 0 else 1.0
                     hacim_artisi = hacim_carpan > 1.2
     
-                    # --- 4. SÜREN STOP (CHANDELIER EXIT) ENTEGRASYONU ---
+                    # --- 4. SÜREN STOP (CHANDELIER EXIT) & KAR AL (TAKE PROFIT) ---
                     high_low = df_long['High'] - df_long['Low']
                     high_close = np.abs(df_long['High'] - df_long['Close'].shift())
                     low_close = np.abs(df_long['Low'] - df_long['Close'].shift())
                     atr_serisi = np.max(pd.concat([high_low, high_close, low_close], axis=1), axis=1).rolling(14).mean()
                     atr = atr_serisi.iloc[-1] if not atr_serisi.empty and not pd.isna(atr_serisi.iloc[-1]) else (bugun_kapanis * 0.03)
                     
-                    # 22 Günlük En Yüksek - 3x ATR (Chandelier Mantığı)
                     highest_high_22 = df_long['High'].rolling(22).max().iloc[-1]
                     trailing_stop = highest_high_22 - (atr * 3)
                     if pd.isna(trailing_stop) or trailing_stop > bugun_kapanis: 
-                        trailing_stop = bugun_kapanis - (atr * 1.5) # Emniyet sübabı
+                        trailing_stop = bugun_kapanis - (atr * 1.5) 
+                        
+                    # Alınan Riski Hesapla (Mevcut Fiyat - Stop Mesafesi)
+                    alinan_risk = bugun_kapanis - trailing_stop
+                    if alinan_risk <= 0: alinan_risk = atr * 1.5 # Güvenlik marjı
+                    
+                    # Risk/Reward 1:1.5 ve 1:3 hedefleri
+                    tp1 = bugun_kapanis + (alinan_risk * 1.5)
+                    tp2 = bugun_kapanis + (alinan_risk * 3.0)
     
                     son_bir_ay = df_long.tail(30)
                     kisa_direnc = son_bir_ay['High'].max() if not son_bir_ay.empty else bugun_kapanis * 1.05
@@ -433,7 +440,6 @@ if tarama_tetiklendi:
                     elif goreceli_guc < -5: skor -= 10
                     skor = max(0, min(100, skor))
     
-                    # --- NİHAİ SİNYAL VE MARKET REGIME (ENDEKS) ONAYI ---
                     endeks_pozitif = bist_trend_pozitif if is_bist else nasdaq_trend_pozitif
                     sinyal = "Nötr (İzle) ⚖️"
                     
@@ -458,10 +464,8 @@ if tarama_tetiklendi:
                     gorunen_ad = "Ons Altın (GC=F)" if ticker == "GC=F" else ticker
                     aktif_kasa = bist_kasa if is_bist else nasdaq_kasa
                     risk_tutar = aktif_kasa * risk_orani
-                    hisse_risk = bugun_kapanis - trailing_stop
-                    lot = int(risk_tutar / hisse_risk) if hisse_risk > 0 else 0
+                    lot = int(risk_tutar / alinan_risk) if alinan_risk > 0 else 0
                     
-                    # Eğer alım sinyali varsa ama endeks düşüş trendindeyse LOT'u YARIYA DÜŞÜR
                     if not endeks_pozitif and ("ALIM" in sinyal):
                         lot = max(1, lot // 2)
                         sinyal += " (⚠️ Endeks Negatif: Lot Azaltıldı)"
@@ -476,9 +480,9 @@ if tarama_tetiklendi:
                         "Temel Veri": f"{'N/A' if fk==0 else f'F/K: {fk:.1f}'} | {temel_durum}",
                         "Skor": f"%{skor}",
                         "Nihai Sinyal": sinyal,
-                        "200G Trend": "Boğa 🟩" if uzun_vade_trend else "Ayı 🟥",
                         "Destek / Direnç": f"D: {kisa_destek:.2f} / R: {kisa_direnc:.2f}",
                         "Süren Stop (C.Exit)": f"{trailing_stop:.2f} {para_birimi}",
+                        "Kâr Al (TP1 / TP2)": f"{tp1:.2f} / {tp2:.2f}",
                         "Önerilen Lot": f"{lot} Adet ({maliyet_hesabi:.0f} {para_birimi})"
                     })
                 except Exception as e:
@@ -508,7 +512,7 @@ if st.session_state.tarama_durumu and st.session_state.sonuclar:
             • <b>Market Regime (Endeks Filtresi):</b> BIST100 veya NASDAQ 50 günlük ortalamasının altındaysa genel hava kötüdür. Sistem alım sinyali verse bile sizi uyarır ve <b>Önerilen Lot miktarını otomatik olarak %50 düşürür.</b><br>
             • <b>Sığ Tahta Koruması:</b> Günlük ortalama işlem hacmi BIST'te 50 Milyon TL'nin, ABD'de 2 Milyon Dolar'ın altındaysa <b>SIĞ TAHTA ⚠️</b> uyarısı verir. Spekülasyonlara karşı kalkan görevi görür.<br>
             • <b>Temel Analiz Filtresi:</b> Yüksek F/K veya PD/DD oranına sahip şirketleri "Aşırı Pahalı", iskontolu olanları "Ucuz" olarak listeler. (Temel veriler Yahoo Finance hızına bağlı olarak N/A dönebilir).<br>
-            • <b>Süren Stop (Chandelier Exit):</b> Dinamik stop seviyesi, kârınızı korumak için fiyat yükseldikçe arkasından yukarı tırmanır. Zarar kes (stop-loss) noktanız artık kâr al (take-profit) fonksiyonu da görür.<br>
+            • <b>Süren Stop & Kâr Al:</b> Dinamik stop seviyesi sizi aşağı yönlü hareketlerden korurken; <b>TP1 (1.5x)</b> kısa vadeli güvenli kâr cebine koyma, <b>TP2 (3x)</b> ise trendi tam kapasite değerlendirme noktasıdır.<br>
         </div>
         """, unsafe_allow_html=True)
     
