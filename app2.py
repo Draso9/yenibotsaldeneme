@@ -17,7 +17,7 @@ st.set_page_config(
 
 # --- ÇEREZ YÖNETİCİSİ (COOKIE MANAGER) BAŞLATMA ---
 # Sayfa yüklenir yüklenmez tarayıcıdaki çerezleri okur
-@st.cache_resource(experimental_allow_widgets=True)
+@st.cache_resource
 def get_manager():
     return stx.CookieManager()
 
