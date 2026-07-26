@@ -6,6 +6,7 @@ from datetime import datetime, timedelta, timezone
 import os
 import firebase_admin
 from firebase_admin import credentials, firestore, auth
+import extra_streamlit_components as stx
 
 # --- 1. SAYFA YAPILANDIRMASI (EN BAŞTA OLMALI) ---
 st.set_page_config(
@@ -13,6 +14,15 @@ st.set_page_config(
     page_icon="📈",
     layout="wide"
 )
+
+# --- ÇEREZ YÖNETİCİSİ (COOKIE MANAGER) BAŞLATMA ---
+# Sayfa yüklenir yüklenmez tarayıcıdaki çerezleri okur
+@st.cache_resource(experimental_allow_widgets=True)
+def get_manager():
+    return stx.CookieManager()
+
+cookie_manager = get_manager()
+saved_email = cookie_manager.get(cookie="user_email")
 
 # --- FIREBASE BAŞLATMA ---
 if not firebase_admin._apps:
@@ -32,14 +42,14 @@ try:
 except:
     db = None
 
-# --- OTURUM VE "BENİ HATIRLA" KONTROLÜ (EN ERKEN AŞAMA) ---
+# --- OTURUM DURUMU (SESSION STATE) ---
 if "user_email" not in st.session_state:
     st.session_state.user_email = None
 
-# Eğer tarayıcı hafızasında veya URL'de "beni hatırla" izi varsa direkt oturumu aktif et
-query_params = st.query_params
-if st.session_state.user_email is None and "user" in query_params:
-    st.session_state.user_email = query_params["user"]
+# EĞER TARAYICIDA ÇEREZ VARSA VE OTURUM AÇILMAMIŞSA, OTOMATİK GİRİŞ YAP VE YENİLE
+if st.session_state.user_email is None and saved_email is not None:
+    st.session_state.user_email = saved_email
+    st.rerun()
 
 st.markdown("""
 <style>
@@ -120,9 +130,10 @@ if st.session_state.user_email is None:
                     user = auth.get_user_by_email(g_email)
                     st.session_state.user_email = g_email
                     
-                    # Eğer "Beni Hatırla" seçiliyse tarayıcı adresine token yazarak kalıcı hale getir
+                    # GERÇEK COOKIE KAYDI BURADA YAPILIYOR (30 GÜNLÜK)
                     if beni_hatirla:
-                        st.query_params["user"] = g_email
+                        bitis_tarihi = datetime.now() + timedelta(days=30)
+                        cookie_manager.set("user_email", g_email, expires_at=bitis_tarihi)
                     
                     if db:
                         doc_ref = db.collection("kullanici_listeleri").document(g_email)
@@ -263,8 +274,8 @@ st.sidebar.header("⚙️ Kontrol Paneli")
 st.sidebar.markdown(f"👤 **Oturum:** `{st.session_state.user_email}`")
 if st.sidebar.button("🚪 Çıkış Yap"):
     st.session_state.user_email = None
-    if "user" in st.query_params:
-        del st.query_params["user"]
+    # Çıkış yapıldığında tarayıcı çerezini temizle
+    cookie_manager.delete("user_email")
     st.rerun()
 
 st.sidebar.markdown("---")
