@@ -188,7 +188,7 @@ if st.sidebar.button("🚪 Çıkış Yap"):
     st.rerun()
 st.sidebar.markdown("---")
 
-with st.sidebar.expander("💰 Kasa and Risk Parametreleri", expanded=True):
+with st.sidebar.expander("💰 Kasa ve Risk Parametreleri", expanded=True):
     bist_kasa = st.number_input("BIST Kasa (TL)", value=100000, step=10000)
     nasdaq_kasa = st.number_input("NASDAQ Kasa ($)", value=1000, step=1000)
     risk_orani = st.slider("Risk Oranı (%)", 1.0, 5.0, 2.0, 0.5) / 100.0
@@ -207,9 +207,16 @@ if tarama_tetiklendi and selected_tickers:
         boga_sayisi = 0
         alim_firsati = 0
         
-        # 1. MAKRO VE SEKTÖREL VERİLER
+        # 1. SEKTÖREL ENDEKSLERİN VERİLERİNİ ÖNCEDEN ÇEK (Banka, Sanayi, Ulaşım, Holding, Teknoloji)
         sektor_getirileri = {}
-        sektor_referanslari = {"XU100.IS": "BIST100", "^IXIC": "NASDAQ"}
+        sektor_referanslari = {
+            "XU100.IS": "BIST100", 
+            "^IXIC": "NASDAQ", 
+            "XBANK.IS": "Banka", 
+            "XUSIN.IS": "Sanayi", 
+            "XULAS.IS": "Ulaşım",
+            "XHOLD.IS": "Holding"
+        }
         
         for sembol in sektor_referanslari.keys():
             try:
@@ -230,7 +237,7 @@ if tarama_tetiklendi and selected_tickers:
                 stock = yf.Ticker(ticker)
                 df_long = stock.history(period="1y")
                 
-                # Eksik verileri temizle
+                # Eksik verileri tamamen temizle
                 df_long = df_long.dropna(subset=['Open', 'High', 'Low', 'Close', 'Volume'])
                 
                 if df_long.empty or len(df_long) < 50: 
@@ -253,13 +260,32 @@ if tarama_tetiklendi and selected_tickers:
                     if fk > 50: temel_durum = "Aşırı Pahalı ⚠️"
                     elif 0 < fk < 15: temel_durum = "Ucuz (Klasik) 🌟"
 
-                # 2. KATMAN: SEKTÖREL MOMENTUM
+                # 2. KATMAN: GERÇEK SEKTÖREL MOMENTUM EŞLEŞTİRMESİ
                 son_1_ay_df = df_long.tail(21)
                 hisse_1m_getiri = ((son_1_ay_df['Close'].iloc[-1] - son_1_ay_df['Close'].iloc[0]) / son_1_ay_df['Close'].iloc[0]) * 100
-                sek_sembol = "XU100.IS" if is_bist else "^IXIC"
-                sek_getiri = sektor_getirileri.get(sek_sembol, 0)
+                
+                sek_sembol = "XU100.IS"
+                sektor_adi = "BIST 100"
+                
+                if is_bist:
+                    if ticker in ["AKBNK.IS", "GARAN.IS", "ISCTR.IS", "YKBNK.IS", "HALKB.IS"]:
+                        sek_sembol = "XBANK.IS"
+                        sektor_adi = "Banka"
+                    elif ticker in ["THYAO.IS", "PGSUS.IS", "DOAS.IS", "TAVHL.IS"]:
+                        sek_sembol = "XULAS.IS"
+                        sektor_adi = "Ulaşım"
+                    elif ticker in ["KCHOL.IS", "SAHOL.IS", "ALARK.IS", "DOHOL.IS", "AGHOL.IS"]:
+                        sek_sembol = "XHOLD.IS"
+                        sektor_adi = "Holding"
+                    else:
+                        sek_sembol = "XUSIN.IS"
+                        sektor_adi = "Sanayi"
+                else:
+                    sek_sembol = "^IXIC"
+                    sektor_adi = "Teknoloji (NASDAQ)"
+
+                sek_getiri = sektor_getirileri.get(sek_sembol, sektor_getirileri.get("XU100.IS" if is_bist else "^IXIC", 0))
                 sektorel_fark = hisse_1m_getiri - sek_getiri
-                sektor_adi = "BIST" if is_bist else "NASDAQ"
                 
                 # 3. KATMAN: AKILLI PARA AKIŞI (MFI & OBV)
                 typical_price = (df_long['High'] + df_long['Low'] + df_long['Close']) / 3
@@ -392,7 +418,7 @@ if st.session_state.tarama_durumu and st.session_state.sonuclar:
             <b>🕵️‍♂️ İleri Düzey Kurumsal Modüller (Yeni Eklenenler)</b><br><br>
             • <b>Para Akışı (OBV & MFI):</b> Sadece fiyata değil, "Hacmin Yönüne" bakar. Eğer MFI düşükse ve OBV (On-Balance Volume) hareketli ortalamasını yukarı kırmışsa, fiyat düşse bile <b>"Balina Girişi 🐋"</b> yazarak kurumsal toplanmayı tespit eder.<br>
             • <b>Zamanlama (1 Saatlik Mikro Teyit):</b> Günlük grafikte ALIM gelse bile, gün içi düşüş devam ediyorsa <b>"⏳ 1H Dönüş Bekle"</b> der. 1 saatlikte de dönüş başlamışsa <b>"✅ Tetik Çek"</b> diyerek keskin nişancı girişi sağlar.<br>
-            • <b>Görec. Güç (Sektör):</b> Varlığı doğrudan kendi sektörüne (Banka, Sanayi, Ulaşım vb. veya NASDAQ) göre kıyaslar. Endeks düşerken sektöründen pozitif ayrışan hisseyi tespit etmenizi sağlar.<br>
+            • <b>Görec. Güç (Sektör):</b> Varlığı doğrudan kendi sektörüne (Banka, Sanayi, Ulaşım, Holding veya Teknoloji) göre kıyaslar. Endeks düşerken kendi sektöründen pozitif ayrışan hisseleri tespit etmenizi sağlar.<br>
             • <b>Temel Veri (PEG Koruması):</b> Değer tuzağına düşmemek için sadece F/K'ya değil, büyüme oranına (PEG) bakar. PEG < 1 ise <b>"Büyüyen Ucuz 🌟"</b> der; şirket hem ucuzdur hem de büyüyordur.
         </div>
         """, unsafe_allow_html=True)
