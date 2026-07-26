@@ -72,6 +72,7 @@ st.markdown("""
         margin-bottom: 15px;
         font-size: 14px;
         color: #CCCCCC;
+        line-height: 1.6;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -463,7 +464,6 @@ if tarama_tetiklendi:
                     aktif_kasa = bist_kasa if is_bist else nasdaq_kasa
                     risk_tutar = aktif_kasa * risk_orani
                     
-                    # --- DÜZELTME: Sadece ALIM sinyali varsa lot hesapla, aksi takdirde 0 yap ---
                     if "ALIM" in sinyal:
                         lot = int(risk_tutar / alinan_risk) if alinan_risk > 0 else 0
                         if not endeks_pozitif:
@@ -507,12 +507,23 @@ if st.session_state.tarama_durumu and st.session_state.sonuclar:
     
     st.markdown("<br>", unsafe_allow_html=True)
     
-    with st.expander("📖 Terminal Tablosu ve Sinyaller Nasıl Yorumlanmalı?", expanded=False):
+    # --- DETAYLI REHBER BÖLÜMÜ (GÜNCELLENDİ) ---
+    with st.expander("📖 Terminal Tablosu ve Sinyaller Nasıl Yorumlanmalı? (Kapsamlı Rehber)", expanded=False):
         st.markdown("""
         <div class="info-box">
-            <b>🚀 Hibrit Güvenlik Mimarisi:</b><br>
-            • <b>Sinyal ve Lot Uyumu:</b> Sistem sadece <b>KUSURSUZ ALIM 🟢</b> veya <b>KADEMELİ ALIM 🔵</b> sinyali ürettiği hisseler için portföy riskine göre lot hesabı yapar. "Uzak Dur", "Anomali" veya "Sığ Tahta" uyarısı alan hisselerde lot önerilmez (0 olarak gösterilir).<br>
-            • <b>Kâr Al (TP1 / TP2):</b> Giriş fiyatınız ile süren stop arasındaki risk mesafesinin ($1R$) sırasıyla 1.5 katı ve 3 katı olarak otomatik hesaplanır.<br>
+            <b>🎯 1. Nihai Sinyaller ve Psikolojik/Taktiksel Karşılıkları</b><br><br>
+            • <b>KUSURSUZ ALIM 🟢 (Güvenli Giriş / Tam Lot):</b> Piyasanın sunduğu en yüksek olasılıklı dip dönüş noktasıdır. Hissenin ana trendi yukarıdadır (200G Boğa), ancak kısa vadede aşırı satım bölgesine (Bollinger Alt Bandı ve RSI ≤ 35) gerilemiştir. Şelale düşüşlerine karşı hacim artışı veya MACD yukarı dönüşü teyit edilmiştir. Tam lot ile işleme girilebilir.<br><br>
+            • <b>KADEMELİ ALIM 🔵 (Parçalı Maliyetlenme):</b> Varlık yükseliş trendini koruyor ancak orta vadeli düzeltme sürecinde (RSI ≤ 40). Tüm mermileri tek kurşunda harcamak yerine sermayenin 1/3'ü ile ilk kademe girilip, fiyat düşerse ikinci kademe eklenmelidir.<br><br>
+            • <b>KÂR REALİZASYONU 🔴 (Kasayı Güvenceye Al):</b> Fiyat üst bandı delmiş, RSI 68'i aşarak aşırı ısınmıştır. Pozisyonda olanlar için kârı cebe koyma veya ana parayı kurtarıp kalanı süren stopa bırakma vaktidir. Yeni alım için uygun değildir.<br><br>
+            • <b>UZAK DUR! 🛑 (Sermayeyi Koru):</b> Varlık hem haftalık hem de uzun vadeli (200G) düşüş trendindedir. "Ucuzladı" mantığıyla yaklaşılmamalıdır. Sistem bu yüzden <b>0 Lot</b> önerir.<br><br>
+            • <b>VERİ ANOMALİSİ ⚠️ (Veri Düzeltmesini Bekle):</b> Temettü veya bedelsiz bölünmeler sonrası yfinance verisinde anlık %15+ sapma tespit edilmiştir. Gerçek fiyat aracı kurumdan teyit edilene kadar işlem yapılmamalıdır.<br><br>
+            • <b>SIĞ TAHTA ⚠️ (Manipülasyon Riski):</b> Günlük işlem hacmi BIST'te 50 Milyon TL'nin (ABD'de 2 Milyon Dolar'ın) altındadır. Tahta yapıcıların at koşturabileceği riskli varlıklardır, uzak durulmalıdır.<br><br>
+            <hr style="border-color: #444;">
+            <b>📊 2. Sütunların Okunma ve Kullanım İpuçları</b><br><br>
+            • <b>Göreli Güç (1A):</b> Hissenin son 1 ayda endeksine (`XU100` / `^IXIC`) göre performansıdır. Endeks düşerken az düşen veya endeks çıkarken hızlı koşan pozitif (+) hisseler her zaman önceliklidir.<br><br>
+            • <b>Temel Veri (F/K):</b> Teknik olarak alım veren bir hissede <b>Ucuz 🌟</b> yazıyorsa orta/uzun vade için harikadır; <b>Aşırı Pahalı ⚠️</b> yazıyorsa sadece kısa vadeli (trade) amaçlı düşünülmelidir.<br><br>
+            • <b>Süren Stop (Chandelier Exit):</b> Fiyat yukarı gittikçe otomatik olarak arkasından tırmanan dinamik zarar-kes seviyesidir. İşlem açıldığı gün stop-loss olarak aracı kuruma girilmelidir.<br><br>
+            • <b>Kâr Al (TP1 / TP2):</b> Risk mesafesinin ($1R$) sırasıyla 1.5 katı (TP1 - kısa vade güvenli çıkış) ve 3 katı (TP2 - trendin tamamını yakalama) hedefleridir. TP1'de pozisyonun yarısı satılıp maliyet sıfırlanabilir.
         </div>
         """, unsafe_allow_html=True)
     
