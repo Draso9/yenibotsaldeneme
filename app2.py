@@ -388,19 +388,30 @@ if tarama_tetiklendi:
                     sma_200 = df_long['SMA_200'].iloc[-1] if len(df_long) >= 200 and not pd.isna(df_long['SMA_200'].iloc[-1]) else bugun_kapanis
                     uzun_vade_trend = bugun_kapanis > sma_200
     
+                    # --- YENİ RSI HESAPLAMASI (TradingView Standart) ---
                     delta = df_long['Close'].diff()
-                    gain = (delta.where(delta > 0, 0)).rolling(window=14).mean()
-                    loss = (-delta.where(delta < 0, 0)).rolling(window=14).mean()
-                    rs = gain / loss
+                    gain = delta.where(delta > 0, 0.0)
+                    loss = -delta.where(delta < 0, 0.0)
+                    avg_gain = gain.ewm(alpha=1/14, adjust=False).mean()
+                    avg_loss = loss.ewm(alpha=1/14, adjust=False).mean()
+                    rs = avg_gain / avg_loss
                     df_long['RSI'] = 100 - (100 / (1 + rs))
                     rsi = df_long['RSI'].iloc[-1]
                     if pd.isna(rsi): rsi = 50.0
                     
                     gecici_ham_veriler[ticker] = df_long[['Close', 'Volume', 'RSI', 'EMA_9', 'EMA_21']].copy()
                     
-                    macd_serisi = df_long['Close'].ewm(span=12).mean() - df_long['Close'].ewm(span=26).mean()
+                    # --- YENİ MACD HİSTOGRAMI VE HACİM ONAY FİLTRELERİ ---
+                    macd_serisi = df_long['Close'].ewm(span=12, adjust=False).mean() - df_long['Close'].ewm(span=26, adjust=False).mean()
+                    signal_serisi = macd_serisi.ewm(span=9, adjust=False).mean()
+                    macd_hist = macd_serisi - signal_serisi # Histogram
+                    
                     macd = macd_serisi.iloc[-1] if not macd_serisi.empty else 0
-                    signal_val = macd_serisi.ewm(span=9).mean().iloc[-1] if not macd_serisi.empty else 0
+                    signal_val = signal_serisi.iloc[-1] if not signal_serisi.empty else 0
+                    
+                    macd_donus = False
+                    if len(macd_hist) >= 2:
+                        macd_donus = macd_hist.iloc[-1] > macd_hist.iloc[-2]
     
                     bb_mid = df_long['Close'].rolling(window=20).mean()
                     bb_std = df_long['Close'].rolling(window=20).std()
@@ -411,6 +422,8 @@ if tarama_tetiklendi:
     
                     vol_sma_20 = df_long['Volume'].rolling(window=20).mean().iloc[-1] if 'Volume' in df_long else 0
                     hacim_carpan = df_long['Volume'].iloc[-1] / vol_sma_20 if vol_sma_20 and vol_sma_20 > 0 else 1.0
+                    
+                    hacim_artisi = hacim_carpan > 1.2
     
                     high_low = df_long['High'] - df_long['Low']
                     high_close = np.abs(df_long['High'] - df_long['Close'].shift())
@@ -445,12 +458,15 @@ if tarama_tetiklendi:
                     elif goreceli_guc < -5: skor -= 10
                     skor = max(0, min(100, skor))
     
+                    # --- YENİ SİNYAL ÜRETİM MANTIĞI (Anomali Koruması ve Düşen Bıçak Filtresi) ---
                     sinyal = "Nötr (İzle) ⚖️"
-                    if not haftalik_trend_pozitif and not uzun_vade_trend and skor < 40:
+                    if is_bist and abs(yuzde_degisim) > 15:
+                        sinyal = "VERİ ANOMALİSİ ⚠️"
+                    elif not haftalik_trend_pozitif and not uzun_vade_trend and skor < 40:
                         sinyal = "UZAK DUR! 🛑"
                     elif bugun_kapanis > bb_ust and rsi >= 68:
                         sinyal = "KAR REALİZASYONU 🔴"
-                    elif bugun_kapanis <= bb_alt and rsi <= 35 and uzun_vade_trend:
+                    elif bugun_kapanis <= bb_alt and rsi <= 35 and uzun_vade_trend and (macd_donus or hacim_artisi):
                         sinyal = "KUSURSUZ ALIM 🟢"
                         alim_firsati += 1
                     elif rsi <= 40 and uzun_vade_trend:
@@ -524,10 +540,11 @@ if st.session_state.tarama_durumu and st.session_state.sonuclar:
         st.markdown("""
         <div class="info-box">
             <b>🎯 Nihai Sinyaller Ne Anlama Geliyor?</b><br>
-            • <b>KUSURSUZ ALIM 🟢:</b> Uzun vadeli trendin (200G) boğa tarafında olduğu, fiyatın Bollinger Alt Bandı'na kadar çekilip RSI göstergesinin aşırı satım bölgesinden tepki verdiği en ideal noktalardır.<br>
+            • <b>KUSURSUZ ALIM 🟢:</b> Uzun vadeli trendin (200G) boğa tarafında olduğu, fiyatın Bollinger Alt Bandı'na kadar çekilip MACD dönüşü veya hacim artışıyla desteklendiği güvenli noktalardır.<br>
             • <b>KADEMELİ ALIM 🔵:</b> Trend bozulmamıştır ancak fiyat orta vadeli bir düzeltme içindedir; parça parça maliyetlenmek için uygundur.<br>
             • <b>KAR REALİZASYONU 🔴:</b> Fiyat üst banda dayanmış, RSI şişmiştir.<br>
-            • <b>UZAK DUR! 🛑:</b> Hem haftalık hem uzun vadeli trend aşağı yönlüdür. Bulaşılmamalıdır.<br><br>
+            • <b>UZAK DUR! 🛑:</b> Hem haftalık hem uzun vadeli trend aşağı yönlüdür. Bulaşılmamalıdır.<br>
+            • <b>VERİ ANOMALİSİ ⚠️:</b> Olası bedelsiz/temettü bölünmesi veya eksik veri durumu tespit edildi.<br><br>
         </div>
         """, unsafe_allow_html=True)
     
@@ -545,6 +562,8 @@ if st.session_state.tarama_durumu and st.session_state.sonuclar:
                 color = 'background-color: rgba(39, 174, 96, 0.15)'
             elif '🛑' in str(row['Nihai Sinyal']) or '🔴' in str(row['Nihai Sinyal']):
                 color = 'background-color: rgba(192, 57, 43, 0.15)'
+            elif '⚠️' in str(row['Nihai Sinyal']):
+                color = 'background-color: rgba(243, 156, 18, 0.15)'
             return [color] * len(row)
 
         styled_df = df_sonuc.style.apply(color_dataframe, axis=1)
