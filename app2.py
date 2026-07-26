@@ -291,13 +291,11 @@ if tarama_tetiklendi:
                     
                     df_weekly = stock.history(period="1y", interval="1wk")
                     haftalik_trend_pozitif = True
-                    haftalik_durum = "Bilinmiyor"
                     if not df_weekly.empty and len(df_weekly) >= 21:
                         df_weekly = df_weekly.ffill().bfill()
                         df_weekly['EMA_9'] = df_weekly['Close'].ewm(span=9, adjust=False).mean()
                         df_weekly['EMA_21'] = df_weekly['Close'].ewm(span=21, adjust=False).mean()
                         haftalik_trend_pozitif = df_weekly['EMA_9'].iloc[-1] > df_weekly['EMA_21'].iloc[-1]
-                        haftalik_durum = "Boğa 🟩" if haftalik_trend_pozitif else "Ayı 🟥"
     
                     df_long = stock.history(period="1y")
                     if isinstance(df_long.columns, pd.MultiIndex):
@@ -400,7 +398,7 @@ if tarama_tetiklendi:
                     hacim_carpan = df_long['Volume'].iloc[-1] / vol_sma_20 if vol_sma_20 and vol_sma_20 > 0 else 1.0
                     hacim_artisi = hacim_carpan > 1.2
     
-                    # --- 4. SÜREN STOP & KAR AL ---
+                    # --- 4. SÜREN STOP & HİBRİT KÂR AL (TP) ---
                     high_low = df_long['High'] - df_long['Low']
                     high_close = np.abs(df_long['High'] - df_long['Close'].shift())
                     low_close = np.abs(df_long['Low'] - df_long['Close'].shift())
@@ -415,12 +413,20 @@ if tarama_tetiklendi:
                     alinan_risk = bugun_kapanis - trailing_stop
                     if alinan_risk <= 0: alinan_risk = atr * 1.5
                     
-                    tp1 = bugun_kapanis + (alinan_risk * 1.5)
-                    tp2 = bugun_kapanis + (alinan_risk * 3.0)
+                    # Matematiksel Hedefler
+                    tp1_math = bugun_kapanis + (alinan_risk * 1.5)
+                    tp2_math = bugun_kapanis + (alinan_risk * 3.0)
     
                     son_bir_ay = df_long.tail(30)
                     kisa_direnc = son_bir_ay['High'].max() if not son_bir_ay.empty else bugun_kapanis * 1.05
                     kisa_destek = son_bir_ay['Low'].min() if not son_bir_ay.empty else bugun_kapanis * 0.95
+
+                    # --- HİBRİT KÂR AL MANTIĞI ---
+                    # Eğer matematiksel TP1 dirençten veya üst üste Bollinger şişmesinden çok yüksekteyse veya fiyat zaten dirence dayandıysa uyar
+                    if bugun_kapanis >= (bb_ust * 0.98) or rsi >= 65:
+                        tp_notu = f"⚠️ Şişti/Dirence Yakın ({kisa_direnc:.2f}): Kısmi Kâr Al"
+                    else:
+                        tp_notu = f"TP1: {tp1_math:.2f} | TP2: {tp2_math:.2f}"
     
                     skor = 50
                     if df_long['EMA_9'].iloc[-1] > df_long['EMA_21'].iloc[-1]: skor += 15
@@ -484,7 +490,7 @@ if tarama_tetiklendi:
                         "Nihai Sinyal": sinyal,
                         "Destek / Direnç": f"D: {kisa_destek:.2f} / R: {kisa_direnc:.2f}",
                         "Süren Stop (C.Exit)": f"{trailing_stop:.2f} {para_birimi}",
-                        "Kâr Al (TP1 / TP2)": f"{tp1:.2f} / {tp2:.2f}",
+                        "Hibrit Kâr Al (TP)": tp_notu,
                         "Önerilen Lot": f"{lot} Adet ({maliyet_hesabi:.0f} {para_birimi})" if lot > 0 else "İşlem Yok (0)"
                     })
                 except Exception as e:
@@ -507,7 +513,7 @@ if st.session_state.tarama_durumu and st.session_state.sonuclar:
     
     st.markdown("<br>", unsafe_allow_html=True)
     
-    # --- DETAYLI REHBER BÖLÜMÜ (GÜNCELLENDİ) ---
+    # --- DETAYLI REHBER BÖLÜMÜ ---
     with st.expander("📖 Terminal Tablosu ve Sinyaller Nasıl Yorumlanmalı? (Kapsamlı Rehber)", expanded=False):
         st.markdown("""
         <div class="info-box">
@@ -523,7 +529,7 @@ if st.session_state.tarama_durumu and st.session_state.sonuclar:
             • <b>Göreli Güç (1A):</b> Hissenin son 1 ayda endeksine (`XU100` / `^IXIC`) göre performansıdır. Endeks düşerken az düşen veya endeks çıkarken hızlı koşan pozitif (+) hisseler her zaman önceliklidir.<br><br>
             • <b>Temel Veri (F/K):</b> Teknik olarak alım veren bir hissede <b>Ucuz 🌟</b> yazıyorsa orta/uzun vade için harikadır; <b>Aşırı Pahalı ⚠️</b> yazıyorsa sadece kısa vadeli (trade) amaçlı düşünülmelidir.<br><br>
             • <b>Süren Stop (Chandelier Exit):</b> Fiyat yukarı gittikçe otomatik olarak arkasından tırmanan dinamik zarar-kes seviyesidir. İşlem açıldığı gün stop-loss olarak aracı kuruma girilmelidir.<br><br>
-            • <b>Kâr Al (TP1 / TP2):</b> Risk mesafesinin ($1R$) sırasıyla 1.5 katı (TP1 - kısa vade güvenli çıkış) ve 3 katı (TP2 - trendin tamamını yakalama) hedefleridir. TP1'de pozisyonun yarısı satılıp maliyet sıfırlanabilir.
+            • <b>Hibrit Kâr Al (TP):</b> Matematiksel risk/ödül hedefleri ile teknik şişme/direnç noktalarının harmanlandığı akıllı sütundur. Eğer hisse direnç bölgesine dayandıysa matematiksel hedef beklenmeden kısmi kâr realizasyonu önerir.
         </div>
         """, unsafe_allow_html=True)
     
