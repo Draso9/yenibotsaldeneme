@@ -21,9 +21,9 @@ st.set_page_config(
 def get_manager():
     return stx.CookieManager()
 
-cookie_manager = get_manager()
+# --- ÇEREZ YÖNETİCİSİ (COOKIE MANAGER) BAŞLATMA ---
+cookie_manager = stx.CookieManager(key="cookie_manager")
 saved_email = cookie_manager.get(cookie="user_email")
-
 # --- FIREBASE BAŞLATMA ---
 if not firebase_admin._apps:
     try:
