@@ -207,7 +207,7 @@ if tarama_tetiklendi and selected_tickers:
         boga_sayisi = 0
         alim_firsati = 0
         
-        # 1. SEKTÖREL ENDEKSLERİN VERİLERİNİ ÖNCEDEN ÇEK (Banka, Sanayi, Ulaşım, Holding, Teknoloji)
+        # 1. SEKTÖREL ENDEKSLERİN VERİLERİNİ ÖNCEDEN ÇEK
         sektor_getirileri = {}
         sektor_referanslari = {
             "XU100.IS": "BIST100", 
@@ -243,12 +243,24 @@ if tarama_tetiklendi and selected_tickers:
                 if df_long.empty or len(df_long) < 50: 
                     continue
                 
-                bugun_kapanis = float(df_long['Close'].iloc[-1])
-                para_birimi = "TL" if ".IS" in ticker else "$"
                 is_bist = ".IS" in ticker
+                para_birimi = "TL" if is_bist else "$"
                 
-                # 1. KATMAN: TEMEL VERİ
+                # NASDAQ ve BIST için güncel fiyat tespiti (info ve son kapanış hibrit doğrulaması)
                 info = stock.info if hasattr(stock, 'info') else {}
+                anlik_fiyat = None
+                
+                if not is_bist:
+                    anlik_fiyat = info.get('currentPrice', info.get('regularMarketPrice', info.get('previousClose', None)))
+                
+                if anlik_fiyat is None or pd.isna(anlik_fiyat) or anlik_fiyat <= 0:
+                    bugun_kapanis = float(df_long['Close'].iloc[-1])
+                else:
+                    bugun_kapanis = float(anlik_fiyat)
+                    # Eğer son kapanış verisi güncel fiyatla uyuşmuyorsa (örn. yfinance eski veri getirdiyse) DataFrame'in son satırını güncel fiyatla eşitliyoruz ki indikatörler doğru hesaplansın
+                    df_long.iloc[-1, df_long.columns.get_loc('Close')] = bugun_kapanis
+
+                # 1. KATMAN: TEMEL VERİ
                 fk = info.get('trailingPE', info.get('forwardPE', None))
                 peg = info.get('trailingPegRatio', info.get('pegRatio', None))
                 
