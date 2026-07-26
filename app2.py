@@ -7,6 +7,7 @@ import os
 import firebase_admin
 from firebase_admin import credentials, firestore, auth
 import extra_streamlit_components as stx
+import time
 
 # --- 1. SAYFA YAPILANDIRMASI (EN BAŞTA OLMALI) ---
 st.set_page_config(
@@ -16,7 +17,6 @@ st.set_page_config(
 )
 
 # --- ÇEREZ YÖNETİCİSİ (COOKIE MANAGER) BAŞLATMA ---
-# Önbelleğe (cache) almadan, doğrudan çağırıyoruz.
 cookie_manager = stx.CookieManager(key="cookie_manager")
 saved_email = cookie_manager.get(cookie="user_email")
 
@@ -41,7 +41,11 @@ except:
 if "user_email" not in st.session_state:
     st.session_state.user_email = None
 
-if st.session_state.user_email is None and saved_email is not None:
+if "logout_triggered" not in st.session_state:
+    st.session_state.logout_triggered = False
+
+# Otomatik giriş (Eğer çıkış butonuna basılmadıysa ve çerez varsa)
+if st.session_state.user_email is None and saved_email is not None and not st.session_state.logout_triggered:
     st.session_state.user_email = saved_email
     st.rerun()
 
@@ -92,6 +96,7 @@ if st.session_state.user_email is None:
                 try:
                     user = auth.get_user_by_email(g_email)
                     st.session_state.user_email = g_email
+                    st.session_state.logout_triggered = False # Giriş yapıldığında çıkış flag'ini sıfırla
                     if beni_hatirla:
                         cookie_manager.set("user_email", g_email, expires_at=datetime.now() + timedelta(days=30))
                     if db:
@@ -100,6 +105,20 @@ if st.session_state.user_email is None:
                     st.rerun()
                 except Exception:
                     st.error("Giriş başarısız: E-posta veya şifre hatalı.")
+
+    with col2:
+        st.subheader("📝 Yeni Kayıt Ol")
+        with st.form("kayit_formu"):
+            k_email = st.text_input("E-posta Adresi")
+            k_sifre = st.text_input("Şifre", type="password")
+            kayit_butonu = st.form_submit_button("Hesap Oluştur", type="primary", use_container_width=True)
+            if kayit_butonu and k_email and len(k_sifre)>=6:
+                try:
+                    auth.create_user(email=k_email, password=k_sifre)
+                    if db: db.collection("kullanici_listeleri").document(k_email).set({"tickers": VARSAYILAN_TICKERS})
+                    st.success("Kayıt başarılı! Giriş yapabilirsiniz.")
+                except Exception as e:
+                    st.error(f"Kayıt olunamadı: {e}")
     st.stop()
 
 # --- ASIL UYGULAMA MANTIĞI ---
@@ -139,8 +158,10 @@ st.markdown("---")
 
 st.sidebar.header("⚙️ Kontrol Paneli")
 if st.sidebar.button("🚪 Çıkış Yap"):
+    cookie_manager.delete("user_email") # Önce çerezi sil
     st.session_state.user_email = None
-    cookie_manager.delete("user_email")
+    st.session_state.logout_triggered = True # Otomatik girişi engelle
+    time.sleep(0.5) # Çerezin silinmesi için tarayıcıya zaman tanı
     st.rerun()
 st.sidebar.markdown("---")
 
@@ -186,8 +207,7 @@ if tarama_tetiklendi and selected_tickers:
                 stock = yf.Ticker(ticker)
                 df_long = stock.history(period="1y")
                 
-                # --- KRİTİK HATA DÜZELTMESİ (Tam Temizlik) ---
-                # Sadece Close değil; Open, High, Low ve Volume verisi bozuk olan tüm hafta sonu satırlarını temizliyoruz
+                # Eksik verileri temizle
                 df_long = df_long.dropna(subset=['Open', 'High', 'Low', 'Close', 'Volume'])
                 
                 if df_long.empty or len(df_long) < 50: 
@@ -318,7 +338,6 @@ if tarama_tetiklendi and selected_tickers:
                     "Önerilen Lot": f"{lot} Adet" if lot > 0 else "0"
                 })
             except Exception:
-                # Hesaplama hatası olan hisseleri pas geç ve taramayı dondurma
                 continue
 
         st.session_state.sonuclar = gecici_sonuclar
@@ -340,10 +359,18 @@ if st.session_state.tarama_durumu and st.session_state.sonuclar:
     with st.expander("📖 Kurumsal Terminal ve Yeni Parametreler Nasıl Okunur?", expanded=False):
         st.markdown("""
         <div class="info-box">
+            <b>🎯 Klasik Sinyaller ve Risk (Temel Motor)</b><br><br>
+            • <b>🟢 KUSURSUZ ALIM:</b> Uzun vade trend sağlam (Fiyat > 200G SMA). Aşırı satım var (RSI < 35). Fiyat Bollinger Alt Bandı'na değmiş ve dönüş teyidi (MACD veya Hacim) alınmış.<br>
+            • <b>🔵 KADEMELİ ALIM:</b> Ana trend sağlam ancak sadece kısa vadeli düzeltme yapıyor (RSI < 40). Fırsat bölgesinde.<br>
+            • <b>🔴 KÂR REALİZASYONU:</b> Fiyat Bollinger Üst Bandı'nı kırmış ve RSI 68'in üzerinde. Piyasa aşırı coşkulu, düzeltme gelebilir.<br>
+            • <b>🛑 UZAK DUR!:</b> Hem haftalık hem uzun vade trend kırılmış, düşüşte olan zayıf varlıklar.<br>
+            • <b>⚠️ SIĞ TAHTA:</b> Günlük dönen para hacmi yetersiz. Manipülasyona açık olduğu için teknik veriler dikkate alınmaz.<br><br>
+            <hr style="border-color: #444;">
             <b>🕵️‍♂️ İleri Düzey Kurumsal Modüller (Yeni Eklenenler)</b><br><br>
-            • <b>Para Akışı (OBV & MFI):</b> Hacmin Yönüne bakar. "Balina Girişi 🐋" yazarak kurumsal toplanmayı tespit eder.<br>
-            • <b>Zamanlama (1 Saatlik Mikro Teyit):</b> "✅ Tetik Çek" keskin nişancı girişidir.<br>
-            • <b>Temel Veri (PEG Koruması):</b> PEG < 1 ise "Büyüyen Ucuz 🌟" der.
+            • <b>Para Akışı (OBV & MFI):</b> Sadece fiyata değil, "Hacmin Yönüne" bakar. Eğer MFI düşükse ve OBV (On-Balance Volume) hareketli ortalamasını yukarı kırmışsa, fiyat düşse bile <b>"Balina Girişi 🐋"</b> yazarak kurumsal toplanmayı tespit eder.<br>
+            • <b>Zamanlama (1 Saatlik Mikro Teyit):</b> Günlük grafikte ALIM gelse bile, gün içi düşüş devam ediyorsa <b>"⏳ 1H Dönüş Bekle"</b> der. 1 saatlikte de dönüş başlamışsa <b>"✅ Tetik Çek"</b> diyerek keskin nişancı girişi sağlar.<br>
+            • <b>Görec. Güç (Sektör):</b> Varlığı doğrudan kendi sektörüne (Banka, Sanayi, Ulaşım vb. veya NASDAQ) göre kıyaslar. Endeks düşerken sektöründen pozitif ayrışan hisseyi tespit etmenizi sağlar.<br>
+            • <b>Temel Veri (PEG Koruması):</b> Değer tuzağına düşmemek için sadece F/K'ya değil, büyüme oranına (PEG) bakar. PEG < 1 ise <b>"Büyüyen Ucuz 🌟"</b> der; şirket hem ucuzdur hem de büyüyordur.
         </div>
         """, unsafe_allow_html=True)
     
