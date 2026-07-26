@@ -234,29 +234,17 @@ if tarama_tetiklendi and selected_tickers:
                 sektor_getirileri[sembol] = 0
                 bist_trend_pozitif = nasdaq_trend_pozitif = True
 
-        # TİCKER DÖNGÜSÜ
+       # TİCKER DÖNGÜSÜ
         for ticker in selected_tickers:
             try:
                 stock = yf.Ticker(ticker)
                 df_long = stock.history(period="1y")
+                
+                # --- NAN HATASINI ÇÖZEN SATIR ---
+                # 'Close' sütununda veri olmayan (NaN) hafta sonu/boş satırları temizle
+                df_long = df_long.dropna(subset=['Close'])
+                
                 if df_long.empty or len(df_long) < 50: continue
-                
-                bugun_kapanis = float(df_long['Close'].iloc[-1])
-                para_birimi = "TL" if ".IS" in ticker else "$"
-                is_bist = ".IS" in ticker
-                
-                # --- YENİ KATMAN 1: DEĞER TUZAĞI KORUMASI (PEG & F/K) ---
-                info = stock.info if hasattr(stock, 'info') else {}
-                fk = info.get('trailingPE', info.get('forwardPE', 0))
-                peg = info.get('trailingPegRatio', info.get('pegRatio', 0))
-                
-                temel_durum = "Nötr ⚖️"
-                if peg and peg > 0:
-                    if peg < 1.0 and fk > 0: temel_durum = f"Büyüyen Ucuz 🌟 (PEG:{peg:.1f})"
-                    elif peg > 2.0: temel_durum = f"Pahalı Büyüme ⚠️ (PEG:{peg:.1f})"
-                else:
-                    if fk > 50: temel_durum = "Aşırı Pahalı ⚠️"
-                    elif 0 < fk < 15: temel_durum = "Ucuz (Klasik) 🌟"
 
                 # --- YENİ KATMAN 2: SEKTÖREL MOMENTUM ---
                 son_1_ay_df = df_long.tail(21)
