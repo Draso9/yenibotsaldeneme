@@ -6,17 +6,16 @@ from datetime import datetime, timedelta, timezone
 import os
 import firebase_admin
 from firebase_admin import credentials, firestore, auth
+import streamlit_authenticator as stauth
 
 # --- FIREBASE BAŞLATMA (CLOUD & LOCAL UYUMLU) ---
 if not firebase_admin._apps:
     try:
-        # 1. Önce Streamlit Cloud Secrets üzerinden bağlanmayı dene
         firebase_secrets = dict(st.secrets["firebase"])
         cred = credentials.Certificate(firebase_secrets)
         firebase_admin.initialize_app(cred)
     except Exception:
         try:
-            # 2. Secrets yoksa yereldeki dosyadan bağlanmayı dene
             cred = credentials.Certificate("serviceAccountKey.json")
             firebase_admin.initialize_app(cred)
         except Exception as e:
@@ -92,15 +91,17 @@ ABD_HİSSELERİ = [
 
 VARSAYILAN_TICKERS = ["AAPL", "MSFT", "TSLA", "NVDA", "THYAO.IS", "FROTO.IS", "TOASO.IS"]
 
-# --- SESSION STATE & URL KONTROLÜ (BENİ HATIRLA İÇİN) ---
-if "user_email" not in st.session_state:
-    # Eğer URL parametrelerinde kayıtlı oturum varsa onu al
-    query_params = st.query_params
-    if "user" in query_params:
-        st.session_state.user_email = query_params["user"]
-    else:
-        st.session_state.user_email = None
+# --- AUTHENTICATOR ÇEREZ AYARLARI ---
+# streamlit-authenticator ile tarayıcıda kalıcı çerez oluşturulur
+authenticator = stauth.Authenticate(
+    {'usernames': {}},  # Dinamik olarak Firebase kullandığımız için boş bırakıyoruz
+    'hibrit_portfoy_cookie',
+    'gizli_anahtar_imza',
+    cookie_expiry_days=30  # 30 gün boyunca tarayıcıda hatırla
+)
 
+if "user_email" not in st.session_state:
+    st.session_state.user_email = None
 if "tarama_durumu" not in st.session_state:
     st.session_state.tarama_durumu = False
 if "sonuclar" not in st.session_state:
@@ -112,7 +113,7 @@ if "boga_sayisi" not in st.session_state:
 if "alim_firsati" not in st.session_state:
     st.session_state.alim_firsati = 0
 
-# --- GİRİŞ / KAYIT EKRANI (Eğer oturum açılmadıysa) ---
+# --- GİRİŞ / KAYIT EKRANI ---
 if st.session_state.user_email is None:
     st.title("🔐 Hibrit Portföy Komuta Merkezi - Giriş")
     st.markdown("---")
@@ -130,12 +131,13 @@ if st.session_state.user_email is None:
             
             if giris_butonu:
                 try:
+                    # Firebase üzerinden kullanıcıyı doğrula
                     user = auth.get_user_by_email(g_email)
                     st.session_state.user_email = g_email
                     
-                    # Eğer beni hatırla seçiliyse URL çerezine / parametresine kaydet
+                    # Çereze kaydetmek için authenticator cookie yöneticisini tetikle
                     if beni_hatirla:
-                        st.query_params["user"] = g_email
+                        authenticator.cookie_manager.set('cookie_name', g_email, duration=30)
                     
                     if db:
                         doc_ref = db.collection("kullanici_listeleri").document(g_email)
@@ -185,7 +187,7 @@ if st.session_state.user_email is None:
             
     st.stop()
 
-# --- KULLANICI GİRİŞ YAPTIKTAN SONRAKİ ASIL UYGULAMA ---
+# --- KULLANICI GİRİŞ YAPTIKTAN SONRAKİ UYGULAMA ---
 
 if "custom_tickers" not in st.session_state:
     try:
@@ -254,7 +256,6 @@ for varliklar in preset_options.values():
     tum_varliklar_havuzu.extend(varliklar)
 tum_varliklar_havuzu = list(set(tum_varliklar_havuzu))
 
-# Türkiye saati (UTC+3) hesaplama
 tr_zaman_dilimi = timezone(timedelta(hours=3))
 tr_saati = datetime.now(tr_zaman_dilimi)
 
@@ -266,16 +267,17 @@ st.sidebar.header("⚙️ Kontrol Paneli")
 st.sidebar.markdown(f"👤 **Oturum:** `{st.session_state.user_email}`")
 if st.sidebar.button("🚪 Çıkış Yap"):
     st.session_state.user_email = None
-    # Çıkış yapıldığında hatırlama parametresini temizle
-    if "user" in st.query_params:
-        del st.query_params["user"]
+    try:
+        authenticator.cookie_manager.delete('cookie_name')
+    except:
+        pass
     st.rerun()
 
 st.sidebar.markdown("---")
 
-with st.sidebar.expander("💰 Kasa ve Risk Parametreleri", expanded=True):
+with st.sidebar.expander("💰 Kasa and Risk Parametreleri", expanded=True):
     bist_kasa = st.number_input("BIST Sanal Kasa (TL)", value=100000, step=10000)
-    nasdaq_kasa = st.number_input("NASDAQ Sanal Kasa ($)", value=10000, step=1000)
+    nasdaq_kasa = st.number_input("NASDAQ Sanal Kasa ($)", value=1000, step=1000)
     risk_orani = st.slider("İşlem Başına Risk Oranı (%)", min_value=1.0, max_value=5.0, value=2.0, step=0.5) / 100.0
 
 with st.sidebar.expander("📋 Varlık Seçimi ve Profiller", expanded=True):
