@@ -16,25 +16,25 @@ st.set_page_config(
 )
 
 # --- ÇEREZ YÖNETİCİSİ (COOKIE MANAGER) BAŞLATMA ---
+# Hata oluşmaması için parametresiz, temiz cache kullanımı
 @st.cache_resource
 def get_manager():
-    return stx.CookieManager()
+    return stx.CookieManager(key="cookie_manager")
 
-cookie_manager = stx.CookieManager(key="cookie_manager")
+cookie_manager = get_manager()
 saved_email = cookie_manager.get(cookie="user_email")
 
 # --- FIREBASE BAŞLATMA ---
 if not firebase_admin._apps:
     try:
-        firebase_secrets = dict(st.secrets["firebase"])
-        cred = credentials.Certificate(firebase_secrets)
-        firebase_admin.initialize_app(cred)
-    except Exception:
-        try:
+        if "firebase" in st.secrets:
+            firebase_secrets = dict(st.secrets["firebase"])
+            cred = credentials.Certificate(firebase_secrets)
+        else:
             cred = credentials.Certificate("serviceAccountKey.json")
-            firebase_admin.initialize_app(cred)
-        except Exception as e:
-            st.error(f"Firebase başlatılamadı: {e}")
+        firebase_admin.initialize_app(cred)
+    except Exception as e:
+        st.warning(f"Firebase başlatılamadı (Veritabanı özellikleri devre dışı): {e}")
 
 try:
     db = firestore.client()
@@ -51,29 +51,13 @@ if st.session_state.user_email is None and saved_email is not None:
 
 st.markdown("""
 <style>
-    .kpi-card {
-        background-color: #1E1E1E;
-        padding: 20px;
-        border-radius: 10px;
-        text-align: center;
-        border: 1px solid #333;
-        box-shadow: 2px 2px 10px rgba(0,0,0,0.5);
-    }
+    .kpi-card { background-color: #1E1E1E; padding: 20px; border-radius: 10px; text-align: center; border: 1px solid #333; box-shadow: 2px 2px 10px rgba(0,0,0,0.5); }
     .kpi-title { font-size: 13px; color: #AAAAAA; text-transform: uppercase; letter-spacing: 1px; }
     .kpi-value { font-size: 26px; font-weight: bold; color: #FFFFFF; margin-top: 5px; }
     .kpi-subtext { font-size: 11px; color: #777777; margin-top: 4px; }
     .kpi-highlight-green { color: #00FF88; }
     .kpi-highlight-fire { color: #FF5555; }
-    .info-box {
-        background-color: #1E1E1E;
-        padding: 15px;
-        border-radius: 8px;
-        border-left: 5px solid #3498db;
-        margin-bottom: 15px;
-        font-size: 13px;
-        color: #CCCCCC;
-        line-height: 1.6;
-    }
+    .info-box { background-color: #1E1E1E; padding: 15px; border-radius: 8px; border-left: 5px solid #3498db; margin-bottom: 15px; font-size: 13px; color: #CCCCCC; line-height: 1.6; }
     .dataframe { font-size: 12px !important; }
 </style>
 """, unsafe_allow_html=True)
@@ -88,23 +72,8 @@ BIST_30 = [
     "TCELL.IS", "THYAO.IS", "TOASO.IS", "TUPRS.IS", "YKBNK.IS"
 ]
 
-BIST_100 = BIST_30 + [
-    "AEFES.IS", "AGHOL.IS", "AHGAZ.IS", "AKCNS.IS", "AKFGY.IS", "AKSA.IS", "AKSEN.IS", 
-    "ALFAS.IS", "ARCLK.IS", "ASGYO.IS", "AYDEM.IS", "BAGFS.IS", "BERA.IS", "BIOEN.IS", 
-    "BOBET.IS", "BRYAT.IS", "BUCIM.IS", "CANTE.IS", "CEMAS.IS", "CIMSA.IS", "CWENE.IS", 
-    "DOAS.IS", "DOHOL.IS", "ECILC.IS", "EGEEN.IS", "EKGYO.IS", "ENJSA.IS", "ERBOS.IS", 
-    "EUPWR.IS", "EUREN.IS", "GESAN.IS", "GLYHO.IS", "GSDHO.IS", "GWIND.IS", "HALKB.IS", 
-    "IPEKE.IS", "ISGYO.IS", "ISMEN.IS", "IZMDC.IS", "KARSN.IS", "KAYSE.IS", "KCAER.IS", 
-    "KMPUR.IS", "KORDS.IS", "KZBGY.IS", "MAVI.IS", "MGROS.IS", "MIATK.IS", "ODAS.IS", 
-    "OTKAR.IS", "PENTI.IS", "PSGYO.IS", "QUAGR.IS", "SARKY.IS", "SMRTG.IS", "SNGYO.IS", 
-    "SOKM.IS", "TATGD.IS", "TAVHL.IS", "TKFEN.IS", "TKNSA.IS", "TTKOM.IS", "TTRAK.IS", 
-    "TUKAS.IS", "ULKER.IS", "VAKBN.IS", "VESBE.IS", "VESTL.IS", "YYLGD.IS", "ZOREN.IS"
-]
-
 ABD_HİSSELERİ = [
-    "AAPL", "MSFT", "GOOGL", "AMZN", "META", "TSLA", "NVDA", "AMD", "INTC", "NFLX",
-    "ADBE", "PYPL", "QCOM", "AMAT", "BA", "JPM", "V", "MA", "DIS", "HD", 
-    "PG", "UNH", "JNJ", "XOM", "CVX", "KO", "PEP", "COST", "MCD", "WMT"
+    "AAPL", "MSFT", "GOOGL", "AMZN", "META", "TSLA", "NVDA", "AMD", "INTC", "NFLX"
 ]
 
 VARSAYILAN_TICKERS = ["AAPL", "MSFT", "TSLA", "NVDA", "THYAO.IS", "FROTO.IS", "TOASO.IS"]
@@ -119,7 +88,7 @@ if st.session_state.user_email is None:
         st.subheader("🔑 Giriş Yap")
         with st.form("giris_formu"):
             g_email = st.text_input("E-posta Adresi", placeholder="ornek@mail.com")
-            g_sifre = st.text_input("Şifre", type="password", placeholder="Şifreniz")
+            g_sifre = st.text_input("Şifre", type="password")
             beni_hatirla = st.checkbox("Beni Hatırla", value=True)
             giris_butonu = st.form_submit_button("Giriş Yap", type="primary", use_container_width=True)
             
@@ -135,35 +104,18 @@ if st.session_state.user_email is None:
                     st.rerun()
                 except Exception:
                     st.error("Giriş başarısız: E-posta veya şifre hatalı.")
-
-    with col2:
-        st.subheader("📝 Yeni Kayıt Ol")
-        with st.form("kayit_formu"):
-            k_email = st.text_input("E-posta Adresi")
-            k_sifre = st.text_input("Şifre", type="password")
-            kayit_butonu = st.form_submit_button("Hesap Oluştur", type="primary", use_container_width=True)
-            if kayit_butonu and k_email and len(k_sifre)>=6:
-                try:
-                    auth.create_user(email=k_email, password=k_sifre)
-                    if db: db.collection("kullanici_listeleri").document(k_email).set({"tickers": VARSAYILAN_TICKERS})
-                    st.success("Kayıt başarılı! Giriş yapabilirsiniz.")
-                except Exception as e:
-                    st.error(f"Kayıt olunamadı: {e}")
     st.stop()
 
 # --- ASIL UYGULAMA MANTIĞI ---
 if "tarama_durumu" not in st.session_state: st.session_state.tarama_durumu = False
 if "sonuclar" not in st.session_state: st.session_state.sonuclar = []
-if "ham_veriler" not in st.session_state: st.session_state.ham_veriler = {}
 if "custom_tickers" not in st.session_state: st.session_state.custom_tickers = VARSAYILAN_TICKERS.copy()
 
 def get_preset_options():
     return {
         "Kendi Listem": st.session_state.custom_tickers,
         "BIST 30": BIST_30,
-        "BIST 100": BIST_100,
-        "ABD Büyük Teknoloji": ABD_HİSSELERİ,
-        "Emtialar": ["GC=F", "SLV", "CPER", "PALL", "BZ=F"]
+        "ABD Büyük Teknoloji": ABD_HİSSELERİ
     }
 
 if "profil_secim_kutusu" not in st.session_state: st.session_state.profil_secim_kutusu = "Kendi Listem"
@@ -183,7 +135,6 @@ def hisse_ekle_callback():
 
 preset_options = get_preset_options()
 tum_varliklar_havuzu = list(set([h for lst in preset_options.values() for h in lst]))
-
 tr_saati = datetime.now(timezone(timedelta(hours=3)))
 
 st.title("📈 Hibrit Portföy Komuta Merkezi (Hedge-Fund Sürümü)")
@@ -213,17 +164,16 @@ tarama_tetiklendi = st.sidebar.button("🚀 Derin Taramayı Başlat", type="prim
 if tarama_tetiklendi and selected_tickers:
     with st.spinner("Katmanlar İşleniyor: Makro Trend, Sektörel Momentum, OBV Para Akışı, PEG Değerlemesi..."):
         gecici_sonuclar = []
-        gecici_ham_veriler = {}
         boga_sayisi = 0
         alim_firsati = 0
         
-        # 1. MAKRO VE SEKTÖREL VERİLERİ ÖNCEDEN ÇEK (HIZ İÇİN)
+        # 1. MAKRO VE SEKTÖREL VERİLER
         sektor_getirileri = {}
-        sektor_referanslari = {"XU100.IS": "BIST100", "^IXIC": "NASDAQ", "XBANK.IS": "Banka", "XUSIN.IS": "Sanayi", "XULAS.IS": "Ulaşım"}
+        sektor_referanslari = {"XU100.IS": "BIST100", "^IXIC": "NASDAQ"}
         
         for sembol in sektor_referanslari.keys():
             try:
-                df_sek = yf.Ticker(sembol).history(period="2mo")
+                df_sek = yf.Ticker(sembol).history(period="2mo").dropna(subset=['Close'])
                 if len(df_sek) >= 21:
                     sektor_getirileri[sembol] = ((df_sek['Close'].iloc[-1] - df_sek['Close'].iloc[-21]) / df_sek['Close'].iloc[-21]) * 100
                     if sembol == "XU100.IS":
@@ -234,43 +184,56 @@ if tarama_tetiklendi and selected_tickers:
                 sektor_getirileri[sembol] = 0
                 bist_trend_pozitif = nasdaq_trend_pozitif = True
 
-       # TİCKER DÖNGÜSÜ
+        # TİCKER DÖNGÜSÜ
         for ticker in selected_tickers:
             try:
                 stock = yf.Ticker(ticker)
                 df_long = stock.history(period="1y")
                 
-                # --- NAN HATASINI ÇÖZEN SATIR ---
-                # 'Close' sütununda veri olmayan (NaN) hafta sonu/boş satırları temizle
-                df_long = df_long.dropna(subset=['Close'])
+                # --- KRİTİK HATA DÜZELTMESİ (Tam Temizlik) ---
+                # Sadece Close değil; Open, High, Low ve Volume verisi bozuk olan tüm hafta sonu satırlarını temizliyoruz
+                df_long = df_long.dropna(subset=['Open', 'High', 'Low', 'Close', 'Volume'])
                 
-                if df_long.empty or len(df_long) < 50: continue
+                if df_long.empty or len(df_long) < 50: 
+                    continue
+                
+                bugun_kapanis = float(df_long['Close'].iloc[-1])
+                para_birimi = "TL" if ".IS" in ticker else "$"
+                is_bist = ".IS" in ticker
+                
+                # 1. KATMAN: TEMEL VERİ
+                info = stock.info if hasattr(stock, 'info') else {}
+                fk = info.get('trailingPE', info.get('forwardPE', None))
+                peg = info.get('trailingPegRatio', info.get('pegRatio', None))
+                
+                temel_durum = "Nötr ⚖️"
+                if peg is not None and peg > 0:
+                    if peg < 1.0 and (fk is not None and fk > 0): temel_durum = f"Büyüyen Ucuz 🌟 (PEG:{peg:.1f})"
+                    elif peg > 2.0: temel_durum = f"Pahalı Büyüme ⚠️ (PEG:{peg:.1f})"
+                elif fk is not None:
+                    if fk > 50: temel_durum = "Aşırı Pahalı ⚠️"
+                    elif 0 < fk < 15: temel_durum = "Ucuz (Klasik) 🌟"
 
-                # --- YENİ KATMAN 2: SEKTÖREL MOMENTUM ---
+                # 2. KATMAN: SEKTÖREL MOMENTUM
                 son_1_ay_df = df_long.tail(21)
                 hisse_1m_getiri = ((son_1_ay_df['Close'].iloc[-1] - son_1_ay_df['Close'].iloc[0]) / son_1_ay_df['Close'].iloc[0]) * 100
-                
-                sek_sembol = "XU100.IS"
-                if is_bist:
-                    if ticker in ["AKBNK.IS", "GARAN.IS", "ISCTR.IS", "YKBNK.IS"]: sek_sembol = "XBANK.IS"
-                    elif ticker in ["THYAO.IS", "PGSUS.IS", "DOAS.IS"]: sek_sembol = "XULAS.IS"
-                    else: sek_sembol = "XUSIN.IS"
-                elif not is_bist and "GC=F" not in ticker:
-                    sek_sembol = "^IXIC"
-                
+                sek_sembol = "XU100.IS" if is_bist else "^IXIC"
                 sek_getiri = sektor_getirileri.get(sek_sembol, 0)
                 sektorel_fark = hisse_1m_getiri - sek_getiri
-                sektor_adi = sektor_referanslari.get(sek_sembol, "Genel")
+                sektor_adi = "BIST" if is_bist else "NASDAQ"
                 
-                # --- YENİ KATMAN 3: AKILLI PARA AKIŞI (MFI & OBV) ---
+                # 3. KATMAN: AKILLI PARA AKIŞI (MFI & OBV)
                 typical_price = (df_long['High'] + df_long['Low'] + df_long['Close']) / 3
                 raw_money_flow = typical_price * df_long['Volume']
-                pos_flow = np.where(typical_price > typical_price.shift(1), raw_money_flow, 0)
-                neg_flow = np.where(typical_price < typical_price.shift(1), raw_money_flow, 0)
-                pos_sum = pd.Series(pos_flow).rolling(14).sum()
-                neg_sum = pd.Series(neg_flow).rolling(14).sum()
+                
+                pos_flow = pd.Series(np.where(typical_price > typical_price.shift(1), raw_money_flow, 0))
+                neg_flow = pd.Series(np.where(typical_price < typical_price.shift(1), raw_money_flow, 0))
+                
+                pos_sum = pos_flow.rolling(14).sum()
+                neg_sum = neg_flow.rolling(14).sum()
+                
                 mfi = 100 - (100 / (1 + (pos_sum / (neg_sum + 1e-5))))
-                mfi_val = mfi.iloc[-1]
+                mfi_val = mfi.iloc[-1] if not pd.isna(mfi.iloc[-1]) else 50
                 
                 obv = np.where(df_long['Close'] > df_long['Close'].shift(1), df_long['Volume'],
                       np.where(df_long['Close'] < df_long['Close'].shift(1), -df_long['Volume'], 0)).cumsum()
@@ -279,7 +242,7 @@ if tarama_tetiklendi and selected_tickers:
                 
                 para_durumu = f"Balina Girişi 🐋 (MFI:{mfi_val:.0f})" if mfi_val < 30 and obv_bullish else ("Çıkış Var 📉" if mfi_val > 75 else f"Nötr (MFI:{mfi_val:.0f})")
 
-                # Klasik Teknik İndikatörler (RSI, MACD, Bollinger, SMA200)
+                # Klasik Teknik İndikatörler
                 delta = df_long['Close'].diff()
                 rs = delta.where(delta>0, 0.0).ewm(alpha=1/14, adjust=False).mean() / (-delta.where(delta<0, 0.0).ewm(alpha=1/14, adjust=False).mean() + 1e-5)
                 rsi = 100 - (100 / (1 + rs)).iloc[-1]
@@ -296,7 +259,6 @@ if tarama_tetiklendi and selected_tickers:
                 bb_alt = (bb_mid - (bb_std * 2)).iloc[-1]
                 bb_ust = (bb_mid + (bb_std * 2)).iloc[-1]
                 
-                # Sığ Tahta Kontrolü
                 vol_sma_20 = df_long['Volume'].rolling(20).mean().iloc[-1]
                 sig_tahta = (is_bist and vol_sma_20 * bugun_kapanis < 50_000_000) or (not is_bist and vol_sma_20 * bugun_kapanis < 2_000_000)
 
@@ -315,23 +277,27 @@ if tarama_tetiklendi and selected_tickers:
                 
                 if uzun_vade_trend: boga_sayisi += 1
                 
-                # --- YENİ KATMAN 4: 1 SAATLİK MİKRO GİRİŞ TEYİDİ (MTFA) ---
+                # MTFA - 1 Saatlik Teyit
                 mikro_teyit = "➖"
                 if "ALIM" in sinyal:
                     try:
-                        df_1h = stock.history(period="5d", interval="1h")
+                        df_1h = stock.history(period="5d", interval="1h").dropna(subset=['Close'])
                         if not df_1h.empty:
                             ema9_1h = df_1h['Close'].ewm(span=9).mean().iloc[-1]
                             ema21_1h = df_1h['Close'].ewm(span=21).mean().iloc[-1]
-                            if ema9_1h > ema21_1h:
-                                mikro_teyit = "✅ Tetik Çek (1H Boğa)"
-                            else:
-                                mikro_teyit = "⏳ 1H Dönüş Bekle"
+                            mikro_teyit = "✅ Tetik Çek" if ema9_1h > ema21_1h else "⏳ 1H Dönüş Bekle"
                     except:
-                        mikro_teyit = "Veri Yok"
+                        pass
 
-                # Süren Stop ve TP
-                atr = np.max([df_long['High']-df_long['Low'], abs(df_long['High']-df_long['Close'].shift()), abs(df_long['Low']-df_long['Close'].shift())], axis=0)[-14:].mean()
+                # Güvenli ATR ve TP/SL Hesaplaması
+                high_low = df_long['High'] - df_long['Low']
+                high_close = (df_long['High'] - df_long['Close'].shift()).abs()
+                low_close = (df_long['Low'] - df_long['Close'].shift()).abs()
+                tr = pd.concat([high_low, high_close, low_close], axis=1).max(axis=1)
+                
+                atr = tr[-14:].mean()
+                if pd.isna(atr) or atr == 0: atr = bugun_kapanis * 0.02
+                
                 trailing_stop = df_long['High'].rolling(22).max().iloc[-1] - (atr * 3)
                 alinan_risk = max(bugun_kapanis - trailing_stop, atr * 1.5)
                 tp1, tp2 = bugun_kapanis + (alinan_risk * 1.5), bugun_kapanis + (alinan_risk * 3.0)
@@ -343,7 +309,6 @@ if tarama_tetiklendi and selected_tickers:
                     lot = max(1, lot // 2)
                     sinyal += " (⚠️ Endeks Negatif: Yarım Lot)"
                     
-                gecici_ham_veriler[ticker] = df_long
                 gecici_sonuclar.append({
                     "Varlık": ticker,
                     "Fiyat": f"{bugun_kapanis:.2f} {para_birimi}",
@@ -351,16 +316,16 @@ if tarama_tetiklendi and selected_tickers:
                     "Para Akışı (OBV/MFI)": para_durumu,
                     "Temel Veri (PEG/FK)": temel_durum,
                     "Nihai Sinyal": sinyal,
-                    "Zamanlama (1H Teyit)": mikro_teyit,
+                    "↓ Zamanlama (1H Teyit)": mikro_teyit,
                     "Hibrit Kâr Al (TP)": hibrit_tp,
                     "Süren Stop": f"{trailing_stop:.2f}",
                     "Önerilen Lot": f"{lot} Adet" if lot > 0 else "0"
                 })
             except Exception:
+                # Hesaplama hatası olan hisseleri pas geç ve taramayı dondurma
                 continue
 
         st.session_state.sonuclar = gecici_sonuclar
-        st.session_state.ham_veriler = gecici_ham_veriler
         st.session_state.boga_sayisi = boga_sayisi
         st.session_state.alim_firsati = alim_firsati
         st.session_state.tarama_durumu = True
@@ -380,20 +345,14 @@ if st.session_state.tarama_durumu and st.session_state.sonuclar:
         st.markdown("""
         <div class="info-box">
             <b>🕵️‍♂️ İleri Düzey Kurumsal Modüller (Yeni Eklenenler)</b><br><br>
-            • <b>Para Akışı (OBV & MFI):</b> Sadece fiyata değil, "Hacmin Yönüne" bakar. Eğer MFI düşükse ve OBV (On-Balance Volume) hareketli ortalamasını yukarı kırmışsa, fiyat düşse bile <b>"Balina Girişi 🐋"</b> yazarak kurumsal toplanmayı tespit eder.<br><br>
-            • <b>Zamanlama (1 Saatlik Mikro Teyit):</b> Günlük grafikte ALIM gelse bile, gün içi çöküş devam ediyor olabilir. Sistem arka planda 1 Saatlik grafiğe (MTFA) iner. Eğer 1 saatlikte de dönüş başlamışsa <b>"✅ Tetik Çek"</b>, düşüş sürüyorsa <b>"⏳ 1H Dönüş Bekle"</b> der. Keskin nişancı girişidir.<br><br>
-            • <b>Görec. Güç (Sektör):</b> Varlığı sadece BIST100'e göre değil, doğrudan kendi sektörüne (Banka, Sanayi, Ulaşım vb.) göre kıyaslar. Endeks düşerken kendi sektöründen pozitif ayrışan hisseyi tespit etmenizi sağlar.<br><br>
-            • <b>Temel Veri (PEG Koruması):</b> Sadece F/K'nın ucuz olmasına kanmaz (Değer Tuzağı). Büyüme oranını da hesaba katarak PEG oranına bakar. PEG < 1 ise <b>"Büyüyen Ucuz 🌟"</b> der; şirket ucuzdur VE büyüyordur.<br>
-            <hr style="border-color: #444;">
-            <b>🎯 Sinyaller ve Risk</b><br>
-            • <b>🟢 KUSURSUZ ALIM:</b> RSI dipte, Bollinger alt banda değmiş ve MACD/Hacim dönüş onayı alınmış.<br>
-            • <b>🔴 KÂR REALİZASYONU:</b> Bollinger Üst bandı dışına taşıldı, RSI aşırı şişti.<br>
-            • <b>⚠️ SIĞ TAHTA:</b> Günlük hacim yetersiz, manipülasyon riski var.
+            • <b>Para Akışı (OBV & MFI):</b> Hacmin Yönüne bakar. "Balina Girişi 🐋" yazarak kurumsal toplanmayı tespit eder.<br>
+            • <b>Zamanlama (1 Saatlik Mikro Teyit):</b> "✅ Tetik Çek" keskin nişancı girişidir.<br>
+            • <b>Temel Veri (PEG Koruması):</b> PEG < 1 ise "Büyüyen Ucuz 🌟" der.
         </div>
         """, unsafe_allow_html=True)
     
     df_sonuc = pd.DataFrame(st.session_state.sonuclar)
-    if st.checkbox("🎯 Sadece Alım Fırsatlarını (Kusursuz/Kademeli) Göster", value=False):
+    if st.checkbox("🎯 Sadece Alım Fırsatlarını Göster", value=False):
         df_sonuc = df_sonuc[df_sonuc['Nihai Sinyal'].str.contains("ALIM", na=False)]
     
     if df_sonuc.empty:
