@@ -6,9 +6,15 @@ from datetime import datetime, timedelta, timezone
 import os
 import firebase_admin
 from firebase_admin import credentials, firestore, auth
-import streamlit_authenticator as stauth
 
-# --- FIREBASE BAŞLATMA (CLOUD & LOCAL UYUMLU) ---
+# --- 1. SAYFA YAPILANDIRMASI (EN BAŞTA OLMALI) ---
+st.set_page_config(
+    page_title="Hibrit Portföy Komuta Merkezi",
+    page_icon="📈",
+    layout="wide"
+)
+
+# --- FIREBASE BAŞLATMA ---
 if not firebase_admin._apps:
     try:
         firebase_secrets = dict(st.secrets["firebase"])
@@ -26,12 +32,14 @@ try:
 except:
     db = None
 
-# --- 1. SAYFA YAPILANDIRMASI VE STİL ---
-st.set_page_config(
-    page_title="Hibrit Portföy Komuta Merkezi",
-    page_icon="📈",
-    layout="wide"
-)
+# --- OTURUM VE "BENİ HATIRLA" KONTROLÜ (EN ERKEN AŞAMA) ---
+if "user_email" not in st.session_state:
+    st.session_state.user_email = None
+
+# Eğer tarayıcı hafızasında veya URL'de "beni hatırla" izi varsa direkt oturumu aktif et
+query_params = st.query_params
+if st.session_state.user_email is None and "user" in query_params:
+    st.session_state.user_email = query_params["user"]
 
 st.markdown("""
 <style>
@@ -60,7 +68,7 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# --- 2. HİSSE LİSTELERİ ---
+# --- HİSSE LİSTELERİ ---
 BIST_30 = [
     "AKBNK.IS", "ALARK.IS", "ASELS.IS", "ASTOR.IS", "BIMAS.IS", 
     "BRISA.IS", "CCOLA.IS", "ENKAI.IS", "EREGL.IS", "FROTO.IS", 
@@ -91,29 +99,7 @@ ABD_HİSSELERİ = [
 
 VARSAYILAN_TICKERS = ["AAPL", "MSFT", "TSLA", "NVDA", "THYAO.IS", "FROTO.IS", "TOASO.IS"]
 
-# --- AUTHENTICATOR ÇEREZ AYARLARI ---
-# streamlit-authenticator ile tarayıcıda kalıcı çerez oluşturulur
-authenticator = stauth.Authenticate(
-    {'usernames': {}},  # Dinamik olarak Firebase kullandığımız için boş bırakıyoruz
-    'hibrit_portfoy_cookie',
-    'gizli_anahtar_imza',
-    cookie_expiry_days=30  # 30 gün boyunca tarayıcıda hatırla
-)
-
-if "user_email" not in st.session_state:
-    st.session_state.user_email = None
-if "tarama_durumu" not in st.session_state:
-    st.session_state.tarama_durumu = False
-if "sonuclar" not in st.session_state:
-    st.session_state.sonuclar = []
-if "ham_veriler" not in st.session_state:
-    st.session_state.ham_veriler = {}
-if "boga_sayisi" not in st.session_state:
-    st.session_state.boga_sayisi = 0
-if "alim_firsati" not in st.session_state:
-    st.session_state.alim_firsati = 0
-
-# --- GİRİŞ / KAYIT EKRANI ---
+# --- GİRİŞ / KAYIT EKRANI (Oturum açılmadıysa) ---
 if st.session_state.user_email is None:
     st.title("🔐 Hibrit Portföy Komuta Merkezi - Giriş")
     st.markdown("---")
@@ -131,13 +117,12 @@ if st.session_state.user_email is None:
             
             if giris_butonu:
                 try:
-                    # Firebase üzerinden kullanıcıyı doğrula
                     user = auth.get_user_by_email(g_email)
                     st.session_state.user_email = g_email
                     
-                    # Çereze kaydetmek için authenticator cookie yöneticisini tetikle
+                    # Eğer "Beni Hatırla" seçiliyse tarayıcı adresine token yazarak kalıcı hale getir
                     if beni_hatirla:
-                        authenticator.cookie_manager.set('cookie_name', g_email, duration=30)
+                        st.query_params["user"] = g_email
                     
                     if db:
                         doc_ref = db.collection("kullanici_listeleri").document(g_email)
@@ -187,7 +172,18 @@ if st.session_state.user_email is None:
             
     st.stop()
 
-# --- KULLANICI GİRİŞ YAPTIKTAN SONRAKİ UYGULAMA ---
+# --- ASIL UYGULAMA MANTIĞI ---
+
+if "tarama_durumu" not in st.session_state:
+    st.session_state.tarama_durumu = False
+if "sonuclar" not in st.session_state:
+    st.session_state.sonuclar = []
+if "ham_veriler" not in st.session_state:
+    st.session_state.ham_veriler = {}
+if "boga_sayisi" not in st.session_state:
+    st.session_state.boga_sayisi = 0
+if "alim_firsati" not in st.session_state:
+    st.session_state.alim_firsati = 0
 
 if "custom_tickers" not in st.session_state:
     try:
@@ -267,17 +263,15 @@ st.sidebar.header("⚙️ Kontrol Paneli")
 st.sidebar.markdown(f"👤 **Oturum:** `{st.session_state.user_email}`")
 if st.sidebar.button("🚪 Çıkış Yap"):
     st.session_state.user_email = None
-    try:
-        authenticator.cookie_manager.delete('cookie_name')
-    except:
-        pass
+    if "user" in st.query_params:
+        del st.query_params["user"]
     st.rerun()
 
 st.sidebar.markdown("---")
 
-with st.sidebar.expander("💰 Kasa and Risk Parametreleri", expanded=True):
+with st.sidebar.expander("💰 Kasa ve Risk Parametreleri", expanded=True):
     bist_kasa = st.number_input("BIST Sanal Kasa (TL)", value=100000, step=10000)
-    nasdaq_kasa = st.number_input("NASDAQ Sanal Kasa ($)", value=1000, step=1000)
+    nasdaq_kasa = st.number_input("NASDAQ Sanal Kasa ($)", value=10000, step=1000)
     risk_orani = st.slider("İşlem Başına Risk Oranı (%)", min_value=1.0, max_value=5.0, value=2.0, step=0.5) / 100.0
 
 with st.sidebar.expander("📋 Varlık Seçimi ve Profiller", expanded=True):
