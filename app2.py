@@ -399,7 +399,7 @@ if tarama_tetiklendi:
                     hacim_carpan = df_long['Volume'].iloc[-1] / vol_sma_20 if vol_sma_20 and vol_sma_20 > 0 else 1.0
                     hacim_artisi = hacim_carpan > 1.2
     
-                    # --- 4. SÜREN STOP (CHANDELIER EXIT) & KAR AL (TAKE PROFIT) ---
+                    # --- 4. SÜREN STOP & KAR AL ---
                     high_low = df_long['High'] - df_long['Low']
                     high_close = np.abs(df_long['High'] - df_long['Close'].shift())
                     low_close = np.abs(df_long['Low'] - df_long['Close'].shift())
@@ -411,11 +411,9 @@ if tarama_tetiklendi:
                     if pd.isna(trailing_stop) or trailing_stop > bugun_kapanis: 
                         trailing_stop = bugun_kapanis - (atr * 1.5) 
                         
-                    # Alınan Riski Hesapla (Mevcut Fiyat - Stop Mesafesi)
                     alinan_risk = bugun_kapanis - trailing_stop
-                    if alinan_risk <= 0: alinan_risk = atr * 1.5 # Güvenlik marjı
+                    if alinan_risk <= 0: alinan_risk = atr * 1.5
                     
-                    # Risk/Reward 1:1.5 ve 1:3 hedefleri
                     tp1 = bugun_kapanis + (alinan_risk * 1.5)
                     tp2 = bugun_kapanis + (alinan_risk * 3.0)
     
@@ -464,11 +462,15 @@ if tarama_tetiklendi:
                     gorunen_ad = "Ons Altın (GC=F)" if ticker == "GC=F" else ticker
                     aktif_kasa = bist_kasa if is_bist else nasdaq_kasa
                     risk_tutar = aktif_kasa * risk_orani
-                    lot = int(risk_tutar / alinan_risk) if alinan_risk > 0 else 0
                     
-                    if not endeks_pozitif and ("ALIM" in sinyal):
-                        lot = max(1, lot // 2)
-                        sinyal += " (⚠️ Endeks Negatif: Lot Azaltıldı)"
+                    # --- DÜZELTME: Sadece ALIM sinyali varsa lot hesapla, aksi takdirde 0 yap ---
+                    if "ALIM" in sinyal:
+                        lot = int(risk_tutar / alinan_risk) if alinan_risk > 0 else 0
+                        if not endeks_pozitif:
+                            lot = max(1, lot // 2)
+                            sinyal += " (⚠️ Endeks Negatif: Lot Azaltıldı)"
+                    else:
+                        lot = 0
                         
                     maliyet_hesabi = lot * bugun_kapanis
     
@@ -483,7 +485,7 @@ if tarama_tetiklendi:
                         "Destek / Direnç": f"D: {kisa_destek:.2f} / R: {kisa_direnc:.2f}",
                         "Süren Stop (C.Exit)": f"{trailing_stop:.2f} {para_birimi}",
                         "Kâr Al (TP1 / TP2)": f"{tp1:.2f} / {tp2:.2f}",
-                        "Önerilen Lot": f"{lot} Adet ({maliyet_hesabi:.0f} {para_birimi})"
+                        "Önerilen Lot": f"{lot} Adet ({maliyet_hesabi:.0f} {para_birimi})" if lot > 0 else "İşlem Yok (0)"
                     })
                 except Exception as e:
                     pass
@@ -508,11 +510,9 @@ if st.session_state.tarama_durumu and st.session_state.sonuclar:
     with st.expander("📖 Terminal Tablosu ve Sinyaller Nasıl Yorumlanmalı?", expanded=False):
         st.markdown("""
         <div class="info-box">
-            <b>🚀 Yeni Hibrit Özellikler Nasıl Çalışır?</b><br>
-            • <b>Market Regime (Endeks Filtresi):</b> BIST100 veya NASDAQ 50 günlük ortalamasının altındaysa genel hava kötüdür. Sistem alım sinyali verse bile sizi uyarır ve <b>Önerilen Lot miktarını otomatik olarak %50 düşürür.</b><br>
-            • <b>Sığ Tahta Koruması:</b> Günlük ortalama işlem hacmi BIST'te 50 Milyon TL'nin, ABD'de 2 Milyon Dolar'ın altındaysa <b>SIĞ TAHTA ⚠️</b> uyarısı verir. Spekülasyonlara karşı kalkan görevi görür.<br>
-            • <b>Temel Analiz Filtresi:</b> Yüksek F/K veya PD/DD oranına sahip şirketleri "Aşırı Pahalı", iskontolu olanları "Ucuz" olarak listeler. (Temel veriler Yahoo Finance hızına bağlı olarak N/A dönebilir).<br>
-            • <b>Süren Stop & Kâr Al:</b> Dinamik stop seviyesi sizi aşağı yönlü hareketlerden korurken; <b>TP1 (1.5x)</b> kısa vadeli güvenli kâr cebine koyma, <b>TP2 (3x)</b> ise trendi tam kapasite değerlendirme noktasıdır.<br>
+            <b>🚀 Hibrit Güvenlik Mimarisi:</b><br>
+            • <b>Sinyal ve Lot Uyumu:</b> Sistem sadece <b>KUSURSUZ ALIM 🟢</b> veya <b>KADEMELİ ALIM 🔵</b> sinyali ürettiği hisseler için portföy riskine göre lot hesabı yapar. "Uzak Dur", "Anomali" veya "Sığ Tahta" uyarısı alan hisselerde lot önerilmez (0 olarak gösterilir).<br>
+            • <b>Kâr Al (TP1 / TP2):</b> Giriş fiyatınız ile süren stop arasındaki risk mesafesinin ($1R$) sırasıyla 1.5 katı ve 3 katı olarak otomatik hesaplanır.<br>
         </div>
         """, unsafe_allow_html=True)
     
