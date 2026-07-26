@@ -246,7 +246,7 @@ if tarama_tetiklendi and selected_tickers:
                 is_bist = ".IS" in ticker
                 para_birimi = "TL" if is_bist else "$"
                 
-                # NASDAQ ve BIST için güncel fiyat tespiti (info ve son kapanış hibrit doğrulaması)
+                # NASDAQ ve BIST için güncel fiyat tespiti
                 info = stock.info if hasattr(stock, 'info') else {}
                 anlik_fiyat = None
                 
@@ -257,7 +257,6 @@ if tarama_tetiklendi and selected_tickers:
                     bugun_kapanis = float(df_long['Close'].iloc[-1])
                 else:
                     bugun_kapanis = float(anlik_fiyat)
-                    # Eğer son kapanış verisi güncel fiyatla uyuşmuyorsa (örn. yfinance eski veri getirdiyse) DataFrame'in son satırını güncel fiyatla eşitliyoruz ki indikatörler doğru hesaplansın
                     df_long.iloc[-1, df_long.columns.get_loc('Close')] = bugun_kapanis
 
                 # 1. KATMAN: TEMEL VERİ
@@ -366,7 +365,7 @@ if tarama_tetiklendi and selected_tickers:
                     except:
                         pass
 
-                # Güvenli ATR ve TP/SL Hesaplaması
+                # Güvenli ATR ve Profesyonel Finansal Süren Stop Hesaplaması
                 high_low = df_long['High'] - df_long['Low']
                 high_close = (df_long['High'] - df_long['Close'].shift()).abs()
                 low_close = (df_long['Low'] - df_long['Close'].shift()).abs()
@@ -375,7 +374,15 @@ if tarama_tetiklendi and selected_tickers:
                 atr = tr[-14:].mean()
                 if pd.isna(atr) or atr == 0: atr = bugun_kapanis * 0.02
                 
-                trailing_stop = df_long['High'].rolling(22).max().iloc[-1] - (atr * 3)
+                # Süren stop orjinal hesap (Geçmiş 22 günün zirvesinden ATR çıkararak)
+                trailing_stop_orijinal = df_long['High'].rolling(22).max().iloc[-1] - (atr * 3)
+                
+                # Finansal Mantık Süzgeci: Stop asla anlık fiyatın üstünde olamaz!
+                if trailing_stop_orijinal >= bugun_kapanis:
+                    trailing_stop = bugun_kapanis - (atr * 1.5) # Fiyat stopun altına inmişse güncel risk sınırına resetle
+                else:
+                    trailing_stop = trailing_stop_orijinal
+
                 alinan_risk = max(bugun_kapanis - trailing_stop, atr * 1.5)
                 tp1, tp2 = bugun_kapanis + (alinan_risk * 1.5), bugun_kapanis + (alinan_risk * 3.0)
                 
