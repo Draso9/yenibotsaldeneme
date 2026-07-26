@@ -246,7 +246,7 @@ if tarama_tetiklendi and selected_tickers:
                 is_bist = ".IS" in ticker
                 para_birimi = "TL" if is_bist else "$"
                 
-                # NASDAQ ve BIST için güncel fiyat tespiti
+                # Güncel fiyat tespiti
                 info = stock.info if hasattr(stock, 'info') else {}
                 anlik_fiyat = None
                 
@@ -365,7 +365,7 @@ if tarama_tetiklendi and selected_tickers:
                     except:
                         pass
 
-                # Güvenli ATR ve Profesyonel Finansal Süren Stop Hesaplaması
+                # Güvenli ATR ve Profesyonel Finansal Süren Stop (Destek) Hesaplaması
                 high_low = df_long['High'] - df_long['Low']
                 high_close = (df_long['High'] - df_long['Close'].shift()).abs()
                 low_close = (df_long['Low'] - df_long['Close'].shift()).abs()
@@ -374,12 +374,10 @@ if tarama_tetiklendi and selected_tickers:
                 atr = tr[-14:].mean()
                 if pd.isna(atr) or atr == 0: atr = bugun_kapanis * 0.02
                 
-                # Süren stop orjinal hesap (Geçmiş 22 günün zirvesinden ATR çıkararak)
                 trailing_stop_orijinal = df_long['High'].rolling(22).max().iloc[-1] - (atr * 3)
                 
-                # Finansal Mantık Süzgeci: Stop asla anlık fiyatın üstünde olamaz!
                 if trailing_stop_orijinal >= bugun_kapanis:
-                    trailing_stop = bugun_kapanis - (atr * 1.5) # Fiyat stopun altına inmişse güncel risk sınırına resetle
+                    trailing_stop = bugun_kapanis - (atr * 1.5) # Destek noktası (Anlık fiyatın altı)
                 else:
                     trailing_stop = trailing_stop_orijinal
 
@@ -401,8 +399,8 @@ if tarama_tetiklendi and selected_tickers:
                     "Temel Veri (PEG/FK)": temel_durum,
                     "Nihai Sinyal": sinyal,
                     "↓ Zamanlama (1H Teyit)": mikro_teyit,
-                    "Hibrit Kâr Al (TP)": hibrit_tp,
-                    "Süren Stop": f"{trailing_stop:.2f}",
+                    "Destek Seviyesi (Stop)": f"{trailing_stop:.2f}",
+                    "Direnç Seviyeleri (TP)": hibrit_tp,
                     "Önerilen Lot": f"{lot} Adet" if lot > 0 else "0"
                 })
             except Exception:
@@ -434,11 +432,11 @@ if st.session_state.tarama_durumu and st.session_state.sonuclar:
             • <b>🛑 UZAK DUR!:</b> Hem haftalık hem uzun vade trend kırılmış, düşüşte olan zayıf varlıklar.<br>
             • <b>⚠️ SIĞ TAHTA:</b> Günlük dönen para hacmi yetersiz. Manipülasyona açık olduğu için teknik veriler dikkate alınmaz.<br><br>
             <hr style="border-color: #444;">
-            <b>🕵️‍♂️ İleri Düzey Kurumsal Modüller (Yeni Eklenenler)</b><br><br>
-            • <b>Para Akışı (OBV & MFI):</b> Sadece fiyata değil, "Hacmin Yönüne" bakar. Eğer MFI düşükse ve OBV (On-Balance Volume) hareketli ortalamasını yukarı kırmışsa, fiyat düşse bile <b>"Balina Girişi 🐋"</b> yazarak kurumsal toplanmayı tespit eder.<br>
-            • <b>Zamanlama (1 Saatlik Mikro Teyit):</b> Günlük grafikte ALIM gelse bile, gün içi düşüş devam ediyorsa <b>"⏳ 1H Dönüş Bekle"</b> der. 1 saatlikte de dönüş başlamışsa <b>"✅ Tetik Çek"</b> diyerek keskin nişancı girişi sağlar.<br>
-            • <b>Görec. Güç (Sektör):</b> Varlığı doğrudan kendi sektörüne (Banka, Sanayi, Ulaşım, Holding veya Teknoloji) göre kıyaslar. Endeks düşerken kendi sektöründen pozitif ayrışan hisseleri tespit etmenizi sağlar.<br>
-            • <b>Temel Veri (PEG Koruması):</b> Değer tuzağına düşmemek için sadece F/K'ya değil, büyüme oranına (PEG) bakar. PEG < 1 ise <b>"Büyüyen Ucuz 🌟"</b> der; şirket hem ucuzdur hem de büyüyordur.
+            <b>🕵️‍♂️ İleri Düzey Kurumsal Modüller ve Seviyeler</b><br><br>
+            • <b>Destek Seviyesi (Stop):</b> Varlığın volatilitesine (ATR) ve geçmiş tepe noktalarına göre hesaplanan zarar-kes / güvenli destek sınırıdır. Asla anlık fiyatın üstünde yer almaz.<br>
+            • <b>Direnç Seviyeleri (TP):</b> Alınan riskin katları (TP1 ve TP2) veya üst bant dirençleri baz alınarak hesaplanan kâr al hedefleridir.<br>
+            • <b>Para Akışı (OBV & MFI):</b> Hacmin yönüne bakar. MFI düşük ve OBV yukarı kırmışsa <b>"Balina Girişi 🐋"</b> tespit eder.<br>
+            • <b>Zamanlama (1 Saatlik Mikro Teyit):</b> Günlük alım sinyali gelse bile 1 saatlik grafikte <b>"✅ Tetik Çek"</b> veya <b>"⏳ 1H Dönüş Bekle"</b> diyerek nokta atışı giriş sağlar.
         </div>
         """, unsafe_allow_html=True)
     
