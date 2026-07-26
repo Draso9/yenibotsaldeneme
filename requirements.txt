@@ -4,3 +4,4 @@ pandas
 numpy
 firebase-admin
 streamlit-authenticator
+extra-streamlit-components
