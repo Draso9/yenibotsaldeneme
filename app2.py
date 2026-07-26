@@ -16,12 +16,8 @@ st.set_page_config(
 )
 
 # --- ÇEREZ YÖNETİCİSİ (COOKIE MANAGER) BAŞLATMA ---
-# Hata oluşmaması için parametresiz, temiz cache kullanımı
-@st.cache_resource
-def get_manager():
-    return stx.CookieManager(key="cookie_manager")
-
-cookie_manager = get_manager()
+# Önbelleğe (cache) almadan, doğrudan çağırıyoruz.
+cookie_manager = stx.CookieManager(key="cookie_manager")
 saved_email = cookie_manager.get(cookie="user_email")
 
 # --- FIREBASE BAŞLATMA ---
