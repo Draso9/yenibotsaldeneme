@@ -475,22 +475,38 @@ if st.session_state.tarama_durumu and st.session_state.sonuclar:
     
     st.markdown("<br>", unsafe_allow_html=True)
     
-    with st.expander("📖 Kurumsal Terminal ve Cezalı Skorlama Matrisi Nasıl Çalışır?", expanded=False):
+    with st.expander("📖 Kurumsal Terminal & Algoritma El Kitabı (Nasıl Okunur?)", expanded=False):
         st.markdown("""
         <div class="info-box">
-            <b>🧠 7'li Cezalı & Ödüllü Skorlama Sistemi Matrisi</b><br>
-            Sistem basitçe puan toplamaz; hatalı sinyalleri ve tuzakları (fakeout) elemek için <b>50 Puan nötr tabanla</b> başlar, riskli durumlarda ciddi ceza puanları (-15, -20, -25) keser:<br><br>
-            • <b>1. Uzun Vade Trend (200 SMA):</b> Fiyat 200 gün üzerindeyse <b>+15 Puan</b>, altındaysa (ayı riski) <b>-25 Puan ceza</b>.<br>
-            • <b>2. Kısa Vade Trend (50 EMA):</b> 50 EMA üstünde sağlıklıysa <b>+10 Puan</b>, altındaysa <b>-15 Puan ceza</b>.<br>
-            • <b>3. Hacim ve Para Akışı (OBV & Vol):</b> Hacim desteği ve pozitif OBV varsa <b>+15 Puan</b>, hacimsiz tuzak hareketse <b>-20 Puan ceza</b>.<br>
-            • <b>4. Momentum (RSI):</b> Sağlıklı bölgedeyse (35-50) <b>+10 Puan</b>, aşırı şişmiş tepe bölgesindeyse (>70) <b>-15 Puan ceza</b>.<br>
-            • <b>5. MACD Teyidi:</b> Pozitif kesişim onaylıysa <b>+10 Puan</b>, negatif uyumsuzlukta <b>-10 Puan ceza</b>.<br>
-            • <b>6. Temel Kalite (F-Skor / PEG):</b> Bilanço/PEG cazipse <b>+15 Puan</b>, riskli/pahalıysa <b>-15 Puan ceza</b>.<br>
-            • <b>7. Volatilite (Bollinger):</b> Alt banttan tepki alıyorsa <b>+10 Puan</b>, üst banda çarpıp şiştiyse <b>-15 Puan ceza</b>.<br><br>
-            <b>Skor Aralıkları:</b><br>
-            🟢 <b>70+ Puan:</b> Güçlü ve onaylı alım adayı.<br>
-            ⚖️ <b>50 - 69 Puan:</b> Nötr / İzleme bölgesi.<br>
-            🔴 <b>50 Puan Altı (Cezalı):</b> Tuzak barındıran, uzak durulması gereken varlık.
+            <b>🧠 1. Cezalı & Ödüllü 7'li Skorlama Sistemi (50 Tabanlı)</b><br>
+            Sistem basitçe puan toplamaz; hatalı sinyalleri ve tuzakları (fakeout) acımasızca elemek için <b>50 Puan nötr tabanla</b> başlar, riskli durumlarda ciddi ceza puanları keser:<br>
+            • <b>Uzun Vade Trend (200 SMA):</b> Üzerindeyse <b>+15 Puan</b>, altındaysa (ayı riski) <b>-25 Puan ceza</b>.<br>
+            • <b>Kısa Vade Trend (50 EMA):</b> Üzerindeyse <b>+10 Puan</b>, altındaysa <b>-15 Puan ceza</b>.<br>
+            • <b>Hacim & Para Akışı (OBV & Vol):</b> Hacim desteği ve pozitif OBV varsa <b>+15 Puan</b>, hacimsiz tuzak hareketse <b>-20 Puan ceza</b>.<br>
+            • <b>Momentum (RSI):</b> Sağlıklı bölgedeyse (35-50) <b>+10 Puan</b>, aşırı şişmiş tepe bölgesindeyse (>70) <b>-15 Puan ceza</b>.<br>
+            • <b>MACD Teyidi:</b> Pozitif kesişim onaylıysa <b>+10 Puan</b>, negatif uyumsuzlukta <b>-10 Puan ceza</b>.<br>
+            • <b>Temel Kalite (F-Skor / PEG):</b> Bilanço/PEG cazipse <b>+15 Puan</b>, riskli/pahalıysa <b>-15 Puan ceza</b>.<br>
+            • <b>Volatilite (Bollinger):</b> Alt banttan tepki alıyorsa <b>+10 Puan</b>, üst banda çarpıp şiştiyse <b>-15 Puan ceza</b>.<br>
+            <i>Skor Aralıkları: 70+ Güçlü 🟢 | 50-69 Nötr ⚖️ | 50 Altı Cezalı 🔴</i><br><br>
+            <hr style="border-color: #444;">
+            <b>🧪 2. Piotroski F-Skoru (Finansal Kalite Katmanı)</b><br>
+            Şirketin bilançosundan kârlılık, kaldıraç, nakit akışı vb. 9 farklı metrik taranarak hesaplanır:<br>
+            • <b>8-9 Puan:</b> Elmas 💎 (Mükemmel finansal sağlık)<br>
+            • <b>6-7 Puan:</b> Güçlü 🟢<br>
+            • <b>4-5 Puan:</b> Nötr ⚖️<br>
+            • <b>0-3 Puan:</b> Riskli ⚠️ (Bilanço zafiyeti, uzak durulmalı)<br><br>
+            <hr style="border-color: #444;">
+            <b>📈 3. Sektörel Göreceli Güç ve Hacim (Vol) Oranı</b><br>
+            • <b>Görec. Güç:</b> Hissenin son 1 aylık getirisinin ilgili ana sektöre (Banka, Sanayi, Ulaşım, Teknoloji vb.) kıyasla farkını gösterir.<br>
+            • <b>Vol:</b> O gün gerçekleşen hacmin son 20 günlük ortalama hacme oranıdır (Örn: %150, ortalamanın %50 üzerinde hacim patlaması demektir).<br><br>
+            <hr style="border-color: #444;">
+            <b>🛡️ 4. Karma Destek & Direnç Motoru</b><br>
+            • <b>Karma Destek:</b> Hissenin yerel dibi, 50 EMA, Fib %61.8 geri çekilme seviyesi ve ATR tabanı harmanlanarak hesaplanan akıllı savunma hattıdır.<br>
+            • <b>Karma Direnç:</b> Yerel tepe, VWAP, Fib %38.2 ve Bollinger Üst Bandı sentezlenerek bulunan kâr realizasyon/direnç bölgesidir.<br><br>
+            <hr style="border-color: #444;">
+            <b>🎯 5. Operasyonel Risk Yönetimi (Stop & TP)</b><br>
+            • <b>Süren Stop (Trailing Stop):</b> Volatilitesini ve ATR'yi hesaba katarak sermayeyi koruyan dinamik zarar-kes seviyesidir.<br>
+            • <b>Hibrit Kâr Al (TP):</b> Alınan risk (Risk/Reward) katsayılarına göre hesaplanan kurumsal hedef kademeleridir (TP1 ve TP2).
         </div>
         """, unsafe_allow_html=True)
     
