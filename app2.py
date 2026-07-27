@@ -61,7 +61,7 @@ if st.session_state.user_email is None and saved_email is not None and not st.se
             st.session_state.custom_tickers = VARSAYILAN_TICKERS.copy()
     st.rerun()
 
-# --- CSS STİLLERİ ---
+# --- CSS STİLLERİ (TELEFONDA MENÜ BUTONUNUN AÇILMASI İÇİN HEADER KORUNDU) ---
 st.markdown("""
 <style>
     div[data-testid="stStatusWidget"] { display: none !important; visibility: hidden !important; opacity: 0 !important; pointer-events: none !important; }
@@ -332,11 +332,27 @@ if tarama_tetiklendi:
                     
                     info = stock.info if hasattr(stock, 'info') else {}
                     
-                    # DÜZELTME: After-Hours (Mesai dışı) fiyat çakışmasını önlemek için 
-                    # fiyatlar doğrudan history verisindeki seans kapanışlarından alınır.
-                    bugun_kapanis = float(df_long['Close'].iloc[-1])
-                    onceki_kapanis = float(df_long['Close'].iloc[-2]) if len(df_long) >= 2 else bugun_kapanis
-                    
+                    # DÜZELTME: Yahoo Finance web sayfalarındaki gerçek fiyat ve önceki kapanış oranını 
+                    # birebir yakalamak için fast_info (veya info) kullanılır, veri çelişkisi önlenir.
+                    try:
+                        fast_inf = stock.fast_info
+                        last_p = fast_inf.get('last_price') if hasattr(fast_inf, 'get') else fast_inf['last_price']
+                        prev_c = fast_inf.get('previous_close') if hasattr(fast_inf, 'get') else fast_inf['previous_close']
+                        
+                        if last_p and prev_c and not pd.isna(last_p) and not pd.isna(prev_c):
+                            bugun_kapanis = float(last_p)
+                            onceki_kapanis = float(prev_c)
+                        else:
+                            bugun_kapanis = float(df_long['Close'].iloc[-1])
+                            onceki_kapanis = float(df_long['Close'].iloc[-2]) if len(df_long) >= 2 else bugun_kapanis
+                    except:
+                        bugun_kapanis = float(df_long['Close'].iloc[-1])
+                        onceki_kapanis = float(df_long['Close'].iloc[-2]) if len(df_long) >= 2 else bugun_kapanis
+
+                    # Teknik gösterge doğruluğu için DataFrame son kapanışını güncel fiyatla eşitliyoruz
+                    if not df_long.empty:
+                        df_long.iloc[-1, df_long.columns.get_loc('Close')] = bugun_kapanis
+
                     gunluk_degisim = ((bugun_kapanis - onceki_kapanis) / onceki_kapanis) * 100 if onceki_kapanis > 0 else 0.0
                     fiyat_str = f"{bugun_kapanis:.2f} {para_birimi} ({'+' if gunluk_degisim > 0 else ''}{gunluk_degisim:.2f}%)"
 
