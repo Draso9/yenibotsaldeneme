@@ -61,11 +61,12 @@ if st.session_state.user_email is None and saved_email is not None and not st.se
             st.session_state.custom_tickers = VARSAYILAN_TICKERS.copy()
     st.rerun()
 
-# --- CSS STİLLERİ (RUNNING YAZISI GİZLENDİ) ---
+# --- CSS STİLLERİ (RUNNING YAZISI VE HEADER GİZLENDİ) ---
 st.markdown("""
 <style>
-    /* Sağ üstteki standart "Running" animasyonunu gizler */
-    div[data-testid="stStatusWidget"] { display: none !important; }
+    /* Sağ üstteki standart "Running" animasyonunu ve Header'ı tamamen gizler */
+    [data-testid="stHeader"] { display: none !important; }
+    [data-testid="stStatusWidget"] { visibility: hidden !important; display: none !important; }
     
     .kpi-card { background-color: #1E1E1E; padding: 20px; border-radius: 10px; text-align: center; border: 1px solid #333; box-shadow: 2px 2px 10px rgba(0,0,0,0.5); }
     .kpi-title { font-size: 13px; color: #AAAAAA; text-transform: uppercase; letter-spacing: 1px; }
@@ -651,7 +652,6 @@ if st.session_state.tarama_durumu and st.session_state.sonuclar:
                     
                     secilen_veri = df_sonuc[df_sonuc["Varlık"] == secilen_detay_hisse].iloc[0]
                     
-                    # Tırnak çakışmasını önlemek için değerleri değişkene alıyoruz
                     d_sinyal = secilen_veri['Nihai Sinyal']
                     d_skor = secilen_veri["7'li Cezalı Skor"]
                     d_fskor = secilen_veri['F-Skor (Piotroski)']
@@ -691,6 +691,44 @@ if st.session_state.tarama_durumu and st.session_state.sonuclar:
                             • Önerilen Lot Miktarı: <b>{secilen_veri['Önerilen Lot']}</b>
                         </div>
                         """, unsafe_allow_html=True)
+                        
+                    # ==========================================
+                    # --- YAPAY ZEKA & ALGORİTMA SÖZEL YORUMU ---
+                    # ==========================================
+                    st.markdown("### 🧭 Yapay Zeka & Algoritma Yorumu ve Yol Haritası")
+                    
+                    yorum_metni = f"**Genel Durum Analizi:** Seçtiğiniz varlık ({secilen_detay_hisse}), algoritma tarafından **{d_skor}** ile değerlendirilmiştir. Temel tarafta **{d_temel}** ve **{d_fskor}** kalitesine sahip olan hisse, para akışı tarafında **{secilen_veri['Para Akışı (OBV/MFI)']}** durumu sergiliyor. Mevcut sektörel gücü ise ana endekse kıyasla **{secilen_veri['Görec. Güç (Sektör)']}** seviyesindedir. Teknik ve temel göstergelerin harmanlanmasıyla sistemin bu varlık için ürettiği karar **{d_sinyal}** olmuştur."
+                    st.markdown(f"<div class='info-box'>{yorum_metni}</div>", unsafe_allow_html=True)
+                    
+                    rehber_metni = ""
+                    if "ALIM" in d_sinyal:
+                        rehber_metni += f"✅ **Strateji ve Yol Haritası (Alım Fırsatı):**\n"
+                        rehber_metni += f"- **Giriş Şartı:** Sistemin ürettiği saatlik teyit durumu şu an **{secilen_veri['↓ Zamanlama (1H Teyit)']}**. Tetiği çekmek için mikro dönüş onayını (yeşil saatlik mum) beklemeniz riski azaltır.\n"
+                        rehber_metni += f"- **Risk Yönetimi:** Olası bir terste kalma durumuna karşı **{secilen_veri['Karma Destek']}** seviyesi kesin stop-loss (zarar kes) olarak belirlenmelidir.\n"
+                        rehber_metni += f"- **Hedefler:** Yükseliş ivmesi başladığında ilk etapta **{secilen_veri['Hibrit Kâr Al (TP)']}** seviyelerinde kâr realizasyonu yapılmalı veya **{secilen_veri['Süren Stop']}** seviyesi ile trend sürülmelidir.\n"
+                        rehber_metni += f"- **Sermaye Dağılımı:** Kasa ve risk ayarlarınıza göre önerilen lot miktarı **{secilen_veri['Önerilen Lot']}** seviyesindedir."
+                        st.success(rehber_metni)
+                        
+                    elif "KAR REALİZASYONU" in d_sinyal:
+                        rehber_metni += f"🚨 **Strateji ve Yol Haritası (Şişkinlik ve Direnç):**\n"
+                        rehber_metni += f"- **Giriş Şartı:** Varlık şu anda teknik olarak şişmiş ve aşırı alım bölgesinde. Yeni pozisyon açmak veya maliyetlenmek oldukça risklidir.\n"
+                        rehber_metni += f"- **Risk Yönetimi:** Elinizde mevcut pozisyon varsa, **{secilen_veri['Süren Stop']}** seviyesini fiyatın hemen altında çok yakından takip etmelisiniz.\n"
+                        rehber_metni += f"- **Hedefler:** Fiyat **{secilen_veri['Karma Direnç']}** direncine yaklaştıkça kademeli olarak satıp kârı cebe yakıştırmak şu an en güvenli stratejidir."
+                        st.warning(rehber_metni)
+                        
+                    elif "UZAK DUR" in d_sinyal:
+                        rehber_metni += f"🛑 **Strateji ve Yol Haritası (Ayı Trendi / Tehlike):**\n"
+                        rehber_metni += f"- **Giriş Şartı:** Varlık, uzun vade trendinin altında seyrediyor ve momentum zayıf. Düşen bıçak tutulmaz; formasyon görülene kadar kesinlikle izlemede kalın.\n"
+                        rehber_metni += f"- **Risk Yönetimi:** Maliyetliyseniz ve varlık **{secilen_veri['Karma Destek']}** seviyesinin altındaysa, sermayeyi korumak adına zarar kes (stop-loss) kuralları işletilmelidir.\n"
+                        rehber_metni += f"- **Hedefler:** Yeni bir fırsat için para akışında yeşil barlar ve fiyatın en azından **{secilen_veri['Karma Direnç']}** seviyelerini yukarı kırması beklenmelidir."
+                        st.error(rehber_metni)
+                        
+                    else:
+                        rehber_metni += f"⚖️ **Strateji ve Yol Haritası (Konsolidasyon / İzleme):**\n"
+                        rehber_metni += f"- **Giriş Şartı:** Varlık şu anda yön konusunda kararsız bir bölgede. Destek ve direnç arasında sıkışma veya hacimsizlik hakim.\n"
+                        rehber_metni += f"- **Risk Yönetimi:** Fiyatın **{secilen_veri['Karma Destek']}** seviyesinden vereceği tepkiyi veya direnci hacimli kırmasını beklemek en sağlıklı adımdır.\n"
+                        rehber_metni += f"- **Hedefler:** Yön netleşene kadar sermayeyi korumak adına farklı varlıklardaki net 'ALIM' sinyallerine odaklanmak fırsat maliyetinizi düşürebilir."
+                        st.info(rehber_metni)
                     # ==========================================
 
                 else:
