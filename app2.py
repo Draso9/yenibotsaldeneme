@@ -61,10 +61,10 @@ if st.session_state.user_email is None and saved_email is not None and not st.se
             st.session_state.custom_tickers = VARSAYILAN_TICKERS.copy()
     st.rerun()
 
-# --- CSS STİLLERİ (RUNNING YAZISI VE HEADER KESİN GİZLENDİ) ---
+# --- CSS STİLLERİ (MOBİL MENÜ BUTONU KORUNDU, RUNNING WIDGET GİZLENDİ) ---
 st.markdown("""
 <style>
-    header[data-testid="stHeader"] { display: none !important; visibility: hidden !important; }
+    /* Sol üstteki menü butonunun kaybolmaması için Header gizlenmedi, sadece Running widget ve Deploy butonu gizlendi */
     div[data-testid="stStatusWidget"] { display: none !important; visibility: hidden !important; opacity: 0 !important; pointer-events: none !important; }
     .stDeployButton { display: none !important; }
     
