@@ -64,7 +64,6 @@ if st.session_state.user_email is None and saved_email is not None and not st.se
 # --- CSS STİLLERİ (RUNNING YAZISI VE HEADER KESİN GİZLENDİ) ---
 st.markdown("""
 <style>
-    /* Sağ üstteki standart "Running" animasyonunu, Header'ı ve Deploy butonunu tamamen gizler */
     header[data-testid="stHeader"] { display: none !important; visibility: hidden !important; }
     div[data-testid="stStatusWidget"] { display: none !important; visibility: hidden !important; opacity: 0 !important; pointer-events: none !important; }
     .stDeployButton { display: none !important; }
@@ -464,25 +463,21 @@ if tarama_tetiklendi and selected_tickers:
                 tp1, tp2 = bugun_kapanis + (alinan_risk * 1.5), bugun_kapanis + (alinan_risk * 3.0)
                 hibrit_tp = f"⚠️ Şişti: Kâr Al" if rsi >= 65 else f"TP1: {tp1:.2f} | TP2: {tp2:.2f}"
 
-                # --- DÜZELTİLMİŞ SİNYAL ÜRETİM MANTIĞI ---
-sinyal = "Nötr (İzle) ⚖️"
+                # --- DÜZELTİLMİŞ SİNYAL ÜRETİM MANTIĞI (SKOR SÜZGECİ EKLENDİ) ---
+                sinyal = "Nötr (İzle) ⚖️"
+                if bugun_kapanis > bb_ust and rsi >= 68: 
+                    sinyal = "KAR REALİZASYONU 🔴"
+                elif bugun_kapanis <= bb_alt and rsi <= 35 and uzun_vade_trend and skor >= 50: 
+                    sinyal = "KUSURSUZ ALIM 🟢"
+                    alim_firsati += 1
+                elif rsi <= 40 and uzun_vade_trend and skor >= 50: 
+                    sinyal = "KADEMELİ ALIM 🔵"
+                    alim_firsati += 1
+                elif skor < 50 or (not uzun_vade_trend and rsi < 50): 
+                    sinyal = "UZAK DUR! 🛑"
 
-if bugun_kapanis > bb_ust and rsi >= 68:
-  sinyal = "KAR REALİZASYONU 🔴"
-
-# KUSURSUZ ALIM ŞARTI: Hem teknik dip olacak, hem uzun vade trend pozitif olacak, HEM DE SKOR CEZALI OLMAYACAK (>= 50)
-elif bugun_kapanis <= bb_alt and rsi <= 35 and uzun_vade_trend and skor >= 50:
-  sinyal = "KUSURSUZ ALIM 🟢"
-  alim_firsati += 1
-
-# KADEMELİ ALIM ŞARTI: Yine skorun ve trendin onay vermesi şart
-elif rsi <= 40 and uzun_vade_trend and skor >= 50:
-  sinyal = "KADEMELİ ALIM 🔵"
-  alim_firsati += 1
-
-# EĞER SKOR 50'NİN ALTINDAYSA VEYA TREND BOZUKSA: Asla alım verme, doğrudan uzak dur de!
-elif skor < 50 or (not uzun_vade_trend and rsi < 50):
-  sinyal = "UZAK DUR! 🛑"
+                if uzun_vade_trend: 
+                    boga_sayisi += 1
 
                 # --- AKTİF 1 SAATLİK (1H) REVERSAL TEYİT MOTORU ---
                 mikro_teyit = "➖"
@@ -731,7 +726,7 @@ if st.session_state.tarama_durumu and st.session_state.sonuclar:
                         
                     elif "UZAK DUR" in d_sinyal:
                         rehber_metni += f"🛑 **Strateji ve Yol Haritası (Ayı Trendi / Tehlike):**\n"
-                        rehber_metni += f"- **Giriş Şartı:** Varlık, uzun vade trendinin altında seyrediyor ve momentum zayıf. Düşen bıçak tutulmaz; formasyon görülene kadar kesinlikle izlemede kalın.\n"
+                        rehber_metni += f"- **Giriş Şartı:** Varlık, uzun vade trendinin altında seyrediyor veya skoru cezalı bölgede. Düşen bıçak tutulmaz; formasyon görülene kadar kesinlikle izlemede kalın.\n"
                         rehber_metni += f"- **Risk Yönetimi:** Maliyetliyseniz ve varlık **{secilen_veri['Karma Destek']}** seviyesinin altındaysa, sermayeyi korumak adına zarar kes (stop-loss) kuralları işletilmelidir.\n"
                         rehber_metni += f"- **Hedefler:** Yeni bir fırsat için para akışında yeşil barlar ve fiyatın en azından **{secilen_veri['Karma Direnç']}** seviyelerini yukarı kırması beklenmelidir."
                         st.error(rehber_metni)
