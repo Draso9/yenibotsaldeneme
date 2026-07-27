@@ -239,7 +239,7 @@ preset_options = get_preset_options()
 tum_varliklar_havuzu = list(set([h for lst in preset_options.values() for h in lst]))
 
 st.title("📈 Hibrit Portföy Komuta Merkezi")
-st.markdown("**Mod:** Derin Analiz (7'li Skor+F-Skoru+Hacim+Karma Destek/Direnç+Stop/TP)")
+st.markdown("**Mod:** Derin Analiz (Cezalı Skor + F-Skoru + Hacim + Karma Destek/Direnç)")
 st.markdown("---")
 
 st.sidebar.header("⚙️ Kontrol Paneli")
@@ -265,7 +265,7 @@ with st.sidebar.expander("📋 Varlık Seçimi", expanded=True):
 tarama_tetiklendi = st.sidebar.button("🚀 Derin Taramayı Başlat", type="primary", use_container_width=True)
 
 if tarama_tetiklendi and selected_tickers:
-    with st.spinner("Hedge-Fund Katmanları İşleniyor (7'li Skor, Hacim, F-Skoru, Karma Destek/Direnç)..."):
+    with st.spinner("Hedge-Fund Katmanları İşleniyor (Cezalı Skor, Hacim, F-Skoru, Karma Destek/Direnç)..."):
         gecici_sonuclar = []
         boga_sayisi = alim_firsati = 0
         
@@ -376,17 +376,41 @@ if tarama_tetiklendi and selected_tickers:
                 
                 para_durumu = f"Balina Girişi 🐋 (MFI:{mfi_val:.0f})" if mfi_val < 30 else ("Çıkış Var 📉" if mfi_val > 75 else f"Nötr (MFI:{mfi_val:.0f})")
 
-                # --- 7'Lİ TEKNİK/TEMEL SKORLAMA SİSTEMİ ---
-                skor = 0
-                if bugun_kapanis > sma_200: skor += 1 
-                if bugun_kapanis > df_long['Close'].ewm(span=50).mean().iloc[-1]: skor += 1 
-                if rsi > 50: skor += 1 
-                if macd_serisi.iloc[-1] > macd_sinyal.iloc[-1]: skor += 1 
-                if obv[-1] > obv_ema.iloc[-1]: skor += 1 
-                if bugun_kapanis > bb_mid: skor += 1 
-                if (f_skor_ham is not None and f_skor_ham >= 5) or (peg is not None and 0 < peg < 1.5): skor += 1 
+                # --- CEZALI & ÖDÜLLÜ 7'Lİ SKORLAMA SİSTEMİ (50 NÖTR TABAN) ---
+                skor = 50 
                 
-                skor_rengi = "🟢" if skor >= 5 else ("⚖️" if skor >= 3 else "🔴")
+                # 1. Uzun Vade Trend (200 SMA)
+                if bugun_kapanis > sma_200: skor += 15
+                else: skor -= 25
+                
+                # 2. Kısa Vade Trend (50 EMA)
+                ema_50_val = df_long['Close'].ewm(span=50).mean().iloc[-1]
+                if bugun_kapanis > ema_50_val: skor += 10
+                else: skor -= 15
+                
+                # 3. Hacim ve Para Akışı (OBV & Hacim Ortalaması)
+                if hacim_oran >= 100 and obv[-1] > obv_ema.iloc[-1]: skor += 15
+                else: skor -= 20
+                
+                # 4. Momentum (RSI)
+                if 35 <= rsi <= 55: skor += 10
+                elif rsi > 70: skor -= 15
+                
+                # 5. MACD Teyidi
+                if macd_serisi.iloc[-1] > macd_sinyal.iloc[-1]: skor += 10
+                else: skor -= 10
+                
+                # 6. Temel Sağlık (F-Skor / PEG)
+                if (f_skor_ham is not None and f_skor_ham >= 5) or (peg is not None and 0 < peg < 1.5): skor += 15
+                else: skor -= 15
+                
+                # 7. Volatilite ve Bollinger Bant Durumu
+                if bugun_kapanis <= bb_mid: skor += 10
+                elif bugun_kapanis >= bb_ust and rsi >= 65: skor -= 15
+
+                if skor >= 70: skor_etiket = f"{skor} Puan (Güçlü 🟢)"
+                elif skor >= 50: skor_etiket = f"{skor} Puan (Nötr ⚖️)"
+                else: skor_etiket = f"{skor} Puan (Cezalı/Riskli 🔴)"
 
                 # Karma Destek/Direnç
                 swing_high = df_long['High'].tail(50).max()
@@ -423,7 +447,7 @@ if tarama_tetiklendi and selected_tickers:
                     "Varlık": ticker,
                     "Fiyat": f"{bugun_kapanis:.2f} {para_birimi}",
                     "Görec. Güç (Sektör)": gorec_guc_str,
-                    "Teknik Skor (7'li)": f"{skor}/7 {skor_rengi}",
+                    "7'li Cezalı Skor": skor_etiket,
                     "Para Akışı (OBV/MFI)": para_durumu,
                     "Temel Veri (PEG/FK)": temel_durum,
                     "F-Skor (Piotroski)": f_skor_etiket,
@@ -451,27 +475,22 @@ if st.session_state.tarama_durumu and st.session_state.sonuclar:
     
     st.markdown("<br>", unsafe_allow_html=True)
     
-    with st.expander("📖 Kurumsal Terminal ve Seviyeler Nasıl Okunur?", expanded=False):
+    with st.expander("📖 Kurumsal Terminal ve Cezalı Skorlama Matrisi Nasıl Çalışır?", expanded=False):
         st.markdown("""
         <div class="info-box">
-            <b>📊 1. Teknik Skor (7'li Sistem) & Hacim (Vol)</b><br>
-            • <b>7'li Skor:</b> Uzun/kısa vade trend, RSI, MACD, OBV para girişi, volatilite ve temel kalite olmak üzere 7 farklı kritere bakar. (5/7 ve üzeri güçlüdür).<br>
-            • <b>Vol (Hacim):</b> O günkü hacmin son 20 günün ortalamasına oranıdır. (Örn: Vol %150, ortalamanın %50 üzerinde patlama olduğunu gösterir.)<br><br>
-            <hr style="border-color: #444;">
-            <b>🧪 2. Piotroski F-Skoru (Finansal Kalite)</b><br>
-            Şirketin bilançosundan kârlılık, kaldıraç, nakit akışı vb. 9 farklı metrik ölçülerek hesaplanır.<br>
-            • <b>8-9 Puan:</b> Elmas 💎 (Çok güçlü finansallar)<br>
-            • <b>6-7 Puan:</b> Güçlü 🟢<br>
-            • <b>4-5 Puan:</b> Nötr ⚖️<br>
-            • <b>0-3 Puan:</b> Riskli ⚠️ (Uzak durulmalı)<br><br>
-            <hr style="border-color: #444;">
-            <b>🛡️ 3. Doğal Teknik Seviyeler (Karma Destek & Direnç)</b><br>
-            • <b>Karma Destek:</b> Hissenin yerel dibi, 50 EMA, Fib %61.8 ve ATR tabanı harmanlanarak bulunan ortak destek bölgesi.<br>
-            • <b>Karma Direnç:</b> Hissenin yerel tepesi, VWAP, Fib %38.2 ve Bollinger Üst Bandı sentezlenerek bulunan direnç bölgesi.<br><br>
-            <hr style="border-color: #444;">
-            <b>🎯 4. Operasyonel Risk Yönetimi</b><br>
-            • <b>Süren Stop:</b> Sermayeyi koruyan, zarar-kes sınırıdır.<br>
-            • <b>Hibrit Kâr Al (TP):</b> Alınan risk oranına göre hesaplanan kurumsal kâr realizasyonu (TP1, TP2) hedefleridir.
+            <b>🧠 7'li Cezalı & Ödüllü Skorlama Sistemi Matrisi</b><br>
+            Sistem basitçe puan toplamaz; hatalı sinyalleri ve tuzakları (fakeout) elemek için <b>50 Puan nötr tabanla</b> başlar, riskli durumlarda ciddi ceza puanları (-15, -20, -25) keser:<br><br>
+            • <b>1. Uzun Vade Trend (200 SMA):</b> Fiyat 200 gün üzerindeyse <b>+15 Puan</b>, altındaysa (ayı riski) <b>-25 Puan ceza</b>.<br>
+            • <b>2. Kısa Vade Trend (50 EMA):</b> 50 EMA üstünde sağlıklıysa <b>+10 Puan</b>, altındaysa <b>-15 Puan ceza</b>.<br>
+            • <b>3. Hacim ve Para Akışı (OBV & Vol):</b> Hacim desteği ve pozitif OBV varsa <b>+15 Puan</b>, hacimsiz tuzak hareketse <b>-20 Puan ceza</b>.<br>
+            • <b>4. Momentum (RSI):</b> Sağlıklı bölgedeyse (35-50) <b>+10 Puan</b>, aşırı şişmiş tepe bölgesindeyse (>70) <b>-15 Puan ceza</b>.<br>
+            • <b>5. MACD Teyidi:</b> Pozitif kesişim onaylıysa <b>+10 Puan</b>, negatif uyumsuzlukta <b>-10 Puan ceza</b>.<br>
+            • <b>6. Temel Kalite (F-Skor / PEG):</b> Bilanço/PEG cazipse <b>+15 Puan</b>, riskli/pahalıysa <b>-15 Puan ceza</b>.<br>
+            • <b>7. Volatilite (Bollinger):</b> Alt banttan tepki alıyorsa <b>+10 Puan</b>, üst banda çarpıp şiştiyse <b>-15 Puan ceza</b>.<br><br>
+            <b>Skor Aralıkları:</b><br>
+            🟢 <b>70+ Puan:</b> Güçlü ve onaylı alım adayı.<br>
+            ⚖️ <b>50 - 69 Puan:</b> Nötr / İzleme bölgesi.<br>
+            🔴 <b>50 Puan Altı (Cezalı):</b> Tuzak barındıran, uzak durulması gereken varlık.
         </div>
         """, unsafe_allow_html=True)
     
