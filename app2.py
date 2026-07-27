@@ -239,7 +239,7 @@ preset_options = get_preset_options()
 tum_varliklar_havuzu = list(set([h for lst in preset_options.values() for h in lst]))
 
 st.title("📈 Hibrit Portföy Komuta Merkezi")
-st.markdown("**Mod:** Derin Analiz (Cezalı Skor + F-Skoru + Hacim + Karma Destek/Direnç)")
+st.markdown("**Mod:** Derin Analiz (Cezalı Skor + F-Skoru + Hacim + Aktif 1H Teyit)")
 st.markdown("---")
 
 st.sidebar.header("⚙️ Kontrol Paneli")
@@ -265,7 +265,7 @@ with st.sidebar.expander("📋 Varlık Seçimi", expanded=True):
 tarama_tetiklendi = st.sidebar.button("🚀 Derin Taramayı Başlat", type="primary", use_container_width=True)
 
 if tarama_tetiklendi and selected_tickers:
-    with st.spinner("Hedge-Fund Katmanları İşleniyor (Cezalı Skor, Hacim, F-Skoru, Karma Destek/Direnç)..."):
+    with st.spinner("Hedge-Fund Katmanları İşleniyor (Cezalı Skor, F-Skoru, Aktif 1H Teyit Kontrolü)..."):
         gecici_sonuclar = []
         boga_sayisi = alim_firsati = 0
         
@@ -378,33 +378,25 @@ if tarama_tetiklendi and selected_tickers:
 
                 # --- CEZALI & ÖDÜLLÜ 7'Lİ SKORLAMA SİSTEMİ (50 NÖTR TABAN) ---
                 skor = 50 
-                
-                # 1. Uzun Vade Trend (200 SMA)
                 if bugun_kapanis > sma_200: skor += 15
                 else: skor -= 25
                 
-                # 2. Kısa Vade Trend (50 EMA)
                 ema_50_val = df_long['Close'].ewm(span=50).mean().iloc[-1]
                 if bugun_kapanis > ema_50_val: skor += 10
                 else: skor -= 15
                 
-                # 3. Hacim ve Para Akışı (OBV & Hacim Ortalaması)
                 if hacim_oran >= 100 and obv[-1] > obv_ema.iloc[-1]: skor += 15
                 else: skor -= 20
                 
-                # 4. Momentum (RSI)
                 if 35 <= rsi <= 55: skor += 10
                 elif rsi > 70: skor -= 15
                 
-                # 5. MACD Teyidi
                 if macd_serisi.iloc[-1] > macd_sinyal.iloc[-1]: skor += 10
                 else: skor -= 10
                 
-                # 6. Temel Sağlık (F-Skor / PEG)
                 if (f_skor_ham is not None and f_skor_ham >= 5) or (peg is not None and 0 < peg < 1.5): skor += 15
                 else: skor -= 15
                 
-                # 7. Volatilite ve Bollinger Bant Durumu
                 if bugun_kapanis <= bb_mid: skor += 10
                 elif bugun_kapanis >= bb_ust and rsi >= 65: skor -= 15
 
@@ -439,7 +431,24 @@ if tarama_tetiklendi and selected_tickers:
                 elif not uzun_vade_trend and rsi < 50: sinyal = "UZAK DUR! 🛑"
                 if uzun_vade_trend: boga_sayisi += 1
 
-                mikro_teyit = "⏳ 1H Dönüş Bekle" if "ALIM" in sinyal else "➖"
+                # --- AKTİF 1 SAATLİK (1H) REVERSAL TEYİT MOTORU ---
+                mikro_teyit = "➖"
+                if "ALIM" in sinyal:
+                    try:
+                        df_1h = stock.history(period="5d", interval="1h")
+                        if not df_1h.empty and len(df_1h) >= 2:
+                            son_1h_kapanis = df_1h['Close'].iloc[-1]
+                            onceki_1h_yuksek = df_1h['High'].iloc[-2]
+                            son_1h_yesil = df_1h['Close'].iloc[-1] > df_1h['Open'].iloc[-1]
+                            
+                            if son_1h_yesil and son_1h_kapanis >= onceki_1h_yuksek:
+                                mikro_teyit = "🔥 Tetiği Çek (1H Onaylandı!)"
+                            else:
+                                mikro_teyit = "⏳ 1H Onay Bekleniyor"
+                        else:
+                            mikro_teyit = "⏳ 1H Dönüş Bekle"
+                    except:
+                        mikro_teyit = "⏳ 1H Dönüş Bekle"
 
                 lot = int((bist_kasa if is_bist else nasdaq_kasa) * risk_orani / alinan_risk) if "ALIM" in sinyal else 0
 
@@ -504,9 +513,9 @@ if st.session_state.tarama_durumu and st.session_state.sonuclar:
             • <b>Karma Destek:</b> Hissenin yerel dibi, 50 EMA, Fib %61.8 geri çekilme seviyesi ve ATR tabanı harmanlanarak hesaplanan akıllı savunma hattıdır.<br>
             • <b>Karma Direnç:</b> Yerel tepe, VWAP, Fib %38.2 ve Bollinger Üst Bandı sentezlenerek bulunan kâr realizasyon/direnç bölgesidir.<br><br>
             <hr style="border-color: #444;">
-            <b>🎯 5. Operasyonel Risk Yönetimi (Stop & TP)</b><br>
-            • <b>Süren Stop (Trailing Stop):</b> Volatilitesini ve ATR'yi hesaba katarak sermayeyi koruyan dinamik zarar-kes seviyesidir.<br>
-            • <b>Hibrit Kâr Al (TP):</b> Alınan risk (Risk/Reward) katsayılarına göre hesaplanan kurumsal hedef kademeleridir (TP1 ve TP2).
+            <b>🎯 5. Operasyonel Risk Yönetimi & Aktif 1H Teyit</b><br>
+            • <b>1H Teyit Sütunu:</b> Alım sinyali üreten varlıklarda 1 saatlik intraday mumları tarayarak yeşil kapanış ve kırılım onaylandığında <b>"🔥 Tetiği Çek (1H Onaylandı!)"</b> uyarısı verir.<br>
+            • <b>Süren Stop & TP:</b> Volatilitesini ve ATR'yi hesaba katarak sermayeyi koruyan dinamik stop-loss ve kurumsal kâr hedefleridir.
         </div>
         """, unsafe_allow_html=True)
     
