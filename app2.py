@@ -61,7 +61,7 @@ if st.session_state.user_email is None and saved_email is not None and not st.se
             st.session_state.custom_tickers = VARSAYILAN_TICKERS.copy()
     st.rerun()
 
-# --- CSS STİLLERİ (TELEFONDA MENÜ BUTONUNUN AÇILMASI İÇİN HEADER KORUNDU) ---
+# --- CSS STİLLERİ ---
 st.markdown("""
 <style>
     div[data-testid="stStatusWidget"] { display: none !important; visibility: hidden !important; opacity: 0 !important; pointer-events: none !important; }
@@ -331,18 +331,12 @@ if tarama_tetiklendi:
                     para_birimi = "TL" if is_bist else "$"
                     
                     info = stock.info if hasattr(stock, 'info') else {}
-                    anlik_fiyat = None
                     
-                    if not is_bist:
-                        anlik_fiyat = info.get('currentPrice', info.get('regularMarketPrice', info.get('previousClose', None)))
-                    
-                    if anlik_fiyat is None or pd.isna(anlik_fiyat) or anlik_fiyat <= 0:
-                        bugun_kapanis = float(df_long['Close'].iloc[-1])
-                    else:
-                        bugun_kapanis = float(anlik_fiyat)
-                        df_long.iloc[-1, df_long.columns.get_loc('Close')] = bugun_kapanis
-
+                    # DÜZELTME: After-Hours (Mesai dışı) fiyat çakışmasını önlemek için 
+                    # fiyatlar doğrudan history verisindeki seans kapanışlarından alınır.
+                    bugun_kapanis = float(df_long['Close'].iloc[-1])
                     onceki_kapanis = float(df_long['Close'].iloc[-2]) if len(df_long) >= 2 else bugun_kapanis
+                    
                     gunluk_degisim = ((bugun_kapanis - onceki_kapanis) / onceki_kapanis) * 100 if onceki_kapanis > 0 else 0.0
                     fiyat_str = f"{bugun_kapanis:.2f} {para_birimi} ({'+' if gunluk_degisim > 0 else ''}{gunluk_degisim:.2f}%)"
 
@@ -739,4 +733,4 @@ if st.session_state.tarama_durumu:
                         st.warning("Seçilen varlık için yeterli grafik verisi bulunamadı.")
 
         else:
-            st.info("Seçilen kriterlere (Sadece Alım Fırsatları) uyan varlık bulunamadı.")
+            st.info("Seçilen kriterlere (Sadece Alım Fırsatlarını Göster) uyan varlık bulunamadı.")
