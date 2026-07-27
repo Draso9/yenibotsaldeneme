@@ -253,7 +253,7 @@ preset_options = get_preset_options()
 tum_varliklar_havuzu = list(set([h for lst in preset_options.values() for h in lst]))
 
 st.title("📈 Hibrit Portföy Komuta Merkezi")
-st.markdown("**Mod:** Derin Analiz (Cezalı Skor + F-Skoru + Hacim + Aktif 1H Teyit)")
+st.markdown("**Mod:** Derin Analiz (Cezalı Skor + F-Skoru + Hacim + Sığ Tahta Koruması + Aktif 1H Teyit)")
 st.markdown("---")
 
 st.sidebar.header("⚙️ Kontrol Paneli")
@@ -279,7 +279,7 @@ with st.sidebar.expander("📋 Varlık Seçimi", expanded=True):
 tarama_tetiklendi = st.sidebar.button("🚀 Derin Taramayı Başlat", type="primary", use_container_width=True)
 
 if tarama_tetiklendi and selected_tickers:
-    with st.spinner("Hedge-Fund Katmanları İşleniyor (Cezalı Skor, F-Skoru, Aktif 1H Teyit Kontrolü)..."):
+    with st.spinner("Hedge-Fund Katmanları İşleniyor (Cezalı Skor, F-Skoru, Sığ Tahta, Aktif 1H Teyit)..."):
         gecici_sonuclar = []
         boga_sayisi = alim_firsati = 0
         
@@ -324,6 +324,12 @@ if tarama_tetiklendi and selected_tickers:
                 onceki_kapanis = float(df_long['Close'].iloc[-2]) if len(df_long) >= 2 else bugun_kapanis
                 gunluk_degisim = ((bugun_kapanis - onceki_kapanis) / onceki_kapanis) * 100 if onceki_kapanis > 0 else 0.0
                 fiyat_str = f"{bugun_kapanis:.2f} {para_birimi} ({'+' if gunluk_degisim > 0 else ''}{gunluk_degisim:.2f}%)"
+
+                # Akıllı Sığ Tahta (Likidite) Kontrolü
+                ortalama_hacim_20 = df_long['Volume'].rolling(20).mean().iloc[-1]
+                ortalama_ciro_tutar = ortalama_hacim_20 * bugun_kapanis if not pd.isna(ortalama_hacim_20) else 0
+                sig_tahta_esik = 50_000_000 if is_bist else 5_000_000 # BIST için 50M TL, ABD için 5M $
+                is_sig_tahta = ortalama_ciro_tutar < sig_tahta_esik
 
                 # Temel Veri Katmanı
                 fk = info.get('trailingPE', info.get('forwardPE', None))
@@ -381,7 +387,7 @@ if tarama_tetiklendi and selected_tickers:
                 bb_ust = (df_long['Close'].rolling(20).mean() + (df_long['Close'].rolling(20).std() * 2)).iloc[-1]
                 bb_alt = (df_long['Close'].rolling(20).mean() - (df_long['Close'].rolling(20).std() * 2)).iloc[-1]
 
-                # Para Akışı
+                # Para Akışı ve Sığ Tahta Etiketi
                 typical_price = (df_long['High'] + df_long['Low'] + df_long['Close']) / 3
                 raw_money_flow = typical_price * df_long['Volume']
                 pos_flow = pd.Series(np.where(typical_price > typical_price.shift(1), raw_money_flow, 0))
@@ -394,6 +400,8 @@ if tarama_tetiklendi and selected_tickers:
                 obv_ema = pd.Series(obv).ewm(span=20).mean()
                 
                 para_durumu = f"Balina Girişi 🐋 (MFI:{mfi_val:.0f})" if mfi_val < 30 else ("Çıkış Var 📉" if mfi_val > 75 else f"Nötr (MFI:{mfi_val:.0f})")
+                if is_sig_tahta:
+                    para_durumu += " | Sığ Tahta ⚠️"
 
                 # --- CEZALI & ÖDÜLLÜ 7'Lİ SKORLAMA SİSTEMİ (50 NÖTR TABAN) ---
                 skor = 50 
@@ -418,6 +426,10 @@ if tarama_tetiklendi and selected_tickers:
                 
                 if bugun_kapanis <= bb_mid: skor += 10
                 elif bugun_kapanis >= bb_ust and rsi >= 65: skor -= 15
+
+                # Sığ Tahta Cezası (-20 Puan)
+                if is_sig_tahta:
+                    skor -= 20
 
                 if skor >= 70: skor_etiket = f"{skor} Puan (Güçlü 🟢)"
                 elif skor >= 50: skor_etiket = f"{skor} Puan (Nötr ⚖️)"
@@ -511,6 +523,7 @@ if st.session_state.tarama_durumu and st.session_state.sonuclar:
             • <b>Uzun Vade Trend (200 SMA):</b> Üzerindeyse <b>+15 Puan</b>, altındaysa (ayı riski) <b>-25 Puan ceza</b>.<br>
             • <b>Kısa Vade Trend (50 EMA):</b> Üzerindeyse <b>+10 Puan</b>, altındaysa <b>-15 Puan ceza</b>.<br>
             • <b>Hacim & Para Akışı (OBV & Vol):</b> Hacim desteği ve pozitif OBV varsa <b>+15 Puan</b>, hacimsiz tuzak hareketse <b>-20 Puan ceza</b>.<br>
+            • <b>Sığ Tahta Koruması (Likidite):</b> Günlük ortalama işlem cirosu çok düşük olan sığ hisselere <b>-20 Puan ceza</b> ve <b>Sığ Tahta ⚠️</b> uyarısı basılır.<br>
             • <b>Momentum (RSI):</b> Sağlıklı bölgedeyse (35-50) <b>+10 Puan</b>, aşırı şişmiş tepe bölgesindeyse (>70) <b>-15 Puan ceza</b>.<br>
             • <b>MACD Teyidi:</b> Pozitif kesişim onaylıysa <b>+10 Puan</b>, negatif uyumsuzlukta <b>-10 Puan ceza</b>.<br>
             • <b>Temel Kalite (F-Skor / PEG):</b> Bilanço/PEG cazipse <b>+15 Puan</b>, riskli/pahalıysa <b>-15 Puan ceza</b>.<br>
