@@ -320,6 +320,11 @@ if tarama_tetiklendi and selected_tickers:
                     df_long.iloc[-1, df_long.columns.get_loc('Close')] = bugun_kapanis
                 # -------------------------------------------------------------
 
+                # Günlük Değişim Yüzdesi Hesabı
+                onceki_kapanis = float(df_long['Close'].iloc[-2]) if len(df_long) >= 2 else bugun_kapanis
+                gunluk_degisim = ((bugun_kapanis - onceki_kapanis) / onceki_kapanis) * 100 if onceki_kapanis > 0 else 0.0
+                fiyat_str = f"{bugun_kapanis:.2f} {para_birimi} ({'+' if gunluk_degisim > 0 else ''}{gunluk_degisim:.2f}%)"
+
                 # Temel Veri Katmanı
                 fk = info.get('trailingPE', info.get('forwardPE', None))
                 peg = info.get('trailingPegRatio', info.get('pegRatio', None))
@@ -468,7 +473,7 @@ if tarama_tetiklendi and selected_tickers:
 
                 gecici_sonuclar.append({
                     "Varlık": ticker,
-                    "Fiyat": f"{bugun_kapanis:.2f} {para_birimi}",
+                    "Fiyat": fiyat_str,
                     "Görec. Güç (Sektör)": gorec_guc_str,
                     "7'li Cezalı Skor": skor_etiket,
                     "Para Akışı (OBV/MFI)": para_durumu,
@@ -533,7 +538,7 @@ if st.session_state.tarama_durumu and st.session_state.sonuclar:
         </div>
         """, unsafe_allow_html=True)
     
-    # "Sadece Alım Fırsatlarını Göster" butonu terminalin altına ve tablonun üstüne yerleştirildi:
+    # "Sadece Alım Fırsatlarını Göster" butonu terminalin altında, tablonun üstünde yer alıyor:
     sadece_alim_goster = st.checkbox("🎯 Sadece Alım Fırsatlarını Göster", value=False)
     
     df_sonuc = pd.DataFrame(st.session_state.sonuclar)
