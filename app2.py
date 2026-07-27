@@ -85,7 +85,7 @@ BIST_30 = [
 ABD_HİSSELERİ = ["AAPL", "MSFT", "GOOGL", "AMZN", "META", "TSLA", "NVDA", "AMD", "INTC", "NFLX"]
 
 # --- PİOTROSKİ F-SKORU HESAPLAMA (Önbellekli Sistem) ---
-@st.cache_data(ttl=86400) # 24 saat önbellekte tutar, API'yi yormaz
+@st.cache_data(ttl=86400)
 def hesapla_f_skor_cached(ticker_name):
     try:
         stock = yf.Ticker(ticker_name)
@@ -103,36 +103,29 @@ def hesapla_f_skor_cached(ticker_name):
                 if k in df.index: return df.loc[k].iloc[col]
             return 0
         
-        # 1. Kârlılık: Net Kar Pozitif mi?
         ni_c = get_val(inc, ['Net Income', 'Net Income Continuous Operations'], 0)
         if ni_c > 0: score += 1
         
-        # 2. Nakit Akışı: İşletme Faaliyetlerinden Nakit Akışı Pozitif mi?
         ocf_c = get_val(cf, ['Operating Cash Flow', 'Total Cash From Operating Activities'], 0)
         if ocf_c > 0: score += 1
         
-        # 3. ROA: Varlık Karlılığı (Net Kar / Toplam Varlıklar)
         ta_c = get_val(bs, ['Total Assets'], 0)
         roa_c = ni_c / ta_c if ta_c != 0 else 0
         if roa_c > 0: score += 1
         
-        # 4. Kazanç Kalitesi (Operasyonel Nakit Akışı > Net Kar)
         if ocf_c > ni_c: score += 1
         
-        # 5. ROA Gelişimi (Bu Yıl ROA > Geçen Yıl ROA)
         ni_p = get_val(inc, ['Net Income', 'Net Income Continuous Operations'], 1)
         ta_p = get_val(bs, ['Total Assets'], 1)
         roa_p = ni_p / ta_p if ta_p != 0 else 0
         if roa_c > roa_p: score += 1
         
-        # 6. Kaldıraç (Borçluluk Azalmış mı?)
         debt_c = get_val(bs, ['Long Term Debt', 'Total Debt'], 0)
         debt_p = get_val(bs, ['Long Term Debt', 'Total Debt'], 1)
         lev_c = debt_c / ta_c if ta_c != 0 else 0
         lev_p = debt_p / ta_p if ta_p != 0 else 0
         if lev_c < lev_p: score += 1
         
-        # 7. Cari Oran İyileşmesi
         ca_c = get_val(bs, ['Current Assets'], 0)
         cl_c = get_val(bs, ['Current Liabilities'], 0)
         cr_c = ca_c / cl_c if cl_c != 0 else 0
@@ -141,12 +134,10 @@ def hesapla_f_skor_cached(ticker_name):
         cr_p = ca_p / cl_p if cl_p != 0 else 0
         if cr_c > cr_p: score += 1
         
-        # 8. Hissedar Seyrelmesi (Yeni Hisse İhracı Yok)
         shares_c = get_val(bs, ['Ordinary Shares Number', 'Share Issued'], 0)
         shares_p = get_val(bs, ['Ordinary Shares Number', 'Share Issued'], 1)
         if shares_c <= shares_p and shares_c != 0: score += 1
         
-        # 9. Brüt Marj Gelişimi
         gp_c = get_val(inc, ['Gross Profit'], 0)
         rev_c = get_val(inc, ['Total Revenue'], 0)
         gm_c = gp_c / rev_c if rev_c != 0 else 0
@@ -186,6 +177,29 @@ if st.session_state.user_email is None:
                     st.rerun()
                 except Exception:
                     st.error("Giriş başarısız: E-posta veya şifre hatalı.")
+
+    with col2:
+        st.subheader("📝 Yeni Kayıt Ol")
+        with st.form("kayit_formu"):
+            k_email = st.text_input("E-posta Adresi", placeholder="ornek@mail.com")
+            k_sifre = st.text_input("Şifre", type="password", placeholder="En az 6 karakter")
+            k_sifre_tekrar = st.text_input("Şifre (Tekrar)", type="password", placeholder="Şifrenizi tekrar girin")
+            kayit_butonu = st.form_submit_button("Hesap Oluştur", type="primary", use_container_width=True)
+            
+            if kayit_butonu:
+                if not k_email:
+                    st.error("E-posta adresi boş bırakılamaz.")
+                elif len(k_sifre) < 6:
+                    st.error("Şifre en az 6 karakter olmalıdır.")
+                elif k_sifre != k_sifre_tekrar:
+                    st.error("Şifreler birbiriyle eşleşmiyor!")
+                else:
+                    try:
+                        auth.create_user(email=k_email, password=k_sifre)
+                        if db: db.collection("kullanici_listeleri").document(k_email).set({"tickers": VARSAYILAN_TICKERS})
+                        st.success("Kayıt başarılı! Giriş yapabilirsiniz.")
+                    except Exception as e:
+                        st.error(f"Kayıt olunamadı: {e}")
     st.stop()
 
 # --- ASIL UYGULAMA MANTIĞI ---
@@ -290,7 +304,7 @@ if tarama_tetiklendi and selected_tickers:
                 # Sektörel Momentum & Para Akışı
                 son_1_ay_df = df_long.tail(21)
                 hisse_1m_getiri = ((son_1_ay_df['Close'].iloc[-1] - son_1_ay_df['Close'].iloc[0]) / son_1_ay_df['Close'].iloc[0]) * 100
-                sektorel_fark = hisse_1m_getiri - 0 # Basitleştirildi
+                sektorel_fark = hisse_1m_getiri - 0 
                 
                 typical_price = (df_long['High'] + df_long['Low'] + df_long['Close']) / 3
                 raw_money_flow = typical_price * df_long['Volume']
@@ -374,15 +388,25 @@ if st.session_state.tarama_durumu and st.session_state.sonuclar:
     with st.expander("📖 Kurumsal Terminal ve Seviyeler Nasıl Okunur?", expanded=False):
         st.markdown("""
         <div class="info-box">
-            <b>🛡️ Piotroski F-Skoru (Finansal Kalite)</b><br>
-            Şirketin bilançosundan 9 farklı sağlığı (kârlılık, kaldıraç, nakit akışı vb.) ölçülür.<br>
-            • <b>8-9 Puan:</b> Elmas (Çok güçlü finansallar)<br>
-            • <b>6-7 Puan:</b> Güçlü<br>
-            • <b>4-5 Puan:</b> Nötr<br>
-            • <b>0-3 Puan:</b> Riskli (Uzak durulmalı)<br><br>
+            <b>🧪 1. Piotroski F-Skoru (Finansal Kalite)</b><br>
+            Şirketin bilançosundan kârlılık, kaldıraç, nakit akışı vb. 9 farklı metrik ölçülerek hesaplanır.<br>
+            • <b>8-9 Puan:</b> Elmas 💎 (Çok güçlü finansallar)<br>
+            • <b>6-7 Puan:</b> Güçlü 🟢<br>
+            • <b>4-5 Puan:</b> Nötr ⚖️<br>
+            • <b>0-3 Puan:</b> Riskli ⚠️ (Uzak durulmalı)<br><br>
             <hr style="border-color: #444;">
-            <b>🎯 Doğal Teknik Seviyeler (Karma Destek & Direnç)</b><br>
-            Karma Destek (Yerel dip, 50 EMA, Fib %61.8, ATR tabanı), Karma Direnç (Yerel tepe, VWAP, Fib %38.2, Bollinger Üst).
+            <b>🛡️ 2. Doğal Teknik Seviyeler (Karma Destek & Direnç)</b><br><br>
+            • <b>Karma Destek:</b> Hissenin yerel dibi, 50 EMA, Fib %61.8 ve ATR tabanı harmanlanarak bulunan en güçlü ortak taban bölgesidir.<br>
+            • <b>Karma Direnç:</b> Hissenin yerel tepesi, VWAP, Fib %38.2 ve Bollinger Üst Bandı sentezlenerek bulunan ana hedef tavan bölgesidir.<br><br>
+            <hr style="border-color: #444;">
+            <b>🎯 3. Operasyonel Risk Yönetimi (Süren Stop & TP Hedefleri)</b><br><br>
+            • <b>Süren Stop:</b> Pozisyon açıldığında sermayeyi korumak için izlenen, fiyatla birlikte yukarı hareket eden zarar-kes sınırıdır.<br>
+            • <b>Hibrit Kâr Al (TP):</b> Alınan riskin katları (TP1 ve TP2) baz alınarak hesaplanan kurumsal kâr realizasyonu hedefleridir.<br><br>
+            <hr style="border-color: #444;">
+            <b>⚡ 4. Sinyaller ve Ek Modüller</b><br><br>
+            • <b>🟢 KUSURSUZ ALIM / 🔵 KADEMELİ ALIM:</b> Uzun vade trend ve aşırı satım (RSI) kurallarına göre üretilen giriş fırsatları.<br>
+            • <b>Para Akışı (OBV & MFI):</b> Hacim desteğiyle <b>"Balina Girişi 🐋"</b> yakalar.<br>
+            • <b>Zamanlama (1 Saatlik Mikro Teyit):</b> 1H grafikte <b>"✅ Tetik Çek"</b> diyerek nokta atışı giriş sağlar.
         </div>
         """, unsafe_allow_html=True)
     
