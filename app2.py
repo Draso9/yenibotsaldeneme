@@ -464,13 +464,25 @@ if tarama_tetiklendi and selected_tickers:
                 tp1, tp2 = bugun_kapanis + (alinan_risk * 1.5), bugun_kapanis + (alinan_risk * 3.0)
                 hibrit_tp = f"⚠️ Şişti: Kâr Al" if rsi >= 65 else f"TP1: {tp1:.2f} | TP2: {tp2:.2f}"
 
-                # Sinyal Üretimi
-                sinyal = "Nötr (İzle) ⚖️"
-                if bugun_kapanis > bb_ust and rsi >= 68: sinyal = "KAR REALİZASYONU 🔴"
-                elif bugun_kapanis <= bb_alt and rsi <= 35 and uzun_vade_trend: sinyal = "KUSURSUZ ALIM 🟢"; alim_firsati += 1
-                elif rsi <= 40 and uzun_vade_trend: sinyal = "KADEMELİ ALIM 🔵"; alim_firsati += 1
-                elif not uzun_vade_trend and rsi < 50: sinyal = "UZAK DUR! 🛑"
-                if uzun_vade_trend: boga_sayisi += 1
+                # --- DÜZELTİLMİŞ SİNYAL ÜRETİM MANTIĞI ---
+sinyal = "Nötr (İzle) ⚖️"
+
+if bugun_kapanis > bb_ust and rsi >= 68:
+  sinyal = "KAR REALİZASYONU 🔴"
+
+# KUSURSUZ ALIM ŞARTI: Hem teknik dip olacak, hem uzun vade trend pozitif olacak, HEM DE SKOR CEZALI OLMAYACAK (>= 50)
+elif bugun_kapanis <= bb_alt and rsi <= 35 and uzun_vade_trend and skor >= 50:
+  sinyal = "KUSURSUZ ALIM 🟢"
+  alim_firsati += 1
+
+# KADEMELİ ALIM ŞARTI: Yine skorun ve trendin onay vermesi şart
+elif rsi <= 40 and uzun_vade_trend and skor >= 50:
+  sinyal = "KADEMELİ ALIM 🔵"
+  alim_firsati += 1
+
+# EĞER SKOR 50'NİN ALTINDAYSA VEYA TREND BOZUKSA: Asla alım verme, doğrudan uzak dur de!
+elif skor < 50 or (not uzun_vade_trend and rsi < 50):
+  sinyal = "UZAK DUR! 🛑"
 
                 # --- AKTİF 1 SAATLİK (1H) REVERSAL TEYİT MOTORU ---
                 mikro_teyit = "➖"
