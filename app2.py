@@ -270,11 +270,12 @@ with st.sidebar.expander("💰 Kasa ve Risk Parametreleri", expanded=True):
     nasdaq_kasa = st.number_input("NASDAQ Kasa ($)", value=1000, step=1000)
     risk_orani = st.slider("Risk Oranı (%)", 1.0, 5.0, 2.0, 0.5) / 100.0
 
-with st.sidebar.expander("📋 Varlık Seçimi", expanded=True):
+with st.sidebar.expander("📋 Varlık Seçimi ve Filtreler", expanded=True):
     st.text_input("Varlık Ekle (Örn: KCHOL.IS, INTC):", key="ek_hisse_input_field", placeholder="KCHOL.IS")
     st.button("➕ Ekle", on_click=hisse_ekle_callback)
     st.selectbox("Profil", list(preset_options.keys()), key="profil_secim_kutusu", on_change=lambda: st.session_state.update({"secilen_varliklar_multiselect": get_preset_options()[st.session_state.profil_secim_kutusu].copy()}))
     selected_tickers = st.multiselect("Taranacak Varlıklar", options=tum_varliklar_havuzu, key="secilen_varliklar_multiselect")
+    sadece_alim_goster = st.checkbox("🎯 Sadece Alım Fırsatlarını Göster", value=False)
 
 tarama_tetiklendi = st.sidebar.button("🚀 Derin Taramayı Başlat", type="primary", use_container_width=True)
 
@@ -535,6 +536,9 @@ if st.session_state.tarama_durumu and st.session_state.sonuclar:
     
     df_sonuc = pd.DataFrame(st.session_state.sonuclar)
     
+    if sadece_alim_goster:
+        df_sonuc = df_sonuc[df_sonuc["Nihai Sinyal"].str.contains("ALIM", na=False)]
+    
     def color_df(row):
         c = ''
         if '🟢' in str(row['Nihai Sinyal']) or '🔵' in str(row['Nihai Sinyal']): c = 'background-color: rgba(39, 174, 96, 0.15)'
@@ -542,4 +546,7 @@ if st.session_state.tarama_durumu and st.session_state.sonuclar:
         elif '⚠️' in str(row['Nihai Sinyal']): c = 'background-color: rgba(243, 156, 18, 0.25)'
         return [c] * len(row)
 
-    st.dataframe(df_sonuc.style.apply(color_df, axis=1), use_container_width=True, height=500)
+    if not df_sonuc.empty:
+        st.dataframe(df_sonuc.style.apply(color_df, axis=1), use_container_width=True, height=500)
+    else:
+        st.info("Seçilen kriterlere (Sadece Alım Fırsatları) uyan varlık bulunamadı.")
