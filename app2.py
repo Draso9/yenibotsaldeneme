@@ -8,6 +8,8 @@ import firebase_admin
 from firebase_admin import credentials, firestore, auth
 import extra_streamlit_components as stx
 import time
+import plotly.graph_objects as go
+from plotly.subplots import make_subplots
 
 # --- 1. SAYFA YAPILANDIRMASI ---
 st.set_page_config(
@@ -396,7 +398,7 @@ if tarama_tetiklendi and selected_tickers:
                 mfi_val = mfi.iloc[-1] if not pd.isna(mfi.iloc[-1]) else 50
                 
                 obv = np.where(df_long['Close'] > df_long['Close'].shift(1), df_long['Volume'],
-                      np.where(df_long['Close'] < df_long['Close'].shift(1), -df_long['Volume'], 0)).cumsum()
+                    np.where(df_long['Close'] < df_long['Close'].shift(1), -df_long['Volume'], 0)).cumsum()
                 obv_ema = pd.Series(obv).ewm(span=20).mean()
                 
                 if mfi_val >= 70:
@@ -557,7 +559,6 @@ if st.session_state.tarama_durumu and st.session_state.sonuclar:
         </div>
         """, unsafe_allow_html=True)
     
-    # "Sadece Alım Fırsatlarını Göster" butonu terminalin altında, tablonun üstünde yer alıyor:
     sadece_alim_goster = st.checkbox("🎯 Sadece Alım Fırsatlarını Göster", value=False)
     
     df_sonuc = pd.DataFrame(st.session_state.sonuclar)
@@ -573,6 +574,122 @@ if st.session_state.tarama_durumu and st.session_state.sonuclar:
         return [c] * len(row)
 
     if not df_sonuc.empty:
-        st.dataframe(df_sonuc.style.apply(color_df, axis=1), use_container_width=True, height=500)
+        st.dataframe(df_sonuc.style.apply(color_df, axis=1), use_container_width=True, height=350)
+        
+        # ==========================================
+        # --- PLOTLY ÇOKLU TEKNİK ANALİZ GRAFİK PANELİ ---
+        # ==========================================
+        st.markdown("### 📊 Detaylı Teknik Analiz & Gösterge Paneli")
+        
+        taranan_semboller_listesi = df_sonuc["Varlık"].tolist()
+        secilen_detay_hisse = st.selectbox("İncelemek İçin Varlık Seçin:", options=taranan_semboller_listesi, key="detay_hisse_secici")
+        
+        if secilen_detay_hisse:
+            with st.spinner(f"{secilen_detay_hisse} için grafik verileri yükleniyor..."):
+                stk_detay = yf.Ticker(secilen_detay_hisse)
+                df_grafik = stk_detay.history(period="6mo")
+                
+                if not df_grafik.empty:
+                    # İndikatör hesaplamaları
+                    df_grafik['SMA200'] = df_grafik['Close'].rolling(200).mean()
+                    df_grafik['EMA50'] = df_grafik['Close'].ewm(span=50).mean()
+                    
+                    delta_g = df_grafik['Close'].diff()
+                    rs_g = delta_g.where(delta_g>0, 0.0).ewm(alpha=1/14, adjust=False).mean() / (-delta_g.where(delta_g<0, 0.0).ewm(alpha=1/14, adjust=False).mean() + 1e-5)
+                    df_grafik['RSI'] = 100 - (100 / (1 + rs_g))
+                    
+                    typ_p = (df_grafik['High'] + df_grafik['Low'] + df_grafik['Close']) / 3
+                    raw_mf = typ_p * df_grafik['Volume']
+                    pos_f = pd.Series(np.where(typ_p > typ_p.shift(1), raw_mf, 0))
+                    neg_f = pd.Series(np.where(typ_p < typ_p.shift(1), raw_mf, 0))
+                    df_grafik['MFI'] = 100 - (100 / (1 + (pos_f.rolling(14).sum() / (neg_f.rolling(14).sum() + 1e-5))))
+
+                    # Plotly Subplots (3 Satır: Fiyat, RSI, MFI)
+                    fig = make_subplots(rows=3, cols=1, shared_xaxes=True, 
+                                        vertical_spacing=0.03, 
+                                        row_heights=[0.6, 0.2, 0.2])
+
+                    # 1. Satır: Mum Grafiği & Hareketli Ortalamalar
+                    fig.add_trace(go.Candlestick(
+                        x=df_grafik.index,
+                        open=df_grafik['Open'], high=df_grafik['High'],
+                        low=df_grafik['Low'], close=df_grafik['Close'],
+                        name='Fiyat (Mum)'
+                    ), row=1, col=1)
+
+                    if not df_grafik['EMA50'].isna().all():
+                        fig.add_trace(go.Scatter(x=df_grafik.index, y=df_grafik['EMA50'], line=dict(color='orange', width=1.5), name='50 EMA'), row=1, col=1)
+                    if not df_grafik['SMA200'].isna().all():
+                        fig.add_trace(go.Scatter(x=df_grafik.index, y=df_grafik['SMA200'], line=dict(color='blue', width=1.5), name='200 SMA'), row=1, col=1)
+
+                    # 2. Satır: RSI
+                    fig.add_trace(go.Scatter(x=df_grafik.index, y=df_grafik['RSI'], line=dict(color='#00ffcc', width=1.5), name='RSI (14)'), row=2, col=1)
+                    fig.add_hline(y=70, line_dash="dash", line_color="red", row=2, col=1)
+                    fig.add_hline(y=30, line_dash="dash", line_color="green", row=2, col=1)
+
+                    # 3. Satır: MFI (Para Akışı Endeksi)
+                    fig.add_trace(go.Scatter(x=df_grafik.index, y=df_grafik['MFI'], line=dict(color='#ff9900', width=1.5), name='MFI (Para Akışı)'), row=3, col=1)
+                    fig.add_hline(y=70, line_dash="dash", line_color="red", row=3, col=1)
+                    fig.add_hline(y=30, line_dash="dash", line_color="green", row=3, col=1)
+
+                    # Grafik Tasarım Ayarları (Koyu Tema Uyumlu)
+                    fig.update_layout(
+                        template='plotly_dark',
+                        title=f"{secilen_detay_hisse} - Teknik Yapı ve Momentum Ekranı",
+                        xaxis_rangeslider_visible=False,
+                        height=700,
+                        margin=dict(l=10, r=10, t=40, b=10),
+                        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
+                    )
+
+                    st.plotly_chart(fig, use_container_width=True)
+
+                    # ==========================================
+                    # --- HİSSEYE ÖZEL DETAYLI ANALİZ & SEVİYE PANELİ ---
+                    # ==========================================
+                    st.markdown(f"### 📋 {secilen_detay_hisse} - Hisseye Özel Kurumsal Karar Paneli")
+                    
+                    secilen_veri = df_sonuc[df_sonuc["Varlık"] == secilen_detay_hisse].iloc[0]
+                    
+                    col_d1, col_d2, col_d3 = st.columns(3)
+                    
+                    with col_d1:
+                        st.markdown(f"""
+                        <div class="kpi-card" style="text-align: left; padding: 15px;">
+                            <b>🎯 Sinyal & Skor Durumu:</b><br>
+                            • Nihai Sinyal: <b>{secilen_veri['Nihai Sinyal']}</b><br>
+                            • 7'li Cezalı Skor: <b>{secilen_veri['7'li Cezalı Skor']}</b><br>
+                            • F-Skor (Piotroski): <b>{secilen_veri['F-Skor (Piotroski)']}</b><br>
+                            • Temel Yapı (PEG/FK): <b>{secilen_veri['Temel Veri (PEG/FK)']}</b>
+                        </div>
+                        """, unsafe_allow_html=True)
+                        
+                    with col_d2:
+                        st.markdown(f"""
+                        <div class="kpi-card" style="text-align: left; padding: 15px;">
+                            <b>🛡️ Risk, Destek & Hedefler:</b><br>
+                            • Karma Destek Hattı: <span style="color: #00FF88;"><b>{secilen_veri['Karma Destek']}</b></span><br>
+                            • Karma Direnç Hattı: <span style="color: #FF5555;"><b>{secilen_veri['Karma Direnç']}</b></span><br>
+                            • Süren Stop (Trailing): <span style="color: #FF5555;"><b>{secilen_veri['Süren Stop']}</b></span><br>
+                            • Kâr Hedefleri (TP): <span style="color: #00FF88;"><b>{secilen_veri['Hibrit Kâr Al (TP)']}</b></span>
+                        </div>
+                        """, unsafe_allow_html=True)
+                        
+                    with col_d3:
+                        st.markdown(f"""
+                        <div class="kpi-card" style="text-align: left; padding: 15px;">
+                            <b>🌊 Akış, Hacim & Zamanlama:</b><br>
+                            • Para Akışı (MFI/OBV): <b>{secilen_veri['Para Akışı (OBV/MFI)']}</b><br>
+                            • Sektörel Güç & Hacim: <b>{secilen_veri['Görec. Güç (Sektör)']}</b><br>
+                            • 1H Teyit Durumu: <b>{secilen_veri['↓ Zamanlama (1H Teyit)']}</b><br>
+                            • Önerilen Lot Miktarı: <b>{secilen_veri['Önerilen Lot']}</b>
+                        </div>
+                        """, unsafe_allow_html=True)
+                    # ==========================================
+
+                else:
+                    st.warning("Seçilen varlık için yeterli grafik verisi bulunamadı.")
+        # ==========================================
+
     else:
         st.info("Seçilen kriterlere (Sadece Alım Fırsatları) uyan varlık bulunamadı.")
