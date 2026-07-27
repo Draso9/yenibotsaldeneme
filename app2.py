@@ -61,7 +61,7 @@ if st.session_state.user_email is None and saved_email is not None and not st.se
             st.session_state.custom_tickers = VARSAYILAN_TICKERS.copy()
     st.rerun()
 
-# --- CSS STİLLERİ (MOBİL MENÜ BUTONU KORUNDU, RUNNING WIDGET GİZLENDİ) ---
+# --- CSS STİLLERİ (MOBİL MENÜ BUTONU KORUNDU) ---
 st.markdown("""
 <style>
     div[data-testid="stStatusWidget"] { display: none !important; visibility: hidden !important; opacity: 0 !important; pointer-events: none !important; }
@@ -232,8 +232,12 @@ def get_preset_options():
         "ABD Büyük Teknoloji": ABD_HİSSELERİ
     }
 
-if "profil_secim_kutusu" not in st.session_state: st.session_state.profil_secim_kutusu = "Kendi Listem"
-if "secilen_varliklar_multiselect" not in st.session_state: st.session_state.secilen_varliklar_multiselect = st.session_state.custom_tickers.copy()
+preset_options = get_preset_options()
+tum_varliklar_havuzu = list(set([h for lst in preset_options.values() for h in lst]))
+
+# Güvenli State Yönetimi (Çakışmaları Önlüyor)
+if "aktif_profil" not in st.session_state:
+    st.session_state.aktif_profil = "Kendi Listem"
 
 def hisse_ekle_callback():
     input_val = st.session_state.ek_hisse_input_field
@@ -247,12 +251,8 @@ def hisse_ekle_callback():
                 db.collection("kullanici_listeleri").document(st.session_state.user_email).set({"tickers": st.session_state.custom_tickers})
             except Exception:
                 pass
-        st.session_state.profil_secim_kutusu = "Kendi Listem"
-        st.session_state.secilen_varliklar_multiselect = st.session_state.custom_tickers.copy()
+        st.session_state.aktif_profil = "Kendi Listem"
         st.session_state.ek_hisse_input_field = ""
-
-preset_options = get_preset_options()
-tum_varliklar_havuzu = list(set([h for lst in preset_options.values() for h in lst]))
 
 st.title("📈 Hibrit Portföy Komuta Merkezi")
 st.markdown("**Mod:** Derin Analiz (Cezalı Skor + F-Skoru + Hacim + Sığ Tahta Koruması + Düzeltilmiş Para Akışı + Aktif 1H Teyit)")
@@ -275,21 +275,22 @@ with st.sidebar.expander("💰 Kasa ve Risk Parametreleri", expanded=True):
 with st.sidebar.expander("📋 Varlık Seçimi", expanded=True):
     st.text_input("Varlık Ekle (Örn: KCHOL.IS, INTC):", key="ek_hisse_input_field", placeholder="KCHOL.IS")
     st.button("➕ Ekle", on_click=hisse_ekle_callback)
-    st.selectbox("Profil", list(preset_options.keys()), key="profil_secim_kutusu", on_change=lambda: st.session_state.update({"secilen_varliklar_multiselect": get_preset_options()[st.session_state.profil_secim_kutusu].copy()}))
-    selected_tickers = st.multiselect("Taranacak Varlıklar", options=tum_varliklar_havuzu, key="secilen_varliklar_multiselect")
+    
+    secilen_profil = st.selectbox("Profil", list(preset_options.keys()), key="aktif_profil")
+    varsayilan_secimler = preset_options[secilen_profil]
+    
+    selected_tickers = st.multiselect("Taranacak Varlıklar", options=tum_varliklar_havuzu, default=varsayilan_secimler)
 
 tarama_tetiklendi = st.sidebar.button("🚀 Derin Taramayı Başlat", type="primary", use_container_width=True)
 
-# --- GÜVENLİ TARAMA TETİKLEME MANTIĞI ---
 if tarama_tetiklendi:
     if not selected_tickers:
-        st.sidebar.error("⚠️ Lütfen taranacak en az bir varlık seçin!")
+        st.sidebar.warning("⚠️ Lütfen taranacak en az bir varlık seçin!")
     else:
         with st.spinner("Hedge-Fund Katmanları İşleniyor (Cezalı Skor, F-Skoru, Sığ Tahta, Para Akışı, Aktif 1H Teyit)..."):
             gecici_sonuclar = []
             boga_sayisi = alim_firsati = 0
             
-            # Endeks Sektörel Getiri Hesaplama
             sektor_getirileri = {}
             sektor_referanslari = {
                 "XU100.IS": "BIST100", "^IXIC": "NASDAQ", "XBANK.IS": "Banka", 
