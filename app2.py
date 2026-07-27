@@ -291,8 +291,20 @@ if tarama_tetiklendi and selected_tickers:
                 
                 is_bist = ".IS" in ticker
                 para_birimi = "TL" if is_bist else "$"
-                bugun_kapanis = float(df_long['Close'].iloc[-1])
+                
                 info = stock.info if hasattr(stock, 'info') else {}
+                anlik_fiyat = None
+                
+                # --- NASDAQ / ABD Hisseleri İçin Anlık Fiyat Çekme Bloğu ---
+                if not is_bist:
+                    anlik_fiyat = info.get('currentPrice', info.get('regularMarketPrice', info.get('previousClose', None)))
+                
+                if anlik_fiyat is None or pd.isna(anlik_fiyat) or anlik_fiyat <= 0:
+                    bugun_kapanis = float(df_long['Close'].iloc[-1])
+                else:
+                    bugun_kapanis = float(anlik_fiyat)
+                    df_long.iloc[-1, df_long.columns.get_loc('Close')] = bugun_kapanis
+                # -------------------------------------------------------------
 
                 # Temel Veri Katmanı
                 fk = info.get('trailingPE', info.get('forwardPE', None))
@@ -366,13 +378,13 @@ if tarama_tetiklendi and selected_tickers:
 
                 # --- 7'Lİ TEKNİK/TEMEL SKORLAMA SİSTEMİ ---
                 skor = 0
-                if bugun_kapanis > sma_200: skor += 1 # 1. Uzun Vade Trend
-                if bugun_kapanis > df_long['Close'].ewm(span=50).mean().iloc[-1]: skor += 1 # 2. Kısa Vade Trend
-                if rsi > 50: skor += 1 # 3. Momentum
-                if macd_serisi.iloc[-1] > macd_sinyal.iloc[-1]: skor += 1 # 4. MACD Pozitif
-                if obv[-1] > obv_ema.iloc[-1]: skor += 1 # 5. Hacim/Para Girişi
-                if bugun_kapanis > bb_mid: skor += 1 # 6. Volatilite Desteği
-                if (f_skor_ham is not None and f_skor_ham >= 5) or (peg is not None and 0 < peg < 1.5): skor += 1 # 7. Temel Güç
+                if bugun_kapanis > sma_200: skor += 1 
+                if bugun_kapanis > df_long['Close'].ewm(span=50).mean().iloc[-1]: skor += 1 
+                if rsi > 50: skor += 1 
+                if macd_serisi.iloc[-1] > macd_sinyal.iloc[-1]: skor += 1 
+                if obv[-1] > obv_ema.iloc[-1]: skor += 1 
+                if bugun_kapanis > bb_mid: skor += 1 
+                if (f_skor_ham is not None and f_skor_ham >= 5) or (peg is not None and 0 < peg < 1.5): skor += 1 
                 
                 skor_rengi = "🟢" if skor >= 5 else ("⚖️" if skor >= 3 else "🔴")
 
