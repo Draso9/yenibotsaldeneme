@@ -651,16 +651,22 @@ if st.session_state.tarama_durumu and st.session_state.sonuclar:
                     
                     secilen_veri = df_sonuc[df_sonuc["Varlık"] == secilen_detay_hisse].iloc[0]
                     
+                    # Tırnak çakışmasını önlemek için değerleri değişkene alıyoruz
+                    d_sinyal = secilen_veri['Nihai Sinyal']
+                    d_skor = secilen_veri["7'li Cezalı Skor"]
+                    d_fskor = secilen_veri['F-Skor (Piotroski)']
+                    d_temel = secilen_veri['Temel Veri (PEG/FK)']
+                    
                     col_d1, col_d2, col_d3 = st.columns(3)
                     
                     with col_d1:
                         st.markdown(f"""
                         <div class="kpi-card" style="text-align: left; padding: 15px;">
                             <b>🎯 Sinyal & Skor Durumu:</b><br>
-                            • Nihai Sinyal: <b>{secilen_veri['Nihai Sinyal']}</b><br>
-                            • 7'li Cezalı Skor: <b>{secilen_veri['7'li Cezalı Skor']}</b><br>
-                            • F-Skor (Piotroski): <b>{secilen_veri['F-Skor (Piotroski)']}</b><br>
-                            • Temel Yapı (PEG/FK): <b>{secilen_veri['Temel Veri (PEG/FK)']}</b>
+                            • Nihai Sinyal: <b>{d_sinyal}</b><br>
+                            • 7'li Cezalı Skor: <b>{d_skor}</b><br>
+                            • F-Skor (Piotroski): <b>{d_fskor}</b><br>
+                            • Temel Yapı (PEG/FK): <b>{d_temel}</b>
                         </div>
                         """, unsafe_allow_html=True)
                         
