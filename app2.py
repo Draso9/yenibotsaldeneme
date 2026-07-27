@@ -332,24 +332,19 @@ if tarama_tetiklendi:
                     
                     info = stock.info if hasattr(stock, 'info') else {}
                     
-                    # DÜZELTME: Yahoo Finance web sayfalarındaki gerçek fiyat ve önceki kapanış oranını 
-                    # birebir yakalamak için fast_info (veya info) kullanılır, veri çelişkisi önlenir.
-                    try:
-                        fast_inf = stock.fast_info
-                        last_p = fast_inf.get('last_price') if hasattr(fast_inf, 'get') else fast_inf['last_price']
-                        prev_c = fast_inf.get('previous_close') if hasattr(fast_inf, 'get') else fast_inf['previous_close']
-                        
-                        if last_p and prev_c and not pd.isna(last_p) and not pd.isna(prev_c):
-                            bugun_kapanis = float(last_p)
-                            onceki_kapanis = float(prev_c)
-                        else:
-                            bugun_kapanis = float(df_long['Close'].iloc[-1])
-                            onceki_kapanis = float(df_long['Close'].iloc[-2]) if len(df_long) >= 2 else bugun_kapanis
-                    except:
+                    # DÜZELTME: Yahoo Finance web sitesindeki Normal Seans (Regular Market) yüzdesini ve fiyatını 
+                    # birebir yakalamak için stock.info içindeki regularMarketPrice ve regularMarketPreviousClose verileri kullanılır.
+                    reg_price = info.get('regularMarketPrice', info.get('currentPrice', None))
+                    reg_prev = info.get('regularMarketPreviousClose', info.get('previousClose', None))
+                    
+                    if reg_price and reg_prev and not pd.isna(reg_price) and not pd.isna(reg_prev) and reg_prev > 0:
+                        bugun_kapanis = float(reg_price)
+                        onceki_kapanis = float(reg_prev)
+                    else:
                         bugun_kapanis = float(df_long['Close'].iloc[-1])
                         onceki_kapanis = float(df_long['Close'].iloc[-2]) if len(df_long) >= 2 else bugun_kapanis
 
-                    # Teknik gösterge doğruluğu için DataFrame son kapanışını güncel fiyatla eşitliyoruz
+                    # Teknik gösterge hesaplamaları için DataFrame son kapanışını güncel fiyatla eşitliyoruz
                     if not df_long.empty:
                         df_long.iloc[-1, df_long.columns.get_loc('Close')] = bugun_kapanis
 
