@@ -270,12 +270,11 @@ with st.sidebar.expander("💰 Kasa ve Risk Parametreleri", expanded=True):
     nasdaq_kasa = st.number_input("NASDAQ Kasa ($)", value=1000, step=1000)
     risk_orani = st.slider("Risk Oranı (%)", 1.0, 5.0, 2.0, 0.5) / 100.0
 
-with st.sidebar.expander("📋 Varlık Seçimi ve Filtreler", expanded=True):
+with st.sidebar.expander("📋 Varlık Seçimi", expanded=True):
     st.text_input("Varlık Ekle (Örn: KCHOL.IS, INTC):", key="ek_hisse_input_field", placeholder="KCHOL.IS")
     st.button("➕ Ekle", on_click=hisse_ekle_callback)
     st.selectbox("Profil", list(preset_options.keys()), key="profil_secim_kutusu", on_change=lambda: st.session_state.update({"secilen_varliklar_multiselect": get_preset_options()[st.session_state.profil_secim_kutusu].copy()}))
     selected_tickers = st.multiselect("Taranacak Varlıklar", options=tum_varliklar_havuzu, key="secilen_varliklar_multiselect")
-    sadece_alim_goster = st.checkbox("🎯 Sadece Alım Fırsatlarını Göster", value=False)
 
 tarama_tetiklendi = st.sidebar.button("🚀 Derin Taramayı Başlat", type="primary", use_container_width=True)
 
@@ -533,6 +532,9 @@ if st.session_state.tarama_durumu and st.session_state.sonuclar:
             • <b>Süren Stop & TP:</b> Volatilitesini ve ATR'yi hesaba katarak sermayeyi koruyan dinamik stop-loss ve kurumsal kâr hedefleridir.
         </div>
         """, unsafe_allow_html=True)
+    
+    # "Sadece Alım Fırsatlarını Göster" butonu terminalin altına ve tablonun üstüne yerleştirildi:
+    sadece_alim_goster = st.checkbox("🎯 Sadece Alım Fırsatlarını Göster", value=False)
     
     df_sonuc = pd.DataFrame(st.session_state.sonuclar)
     
