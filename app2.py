@@ -61,7 +61,7 @@ if st.session_state.user_email is None and saved_email is not None and not st.se
             st.session_state.custom_tickers = VARSAYILAN_TICKERS.copy()
     st.rerun()
 
-# --- CSS STİLLERİ (MOBİL MENÜ BUTONU KORUNDU) ---
+# --- CSS STİLLERİ ---
 st.markdown("""
 <style>
     div[data-testid="stStatusWidget"] { display: none !important; visibility: hidden !important; opacity: 0 !important; pointer-events: none !important; }
@@ -235,9 +235,17 @@ def get_preset_options():
 preset_options = get_preset_options()
 tum_varliklar_havuzu = list(set([h for lst in preset_options.values() for h in lst]))
 
-# Güvenli State Yönetimi (Çakışmaları Önlüyor)
+# Sağlamlaştırılmış State ve Profil Yönetimi
 if "aktif_profil" not in st.session_state:
     st.session_state.aktif_profil = "Kendi Listem"
+
+if "secilen_varliklar" not in st.session_state:
+    st.session_state.secilen_varliklar = st.session_state.custom_tickers.copy()
+
+def profil_degisti():
+    p = st.session_state.profil_selectbox_key
+    st.session_state.aktif_profil = p
+    st.session_state.secilen_varliklar = preset_options[p].copy()
 
 def hisse_ekle_callback():
     input_val = st.session_state.ek_hisse_input_field
@@ -252,6 +260,7 @@ def hisse_ekle_callback():
             except Exception:
                 pass
         st.session_state.aktif_profil = "Kendi Listem"
+        st.session_state.secilen_varliklar = st.session_state.custom_tickers.copy()
         st.session_state.ek_hisse_input_field = ""
 
 st.title("📈 Hibrit Portföy Komuta Merkezi")
@@ -276,10 +285,19 @@ with st.sidebar.expander("📋 Varlık Seçimi", expanded=True):
     st.text_input("Varlık Ekle (Örn: KCHOL.IS, INTC):", key="ek_hisse_input_field", placeholder="KCHOL.IS")
     st.button("➕ Ekle", on_click=hisse_ekle_callback)
     
-    secilen_profil = st.selectbox("Profil", list(preset_options.keys()), key="aktif_profil")
-    varsayilan_secimler = preset_options[secilen_profil]
+    st.selectbox(
+        "Profil", 
+        list(preset_options.keys()), 
+        index=list(preset_options.keys()).index(st.session_state.aktif_profil),
+        key="profil_selectbox_key", 
+        on_change=profil_degisti
+    )
     
-    selected_tickers = st.multiselect("Taranacak Varlıklar", options=tum_varliklar_havuzu, default=varsayilan_secimler)
+    selected_tickers = st.multiselect(
+        "Taranacak Varlıklar", 
+        options=tum_varliklar_havuzu, 
+        key="secilen_varliklar"
+    )
 
 tarama_tetiklendi = st.sidebar.button("🚀 Derin Taramayı Başlat", type="primary", use_container_width=True)
 
@@ -513,210 +531,213 @@ if tarama_tetiklendi:
             st.session_state.alim_firsati = alim_firsati
             st.session_state.tarama_durumu = True
 
-if st.session_state.tarama_durumu and st.session_state.sonuclar:
-    col1, col2, col3 = st.columns(3)
-    with col1: st.markdown(f"""<div class="kpi-card"><div class="kpi-title">Taranan Varlık</div><div class="kpi-value">{len(st.session_state.sonuclar)}</div></div>""", unsafe_allow_html=True)
-    with col2: st.markdown(f"""<div class="kpi-card"><div class="kpi-title">Boğa Trendinde (200G)</div><div class="kpi-value kpi-highlight-green">{st.session_state.boga_sayisi}</div></div>""", unsafe_allow_html=True)
-    with col3: st.markdown(f"""<div class="kpi-card"><div class="kpi-title">Alım Fırsatları</div><div class="kpi-value kpi-highlight-fire">{"🔥 " + str(st.session_state.alim_firsati)}</div></div>""", unsafe_allow_html=True)
-    
-    st.markdown("<br>", unsafe_allow_html=True)
-    
-    with st.expander("📖 Kurumsal Terminal & Algoritma El Kitabı (Nasıl Okunur?)", expanded=False):
-        st.markdown("""
-        <div class="info-box">
-            <b>🧠 1. Cezalı & Ödüllü 7'li Skorlama Sistemi (50 Tabanlı)</b><br>
-            Sistem basitçe puan toplamaz; hatalı sinyalleri ve tuzakları (fakeout) acımasızca elemek için <b>50 Puan nötr tabanla</b> başlar, riskli durumlarda ciddi ceza puanları keser:<br>
-            • <b>Uzun Vade Trend (200 SMA):</b> Üzerindeyse <b>+15 Puan</b>, altındaysa (ayı riski) <b>-25 Puan ceza</b>.<br>
-            • <b>Kısa Vade Trend (50 EMA):</b> Üzerindeyse <b>+10 Puan</b>, altındaysa <b>-15 Puan ceza</b>.<br>
-            • <b>Hacim & Para Akışı (OBV & Vol):</b> Hacim desteği ve pozitif OBV varsa <b>+15 Puan</b>, hacimsiz tuzak hareketse <b>-20 Puan ceza</b>.<br>
-            • <b>Sığ Tahta Koruması (Likidite):</b> Günlük ortalama işlem cirosu düşük olan sığ hisselere <b>-20 Puan ceza</b> ve <b>Sığ Tahta ⚠️</b> uyarısı basılır.<br>
-            • <b>Momentum (RSI):</b> Sağlıklı bölgedeyse (35-50) <b>+10 Puan</b>, aşırı şişmiş tepe bölgesindeyse (>70) <b>-15 Puan ceza</b>.<br>
-            • <b>MACD Teyidi:</b> Pozitif kesişim onaylıysa <b>+10 Puan</b>, negatif uyumsuzlukta <b>-10 Puan ceza</b>.<br>
-            • <b>Temel Kalite (F-Skor / PEG):</b> Bilanço/PEG cazipse <b>+15 Puan</b>, riskli/pahalıysa <b>-15 Puan ceza</b>.<br>
-            • <b>Volatilite (Bollinger):</b> Alt banttan tepki alıyorsa <b>+10 Puan</b>, üst banda çarpıp şiştiyse <b>-15 Puan ceza</b>.<br>
-            <i>Skor Aralıkları: 70+ Güçlü 🟢 | 50-69 Nötr ⚖️ | 50 Altı Cezalı 🔴</i><br><br>
-            <hr style="border-color: #444;">
-            <b>🧪 2. Piotroski F-Skoru (Finansal Kalite Katmanı)</b><br>
-            Şirketin bilançosundan kârlılık, kaldıraç, nakit akışı vb. 9 farklı metrik taranarak hesaplanır:<br>
-            • <b>8-9 Puan:</b> Elmas 💎 (Mükemmel finansal sağlık)<br>
-            • <b>6-7 Puan:</b> Güçlü 🟢<br>
-            • <b>4-5 Puan:</b> Nötr ⚖️<br>
-            • <b>0-3 Puan:</b> Riskli ⚠️ (Bilanço zafiyeti, uzak durulmalı)<br><br>
-            <hr style="border-color: #444;">
-            <b>📈 3. Sektörel Göreceli Güç ve Hacim (Vol) Oranı</b><br>
-            • <b>Görec. Güç:</b> Hissenin son 1 aylık getirisinin ilgili ana sektöre (Banka, Sanayi, Ulaşım, Teknoloji vb.) kıyasla farkını gösterir.<br>
-            • <b>Vol:</b> O gün gerçekleşen hacmin son 20 günlük ortalama hacme oranıdır (Örn: %150, ortalamanın %50 üzerinde hacim patlaması demektir).<br><br>
-            <hr style="border-color: #444;">
-            <b>🛡️ 4. Karma Destek & Direnç Motoru</b><br>
-            • <b>Karma Destek:</b> Hissenin yerel dibi, 50 EMA, Fib %61.8 geri çekilme seviyesi ve ATR tabanı harmanlanarak hesaplanan akıllı savunma hattıdır.<br>
-            • <b>Karma Direnç:</b> Yerel tepe, VWAP, Fib %38.2 ve Bollinger Üst Bandı sentezlenerek bulunan kâr realizasyon/direnç bölgesidir.<br><br>
-            <hr style="border-color: #444;">
-            <b>🎯 5. Operasyonel Risk Yönetimi & Aktif 1H Teyit</b><br>
-            • <b>1H Teyit Sütunu:</b> Alım sinyali üreten varlıklarda 1 saatlik intraday mumları tarayarak yeşil kapanış ve kırılım onaylandığında <b>"🔥 Tetiği Çek (1H Onaylandı!)"</b> uyarısı verir.<br>
-            • <b>Süren Stop & TP:</b> Volatilitesini ve ATR'yi hesaba katarak sermayeyi koruyan dinamik stop-loss ve kurumsal kâr hedefleridir.
-        </div>
-        """, unsafe_allow_html=True)
-    
-    sadece_alim_goster = st.checkbox("🎯 Sadece Alım Fırsatlarını Göster", value=False)
-    
-    df_sonuc = pd.DataFrame(st.session_state.sonuclar)
-    
-    if sadece_alim_goster:
-        df_sonuc = df_sonuc[df_sonuc["Nihai Sinyal"].str.contains("ALIM", na=False)]
-    
-    def color_df(row):
-        c = ''
-        if '🟢' in str(row['Nihai Sinyal']) or '🔵' in str(row['Nihai Sinyal']): c = 'background-color: rgba(39, 174, 96, 0.15)'
-        elif '🛑' in str(row['Nihai Sinyal']) or '🔴' in str(row['Nihai Sinyal']): c = 'background-color: rgba(192, 57, 43, 0.15)'
-        elif '⚠️' in str(row['Nihai Sinyal']): c = 'background-color: rgba(243, 156, 18, 0.25)'
-        return [c] * len(row)
-
-    if not df_sonuc.empty:
-        st.dataframe(df_sonuc.style.apply(color_df, axis=1), use_container_width=True, height=350)
-        
-        # ==========================================
-        # --- PLOTLY ÇOKLU TEKNİK ANALİZ GRAFİK PANELİ ---
-        # ==========================================
-        st.markdown("### 📊 Detaylı Teknik Analiz & Gösterge Paneli")
-        
-        taranan_semboller_listesi = df_sonuc["Varlık"].tolist()
-        secilen_detay_hisse = st.selectbox("İncelemek İçin Varlık Seçin:", options=taranan_semboller_listesi, key="detay_hisse_secici")
-        
-        if secilen_detay_hisse:
-            with st.spinner(f"{secilen_detay_hisse} için grafik verileri yükleniyor..."):
-                stk_detay = yf.Ticker(secilen_detay_hisse)
-                df_grafik = stk_detay.history(period="6mo")
-                
-                if not df_grafik.empty:
-                    df_grafik['SMA200'] = df_grafik['Close'].rolling(200).mean()
-                    df_grafik['EMA50'] = df_grafik['Close'].ewm(span=50).mean()
-                    
-                    delta_g = df_grafik['Close'].diff()
-                    rs_g = delta_g.where(delta_g>0, 0.0).ewm(alpha=1/14, adjust=False).mean() / (-delta_g.where(delta_g<0, 0.0).ewm(alpha=1/14, adjust=False).mean() + 1e-5)
-                    df_grafik['RSI'] = 100 - (100 / (1 + rs_g))
-                    
-                    typ_p = (df_grafik['High'] + df_grafik['Low'] + df_grafik['Close']) / 3
-                    raw_mf = typ_p * df_grafik['Volume']
-                    pos_f = pd.Series(np.where(typ_p > typ_p.shift(1), raw_mf, 0))
-                    neg_f = pd.Series(np.where(typ_p < typ_p.shift(1), raw_mf, 0))
-                    df_grafik['MFI'] = 100 - (100 / (1 + (pos_f.rolling(14).sum() / (neg_f.rolling(14).sum() + 1e-5))))
-
-                    fig = make_subplots(rows=3, cols=1, shared_xaxes=True, 
-                                        vertical_spacing=0.03, 
-                                        row_heights=[0.6, 0.2, 0.2])
-
-                    fig.add_trace(go.Candlestick(
-                        x=df_grafik.index,
-                        open=df_grafik['Open'], high=df_grafik['High'],
-                        low=df_grafik['Low'], close=df_grafik['Close'],
-                        name='Fiyat (Mum)'
-                    ), row=1, col=1)
-
-                    if not df_grafik['EMA50'].isna().all():
-                        fig.add_trace(go.Scatter(x=df_grafik.index, y=df_grafik['EMA50'], line=dict(color='orange', width=1.5), name='50 EMA'), row=1, col=1)
-                    if not df_grafik['SMA200'].isna().all():
-                        fig.add_trace(go.Scatter(x=df_grafik.index, y=df_grafik['SMA200'], line=dict(color='blue', width=1.5), name='200 SMA'), row=1, col=1)
-
-                    fig.add_trace(go.Scatter(x=df_grafik.index, y=df_grafik['RSI'], line=dict(color='#00ffcc', width=1.5), name='RSI (14)'), row=2, col=1)
-                    fig.add_hline(y=70, line_dash="dash", line_color="red", row=2, col=1)
-                    fig.add_hline(y=30, line_dash="dash", line_color="green", row=2, col=1)
-
-                    fig.add_trace(go.Scatter(x=df_grafik.index, y=df_grafik['MFI'], line=dict(color='#ff9900', width=1.5), name='MFI (Para Akışı)'), row=3, col=1)
-                    fig.add_hline(y=70, line_dash="dash", line_color="red", row=3, col=1)
-                    fig.add_hline(y=30, line_dash="dash", line_color="green", row=3, col=1)
-
-                    fig.update_layout(
-                        template='plotly_dark',
-                        title=f"{secilen_detay_hisse} - Teknik Yapı ve Momentum Ekranı",
-                        xaxis_rangeslider_visible=False,
-                        height=700,
-                        margin=dict(l=10, r=10, t=40, b=10),
-                        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
-                    )
-
-                    st.plotly_chart(fig, use_container_width=True)
-
-                    st.markdown(f"### 📋 {secilen_detay_hisse} - Hisseye Özel Kurumsal Karar Paneli")
-                    
-                    secilen_veri = df_sonuc[df_sonuc["Varlık"] == secilen_detay_hisse].iloc[0]
-                    
-                    d_sinyal = secilen_veri['Nihai Sinyal']
-                    d_skor = secilen_veri["7'li Cezalı Skor"]
-                    d_fskor = secilen_veri['F-Skor (Piotroski)']
-                    d_temel = secilen_veri['Temel Veri (PEG/FK)']
-                    
-                    col_d1, col_d2, col_d3 = st.columns(3)
-                    
-                    with col_d1:
-                        st.markdown(f"""
-                        <div class="kpi-card" style="text-align: left; padding: 15px;">
-                            <b>🎯 Sinyal & Skor Durumu:</b><br>
-                            • Nihai Sinyal: <b>{d_sinyal}</b><br>
-                            • 7'li Cezalı Skor: <b>{d_skor}</b><br>
-                            • F-Skor (Piotroski): <b>{d_fskor}</b><br>
-                            • Temel Yapı (PEG/FK): <b>{d_temel}</b>
-                        </div>
-                        """, unsafe_allow_html=True)
-                        
-                    with col_d2:
-                        st.markdown(f"""
-                        <div class="kpi-card" style="text-align: left; padding: 15px;">
-                            <b>🛡️ Risk, Destek & Hedefler:</b><br>
-                            • Karma Destek Hattı: <span style="color: #00FF88;"><b>{secilen_veri['Karma Destek']}</b></span><br>
-                            • Karma Direnç Hattı: <span style="color: #FF5555;"><b>{secilen_veri['Karma Direnç']}</b></span><br>
-                            • Süren Stop (Trailing): <span style="color: #FF5555;"><b>{secilen_veri['Süren Stop']}</b></span><br>
-                            • Kâr Hedefleri (TP): <span style="color: #00FF88;"><b>{secilen_veri['Hibrit Kâr Al (TP)']}</b></span>
-                        </div>
-                        """, unsafe_allow_html=True)
-                        
-                    with col_d3:
-                        st.markdown(f"""
-                        <div class="kpi-card" style="text-align: left; padding: 15px;">
-                            <b>🌊 Akış, Hacim & Zamanlama:</b><br>
-                            • Para Akışı (MFI/OBV): <b>{secilen_veri['Para Akışı (OBV/MFI)']}</b><br>
-                            • Sektörel Güç & Hacim: <b>{secilen_veri['Görec. Güç (Sektör)']}</b><br>
-                            • 1H Teyit Durumu: <b>{secilen_veri['↓ Zamanlama (1H Teyit)']}</b><br>
-                            • Önerilen Lot Miktarı: <b>{secilen_veri['Önerilen Lot']}</b>
-                        </div>
-                        """, unsafe_allow_html=True)
-                        
-                    st.markdown("### 🧭 Yapay Zeka & Algoritma Yorumu ve Yol Haritası")
-                    
-                    yorum_metni = f"**Genel Durum Analizi:** Seçtiğiniz varlık ({secilen_detay_hisse}), algoritma tarafından **{d_skor}** ile değerlendirilmiştir. Temel tarafta **{d_temel}** ve **{d_fskor}** kalitesine sahip olan hisse, para akışı tarafında **{secilen_veri['Para Akışı (OBV/MFI)']}** durumu sergiliyor. Mevcut sektörel gücü ise ana endekse kıyasla **{secilen_veri['Görec. Güç (Sektör)']}** seviyesindedir. Teknik ve temel göstergelerin harmanlanmasıyla sistemin bu varlık için ürettiği karar **{d_sinyal}** olmuştur."
-                    st.markdown(f"<div class='info-box'>{yorum_metni}</div>", unsafe_allow_html=True)
-                    
-                    rehber_metni = ""
-                    if "ALIM" in d_sinyal:
-                        rehber_metni += f"✅ **Strateji ve Yol Haritası (Alım Fırsatı):**\n"
-                        rehber_metni += f"- **Giriş Şartı:** Sistemin ürettiği saatlik teyit durumu şu an **{secilen_veri['↓ Zamanlama (1H Teyit)']}**. Tetiği çekmek için mikro dönüş onayını (yeşil saatlik mum) beklemeniz riski azaltır.\n"
-                        rehber_metni += f"- **Risk Yönetimi:** Olası bir terste kalma durumuna karşı **{secilen_veri['Karma Destek']}** seviyesi kesin stop-loss (zarar kes) olarak belirlenmelidir.\n"
-                        rehber_metni += f"- **Hedefler:** Yükseliş ivmesi başladığında ilk etapta **{secilen_veri['Hibrit Kâr Al (TP)']}** seviyelerinde kâr realizasyonu yapılmalı veya **{secilen_veri['Süren Stop']}** seviyesi ile trend sürülmelidir.\n"
-                        rehber_metni += f"- **Sermaye Dağılımı:** Kasa ve risk ayarlarınıza göre önerilen lot miktarı **{secilen_veri['Önerilen Lot']}** seviyesindedir."
-                        st.success(rehber_metni)
-                        
-                    elif "KAR REALİZASYONU" in d_sinyal:
-                        rehber_metni += f"🚨 **Strateji ve Yol Haritası (Şişkinlik ve Direnç):**\n"
-                        rehber_metni += f"- **Giriş Şartı:** Varlık şu anda teknik olarak şişmiş ve aşırı alım bölgesinde. Yeni pozisyon açmak veya maliyetlenmek oldukça risklidir.\n"
-                        rehber_metni += f"- **Risk Yönetimi:** Elinizde mevcut pozisyon varsa, **{secilen_veri['Süren Stop']}** seviyesini fiyatın hemen altında çok yakından takip etmelisiniz.\n"
-                        rehber_metni += f"- **Hedefler:** Fiyat **{secilen_veri['Karma Direnç']}** direncine yaklaştıkça kademeli olarak satıp kârı cebe yakıştırmak şu an en güvenli stratejidir."
-                        st.warning(rehber_metni)
-                        
-                    elif "UZAK DUR" in d_sinyal:
-                        rehber_metni += f"🛑 **Strateji ve Yol Haritası (Ayı Trendi / Tehlike):**\n"
-                        rehber_metni += f"- **Giriş Şartı:** Varlık, uzun vade trendinin altında seyrediyor veya skoru cezalı bölgede. Düşen bıçak tutulmaz; formasyon görülene kadar kesinlikle izlemede kalın.\n"
-                        rehber_metni += f"- **Risk Yönetimi:** Maliyetliyseniz ve varlık **{secilen_veri['Karma Destek']}** seviyesinin altındaysa, sermayeyi korumak adına zarar kes (stop-loss) kuralları işletilmelidir.\n"
-                        rehber_metni += f"- **Hedefler:** Yeni bir fırsat için para akışında yeşil barlar ve fiyatın en azından **{secilen_veri['Karma Direnç']}** seviyelerini yukarı kırması beklenmelidir."
-                        st.error(rehber_metni)
-                        
-                    else:
-                        rehber_metni += f"⚖️ **Strateji ve Yol Haritası (Konsolidasyon / İzleme):**\n"
-                        rehber_metni += f"- **Giriş Şartı:** Varlık şu anda yön konusunda kararsız bir bölgede. Destek ve direnç arasında sıkışma veya hacimsizlik hakim.\n"
-                        rehber_metni += f"- **Risk Yönetimi:** Fiyatın **{secilen_veri['Karma Destek']}** seviyesinden vereceği tepkiyi veya direnci hacimli kırmasını beklemek en sağlıklı adımdır.\n"
-                        rehber_metni += f"- **Hedefler:** Yön netleşene kadar sermayeyi korumak adına farklı varlıklardaki net 'ALIM' sinyallerine odaklanmak fırsat maliyetinizi düşürebilir."
-                        st.info(rehber_metni)
-
-                else:
-                    st.warning("Seçilen varlık için yeterli grafik verisi bulunamadı.")
-
+if st.session_state.tarama_durumu:
+    if not st.session_state.sonuclar:
+        st.warning("⚠️ Tarama tamamlandı ancak seçilen varlıklardan veri alınamadı veya yeterli geçmiş veri bulunamadı.")
     else:
-        st.info("Seçilen kriterlere (Sadece Alım Fırsatları) uyan varlık bulunamadı.")
+        col1, col2, col3 = st.columns(3)
+        with col1: st.markdown(f"""<div class="kpi-card"><div class="kpi-title">Taranan Varlık</div><div class="kpi-value">{len(st.session_state.sonuclar)}</div></div>""", unsafe_allow_html=True)
+        with col2: st.markdown(f"""<div class="kpi-card"><div class="kpi-title">Boğa Trendinde (200G)</div><div class="kpi-value kpi-highlight-green">{st.session_state.boga_sayisi}</div></div>""", unsafe_allow_html=True)
+        with col3: st.markdown(f"""<div class="kpi-card"><div class="kpi-title">Alım Fırsatları</div><div class="kpi-value kpi-highlight-fire">{"🔥 " + str(st.session_state.alim_firsati)}</div></div>""", unsafe_allow_html=True)
+        
+        st.markdown("<br>", unsafe_allow_html=True)
+        
+        with st.expander("📖 Kurumsal Terminal & Algoritma El Kitabı (Nasıl Okunur?)", expanded=False):
+            st.markdown("""
+            <div class="info-box">
+                <b>🧠 1. Cezalı & Ödüllü 7'li Skorlama Sistemi (50 Tabanlı)</b><br>
+                Sistem basitçe puan toplamaz; hatalı sinyalleri ve tuzakları (fakeout) acımasızca elemek için <b>50 Puan nötr tabanla</b> başlar, riskli durumlarda ciddi ceza puanları keser:<br>
+                • <b>Uzun Vade Trend (200 SMA):</b> Üzerindeyse <b>+15 Puan</b>, altındaysa (ayı riski) <b>-25 Puan ceza</b>.<br>
+                • <b>Kısa Vade Trend (50 EMA):</b> Üzerindeyse <b>+10 Puan</b>, altındaysa <b>-15 Puan ceza</b>.<br>
+                • <b>Hacim & Para Akışı (OBV & Vol):</b> Hacim desteği ve pozitif OBV varsa <b>+15 Puan</b>, hacimsiz tuzak hareketse <b>-20 Puan ceza</b>.<br>
+                • <b>Sığ Tahta Koruması (Likidite):</b> Günlük ortalama işlem cirosu düşük olan sığ hisselere <b>-20 Puan ceza</b> ve <b>Sığ Tahta ⚠️</b> uyarısı basılır.<br>
+                • <b>Momentum (RSI):</b> Sağlıklı bölgedeyse (35-50) <b>+10 Puan</b>, aşırı şişmiş tepe bölgesindeyse (>70) <b>-15 Puan ceza</b>.<br>
+                • <b>MACD Teyidi:</b> Pozitif kesişim onaylıysa <b>+10 Puan</b>, negatif uyumsuzlukta <b>-10 Puan ceza</b>.<br>
+                • <b>Temel Kalite (F-Skor / PEG):</b> Bilanço/PEG cazipse <b>+15 Puan</b>, riskli/pahalıysa <b>-15 Puan ceza</b>.<br>
+                • <b>Volatilite (Bollinger):</b> Alt banttan tepki alıyorsa <b>+10 Puan</b>, üst banda çarpıp şiştiyse <b>-15 Puan ceza</b>.<br>
+                <i>Skor Aralıkları: 70+ Güçlü 🟢 | 50-69 Nötr ⚖️ | 50 Altı Cezalı 🔴</i><br><br>
+                <hr style="border-color: #444;">
+                <b>🧪 2. Piotroski F-Skoru (Finansal Kalite Katmanı)</b><br>
+                Şirketin bilançosundan kârlılık, kaldıraç, nakit akışı vb. 9 farklı metrik taranarak hesaplanır:<br>
+                • <b>8-9 Puan:</b> Elmas 💎 (Mükemmel finansal sağlık)<br>
+                • <b>6-7 Puan:</b> Güçlü 🟢<br>
+                • <b>4-5 Puan:</b> Nötr ⚖️<br>
+                • <b>0-3 Puan:</b> Riskli ⚠️ (Bilanço zafiyeti, uzak durulmalı)<br><br>
+                <hr style="border-color: #444;">
+                <b>📈 3. Sektörel Göreceli Güç ve Hacim (Vol) Oranı</b><br>
+                • <b>Görec. Güç:</b> Hissenin son 1 aylık getirisgi ilgili ana sektöre (Banka, Sanayi, Ulaşım, Teknoloji vb.) kıyasla farkını gösterir.<br>
+                • <b>Vol:</b> O gün gerçekleşen hacmin son 20 günlük ortalama hacme oranıdır (Örn: %150, ortalamanın %50 üzerinde hacim patlaması demektir).<br><br>
+                <hr style="border-color: #444;">
+                <b>🛡️ 4. Karma Destek & Direnç Motoru</b><br>
+                • <b>Karma Destek:</b> Hissenin yerel dibi, 50 EMA, Fib %61.8 geri çekilme seviyesi ve ATR tabanı harmanlanarak hesaplanan akıllı savunma hattıdır.<br>
+                • <b>Karma Direnç:</b> Yerel tepe, VWAP, Fib %38.2 ve Bollinger Üst Bandı sentezlenerek bulunan kâr realizasyon/direnç bölgesidir.<br><br>
+                <hr style="border-color: #444;">
+                <b>🎯 5. Operasyonel Risk Yönetimi & Aktif 1H Teyit</b><br>
+                • <b>1H Teyit Sütunu:</b> Alım sinyali üreten varlıklarda 1 saatlik intraday mumları tarayarak yeşil kapanış ve kırılım onaylandığında <b>"🔥 Tetiği Çek (1H Onaylandı!)"</b> uyarısı verir.<br>
+                • <b>Süren Stop & TP:</b> Volatilitesini ve ATR'yi hesaba katarak sermayeyi koruyan dinamik stop-loss ve kurumsal kâr hedefleridir.
+            </div>
+            """, unsafe_allow_html=True)
+        
+        sadece_alim_goster = st.checkbox("🎯 Sadece Alım Fırsatlarını Göster", value=False)
+        
+        df_sonuc = pd.DataFrame(st.session_state.sonuclar)
+        
+        if sadece_alim_goster:
+            df_sonuc = df_sonuc[df_sonuc["Nihai Sinyal"].str.contains("ALIM", na=False)]
+        
+        def color_df(row):
+            c = ''
+            if '🟢' in str(row['Nihai Sinyal']) or '🔵' in str(row['Nihai Sinyal']): c = 'background-color: rgba(39, 174, 96, 0.15)'
+            elif '🛑' in str(row['Nihai Sinyal']) or '🔴' in str(row['Nihai Sinyal']): c = 'background-color: rgba(192, 57, 43, 0.15)'
+            elif '⚠️' in str(row['Nihai Sinyal']): c = 'background-color: rgba(243, 156, 18, 0.25)'
+            return [c] * len(row)
+
+        if not df_sonuc.empty:
+            st.dataframe(df_sonuc.style.apply(color_df, axis=1), use_container_width=True, height=350)
+            
+            # ==========================================
+            # --- PLOTLY ÇOKLU TEKNİK ANALİZ GRAFİK PANELİ ---
+            # ==========================================
+            st.markdown("### 📊 Detaylı Teknik Analiz & Gösterge Paneli")
+            
+            taranan_semboller_listesi = df_sonuc["Varlık"].tolist()
+            secilen_detay_hisse = st.selectbox("İncelemek İçin Varlık Seçin:", options=taranan_semboller_listesi, key="detay_hisse_secici")
+            
+            if secilen_detay_hisse:
+                with st.spinner(f"{secilen_detay_hisse} için grafik verileri yükleniyor..."):
+                    stk_detay = yf.Ticker(secilen_detay_hisse)
+                    df_grafik = stk_detay.history(period="6mo")
+                    
+                    if not df_grafik.empty:
+                        df_grafik['SMA200'] = df_grafik['Close'].rolling(200).mean()
+                        df_grafik['EMA50'] = df_grafik['Close'].ewm(span=50).mean()
+                        
+                        delta_g = df_grafik['Close'].diff()
+                        rs_g = delta_g.where(delta_g>0, 0.0).ewm(alpha=1/14, adjust=False).mean() / (-delta_g.where(delta_g<0, 0.0).ewm(alpha=1/14, adjust=False).mean() + 1e-5)
+                        df_grafik['RSI'] = 100 - (100 / (1 + rs_g))
+                        
+                        typ_p = (df_grafik['High'] + df_grafik['Low'] + df_grafik['Close']) / 3
+                        raw_mf = typ_p * df_grafik['Volume']
+                        pos_f = pd.Series(np.where(typ_p > typ_p.shift(1), raw_mf, 0))
+                        neg_f = pd.Series(np.where(typ_p < typ_p.shift(1), raw_mf, 0))
+                        df_grafik['MFI'] = 100 - (100 / (1 + (pos_f.rolling(14).sum() / (neg_f.rolling(14).sum() + 1e-5))))
+
+                        fig = make_subplots(rows=3, cols=1, shared_xaxes=True, 
+                                            vertical_spacing=0.03, 
+                                            row_heights=[0.6, 0.2, 0.2])
+
+                        fig.add_trace(go.Candlestick(
+                            x=df_grafik.index,
+                            open=df_grafik['Open'], high=df_grafik['High'],
+                            low=df_grafik['Low'], close=df_grafik['Close'],
+                            name='Fiyat (Mum)'
+                        ), row=1, col=1)
+
+                        if not df_grafik['EMA50'].isna().all():
+                            fig.add_trace(go.Scatter(x=df_grafik.index, y=df_grafik['EMA50'], line=dict(color='orange', width=1.5), name='50 EMA'), row=1, col=1)
+                        if not df_grafik['SMA200'].isna().all():
+                            fig.add_trace(go.Scatter(x=df_grafik.index, y=df_grafik['SMA200'], line=dict(color='blue', width=1.5), name='200 SMA'), row=1, col=1)
+
+                        fig.add_trace(go.Scatter(x=df_grafik.index, y=df_grafik['RSI'], line=dict(color='#00ffcc', width=1.5), name='RSI (14)'), row=2, col=1)
+                        fig.add_hline(y=70, line_dash="dash", line_color="red", row=2, col=1)
+                        fig.add_hline(y=30, line_dash="dash", line_color="green", row=2, col=1)
+
+                        fig.add_trace(go.Scatter(x=df_grafik.index, y=df_grafik['MFI'], line=dict(color='#ff9900', width=1.5), name='MFI (Para Akışı)'), row=3, col=1)
+                        fig.add_hline(y=70, line_dash="dash", line_color="red", row=3, col=1)
+                        fig.add_hline(y=30, line_dash="dash", line_color="green", row=3, col=1)
+
+                        fig.update_layout(
+                            template='plotly_dark',
+                            title=f"{secilen_detay_hisse} - Teknik Yapı ve Momentum Ekranı",
+                            xaxis_rangeslider_visible=False,
+                            height=700,
+                            margin=dict(l=10, r=10, t=40, b=10),
+                            legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
+                        )
+
+                        st.plotly_chart(fig, use_container_width=True)
+
+                        st.markdown(f"### 📋 {secilen_detay_hisse} - Hisseye Özel Kurumsal Karar Paneli")
+                        
+                        secilen_veri = df_sonuc[df_sonuc["Varlık"] == secilen_detay_hisse].iloc[0]
+                        
+                        d_sinyal = secilen_veri['Nihai Sinyal']
+                        d_skor = secilen_veri["7'li Cezalı Skor"]
+                        d_fskor = secilen_veri['F-Skor (Piotroski)']
+                        d_temel = secilen_veri['Temel Veri (PEG/FK)']
+                        
+                        col_d1, col_d2, col_d3 = st.columns(3)
+                        
+                        with col_d1:
+                            st.markdown(f"""
+                            <div class="kpi-card" style="text-align: left; padding: 15px;">
+                                <b>🎯 Sinyal & Skor Durumu:</b><br>
+                                • Nihai Sinyal: <b>{d_sinyal}</b><br>
+                                • 7'li Cezalı Skor: <b>{d_skor}</b><br>
+                                • F-Skor (Piotroski): <b>{d_fskor}</b><br>
+                                • Temel Yapı (PEG/FK): <b>{d_temel}</b>
+                            </div>
+                            """, unsafe_allow_html=True)
+                            
+                        with col_d2:
+                            st.markdown(f"""
+                            <div class="kpi-card" style="text-align: left; padding: 15px;">
+                                <b>🛡️ Risk, Destek & Hedefler:</b><br>
+                                • Karma Destek Hattı: <span style="color: #00FF88;"><b>{secilen_veri['Karma Destek']}</b></span><br>
+                                • Karma Direnç Hattı: <span style="color: #FF5555;"><b>{secilen_veri['Karma Direnç']}</b></span><br>
+                                • Süren Stop (Trailing): <span style="color: #FF5555;"><b>{secilen_veri['Süren Stop']}</b></span><br>
+                                • Kâr Hedefleri (TP): <span style="color: #00FF88;"><b>{secilen_veri['Hibrit Kâr Al (TP)']}</b></span>
+                            </div>
+                            """, unsafe_allow_html=True)
+                            
+                        with col_d3:
+                            st.markdown(f"""
+                            <div class="kpi-card" style="text-align: left; padding: 15px;">
+                                <b>🌊 Akış, Hacim & Zamanlama:</b><br>
+                                • Para Akışı (MFI/OBV): <b>{secilen_veri['Para Akışı (OBV/MFI)']}</b><br>
+                                • Sektörel Güç & Hacim: <b>{secilen_veri['Görec. Güç (Sektör)']}</b><br>
+                                • 1H Teyit Durumu: <b>{secilen_veri['↓ Zamanlama (1H Teyit)']}</b><br>
+                                • Önerilen Lot Miktarı: <b>{secilen_veri['Önerilen Lot']}</b>
+                            </div>
+                            """, unsafe_allow_html=True)
+                            
+                        st.markdown("### 🧭 Yapay Zeka & Algoritma Yorumu ve Yol Haritası")
+                        
+                        yorum_metni = f"**Genel Durum Analizi:** Seçtiğiniz varlık ({secilen_detay_hisse}), algoritma tarafından **{d_skor}** ile değerlendirilmiştir. Temel tarafta **{d_temel}** ve **{d_fskor}** kalitesine sahip olan hisse, para akışı tarafında **{secilen_veri['Para Akışı (OBV/MFI)']}** durumu sergiliyor. Mevcut sektörel gücü ise ana endekse kıyasla **{secilen_veri['Görec. Güç (Sektör)']}** seviyesindedir. Teknik ve temel göstergelerin harmanlanmasıyla sistemin bu varlık için ürettiği karar **{d_sinyal}** olmuştur."
+                        st.markdown(f"<div class='info-box'>{yorum_metni}</div>", unsafe_allow_html=True)
+                        
+                        rehber_metni = ""
+                        if "ALIM" in d_sinyal:
+                            rehber_metni += f"✅ **Strateji ve Yol Haritası (Alım Fırsatı):**\n"
+                            rehber_metni += f"- **Giriş Şartı:** Sistemin ürettiği saatlik teyit durumu şu an **{secilen_veri['↓ Zamanlama (1H Teyit)']}**. Tetiği çekmek için mikro dönüş onayını (yeşil saatlik mum) beklemeniz riski azaltır.\n"
+                            rehber_metni += f"- **Risk Yönetimi:** Olası bir terste kalma durumuna karşı **{secilen_veri['Karma Destek']}** seviyesi kesin stop-loss (zarar kes) olarak belirlenmelidir.\n"
+                            rehber_metni += f"- **Hedefler:** Yükseliş ivmesi başladığında ilk etapta **{secilen_veri['Hibrit Kâr Al (TP)']}** seviyelerinde kâr realizasyonu yapılmalı veya **{secilen_veri['Süren Stop']}** seviyesi ile trend sürülmelidir.\n"
+                            rehber_metni += f"- **Sermaye Dağılımı:** Kasa ve risk ayarlarınıza göre önerilen lot miktarı **{secilen_veri['Önerilen Lot']}** seviyesindedir."
+                            st.success(rehber_metni)
+                            
+                        elif "KAR REALİZASYONU" in d_sinyal:
+                            rehber_metni += f"🚨 **Strateji ve Yol Haritası (Şişkinlik ve Direnç):**\n"
+                            rehber_metni += f"- **Giriş Şartı:** Varlık şu anda teknik olarak şişmiş ve aşırı alım bölgesinde. Yeni pozisyon açmak veya maliyetlenmek oldukça risklidir.\n"
+                            rehber_metni += f"- **Risk Yönetimi:** Elinizde mevcut pozisyon varsa, **{secilen_veri['Süren Stop']}** seviyesini fiyatın hemen altında çok yakından takip etmelisiniz.\n"
+                            rehber_metni += f"- **Hedefler:** Fiyat **{secilen_veri['Karma Direnç']}** direncine yaklaştıkça kademeli olarak satıp kârı cebe yakıştırmak şu an en güvenli stratejidir."
+                            st.warning(rehber_metni)
+                            
+                        elif "UZAK DUR" in d_sinyal:
+                            rehber_metni += f"🛑 **Strateji ve Yol Haritası (Ayı Trendi / Tehlike):**\n"
+                            rehber_metni += f"- **Giriş Şartı:** Varlık, uzun vade trendinin altında seyrediyor veya skoru cezalı bölgede. Düşen bıçak tutulmaz; formasyon görülene kadar kesinlikle izlemede kalın.\n"
+                            rehber_metni += f"- **Risk Yönetimi:** Maliyetliyseniz ve varlık **{secilen_veri['Karma Destek']}** seviyesinin altındaysa, sermayeyi korumak adına zarar kes (stop-loss) kuralları işletilmelidir.\n"
+                            rehber_metni += f"- **Hedefler:** Yeni bir fırsat için para akışında yeşil barlar ve fiyatın en azından **{secilen_veri['Karma Direnç']}** seviyelerini yukarı kırması beklenmelidir."
+                            st.error(rehber_metni)
+                            
+                        else:
+                            rehber_metni += f"⚖️ **Strateji ve Yol Haritası (Konsolidasyon / İzleme):**\n"
+                            rehber_metni += f"- **Giriş Şartı:** Varlık şu anda yön konusunda kararsız bir bölgede. Destek ve direnç arasında sıkışma veya hacimsizlik hakim.\n"
+                            rehber_metni += f"- **Risk Yönetimi:** Fiyatın **{secilen_veri['Karma Destek']}** seviyesinden vereceği tepkiyi veya direnci hacimli kırmasını beklemek en sağlıklı adımdır.\n"
+                            rehber_metni += f"- **Hedefler:** Yön netleşene kadar sermayeyi korumak adına farklı varlıklardaki net 'ALIM' sinyallerine odaklanmak fırsat maliyetinizi düşürebilir."
+                            st.info(rehber_metni)
+
+                    else:
+                        st.warning("Seçilen varlık için yeterli grafik verisi bulunamadı.")
+
+        else:
+            st.info("Seçilen kriterlere (Sadece Alım Fırsatları) uyan varlık bulunamadı.")
