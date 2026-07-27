@@ -61,12 +61,13 @@ if st.session_state.user_email is None and saved_email is not None and not st.se
             st.session_state.custom_tickers = VARSAYILAN_TICKERS.copy()
     st.rerun()
 
-# --- CSS STİLLERİ (RUNNING YAZISI VE HEADER GİZLENDİ) ---
+# --- CSS STİLLERİ (RUNNING YAZISI VE HEADER KESİN GİZLENDİ) ---
 st.markdown("""
 <style>
-    /* Sağ üstteki standart "Running" animasyonunu ve Header'ı tamamen gizler */
-    [data-testid="stHeader"] { display: none !important; }
-    [data-testid="stStatusWidget"] { visibility: hidden !important; display: none !important; }
+    /* Sağ üstteki standart "Running" animasyonunu, Header'ı ve Deploy butonunu tamamen gizler */
+    header[data-testid="stHeader"] { display: none !important; visibility: hidden !important; }
+    div[data-testid="stStatusWidget"] { display: none !important; visibility: hidden !important; opacity: 0 !important; pointer-events: none !important; }
+    .stDeployButton { display: none !important; }
     
     .kpi-card { background-color: #1E1E1E; padding: 20px; border-radius: 10px; text-align: center; border: 1px solid #333; box-shadow: 2px 2px 10px rgba(0,0,0,0.5); }
     .kpi-title { font-size: 13px; color: #AAAAAA; text-transform: uppercase; letter-spacing: 1px; }
