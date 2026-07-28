@@ -84,8 +84,7 @@ st.markdown("""
     .info-box { background-color: #1E1E1E; padding: 15px; border-radius: 8px; border-left: 5px solid #3498db; margin-bottom: 15px; font-size: 13px; color: #CCCCCC; line-height: 1.6; }
     .dataframe { font-size: 12px !important; }
 </style>
-""", unsafe_unsafe_html=True) # veya unsafe_allow_html=True (mevcut kodundaki gibi)
-
+""", unsafe_allow_html=True)
 # --- HİSSE LİSTELERİ ---
 BIST_30 = [
     "AKBNK.IS", "ALARK.IS", "ASELS.IS", "ASTOR.IS", "BIMAS.IS", 
