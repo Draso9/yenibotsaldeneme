@@ -620,13 +620,26 @@ if st.session_state.tarama_durumu:
             if secilen_detay_hisse:
                 with st.spinner(f"{secilen_detay_hisse} için grafik verileri yükleniyor..."):
                     stk_detay = yf.Ticker(secilen_detay_hisse)
-                    # GÜNCELLENDİ: SMA 200'ün düzgün çıkması için veri çekme periyodu "1y" yapıldı.
                     df_grafik = stk_detay.history(period="1y")
                     
                     if not df_grafik.empty:
-                        df_grafik['SMA200'] = df_grafik['Close'].rolling(200).mean()
+                        # YENİ: EMA 9, EMA 21 ve Bollinger Bantları
+                        df_grafik['EMA9'] = df_grafik['Close'].ewm(span=9).mean()
+                        df_grafik['EMA21'] = df_grafik['Close'].ewm(span=21).mean()
                         df_grafik['EMA50'] = df_grafik['Close'].ewm(span=50).mean()
+                        df_grafik['SMA200'] = df_grafik['Close'].rolling(200).mean()
                         
+                        df_grafik['BB_mid'] = df_grafik['Close'].rolling(window=20).mean()
+                        bb_std = df_grafik['Close'].rolling(window=20).std()
+                        df_grafik['BB_upper'] = df_grafik['BB_mid'] + (bb_std * 2)
+                        df_grafik['BB_lower'] = df_grafik['BB_mid'] - (bb_std * 2)
+                        
+                        # YENİ: MACD Histogramı Hesaplaması
+                        df_grafik['MACD_Line'] = df_grafik['Close'].ewm(span=12, adjust=False).mean() - df_grafik['Close'].ewm(span=26, adjust=False).mean()
+                        df_grafik['MACD_Signal'] = df_grafik['MACD_Line'].ewm(span=9, adjust=False).mean()
+                        df_grafik['MACD_Hist'] = df_grafik['MACD_Line'] - df_grafik['MACD_Signal']
+                        
+                        # RSI & MFI
                         delta_g = df_grafik['Close'].diff()
                         rs_g = delta_g.where(delta_g>0, 0.0).ewm(alpha=1/14, adjust=False).mean() / (-delta_g.where(delta_g<0, 0.0).ewm(alpha=1/14, adjust=False).mean() + 1e-5)
                         df_grafik['RSI'] = 100 - (100 / (1 + rs_g))
@@ -637,10 +650,12 @@ if st.session_state.tarama_durumu:
                         neg_f = pd.Series(np.where(typ_p < typ_p.shift(1), raw_mf, 0))
                         df_grafik['MFI'] = 100 - (100 / (1 + (pos_f.rolling(14).sum() / (neg_f.rolling(14).sum() + 1e-5))))
 
-                        fig = make_subplots(rows=3, cols=1, shared_xaxes=True, 
+                        # YENİ GRAFİK YERLEŞİMİ (4 Satır)
+                        fig = make_subplots(rows=4, cols=1, shared_xaxes=True, 
                                             vertical_spacing=0.03, 
-                                            row_heights=[0.6, 0.2, 0.2])
+                                            row_heights=[0.5, 0.15, 0.15, 0.20])
 
+                        # SATIR 1: Mumlar, EMA'lar ve Bollinger
                         fig.add_trace(go.Candlestick(
                             x=df_grafik.index,
                             open=df_grafik['Open'], high=df_grafik['High'],
@@ -648,24 +663,41 @@ if st.session_state.tarama_durumu:
                             name='Fiyat (Mum)'
                         ), row=1, col=1)
 
+                        if not df_grafik['BB_upper'].isna().all():
+                            fig.add_trace(go.Scatter(x=df_grafik.index, y=df_grafik['BB_upper'], line=dict(color='rgba(255, 255, 255, 0.2)', width=1, dash='dot'), name='BB Üst'), row=1, col=1)
+                            fig.add_trace(go.Scatter(x=df_grafik.index, y=df_grafik['BB_lower'], line=dict(color='rgba(255, 255, 255, 0.2)', width=1, dash='dot'), fill='tonexty', fillcolor='rgba(255, 255, 255, 0.05)', name='BB Alt'), row=1, col=1)
+
+                        if not df_grafik['EMA9'].isna().all():
+                            fig.add_trace(go.Scatter(x=df_grafik.index, y=df_grafik['EMA9'], line=dict(color='#00E676', width=1.2), name='9 EMA'), row=1, col=1)
+                        if not df_grafik['EMA21'].isna().all():
+                            fig.add_trace(go.Scatter(x=df_grafik.index, y=df_grafik['EMA21'], line=dict(color='#D50000', width=1.2), name='21 EMA'), row=1, col=1)
                         if not df_grafik['EMA50'].isna().all():
-                            fig.add_trace(go.Scatter(x=df_grafik.index, y=df_grafik['EMA50'], line=dict(color='orange', width=1.5), name='50 EMA'), row=1, col=1)
+                            fig.add_trace(go.Scatter(x=df_grafik.index, y=df_grafik['EMA50'], line=dict(color='orange', width=2), name='50 EMA'), row=1, col=1)
                         if not df_grafik['SMA200'].isna().all():
-                            fig.add_trace(go.Scatter(x=df_grafik.index, y=df_grafik['SMA200'], line=dict(color='blue', width=1.5), name='200 SMA'), row=1, col=1)
+                            fig.add_trace(go.Scatter(x=df_grafik.index, y=df_grafik['SMA200'], line=dict(color='#2962FF', width=2.5), name='200 SMA'), row=1, col=1)
 
-                        fig.add_trace(go.Scatter(x=df_grafik.index, y=df_grafik['RSI'], line=dict(color='#00ffcc', width=1.5), name='RSI (14)'), row=2, col=1)
-                        fig.add_hline(y=70, line_dash="dash", line_color="red", row=2, col=1)
-                        fig.add_hline(y=30, line_dash="dash", line_color="green", row=2, col=1)
+                        # SATIR 2: MACD
+                        macd_colors = ['#00E676' if val >= 0 else '#FF1744' for val in df_grafik['MACD_Hist']]
+                        fig.add_trace(go.Bar(x=df_grafik.index, y=df_grafik['MACD_Hist'], marker_color=macd_colors, name='MACD Hist'), row=2, col=1)
+                        fig.add_trace(go.Scatter(x=df_grafik.index, y=df_grafik['MACD_Line'], line=dict(color='#2962FF', width=1.5), name='MACD Çizgisi'), row=2, col=1)
+                        fig.add_trace(go.Scatter(x=df_grafik.index, y=df_grafik['MACD_Signal'], line=dict(color='#FF9100', width=1.5), name='Sinyal'), row=2, col=1)
 
-                        fig.add_trace(go.Scatter(x=df_grafik.index, y=df_grafik['MFI'], line=dict(color='#ff9900', width=1.5), name='MFI (Para Akışı)'), row=3, col=1)
+                        # SATIR 3: RSI
+                        fig.add_trace(go.Scatter(x=df_grafik.index, y=df_grafik['RSI'], line=dict(color='#00ffcc', width=1.5), name='RSI (14)'), row=3, col=1)
                         fig.add_hline(y=70, line_dash="dash", line_color="red", row=3, col=1)
                         fig.add_hline(y=30, line_dash="dash", line_color="green", row=3, col=1)
 
+                        # SATIR 4: MFI
+                        fig.add_trace(go.Scatter(x=df_grafik.index, y=df_grafik['MFI'], line=dict(color='#ff9900', width=1.5), name='MFI (Para Akışı)'), row=4, col=1)
+                        fig.add_hline(y=70, line_dash="dash", line_color="red", row=4, col=1)
+                        fig.add_hline(y=30, line_dash="dash", line_color="green", row=4, col=1)
+
+                        # Grafik Yüksekliği Büyütüldü
                         fig.update_layout(
                             template='plotly_dark',
-                            title=f"{secilen_detay_hisse} - Teknik Yapı ve Momentum Ekranı",
+                            title=f"{secilen_detay_hisse} - Kapsamlı Teknik & Momentum Paneli",
                             xaxis_rangeslider_visible=False,
-                            height=700,
+                            height=900,
                             margin=dict(l=10, r=10, t=40, b=10),
                             legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
                         )
@@ -673,63 +705,108 @@ if st.session_state.tarama_durumu:
                         st.plotly_chart(fig, use_container_width=True)
 
                         # ==========================================
-                        # --- YENİ EKLENEN BÖLÜM: TEKNİK GÖSTERGE VE SÖZEL YORUM BÖLÜMÜ ---
+                        # --- TEKNİK GÖSTERGE VE SÖZEL YORUM BÖLÜMÜ ---
                         # ==========================================
                         st.markdown(f"### 📋 {secilen_detay_hisse} - Anlık Teknik Göstergeler ve Algoritmik Yorum")
 
-                        # Güncel değerleri çekme ve hata yönetimini yapma
+                        # Güncel değerleri çekme
                         son_fiyat = df_grafik['Close'].iloc[-1] if not pd.isna(df_grafik['Close'].iloc[-1]) else 0
                         son_rsi = df_grafik['RSI'].iloc[-1] if not pd.isna(df_grafik['RSI'].iloc[-1]) else 50
                         son_mfi = df_grafik['MFI'].iloc[-1] if not pd.isna(df_grafik['MFI'].iloc[-1]) else 50
+                        son_ema9 = df_grafik['EMA9'].iloc[-1] if not pd.isna(df_grafik['EMA9'].iloc[-1]) else 0
+                        son_ema21 = df_grafik['EMA21'].iloc[-1] if not pd.isna(df_grafik['EMA21'].iloc[-1]) else 0
                         son_ema50 = df_grafik['EMA50'].iloc[-1] if not pd.isna(df_grafik['EMA50'].iloc[-1]) else 0
                         son_sma200 = df_grafik['SMA200'].iloc[-1] if not pd.isna(df_grafik['SMA200'].iloc[-1]) else 0
+                        
+                        son_bb_up = df_grafik['BB_upper'].iloc[-1] if not pd.isna(df_grafik['BB_upper'].iloc[-1]) else 0
+                        son_bb_low = df_grafik['BB_lower'].iloc[-1] if not pd.isna(df_grafik['BB_lower'].iloc[-1]) else 0
+                        son_bb_mid = df_grafik['BB_mid'].iloc[-1] if not pd.isna(df_grafik['BB_mid'].iloc[-1]) else 1
 
-                        # Gösterge değerlerini yan yana kutucuklar halinde basma
-                        m1, m2, m3, m4, m5 = st.columns(5)
+                        son_macd = df_grafik['MACD_Line'].iloc[-1] if not pd.isna(df_grafik['MACD_Line'].iloc[-1]) else 0
+                        son_macd_sig = df_grafik['MACD_Signal'].iloc[-1] if not pd.isna(df_grafik['MACD_Signal'].iloc[-1]) else 0
+                        son_macd_hist = df_grafik['MACD_Hist'].iloc[-1] if not pd.isna(df_grafik['MACD_Hist'].iloc[-1]) else 0
+
+                        # Gösterge Metriklerini 2 Satıra Yayarak Daha Şık Gösterme
+                        m1, m2, m3, m4 = st.columns(4)
                         m1.metric("Fiyat", f"{son_fiyat:.2f}")
-                        m2.metric("RSI (14)", f"{son_rsi:.2f}")
-                        m3.metric("MFI (14)", f"{son_mfi:.2f}")
-                        m4.metric("EMA 50", f"{son_ema50:.2f}")
-                        m5.metric("SMA 200", f"{son_sma200:.2f}")
+                        m2.metric("9 EMA (Kısa Vade)", f"{son_ema9:.2f}")
+                        m3.metric("21 EMA (Orta Vade)", f"{son_ema21:.2f}")
+                        m4.metric("RSI (Momentum)", f"{son_rsi:.2f}")
+                        
+                        st.markdown("<br>", unsafe_allow_html=True)
+                        
+                        n1, n2, n3, n4 = st.columns(4)
+                        n1.metric("50 EMA (Trend)", f"{son_ema50:.2f}")
+                        n2.metric("200 SMA (Ana Yön)", f"{son_sma200:.2f}")
+                        n3.metric("MFI (Para Akışı)", f"{son_mfi:.2f}")
+                        n4.metric("MACD Hist", f"{son_macd_hist:.3f}")
 
-                        # 1. Trend Yorumu
+                        # --- YAPAY ZEKA SÖZEL YORUMLAMA MOTORU ---
+                        
+                        # 1. Kısa Vade & Kesişim Yorumu (9 ve 21 EMA)
+                        onceki_ema9 = df_grafik['EMA9'].iloc[-2] if len(df_grafik) > 1 else 0
+                        onceki_ema21 = df_grafik['EMA21'].iloc[-2] if len(df_grafik) > 1 else 0
+                        
+                        yorum_kisa_vade = ""
+                        if son_ema9 > son_ema21 and onceki_ema9 <= onceki_ema21:
+                            yorum_kisa_vade = "🔥 **Kısa Vade Golden Cross (Alım Teyidi):** Hızlı hareket eden EMA 9, EMA 21'i yukarı yönlü kesti! Piyasada kısa vadeli güçlü bir alım iştahı başladı; yeni pozisyon açmak veya tetik çekmek için ideal bir sinyaldir."
+                        elif son_ema9 < son_ema21 and onceki_ema9 >= onceki_ema21:
+                            yorum_kisa_vade = "🛑 **Kısa Vade Death Cross (Satış Teyidi):** EMA 9, EMA 21'i aşağı yönlü kesti! Kısa vadeli yükseliş ivmesi kırıldı ve satış baskısı başladı. Kâr realizasyonu yapmak veya stop-loss (zarar kes) seviyelerini yakından takip etmek gerekir."
+                        elif son_ema9 > son_ema21:
+                            yorum_kisa_vade = f"EMA 9 ({son_ema9:.2f}), EMA 21'in ({son_ema21:.2f}) üzerinde seyretmeye devam ediyor. Kısa vadeli **yükseliş trendi gücünü ve formunu koruyor**."
+                        else:
+                            yorum_kisa_vade = f"EMA 9 ({son_ema9:.2f}), EMA 21'in ({son_ema21:.2f}) altında. Kısa vadeli trend yönü hala aşağı ve hissedeki **satış baskısı aktif** durumda."
+
+                        # 2. Bollinger Bantları (Volatilite ve Sıkışma) Yorumu
+                        bb_genislik_orani = (son_bb_up - son_bb_low) / son_bb_mid if son_bb_mid > 0 else 1
+                        yorum_bb = ""
+                        if bb_genislik_orani < 0.08:
+                            yorum_bb += "📉 Bantlarda **ciddi bir daralma (sıkışma)** mevcut. Volatilite dibe vurmuş durumda; bu durum yakın zamanda hissede yönlü ve çok sert bir patlamanın (kırılım) habercisidir. "
+                        
+                        if son_fiyat >= son_bb_up * 0.99:
+                            yorum_bb += "Fiyat Bollinger üst bandına yapışmış durumda. Bu, hissenin çok güçlü bir ralli içinde olduğunu gösterdiği gibi, kısa vadeli **aşırı şişkinliğe (kâr satışı riskine)** de işaret eder."
+                        elif son_fiyat <= son_bb_low * 1.01:
+                            yorum_bb += "Fiyat Bollinger alt bandına gerilemiş durumda. Bu bölge genellikle aşırı satışın durduğu ve **tepki alımlarının (destek)** geldiği oldukça cazip dip bölgeleridir."
+                        else:
+                            if "daralma" not in yorum_bb:
+                                yorum_bb = "Fiyat Bollinger bantlarının orta bölgesinde, olağan dışı bir şişkinlik olmadan **dengeli ve normal** bir dalgalanma (konsolidasyon) alanında hareket ediyor."
+
+                        # 3. MACD Yorumu (Trendin Gücü ve Yönü)
+                        yorum_macd = ""
+                        onceki_macd_hist = df_grafik['MACD_Hist'].iloc[-2] if len(df_grafik) > 1 else 0
+                        
+                        if son_macd > son_macd_sig:
+                            if son_macd_hist > onceki_macd_hist:
+                                yorum_macd = "MACD çizgisi Sinyalin üzerinde ve yeşil histogram barları uzuyor. Trendin **yukarı yönlü gücü (momentum) artıyor**, alıcılar piyasaya çok iştahlı giriyor."
+                            else:
+                                yorum_macd = "MACD pozitif bölgede ancak yeşil barlar kısalmaya başlamış. Yükseliş trendi **güç ve ivme kaybediyor** olabilir, trend dönüşüne karşı dikkatli olunmalı."
+                        else:
+                            if son_macd_hist < onceki_macd_hist:
+                                yorum_macd = "MACD çizgisi Sinyalin altında ve kırmızı histogram barları uzuyor. Düşüş yönlü **satış baskısı gittikçe şiddetleniyor**, dip henüz bulunmamış olabilir."
+                            else:
+                                yorum_macd = "MACD negatif bölgede ancak kırmızı barlar kısalıyor (pembeleşiyor). Satış baskısı zayıflıyor; hissede **yakın zamanda bir dönüş (toparlanma) sinyali** gelebilir."
+
+                        # 4. Ana Trend (50 & 200 EMA/SMA) Yorumu
                         yorum_trend = ""
                         if son_sma200 == 0:
-                            yorum_trend = "Hissenin 200 günlük geçmişi olmadığı için (veya veri eksikliğinden) uzun vade trendi hesaplanamıyor. EMA 50 baz alınmalıdır."
+                            yorum_trend = "Hissenin yeterli geçmişi olmadığı için uzun vade trendi (SMA 200) hesaplanamıyor. Yön tayini için 50 EMA baz alınmalıdır."
                         elif son_fiyat > son_ema50 and son_fiyat > son_sma200:
-                            yorum_trend = "Fiyat hem kısa (EMA 50) hem de uzun (SMA 200) vadeli ortalamaların üzerinde seyrediyor. Bu durum piyasanın hisseyi desteklediğine ve **güçlü bir yükseliş (boğa) trendine** işaret eder."
+                            yorum_trend = "Fiyat hem kısa-orta (EMA 50) hem de uzun (SMA 200) vadeli ana ortalamaların üzerinde seyrediyor. Piyasa hisseyi tam olarak destekliyor; varlık **güçlü ve kusursuz bir boğa (yükseliş) trendinde**."
                         elif son_fiyat < son_ema50 and son_fiyat < son_sma200:
-                            yorum_trend = "Fiyat hem kısa (EMA 50) hem de uzun (SMA 200) vadeli ortalamaların altında. Maalesef hissedeki **ayı trendi ve satış baskısı** devam ediyor."
+                            yorum_trend = "Fiyat maalesef tüm ana ortalamaların (EMA 50 ve SMA 200) altında. Hissedeki **ayı trendi ve uzun vadeli düşüş baskısı** kesin olarak devam ediyor."
                         elif son_fiyat > son_ema50 and son_fiyat < son_sma200:
-                            yorum_trend = "Fiyat kısa vadede (EMA 50) toparlanmış olsa da, hala uzun vadeli (SMA 200) direncinin altında bulunuyor. Ciddi bir **trend dönüşü çabası** var."
+                            yorum_trend = "Fiyat orta vadede (EMA 50) toparlanmış olsa da, hala devasa bir barikat olan uzun vadeli (SMA 200) direncinin altında bulunuyor. Ciddi bir **trend dönüşü (kurtuluş) çabası** var."
                         elif son_fiyat < son_ema50 and son_fiyat > son_sma200:
-                            yorum_trend = "Uzun vadeli (SMA 200) trend (ana destek) korunsa da, kısa vadede (EMA 50) belirgin bir **ivme kaybı ve fiyat düzeltmesi** yaşanıyor."
+                            yorum_trend = "Uzun vadeli (SMA 200) ana destek korunsa da, orta vadede (EMA 50) belirgin bir **ivme kaybı ve fiyat düzeltmesi (dinlenme)** yaşanıyor."
 
-                        # 2. RSI (Momentum) Yorumu
-                        yorum_rsi = ""
-                        if son_rsi >= 70:
-                            yorum_rsi = f"RSI değeri {son_rsi:.1f} ile **aşırı alım (şişkinlik)** bölgesinde. Kısa vadede kâr satışları veya düzeltme gelme ihtimali yüksek, yeni alım yapmak için oldukça riskli bir konumda."
-                        elif son_rsi <= 30:
-                            yorum_rsi = f"RSI değeri {son_rsi:.1f} ile **aşırı satım** bölgesinde. Satış baskısı tükenmek üzere olabilir, potansiyel bir dip oluşumu veya tepki yükselişi için fırsat barındırıyor."
-                        else:
-                            yorum_rsi = f"RSI değeri {son_rsi:.1f} ile **nötr/sağlıklı** bölgede. Fiyatta ekstrem bir şişkinlik veya aşırı panik satışı durumu görünmüyor."
-
-                        # 3. MFI (Para Akışı) Yorumu
-                        yorum_mfi = ""
-                        if son_mfi >= 70:
-                            yorum_mfi = f"MFI (Para Akışı) {son_mfi:.1f} seviyesinde ve hissede **yoğun bir para girişi** (akıllı para birikimi) olduğunu gösteriyor. Ancak fiyat zaten çok yükseldiyse, tepe uyumsuzluklarına dikkat edilmelidir."
-                        elif son_mfi <= 30:
-                            yorum_mfi = f"MFI (Para Akışı) {son_mfi:.1f} seviyesinde. Hisseden **ciddi bir para çıkışı** yaşanmış. Dip avcılığı yapmak için dönüş onayı (hacimli yeşil mumlar) izlenmelidir."
-                        else:
-                            yorum_mfi = f"MFI (Para Akışı) {son_mfi:.1f} seviyesinde, hisseye giren ve çıkan para **dengeli** (stabil) seyrediyor. Manipülatif bir hacim patlaması yok."
-
-                        # Yorumları ekrana Info-Box ile basma
+                        # Yorumları Ekrana Info-Box ile Basma
                         st.markdown(f'''
                         <div class="info-box">
-                            <b>🤖 Göstergelerin Sözel Analizi:</b><br><br>
-                            • <b>Trend Durumu (EMA 50 & SMA 200):</b> {yorum_trend}<br><br>
-                            • <b>Momentum ve İvme (RSI):</b> {yorum_rsi}<br><br>
-                            • <b>Hacim ve Para Akışı (MFI):</b> {yorum_mfi}
+                            <b>🤖 Algoritmik Strateji ve Göstergelerin Sözel Analizi:</b><br><br>
+                            • <b>1. Zamanlama (EMA 9-21 Kesişimi):</b> {yorum_kisa_vade}<br><br>
+                            • <b>2. Volatilite (Bollinger Bantları):</b> {yorum_bb}<br><br>
+                            • <b>3. Trendin İvmesi (MACD):</b> {yorum_macd}<br><br>
+                            • <b>4. Ana Resim (50 EMA & 200 SMA):</b> {yorum_trend}
                         </div>
                         ''', unsafe_allow_html=True)
 
