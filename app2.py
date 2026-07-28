@@ -64,10 +64,11 @@ if st.session_state.user_email is None and saved_email is not None and not st.se
 # --- CSS STİLLERİ ---
 st.markdown("""
 <style>
-    /* Kapsamlı Toolbar ve Running Gizleyici */
+    /* Sağ üst köşedeki Running / Status göstergesini, deployment butonunu ve araç çubuğunu tamamen gizler */
     [data-testid="stStatusWidget"],
     [data-testid="stToolbarActions"],
     .stDeployButton,
+    .stAppStatusIndicator,
     header[data-testid="stHeader"] .stStatusWidget { 
         display: none !important; 
         visibility: hidden !important; 
