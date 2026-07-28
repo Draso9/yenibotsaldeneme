@@ -61,15 +61,15 @@ if st.session_state.user_email is None and saved_email is not None and not st.se
             st.session_state.custom_tickers = VARSAYILAN_TICKERS.copy()
     st.rerun()
 
-# --- CSS STİLLERİ ---
 st.markdown("""
 <style>
-    /* Sağ üst köşedeki Running / Status göstergesini, deployment butonunu ve araç çubuğunu tamamen gizler */
+    /* Sağ üst köşedeki hareketli Running yazısını, durum göstergesini ve araç çubuğunu tamamen gizler */
     [data-testid="stStatusWidget"],
     [data-testid="stToolbarActions"],
+    [data-testid="stDecoration"],
     .stDeployButton,
     .stAppStatusIndicator,
-    header[data-testid="stHeader"] .stStatusWidget { 
+    header[data-testid="stHeader"] div { 
         display: none !important; 
         visibility: hidden !important; 
         opacity: 0 !important; 
