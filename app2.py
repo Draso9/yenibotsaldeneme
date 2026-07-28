@@ -61,6 +61,7 @@ if st.session_state.user_email is None and saved_email is not None and not st.se
             st.session_state.custom_tickers = VARSAYILAN_TICKERS.copy()
     st.rerun()
 
+# --- DÜZELTİLMİŞ CSS: Running yazısı gizlenir, mobil menü korunur ---
 st.markdown("""
 <style>
     /* Sadece durum göstergesini, deployment butonunu ve araç çubuğunu gizler; mobildeki hamburger menüye dokunmaz */
@@ -85,6 +86,45 @@ st.markdown("""
     .dataframe { font-size: 12px !important; }
 </style>
 """, unsafe_allow_html=True)
+
+# --- YENİ EKLENEN AKSİYON REHBERİ FONKSİYONU ---
+def aksiyon_rehberi_olustur(sistem_sinyali, rsi_degeri, sozel_yorum):
+    """
+    Sistem skoru ile grafiğin anlık durumunu sentezleyip yol gösterici bir sonuç üretir.
+    """
+    sozel_yorum_lower = sozel_yorum.lower()
+    sinyal_lower = str(sistem_sinyali).lower()
+    
+    # 1. Senaryo: Sistem AL diyor ama grafik ŞİŞMİŞ
+    if ("alım" in sinyal_lower) and ("şişti" in sozel_yorum_lower or "şişkinliğe" in sozel_yorum_lower or "aşırı" in sozel_yorum_lower or rsi_degeri > 70):
+        return ("⚠️ KADEMELİ GİRİŞ / DÜZELTME BEKLE", 
+                "Sistem, ana trendin ve temel verilerin güçlü olduğunu teyit ederek 'ALIM' diyor. Ancak grafik kısa vadede fazlasıyla şişmiş (dirençte). Bu aşamada tek seferde yüklü alım yapmak yerine, ortalamalara (EMA 21/50) doğru bir geri çekilme (pullback) beklemek veya çok küçük bir kademe ile başlamak en güvenlisidir.", 
+                "#f39c12")
+        
+    # 2. Senaryo: Her şey kusursuz
+    elif ("alım" in sinyal_lower) and ("kusursuz" in sozel_yorum_lower or "sağlıklı" in sozel_yorum_lower or "boğa" in sozel_yorum_lower):
+        return ("🚀 GÜÇLÜ ALIM / POZİSYON KORU", 
+                "Sistem skoru ile teknik grafik kusursuz bir uyum içinde. Güçlü trend hacimle destekleniyor. Güvenle yeni pozisyon açılabilir veya mevcut pozisyonlar kâr hedeflenerek tutulabilir.", 
+                "#00FF88")
+        
+    # 3. Senaryo: Tehlike veya Kâr Al
+    elif "uzak dur" in sinyal_lower or "kar realizasyonu" in sinyal_lower or "sat" in sinyal_lower or rsi_degeri > 75:
+        return ("🛑 KÂR AL / RİSKİ AZALT", 
+                "Grafikte ciddi yorulma ve şişme belirtileri mevcut. Yeni alım yapmak için risk çok yüksek. Eldeki pozisyonlar için kâr realizasyonu (cebe koyma) veya stop-loss seviyelerinin güncellenmesi şiddetle tavsiye edilir.", 
+                "#FF5555")
+        
+    # 4. Senaryo: Kararsız durum
+    elif "nötr" in sinyal_lower or "bekle" in sinyal_lower:
+        return ("⏳ İZLEME VE SABIR MODU", 
+                "Şu an net bir kırılım veya yön teyidi yok. Hem temel puanlama hem de grafikler kararsız/yatay seyrediyor. Acele etmeyin, destek seviyelerine yaklaşmasını veya belirgin bir hacim artışını bekleyin.", 
+                "#3498db")
+        
+    # Varsayılan
+    else:
+        return ("🔎 DİKKATLİ TAKİP", 
+                "Sistem sinyali ve grafik yönü arasında belirsizlik var. SMA 200 gibi uzun vadeli destekler kırılmadığı sürece trend korunuyor sayılır ancak yeni işlem açmak için sinyallerin (Hacim, MACD, EMA) uyumlu olmasını bekleyin.", 
+                "#AAAAAA")
+
 # --- HİSSE LİSTELERİ ---
 BIST_30 = [
     "AKBNK.IS", "ALARK.IS", "ASELS.IS", "ASTOR.IS", "BIMAS.IS", 
@@ -622,7 +662,7 @@ if st.session_state.tarama_durumu:
                     df_grafik = stk_detay.history(period="1y")
                     
                     if not df_grafik.empty:
-                        # YENİ: EMA 9, EMA 21 ve Bollinger Bantları
+                        # EMA 9, EMA 21 ve Bollinger Bantları
                         df_grafik['EMA9'] = df_grafik['Close'].ewm(span=9).mean()
                         df_grafik['EMA21'] = df_grafik['Close'].ewm(span=21).mean()
                         df_grafik['EMA50'] = df_grafik['Close'].ewm(span=50).mean()
@@ -633,7 +673,7 @@ if st.session_state.tarama_durumu:
                         df_grafik['BB_upper'] = df_grafik['BB_mid'] + (bb_std * 2)
                         df_grafik['BB_lower'] = df_grafik['BB_mid'] - (bb_std * 2)
                         
-                        # YENİ: MACD Histogramı Hesaplaması
+                        # MACD Histogramı Hesaplaması
                         df_grafik['MACD_Line'] = df_grafik['Close'].ewm(span=12, adjust=False).mean() - df_grafik['Close'].ewm(span=26, adjust=False).mean()
                         df_grafik['MACD_Signal'] = df_grafik['MACD_Line'].ewm(span=9, adjust=False).mean()
                         df_grafik['MACD_Hist'] = df_grafik['MACD_Line'] - df_grafik['MACD_Signal']
@@ -649,7 +689,7 @@ if st.session_state.tarama_durumu:
                         neg_f = pd.Series(np.where(typ_p < typ_p.shift(1), raw_mf, 0))
                         df_grafik['MFI'] = 100 - (100 / (1 + (pos_f.rolling(14).sum() / (neg_f.rolling(14).sum() + 1e-5))))
 
-                        # YENİ GRAFİK YERLEŞİMİ (4 Satır)
+                        # GRAFİK YERLEŞİMİ (4 Satır)
                         fig = make_subplots(rows=4, cols=1, shared_xaxes=True, 
                                             vertical_spacing=0.03, 
                                             row_heights=[0.5, 0.15, 0.15, 0.20])
@@ -691,7 +731,7 @@ if st.session_state.tarama_durumu:
                         fig.add_hline(y=70, line_dash="dash", line_color="red", row=4, col=1)
                         fig.add_hline(y=30, line_dash="dash", line_color="green", row=4, col=1)
 
-                        # Grafik Yüksekliği Büyütüldü
+                        # Grafik Yüksekliği
                         fig.update_layout(
                             template='plotly_dark',
                             title=f"{secilen_detay_hisse} - Kapsamlı Teknik & Momentum Paneli",
@@ -725,7 +765,7 @@ if st.session_state.tarama_durumu:
                         son_macd_sig = df_grafik['MACD_Signal'].iloc[-1] if not pd.isna(df_grafik['MACD_Signal'].iloc[-1]) else 0
                         son_macd_hist = df_grafik['MACD_Hist'].iloc[-1] if not pd.isna(df_grafik['MACD_Hist'].iloc[-1]) else 0
 
-                        # Gösterge Metriklerini 2 Satıra Yayarak Daha Şık Gösterme
+                        # Gösterge Metrikleri
                         m1, m2, m3, m4 = st.columns(4)
                         m1.metric("Fiyat", f"{son_fiyat:.2f}")
                         m2.metric("9 EMA (Kısa Vade)", f"{son_ema9:.2f}")
@@ -742,7 +782,7 @@ if st.session_state.tarama_durumu:
 
                         # --- YAPAY ZEKA SÖZEL YORUMLAMA MOTORU ---
                         
-                        # 1. Kısa Vade & Kesişim Yorumu (9 ve 21 EMA)
+                        # 1. Kısa Vade & Kesişim Yorumu
                         onceki_ema9 = df_grafik['EMA9'].iloc[-2] if len(df_grafik) > 1 else 0
                         onceki_ema21 = df_grafik['EMA21'].iloc[-2] if len(df_grafik) > 1 else 0
                         
@@ -756,7 +796,7 @@ if st.session_state.tarama_durumu:
                         else:
                             yorum_kisa_vade = f"EMA 9 ({son_ema9:.2f}), EMA 21'in ({son_ema21:.2f}) altında. Kısa vadeli trend yönü hala aşağı ve hissedeki **satış baskısı aktif** durumda."
 
-                        # 2. Bollinger Bantları (Volatilite ve Sıkışma) Yorumu
+                        # 2. Bollinger Bantları Yorumu
                         bb_genislik_orani = (son_bb_up - son_bb_low) / son_bb_mid if son_bb_mid > 0 else 1
                         yorum_bb = ""
                         if bb_genislik_orani < 0.08:
@@ -770,7 +810,7 @@ if st.session_state.tarama_durumu:
                             if "daralma" not in yorum_bb:
                                 yorum_bb = "Fiyat Bollinger bantlarının orta bölgesinde, olağan dışı bir şişkinlik olmadan **dengeli ve normal** bir dalgalanma (konsolidasyon) alanında hareket ediyor."
 
-                        # 3. MACD Yorumu (Trendin Gücü ve Yönü)
+                        # 3. MACD Yorumu
                         yorum_macd = ""
                         onceki_macd_hist = df_grafik['MACD_Hist'].iloc[-2] if len(df_grafik) > 1 else 0
                         
@@ -785,7 +825,7 @@ if st.session_state.tarama_durumu:
                             else:
                                 yorum_macd = "MACD negatif bölgede ancak kırmızı barlar kısalıyor (pembeleşiyor). Satış baskısı zayıflıyor; hissede **yakın zamanda bir dönüş (toparlanma) sinyali** gelebilir."
 
-                        # 4. Ana Trend (50 & 200 EMA/SMA) Yorumu
+                        # 4. Ana Trend Yorumu
                         yorum_trend = ""
                         if son_sma200 == 0:
                             yorum_trend = "Hissenin yeterli geçmişi olmadığı için uzun vade trendi (SMA 200) hesaplanamıyor. Yön tayini için 50 EMA baz alınmalıdır."
@@ -808,6 +848,31 @@ if st.session_state.tarama_durumu:
                             • <b>4. Ana Resim (50 EMA & 200 SMA):</b> {yorum_trend}
                         </div>
                         ''', unsafe_allow_html=True)
+                        
+                        
+                        # ==========================================
+                        # --- YENİ EKLENEN AKSİYON REHBERİ (YOL GÖSTERİCİ) ---
+                        # ==========================================
+                        tam_sozel_yorum = f"{yorum_kisa_vade} {yorum_bb} {yorum_macd} {yorum_trend}"
+                        
+                        # Nihai sinyali veri çerçevesinden yakalama
+                        hisse_satiri = df_sonuc[df_sonuc["Varlık"] == secilen_detay_hisse]
+                        anlik_sinyal = hisse_satiri["Nihai Sinyal"].values[0] if not hisse_satiri.empty else "Nötr (İzle) ⚖️"
+                        
+                        # Aksiyon rehberi karar fonksiyonunu çalıştırma
+                        rehber_baslik, rehber_aciklama, rehber_renk = aksiyon_rehberi_olustur(
+                            anlik_sinyal, 
+                            son_rsi, 
+                            tam_sozel_yorum
+                        )
+                        
+                        # Aksiyon Rehberi UI Tasarımı
+                        st.markdown(f"""
+                        <div style="background-color: #1a1a1a; padding: 18px; border-radius: 8px; border-left: 6px solid {rehber_renk}; margin-top: 15px; margin-bottom: 30px; box-shadow: 0 4px 6px rgba(0,0,0,0.3);">
+                            <h4 style="color: {rehber_renk}; margin-top: 0px; margin-bottom: 8px; font-size: 16px; letter-spacing: 0.5px;">{rehber_baslik}</h4>
+                            <p style="color: #E0E0E0; font-size: 14px; margin-bottom: 0px; line-height: 1.5;">{rehber_aciklama}</p>
+                        </div>
+                        """, unsafe_allow_html=True)
 
                     else:
                         st.warning("Seçilen varlık için yeterli grafik verisi bulunamadı.")
