@@ -61,7 +61,7 @@ if st.session_state.user_email is None and saved_email is not None and not st.se
             st.session_state.custom_tickers = VARSAYILAN_TICKERS.copy()
     st.rerun()
 
-# --- CSS STİLLERİ (GÜNCELLENDİ: RUNNING VE DEPLOY BUTONU KESİN GİZLEME) ---
+# --- CSS STİLLERİ ---
 st.markdown("""
 <style>
     /* Kapsamlı Toolbar ve Running Gizleyici */
@@ -254,7 +254,6 @@ def profil_degisti():
     st.session_state.aktif_profil = p
     st.session_state.secilen_varliklar = preset_options[p].copy()
 
-# GÜNCELLENDİ: Hata yakalama ve sağlam veri kaydı eklendi
 def hisse_ekle_callback():
     input_val = st.session_state.ek_hisse_input_field
     if input_val and input_val.strip():
@@ -263,7 +262,6 @@ def hisse_ekle_callback():
             if h not in st.session_state.custom_tickers:
                 st.session_state.custom_tickers.append(h)
         
-        # Veritabanına yazma işlemini kontrol altına alıyoruz
         if db and st.session_state.user_email:
             try:
                 db.collection("kullanici_listeleri").document(st.session_state.user_email).set({"tickers": st.session_state.custom_tickers})
@@ -347,8 +345,6 @@ if tarama_tetiklendi:
                     
                     info = stock.info if hasattr(stock, 'info') else {}
                     
-                    # DÜZELTME: Yahoo Finance web sitesindeki Normal Seans (Regular Market) yüzdesini ve fiyatını 
-                    # birebir yakalamak için stock.info içindeki regularMarketPrice ve regularMarketPreviousClose verileri kullanılır.
                     reg_price = info.get('regularMarketPrice', info.get('currentPrice', None))
                     reg_prev = info.get('regularMarketPreviousClose', info.get('previousClose', None))
                     
@@ -359,7 +355,6 @@ if tarama_tetiklendi:
                         bugun_kapanis = float(df_long['Close'].iloc[-1])
                         onceki_kapanis = float(df_long['Close'].iloc[-2]) if len(df_long) >= 2 else bugun_kapanis
 
-                    # Teknik gösterge hesaplamaları için DataFrame son kapanışını güncel fiyatla eşitliyoruz
                     if not df_long.empty:
                         df_long.iloc[-1, df_long.columns.get_loc('Close')] = bugun_kapanis
 
@@ -625,7 +620,8 @@ if st.session_state.tarama_durumu:
             if secilen_detay_hisse:
                 with st.spinner(f"{secilen_detay_hisse} için grafik verileri yükleniyor..."):
                     stk_detay = yf.Ticker(secilen_detay_hisse)
-                    df_grafik = stk_detay.history(period="6mo")
+                    # GÜNCELLENDİ: SMA 200'ün düzgün çıkması için veri çekme periyodu "1y" yapıldı.
+                    df_grafik = stk_detay.history(period="1y")
                     
                     if not df_grafik.empty:
                         df_grafik['SMA200'] = df_grafik['Close'].rolling(200).mean()
@@ -676,84 +672,66 @@ if st.session_state.tarama_durumu:
 
                         st.plotly_chart(fig, use_container_width=True)
 
-                        st.markdown(f"### 📋 {secilen_detay_hisse} - Hisseye Özel Kurumsal Karar Paneli")
-                        
-                        secilen_veri = df_sonuc[df_sonuc["Varlık"] == secilen_detay_hisse].iloc[0]
-                        
-                        d_sinyal = secilen_veri['Nihai Sinyal']
-                        d_skor = secilen_veri["7'li Cezalı Skor"]
-                        d_fskor = secilen_veri['F-Skor (Piotroski)']
-                        d_temel = secilen_veri['Temel Veri (PEG/FK)']
-                        
-                        col_d1, col_d2, col_d3 = st.columns(3)
-                        
-                        with col_d1:
-                            st.markdown(f"""
-                            <div class="kpi-card" style="text-align: left; padding: 15px;">
-                                <b>🎯 Sinyal & Skor Durumu:</b><br>
-                                • Nihai Sinyal: <b>{d_sinyal}</b><br>
-                                • 7'li Cezalı Skor: <b>{d_skor}</b><br>
-                                • F-Skor (Piotroski): <b>{d_fskor}</b><br>
-                                • Temel Yapı (PEG/FK): <b>{d_temel}</b>
-                            </div>
-                            """, unsafe_allow_html=True)
-                            
-                        with col_d2:
-                            st.markdown(f"""
-                            <div class="kpi-card" style="text-align: left; padding: 15px;">
-                                <b>🛡️ Risk, Destek & Hedefler:</b><br>
-                                • Karma Destek Hattı: <span style="color: #00FF88;"><b>{secilen_veri['Karma Destek']}</b></span><br>
-                                • Karma Direnç Hattı: <span style="color: #FF5555;"><b>{secilen_veri['Karma Direnç']}</b></span><br>
-                                • Süren Stop (Trailing): <span style="color: #FF5555;"><b>{secilen_veri['Süren Stop']}</b></span><br>
-                                • Kâr Hedefleri (TP): <span style="color: #00FF88;"><b>{secilen_veri['Hibrit Kâr Al (TP)']}</b></span>
-                            </div>
-                            """, unsafe_allow_html=True)
-                            
-                        with col_d3:
-                            st.markdown(f"""
-                            <div class="kpi-card" style="text-align: left; padding: 15px;">
-                                <b>🌊 Akış, Hacim & Zamanlama:</b><br>
-                                • Para Akışı (MFI/OBV): <b>{secilen_veri['Para Akışı (OBV/MFI)']}</b><br>
-                                • Sektörel Güç & Hacim: <b>{secilen_veri['Görec. Güç (Sektör)']}</b><br>
-                                • 1H Teyit Durumu: <b>{secilen_veri['↓ Zamanlama (1H Teyit)']}</b><br>
-                                • Önerilen Lot Miktarı: <b>{secilen_veri['Önerilen Lot']}</b>
-                            </div>
-                            """, unsafe_allow_html=True)
-                            
-                        st.markdown("### 🧭 Yapay Zeka & Algoritma Yorumu ve Yol Haritası")
-                        
-                        yorum_metni = f"**Genel Durum Analizi:** Seçtiğiniz varlık ({secilen_detay_hisse}), algoritma tarafından **{d_skor}** ile değerlendirilmiştir. Temel tarafta **{d_temel}** ve **{d_fskor}** kalitesine sahip olan hisse, para akışı tarafında **{secilen_veri['Para Akışı (OBV/MFI)']}** durumu sergiliyor. Mevcut sektörel gücü ise ana endekse kıyasla **{secilen_veri['Görec. Güç (Sektör)']}** seviyesindedir. Teknik ve temel göstergelerin harmanlanmasıyla sistemin bu varlık için ürettiği karar **{d_sinyal}** olmuştur."
-                        st.markdown(f"<div class='info-box'>{yorum_metni}</div>", unsafe_allow_html=True)
-                        
-                        rehber_metni = ""
-                        if "ALIM" in d_sinyal:
-                            rehber_metni += f"✅ **Strateji ve Yol Haritası (Alım Fırsatı):**\n"
-                            rehber_metni += f"- **Giriş Şartı:** Sistemin ürettiği saatlik teyit durumu şu an **{secilen_veri['↓ Zamanlama (1H Teyit)']}**. Tetiği çekmek için mikro dönüş onayını (yeşil saatlik mum) beklemeniz riski azaltır.\n"
-                            rehber_metni += f"- **Risk Yönetimi:** Olası bir terste kalma durumuna karşı **{secilen_veri['Karma Destek']}** seviyesi kesin stop-loss (zarar kes) olarak belirlenmelidir.\n"
-                            rehber_metni += f"- **Hedefler:** Yükseliş ivmesi başladığında ilk etapta **{secilen_veri['Hibrit Kâr Al (TP)']}** seviyelerinde kâr realizasyonu yapılmalı veya **{secilen_veri['Süren Stop']}** seviyesi ile trend sürülmelidir.\n"
-                            rehber_metni += f"- **Sermaye Dağılımı:** Kasa ve risk ayarlarınıza göre önerilen lot miktarı **{secilen_veri['Önerilen Lot']}** seviyesindedir."
-                            st.success(rehber_metni)
-                            
-                        elif "KAR REALİZASYONU" in d_sinyal:
-                            rehber_metni += f"🚨 **Strateji ve Yol Haritası (Şişkinlik ve Direnç):**\n"
-                            rehber_metni += f"- **Giriş Şartı:** Varlık şu anda teknik olarak şişmiş ve aşırı alım bölgesinde. Yeni pozisyon açmak veya maliyetlenmek oldukça risklidir.\n"
-                            rehber_metni += f"- **Risk Yönetimi:** Elinizde mevcut pozisyon varsa, **{secilen_veri['Süren Stop']}** seviyesini fiyatın hemen altında çok yakından takip etmelisiniz.\n"
-                            rehber_metni += f"- **Hedefler:** Fiyat **{secilen_veri['Karma Direnç']}** direncine yaklaştıkça kademeli olarak satıp kârı cebe yakıştırmak şu an en güvenli stratejidir."
-                            st.warning(rehber_metni)
-                            
-                        elif "UZAK DUR" in d_sinyal:
-                            rehber_metni += f"🛑 **Strateji ve Yol Haritası (Ayı Trendi / Tehlike):**\n"
-                            rehber_metni += f"- **Giriş Şartı:** Varlık, uzun vade trendinin altında seyrediyor veya skoru cezalı bölgede. Düşen bıçak tutulmaz; formasyon görülene kadar kesinlikle izlemede kalın.\n"
-                            rehber_metni += f"- **Risk Yönetimi:** Maliyetliyseniz ve varlık **{secilen_veri['Karma Destek']}** seviyesinin altındaysa, sermayeyi korumak adına zarar kes (stop-loss) kuralları işletilmelidir.\n"
-                            rehber_metni += f"- **Hedefler:** Yeni bir fırsat için para akışında yeşil barlar ve fiyatın en azından **{secilen_veri['Karma Direnç']}** seviyelerini yukarı kırması beklenmelidir."
-                            st.error(rehber_metni)
-                            
+                        # ==========================================
+                        # --- YENİ EKLENEN BÖLÜM: TEKNİK GÖSTERGE VE SÖZEL YORUM BÖLÜMÜ ---
+                        # ==========================================
+                        st.markdown(f"### 📋 {secilen_detay_hisse} - Anlık Teknik Göstergeler ve Algoritmik Yorum")
+
+                        # Güncel değerleri çekme ve hata yönetimini yapma
+                        son_fiyat = df_grafik['Close'].iloc[-1] if not pd.isna(df_grafik['Close'].iloc[-1]) else 0
+                        son_rsi = df_grafik['RSI'].iloc[-1] if not pd.isna(df_grafik['RSI'].iloc[-1]) else 50
+                        son_mfi = df_grafik['MFI'].iloc[-1] if not pd.isna(df_grafik['MFI'].iloc[-1]) else 50
+                        son_ema50 = df_grafik['EMA50'].iloc[-1] if not pd.isna(df_grafik['EMA50'].iloc[-1]) else 0
+                        son_sma200 = df_grafik['SMA200'].iloc[-1] if not pd.isna(df_grafik['SMA200'].iloc[-1]) else 0
+
+                        # Gösterge değerlerini yan yana kutucuklar halinde basma
+                        m1, m2, m3, m4, m5 = st.columns(5)
+                        m1.metric("Fiyat", f"{son_fiyat:.2f}")
+                        m2.metric("RSI (14)", f"{son_rsi:.2f}")
+                        m3.metric("MFI (14)", f"{son_mfi:.2f}")
+                        m4.metric("EMA 50", f"{son_ema50:.2f}")
+                        m5.metric("SMA 200", f"{son_sma200:.2f}")
+
+                        # 1. Trend Yorumu
+                        yorum_trend = ""
+                        if son_sma200 == 0:
+                            yorum_trend = "Hissenin 200 günlük geçmişi olmadığı için (veya veri eksikliğinden) uzun vade trendi hesaplanamıyor. EMA 50 baz alınmalıdır."
+                        elif son_fiyat > son_ema50 and son_fiyat > son_sma200:
+                            yorum_trend = "Fiyat hem kısa (EMA 50) hem de uzun (SMA 200) vadeli ortalamaların üzerinde seyrediyor. Bu durum piyasanın hisseyi desteklediğine ve **güçlü bir yükseliş (boğa) trendine** işaret eder."
+                        elif son_fiyat < son_ema50 and son_fiyat < son_sma200:
+                            yorum_trend = "Fiyat hem kısa (EMA 50) hem de uzun (SMA 200) vadeli ortalamaların altında. Maalesef hissedeki **ayı trendi ve satış baskısı** devam ediyor."
+                        elif son_fiyat > son_ema50 and son_fiyat < son_sma200:
+                            yorum_trend = "Fiyat kısa vadede (EMA 50) toparlanmış olsa da, hala uzun vadeli (SMA 200) direncinin altında bulunuyor. Ciddi bir **trend dönüşü çabası** var."
+                        elif son_fiyat < son_ema50 and son_fiyat > son_sma200:
+                            yorum_trend = "Uzun vadeli (SMA 200) trend (ana destek) korunsa da, kısa vadede (EMA 50) belirgin bir **ivme kaybı ve fiyat düzeltmesi** yaşanıyor."
+
+                        # 2. RSI (Momentum) Yorumu
+                        yorum_rsi = ""
+                        if son_rsi >= 70:
+                            yorum_rsi = f"RSI değeri {son_rsi:.1f} ile **aşırı alım (şişkinlik)** bölgesinde. Kısa vadede kâr satışları veya düzeltme gelme ihtimali yüksek, yeni alım yapmak için oldukça riskli bir konumda."
+                        elif son_rsi <= 30:
+                            yorum_rsi = f"RSI değeri {son_rsi:.1f} ile **aşırı satım** bölgesinde. Satış baskısı tükenmek üzere olabilir, potansiyel bir dip oluşumu veya tepki yükselişi için fırsat barındırıyor."
                         else:
-                            rehber_metni += f"⚖️ **Strateji ve Yol Haritası (Konsolidasyon / İzleme):**\n"
-                            rehber_metni += f"- **Giriş Şartı:** Varlık şu anda yön konusunda kararsız bir bölgede. Destek ve direnç arasında sıkışma veya hacimsizlik hakim.\n"
-                            rehber_metni += f"- **Risk Yönetimi:** Fiyatın **{secilen_veri['Karma Destek']}** seviyesinden vereceği tepkiyi veya direnci hacimli kırmasını beklemek en sağlıklı adımdır.\n"
-                            rehber_metni += f"- **Hedefler:** Yön netleşene kadar sermayeyi korumak adına farklı varlıklardaki net 'ALIM' sinyallerine odaklanmak fırsat maliyetinizi düşürebilir."
-                            st.info(rehber_metni)
+                            yorum_rsi = f"RSI değeri {son_rsi:.1f} ile **nötr/sağlıklı** bölgede. Fiyatta ekstrem bir şişkinlik veya aşırı panik satışı durumu görünmüyor."
+
+                        # 3. MFI (Para Akışı) Yorumu
+                        yorum_mfi = ""
+                        if son_mfi >= 70:
+                            yorum_mfi = f"MFI (Para Akışı) {son_mfi:.1f} seviyesinde ve hissede **yoğun bir para girişi** (akıllı para birikimi) olduğunu gösteriyor. Ancak fiyat zaten çok yükseldiyse, tepe uyumsuzluklarına dikkat edilmelidir."
+                        elif son_mfi <= 30:
+                            yorum_mfi = f"MFI (Para Akışı) {son_mfi:.1f} seviyesinde. Hisseden **ciddi bir para çıkışı** yaşanmış. Dip avcılığı yapmak için dönüş onayı (hacimli yeşil mumlar) izlenmelidir."
+                        else:
+                            yorum_mfi = f"MFI (Para Akışı) {son_mfi:.1f} seviyesinde, hisseye giren ve çıkan para **dengeli** (stabil) seyrediyor. Manipülatif bir hacim patlaması yok."
+
+                        # Yorumları ekrana Info-Box ile basma
+                        st.markdown(f'''
+                        <div class="info-box">
+                            <b>🤖 Göstergelerin Sözel Analizi:</b><br><br>
+                            • <b>Trend Durumu (EMA 50 & SMA 200):</b> {yorum_trend}<br><br>
+                            • <b>Momentum ve İvme (RSI):</b> {yorum_rsi}<br><br>
+                            • <b>Hacim ve Para Akışı (MFI):</b> {yorum_mfi}
+                        </div>
+                        ''', unsafe_allow_html=True)
 
                     else:
                         st.warning("Seçilen varlık için yeterli grafik verisi bulunamadı.")
