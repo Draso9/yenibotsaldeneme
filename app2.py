@@ -63,13 +63,12 @@ if st.session_state.user_email is None and saved_email is not None and not st.se
 
 st.markdown("""
 <style>
-    /* Sağ üst köşedeki hareketli Running yazısını, durum göstergesini ve araç çubuğunu tamamen gizler */
+    /* Sadece durum göstergesini, deployment butonunu ve araç çubuğunu gizler; mobildeki hamburger menüye dokunmaz */
     [data-testid="stStatusWidget"],
     [data-testid="stToolbarActions"],
     [data-testid="stDecoration"],
     .stDeployButton,
-    .stAppStatusIndicator,
-    header[data-testid="stHeader"] div { 
+    .stAppStatusIndicator { 
         display: none !important; 
         visibility: hidden !important; 
         opacity: 0 !important; 
@@ -85,7 +84,7 @@ st.markdown("""
     .info-box { background-color: #1E1E1E; padding: 15px; border-radius: 8px; border-left: 5px solid #3498db; margin-bottom: 15px; font-size: 13px; color: #CCCCCC; line-height: 1.6; }
     .dataframe { font-size: 12px !important; }
 </style>
-""", unsafe_allow_html=True)
+""", unsafe_unsafe_html=True) # veya unsafe_allow_html=True (mevcut kodundaki gibi)
 
 # --- HİSSE LİSTELERİ ---
 BIST_30 = [
