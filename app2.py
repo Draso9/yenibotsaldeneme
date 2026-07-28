@@ -61,11 +61,19 @@ if st.session_state.user_email is None and saved_email is not None and not st.se
             st.session_state.custom_tickers = VARSAYILAN_TICKERS.copy()
     st.rerun()
 
-# --- CSS STİLLERİ (TELEFONDA MENÜ BUTONUNUN AÇILMASI İÇİN HEADER KORUNDU) ---
+# --- CSS STİLLERİ (GÜNCELLENDİ: RUNNING VE DEPLOY BUTONU KESİN GİZLEME) ---
 st.markdown("""
 <style>
-    div[data-testid="stStatusWidget"] { display: none !important; visibility: hidden !important; opacity: 0 !important; pointer-events: none !important; }
-    .stDeployButton { display: none !important; }
+    /* Kapsamlı Toolbar ve Running Gizleyici */
+    [data-testid="stStatusWidget"],
+    [data-testid="stToolbarActions"],
+    .stDeployButton,
+    header[data-testid="stHeader"] .stStatusWidget { 
+        display: none !important; 
+        visibility: hidden !important; 
+        opacity: 0 !important; 
+        pointer-events: none !important; 
+    }
     
     .kpi-card { background-color: #1E1E1E; padding: 20px; border-radius: 10px; text-align: center; border: 1px solid #333; box-shadow: 2px 2px 10px rgba(0,0,0,0.5); }
     .kpi-title { font-size: 13px; color: #AAAAAA; text-transform: uppercase; letter-spacing: 1px; }
@@ -246,6 +254,7 @@ def profil_degisti():
     st.session_state.aktif_profil = p
     st.session_state.secilen_varliklar = preset_options[p].copy()
 
+# GÜNCELLENDİ: Hata yakalama ve sağlam veri kaydı eklendi
 def hisse_ekle_callback():
     input_val = st.session_state.ek_hisse_input_field
     if input_val and input_val.strip():
@@ -253,11 +262,17 @@ def hisse_ekle_callback():
         for h in eklenenler:
             if h not in st.session_state.custom_tickers:
                 st.session_state.custom_tickers.append(h)
+        
+        # Veritabanına yazma işlemini kontrol altına alıyoruz
         if db and st.session_state.user_email:
             try:
                 db.collection("kullanici_listeleri").document(st.session_state.user_email).set({"tickers": st.session_state.custom_tickers})
-            except Exception:
-                pass
+                st.toast("✅ Varlıklar veritabanına başarıyla kaydedildi!", icon="💾")
+            except Exception as e:
+                st.error(f"Veritabanına ulaşılamadı. Varlık geçici hafızaya eklendi ancak sayfayı yenilediğinizde silinebilir.")
+        else:
+            st.warning("⚠️ Firebase bağlantısı yok. Eklediğiniz varlıklar sadece bu oturum için geçerlidir.")
+
         st.session_state.aktif_profil = "Kendi Listem"
         st.session_state.secilen_varliklar = st.session_state.custom_tickers.copy()
         st.session_state.ek_hisse_input_field = ""
