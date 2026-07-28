@@ -95,34 +95,40 @@ def aksiyon_rehberi_olustur(sistem_sinyali, rsi_degeri, sozel_yorum):
     sozel_yorum_lower = sozel_yorum.lower()
     sinyal_lower = str(sistem_sinyali).lower()
     
-    # 1. Senaryo: Sistem AL diyor ama grafik ŞİŞMİŞ
-    if ("alım" in sinyal_lower) and ("şişti" in sozel_yorum_lower or "şişkinliğe" in sozel_yorum_lower or "aşırı" in sozel_yorum_lower or rsi_degeri > 70):
+    # 1. Senaryo: Uzak Dur / Ayı Trendi (Düşüşteki / Zayıf hisseler için)
+    if "uzak dur" in sinyal_lower:
+        return ("🛑 UZAK DUR / DÜŞÜŞ TRENDİ RİSKİ", 
+                "Hisse ana ortalamaların altında ve satış baskısı (ayı trendi) hakim. Fiyat düşük görünse de teknik olarak dip henüz teyit edilmemiş olabilir. Yeni alım yapmak yüksek risk taşır; mevcut pozisyonlar için stop-loss (zarar-kes) seviyeleri takip edilmelidir.", 
+                "#FF5555")
+
+    # 2. Senaryo: Kâr Realizasyonu (Zirvedeki / Aşırı şişmiş hisseler için)
+    elif "kar realizasyonu" in sinyal_lower or "sat" in sinyal_lower or rsi_degeri > 75:
+        return ("🛑 KÂR AL / RİSKİ AZALT", 
+                "Grafikte ciddi yorulma ve aşırı şişkinlik belirtileri mevcut. Fiyat tepe bölgelerinde olduğu için yeni alım riski çok yüksektir. Eldeki pozisyonlar için kâr realizasyonu (cebe koyma) yapılmalıdır.", 
+                "#FF5555")
+
+    # 3. Senaryo: Sistem AL diyor ama grafik ŞİŞMİŞ (Tezat durum)
+    elif ("alım" in sinyal_lower) and ("şişti" in sozel_yorum_lower or "şişkinliğe" in sozel_yorum_lower or "aşırı" in sozel_yorum_lower or rsi_degeri > 70):
         return ("⚠️ KADEMELİ GİRİŞ / DÜZELTME BEKLE", 
-                "Sistem, ana trendin ve temel verilerin güçlü olduğunu teyit ederek 'ALIM' diyor. Ancak grafik kısa vadede fazlasıyla şişmiş (dirençte). Bu aşamada tek seferde yüklü alım yapmak yerine, ortalamalara (EMA 21/50) doğru bir geri çekilme (pullback) beklemek veya çok küçük bir kademe ile başlamak en güvenlisidir.", 
+                "Sistem ana trendin güçlü olduğunu teyit ederek 'ALIM' diyor ancak grafik kısa vadede şişmiş durumda. Tek seferde yüklü girmek yerine ortalamalara (EMA 21/50) geri çekilme beklenmelidir.", 
                 "#f39c12")
         
-    # 2. Senaryo: Her şey kusursuz
+    # 4. Senaryo: Her şey kusursuz
     elif ("alım" in sinyal_lower) and ("kusursuz" in sozel_yorum_lower or "sağlıklı" in sozel_yorum_lower or "boğa" in sozel_yorum_lower):
         return ("🚀 GÜÇLÜ ALIM / POZİSYON KORU", 
-                "Sistem skoru ile teknik grafik kusursuz bir uyum içinde. Güçlü trend hacimle destekleniyor. Güvenle yeni pozisyon açılabilir veya mevcut pozisyonlar kâr hedeflenerek tutulabilir.", 
+                "Sistem skoru ile teknik grafik kusursuz bir uyum içinde. Güçlü trend hacimle destekleniyor. Güvenle yeni pozisyon açılabilir veya tutulabilir.", 
                 "#00FF88")
         
-    # 3. Senaryo: Tehlike veya Kâr Al
-    elif "uzak dur" in sinyal_lower or "kar realizasyonu" in sinyal_lower or "sat" in sinyal_lower or rsi_degeri > 75:
-        return ("🛑 KÂR AL / RİSKİ AZALT", 
-                "Grafikte ciddi yorulma ve şişme belirtileri mevcut. Yeni alım yapmak için risk çok yüksek. Eldeki pozisyonlar için kâr realizasyonu (cebe koyma) veya stop-loss seviyelerinin güncellenmesi şiddetle tavsiye edilir.", 
-                "#FF5555")
-        
-    # 4. Senaryo: Kararsız durum
+    # 5. Senaryo: Kararsız durum / Nötr
     elif "nötr" in sinyal_lower or "bekle" in sinyal_lower:
         return ("⏳ İZLEME VE SABIR MODU", 
-                "Şu an net bir kırılım veya yön teyidi yok. Hem temel puanlama hem de grafikler kararsız/yatay seyrediyor. Acele etmeyin, destek seviyelerine yaklaşmasını veya belirgin bir hacim artışını bekleyin.", 
+                "Şu an net bir kırılım veya yön teyidi yok. Hem temel puanlama hem de grafikler kararsız/yatay seyrediyor. Destek seviyelerine yaklaşması veya hacim artışı beklenmelidir.", 
                 "#3498db")
         
     # Varsayılan
     else:
         return ("🔎 DİKKATLİ TAKİP", 
-                "Sistem sinyali ve grafik yönü arasında belirsizlik var. SMA 200 gibi uzun vadeli destekler kırılmadığı sürece trend korunuyor sayılır ancak yeni işlem açmak için sinyallerin (Hacim, MACD, EMA) uyumlu olmasını bekleyin.", 
+                "Sistem sinyali ve grafik yönü arasında belirsizlik var. Yeni işlem açmak için sinyallerin uyumlu olmasını bekleyin.", 
                 "#AAAAAA")
 
 # --- HİSSE LİSTELERİ ---
