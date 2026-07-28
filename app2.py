@@ -61,10 +61,9 @@ if st.session_state.user_email is None and saved_email is not None and not st.se
             st.session_state.custom_tickers = VARSAYILAN_TICKERS.copy()
     st.rerun()
 
-# --- DÜZELTİLMİŞ CSS: Running yazısı gizlenir, mobil menü korunur ---
+# --- CSS: Running yazısı gizlenir, mobil menü korunur ---
 st.markdown("""
 <style>
-    /* Sadece durum göstergesini, deployment butonunu ve araç çubuğunu gizler; mobildeki hamburger menüye dokunmaz */
     [data-testid="stStatusWidget"],
     [data-testid="stToolbarActions"],
     [data-testid="stDecoration"],
@@ -87,45 +86,36 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# --- YENİ EKLENEN AKSİYON REHBERİ FONKSİYONU ---
+# --- AKSİYON REHBERİ FONKSİYONU (DÜZELTİLMİŞ) ---
 def aksiyon_rehberi_olustur(sistem_sinyali, rsi_degeri, sozel_yorum):
-    """
-    Sistem skoru ile grafiğin anlık durumunu sentezleyip yol gösterici bir sonuç üretir.
-    """
     sozel_yorum_lower = sozel_yorum.lower()
     sinyal_lower = str(sistem_sinyali).lower()
     
-    # 1. Senaryo: Uzak Dur / Ayı Trendi (Düşüşteki / Zayıf hisseler için)
     if "uzak dur" in sinyal_lower:
         return ("🛑 UZAK DUR / DÜŞÜŞ TRENDİ RİSKİ", 
-                "Hisse ana ortalamaların altında ve satış baskısı (ayı trendi) hakim. Fiyat düşük görünse de teknik olarak dip henüz teyit edilmemiş olabilir. Yeni alım yapmak yüksek risk taşır; mevcut pozisyonlar için stop-loss (zarar-kes) seviyeleri takip edilmelidir.", 
+                "Hisse ana ortalamaların altında ve satış baskısı (ayı trendi) hakim. Fiyat düşük görünse de teknik olarak dip henüz teyit edilmemiş olabilir. Yeni alım yapmak yüksek risk taşır; mevcut pozisyonlar için stop-loss seviyeleri takip edilmelidir.", 
                 "#FF5555")
 
-    # 2. Senaryo: Kâr Realizasyonu (Zirvedeki / Aşırı şişmiş hisseler için)
     elif "kar realizasyonu" in sinyal_lower or "sat" in sinyal_lower or rsi_degeri > 75:
         return ("🛑 KÂR AL / RİSKİ AZALT", 
                 "Grafikte ciddi yorulma ve aşırı şişkinlik belirtileri mevcut. Fiyat tepe bölgelerinde olduğu için yeni alım riski çok yüksektir. Eldeki pozisyonlar için kâr realizasyonu (cebe koyma) yapılmalıdır.", 
                 "#FF5555")
 
-    # 3. Senaryo: Sistem AL diyor ama grafik ŞİŞMİŞ (Tezat durum)
     elif ("alım" in sinyal_lower) and ("şişti" in sozel_yorum_lower or "şişkinliğe" in sozel_yorum_lower or "aşırı" in sozel_yorum_lower or rsi_degeri > 70):
         return ("⚠️ KADEMELİ GİRİŞ / DÜZELTME BEKLE", 
                 "Sistem ana trendin güçlü olduğunu teyit ederek 'ALIM' diyor ancak grafik kısa vadede şişmiş durumda. Tek seferde yüklü girmek yerine ortalamalara (EMA 21/50) geri çekilme beklenmelidir.", 
                 "#f39c12")
         
-    # 4. Senaryo: Her şey kusursuz
     elif ("alım" in sinyal_lower) and ("kusursuz" in sozel_yorum_lower or "sağlıklı" in sozel_yorum_lower or "boğa" in sozel_yorum_lower):
         return ("🚀 GÜÇLÜ ALIM / POZİSYON KORU", 
                 "Sistem skoru ile teknik grafik kusursuz bir uyum içinde. Güçlü trend hacimle destekleniyor. Güvenle yeni pozisyon açılabilir veya tutulabilir.", 
                 "#00FF88")
         
-    # 5. Senaryo: Kararsız durum / Nötr
     elif "nötr" in sinyal_lower or "bekle" in sinyal_lower:
         return ("⏳ İZLEME VE SABIR MODU", 
                 "Şu an net bir kırılım veya yön teyidi yok. Hem temel puanlama hem de grafikler kararsız/yatay seyrediyor. Destek seviyelerine yaklaşması veya hacim artışı beklenmelidir.", 
                 "#3498db")
         
-    # Varsayılan
     else:
         return ("🔎 DİKKATLİ TAKİP", 
                 "Sistem sinyali ve grafik yönü arasında belirsizlik var. Yeni işlem açmak için sinyallerin uyumlu olmasını bekleyin.", 
@@ -665,7 +655,8 @@ if st.session_state.tarama_durumu:
             if secilen_detay_hisse:
                 with st.spinner(f"{secilen_detay_hisse} için grafik verileri yükleniyor..."):
                     stk_detay = yf.Ticker(secilen_detay_hisse)
-                    df_grafik = stk_detay.history(period="1y")
+                    # GÜNCELLENDİ: 200 SMA ve son fiyat hatasını önlemek için 2 yıllık veri çekiliyor
+                    df_grafik = stk_detay.history(period="2y")
                     
                     if not df_grafik.empty:
                         # EMA 9, EMA 21 ve Bollinger Bantları
@@ -737,7 +728,6 @@ if st.session_state.tarama_durumu:
                         fig.add_hline(y=70, line_dash="dash", line_color="red", row=4, col=1)
                         fig.add_hline(y=30, line_dash="dash", line_color="green", row=4, col=1)
 
-                        # Grafik Yüksekliği
                         fig.update_layout(
                             template='plotly_dark',
                             title=f"{secilen_detay_hisse} - Kapsamlı Teknik & Momentum Paneli",
@@ -754,22 +744,24 @@ if st.session_state.tarama_durumu:
                         # ==========================================
                         st.markdown(f"### 📋 {secilen_detay_hisse} - Anlık Teknik Göstergeler ve Algoritmik Yorum")
 
-                        # Güncel değerleri çekme
-                        son_fiyat = df_grafik['Close'].iloc[-1] if not pd.isna(df_grafik['Close'].iloc[-1]) else 0
-                        son_rsi = df_grafik['RSI'].iloc[-1] if not pd.isna(df_grafik['RSI'].iloc[-1]) else 50
-                        son_mfi = df_grafik['MFI'].iloc[-1] if not pd.isna(df_grafik['MFI'].iloc[-1]) else 50
-                        son_ema9 = df_grafik['EMA9'].iloc[-1] if not pd.isna(df_grafik['EMA9'].iloc[-1]) else 0
-                        son_ema21 = df_grafik['EMA21'].iloc[-1] if not pd.isna(df_grafik['EMA21'].iloc[-1]) else 0
-                        son_ema50 = df_grafik['EMA50'].iloc[-1] if not pd.isna(df_grafik['EMA50'].iloc[-1]) else 0
-                        son_sma200 = df_grafik['SMA200'].iloc[-1] if not pd.isna(df_grafik['SMA200'].iloc[-1]) else 0
+                        # GÜNCELLENDİ: .dropna() ile NaN/0 fiyat hatası tamamen engellendi
+                        clean_close = df_grafik['Close'].dropna()
+                        son_fiyat = clean_close.iloc[-1] if not clean_close.empty else 0
                         
-                        son_bb_up = df_grafik['BB_upper'].iloc[-1] if not pd.isna(df_grafik['BB_upper'].iloc[-1]) else 0
-                        son_bb_low = df_grafik['BB_lower'].iloc[-1] if not pd.isna(df_grafik['BB_lower'].iloc[-1]) else 0
-                        son_bb_mid = df_grafik['BB_mid'].iloc[-1] if not pd.isna(df_grafik['BB_mid'].iloc[-1]) else 1
+                        son_rsi = df_grafik['RSI'].dropna().iloc[-1] if not df_grafik['RSI'].dropna().empty else 50
+                        son_mfi = df_grafik['MFI'].dropna().iloc[-1] if not df_grafik['MFI'].dropna().empty else 50
+                        son_ema9 = df_grafik['EMA9'].dropna().iloc[-1] if not df_grafik['EMA9'].dropna().empty else 0
+                        son_ema21 = df_grafik['EMA21'].dropna().iloc[-1] if not df_grafik['EMA21'].dropna().empty else 0
+                        son_ema50 = df_grafik['EMA50'].dropna().iloc[-1] if not df_grafik['EMA50'].dropna().empty else 0
+                        son_sma200 = df_grafik['SMA200'].dropna().iloc[-1] if not df_grafik['SMA200'].dropna().empty else 0
+                        
+                        son_bb_up = df_grafik['BB_upper'].dropna().iloc[-1] if not df_grafik['BB_upper'].dropna().empty else 0
+                        son_bb_low = df_grafik['BB_lower'].dropna().iloc[-1] if not df_grafik['BB_lower'].dropna().empty else 0
+                        son_bb_mid = df_grafik['BB_mid'].dropna().iloc[-1] if not df_grafik['BB_mid'].dropna().empty else 1
 
-                        son_macd = df_grafik['MACD_Line'].iloc[-1] if not pd.isna(df_grafik['MACD_Line'].iloc[-1]) else 0
-                        son_macd_sig = df_grafik['MACD_Signal'].iloc[-1] if not pd.isna(df_grafik['MACD_Signal'].iloc[-1]) else 0
-                        son_macd_hist = df_grafik['MACD_Hist'].iloc[-1] if not pd.isna(df_grafik['MACD_Hist'].iloc[-1]) else 0
+                        son_macd = df_grafik['MACD_Line'].dropna().iloc[-1] if not df_grafik['MACD_Line'].dropna().empty else 0
+                        son_macd_sig = df_grafik['MACD_Signal'].dropna().iloc[-1] if not df_grafik['MACD_Signal'].dropna().empty else 0
+                        son_macd_hist = df_grafik['MACD_Hist'].dropna().iloc[-1] if not df_grafik['MACD_Hist'].dropna().empty else 0
 
                         # Gösterge Metrikleri
                         m1, m2, m3, m4 = st.columns(4)
@@ -787,8 +779,6 @@ if st.session_state.tarama_durumu:
                         n4.metric("MACD Hist", f"{son_macd_hist:.3f}")
 
                         # --- YAPAY ZEKA SÖZEL YORUMLAMA MOTORU ---
-                        
-                        # 1. Kısa Vade & Kesişim Yorumu
                         onceki_ema9 = df_grafik['EMA9'].iloc[-2] if len(df_grafik) > 1 else 0
                         onceki_ema21 = df_grafik['EMA21'].iloc[-2] if len(df_grafik) > 1 else 0
                         
@@ -796,13 +786,12 @@ if st.session_state.tarama_durumu:
                         if son_ema9 > son_ema21 and onceki_ema9 <= onceki_ema21:
                             yorum_kisa_vade = "🔥 **Kısa Vade Golden Cross (Alım Teyidi):** Hızlı hareket eden EMA 9, EMA 21'i yukarı yönlü kesti! Piyasada kısa vadeli güçlü bir alım iştahı başladı; yeni pozisyon açmak veya tetik çekmek için ideal bir sinyaldir."
                         elif son_ema9 < son_ema21 and onceki_ema9 >= onceki_ema21:
-                            yorum_kisa_vade = "🛑 **Kısa Vade Death Cross (Satış Teyidi):** EMA 9, EMA 21'i aşağı yönlü kesti! Kısa vadeli yükseliş ivmesi kırıldı ve satış baskısı başladı. Kâr realizasyonu yapmak veya stop-loss (zarar kes) seviyelerini yakından takip etmek gerekir."
+                            yorum_kisa_vade = "🛑 **Kısa Vade Death Cross (Satış Teyidi):** EMA 9, EMA 21'i aşağı yönlü kesti! Kısa vadeli yükseliş ivmesi kırıldı ve satış baskısı başladı. Kâr realizasyonu yapmak veya stop-loss seviyelerini yakından takip etmek gerekir."
                         elif son_ema9 > son_ema21:
                             yorum_kisa_vade = f"EMA 9 ({son_ema9:.2f}), EMA 21'in ({son_ema21:.2f}) üzerinde seyretmeye devam ediyor. Kısa vadeli **yükseliş trendi gücünü ve formunu koruyor**."
                         else:
                             yorum_kisa_vade = f"EMA 9 ({son_ema9:.2f}), EMA 21'in ({son_ema21:.2f}) altında. Kısa vadeli trend yönü hala aşağı ve hissedeki **satış baskısı aktif** durumda."
 
-                        # 2. Bollinger Bantları Yorumu
                         bb_genislik_orani = (son_bb_up - son_bb_low) / son_bb_mid if son_bb_mid > 0 else 1
                         yorum_bb = ""
                         if bb_genislik_orani < 0.08:
@@ -816,7 +805,6 @@ if st.session_state.tarama_durumu:
                             if "daralma" not in yorum_bb:
                                 yorum_bb = "Fiyat Bollinger bantlarının orta bölgesinde, olağan dışı bir şişkinlik olmadan **dengeli ve normal** bir dalgalanma (konsolidasyon) alanında hareket ediyor."
 
-                        # 3. MACD Yorumu
                         yorum_macd = ""
                         onceki_macd_hist = df_grafik['MACD_Hist'].iloc[-2] if len(df_grafik) > 1 else 0
                         
@@ -831,7 +819,6 @@ if st.session_state.tarama_durumu:
                             else:
                                 yorum_macd = "MACD negatif bölgede ancak kırmızı barlar kısalıyor (pembeleşiyor). Satış baskısı zayıflıyor; hissede **yakın zamanda bir dönüş (toparlanma) sinyali** gelebilir."
 
-                        # 4. Ana Trend Yorumu
                         yorum_trend = ""
                         if son_sma200 == 0:
                             yorum_trend = "Hissenin yeterli geçmişi olmadığı için uzun vade trendi (SMA 200) hesaplanamıyor. Yön tayini için 50 EMA baz alınmalıdır."
@@ -844,7 +831,6 @@ if st.session_state.tarama_durumu:
                         elif son_fiyat < son_ema50 and son_fiyat > son_sma200:
                             yorum_trend = "Uzun vadeli (SMA 200) ana destek korunsa da, orta vadede (EMA 50) belirgin bir **ivme kaybı ve fiyat düzeltmesi (dinlenme)** yaşanıyor."
 
-                        # Yorumları Ekrana Info-Box ile Basma
                         st.markdown(f'''
                         <div class="info-box">
                             <b>🤖 Algoritmik Strateji ve Göstergelerin Sözel Analizi:</b><br><br>
@@ -855,24 +841,17 @@ if st.session_state.tarama_durumu:
                         </div>
                         ''', unsafe_allow_html=True)
                         
-                        
-                        # ==========================================
-                        # --- YENİ EKLENEN AKSİYON REHBERİ (YOL GÖSTERİCİ) ---
-                        # ==========================================
+                        # Aksiyon Rehberi Entegrasyonu
                         tam_sozel_yorum = f"{yorum_kisa_vade} {yorum_bb} {yorum_macd} {yorum_trend}"
-                        
-                        # Nihai sinyali veri çerçevesinden yakalama
                         hisse_satiri = df_sonuc[df_sonuc["Varlık"] == secilen_detay_hisse]
                         anlik_sinyal = hisse_satiri["Nihai Sinyal"].values[0] if not hisse_satiri.empty else "Nötr (İzle) ⚖️"
                         
-                        # Aksiyon rehberi karar fonksiyonunu çalıştırma
                         rehber_baslik, rehber_aciklama, rehber_renk = aksiyon_rehberi_olustur(
                             anlik_sinyal, 
                             son_rsi, 
                             tam_sozel_yorum
                         )
                         
-                        # Aksiyon Rehberi UI Tasarımı
                         st.markdown(f"""
                         <div style="background-color: #1a1a1a; padding: 18px; border-radius: 8px; border-left: 6px solid {rehber_renk}; margin-top: 15px; margin-bottom: 30px; box-shadow: 0 4px 6px rgba(0,0,0,0.3);">
                             <h4 style="color: {rehber_renk}; margin-top: 0px; margin-bottom: 8px; font-size: 16px; letter-spacing: 0.5px;">{rehber_baslik}</h4>
