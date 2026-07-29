@@ -19,12 +19,12 @@ st.set_page_config(
     layout="wide"
 )
 
-# --- CSS: Running yazısı gizlenir, mobil menü korunur ---
+# --- CSS: Running yazısı gizlenir, MOBİL MENÜ KESİN OLARAK KORUNUR ---
 st.markdown("""
 <style>
-    /* Sağ üstteki Running (Çalışıyor) yazısını, Deploy butonunu ve araç çubuğunu tamamen gizle */
+    /* Sağ üstteki Running (Çalışıyor) yazısını, Deploy butonunu ve 3 noktalı menüyü nokta atışıyla gizle */
     [data-testid="stStatusWidget"],
-    [data-testid="stToolbar"],
+    [data-testid="stToolbarActions"],
     .stDeployButton,
     .stAppStatusIndicator { 
         display: none !important; 
@@ -32,10 +32,18 @@ st.markdown("""
         opacity: 0 !important; 
     }
     
-    /* MOBİL UYUM: Header arka planını şeffaf yap ama Hamburger menüyü (sol üst) kesinlikle KORU */
+    /* MOBİL UYUM: Header arka planını şeffaf yap */
     header[data-testid="stHeader"] {
         background: transparent !important;
         box-shadow: none !important;
+    }
+    
+    /* SOL ÜSTTEKİ HAMBURGER MENÜYÜ (YAN PANEL AÇICI) KESİNLİKLE KORU */
+    [data-testid="collapsedControl"] {
+        display: flex !important;
+        visibility: visible !important;
+        opacity: 1 !important;
+        z-index: 99999 !important;
     }
     
     /* Özel UI Sınıfları */
