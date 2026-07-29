@@ -86,7 +86,7 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# --- AKSİYON REHBERİ FONKSİYONU (HTML RENDER DÜZELTİLDİ) ---
+# --- AKSİYON REHBERİ FONKSİYONU ---
 def aksiyon_rehberi_olustur(nihai_sinyal, teyit_1h):
     """
     Tablodaki nihai sinyali ve 1H (Saatlik) teyit durumunu alarak, 
@@ -664,9 +664,17 @@ if st.session_state.tarama_durumu:
             if secilen_detay_hisse:
                 with st.spinner(f"{secilen_detay_hisse} için grafik verileri yükleniyor..."):
                     stk_detay = yf.Ticker(secilen_detay_hisse)
-                    df_grafik = stk_detay.history(period="2y")
+                    df_grafik = stk_detay.history(period="2y").dropna(subset=['Open', 'High', 'Low', 'Close', 'Volume'])
                     
                     if not df_grafik.empty:
+                        # --- HATA ÇÖZÜMÜ: ANA TABLO İLE FİYAT SENKRONİZASYONU ---
+                        info_detay = stk_detay.info if hasattr(stk_detay, 'info') else {}
+                        reg_price_detay = info_detay.get('regularMarketPrice', info_detay.get('currentPrice', None))
+                        
+                        if reg_price_detay and not pd.isna(reg_price_detay):
+                            df_grafik.iloc[-1, df_grafik.columns.get_loc('Close')] = float(reg_price_detay)
+                        # ---------------------------------------------------------
+                        
                         df_grafik['EMA9'] = df_grafik['Close'].ewm(span=9).mean()
                         df_grafik['EMA21'] = df_grafik['Close'].ewm(span=21).mean()
                         df_grafik['EMA50'] = df_grafik['Close'].ewm(span=50).mean()
