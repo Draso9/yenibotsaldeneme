@@ -86,7 +86,7 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# --- AKSİYON REHBERİ FONKSİYONU ---
+# --- AKSİYON REHBERİ FONKSİYONU (HTML RENDER DÜZELTİLDİ) ---
 def aksiyon_rehberi_olustur(nihai_sinyal, teyit_1h):
     """
     Tablodaki nihai sinyali ve 1H (Saatlik) teyit durumunu alarak, 
@@ -122,25 +122,11 @@ def aksiyon_rehberi_olustur(nihai_sinyal, teyit_1h):
 
     teyit_notu = ""
     if "Tetiği Çek" in teyit_metni:
-        teyit_notu = f"""
-        <div style="margin-top: 15px; padding: 10px; background-color: rgba(46, 204, 113, 0.1); border-left: 4px solid #2ecc71; border-radius: 4px;">
-            <b>🔥 1H TAKTİKSEL ONAY:</b> Saatlik grafiklerde hacimli kırılım (Tetik) onaylanmıştır! Sistemin verdiği strateji doğrultusunda şu an taktiksel giriş (işlem açmak) için şartlar uygundur.
-        </div>
-        """
+        teyit_notu = '<div style="margin-top: 15px; padding: 10px; background-color: rgba(46, 204, 113, 0.1); border-left: 4px solid #2ecc71; border-radius: 4px;"><b>🔥 1H TAKTİKSEL ONAY:</b> Saatlik grafiklerde hacimli kırılım (Tetik) onaylanmıştır! Sistemin verdiği strateji doğrultusunda şu an taktiksel giriş (işlem açmak) için şartlar uygundur.</div>'
     elif "Bekleniyor" in teyit_metni or "Bekle" in teyit_metni:
-        teyit_notu = f"""
-        <div <style>="margin-top: 15px; padding: 10px; background-color: rgba(241, 196, 15, 0.1); border-left: 4px solid #f1c40f; border-radius: 4px; <style>">
-            <b>⏳ 1H ZAMANLAMA UYARISI:</b> Nihai sinyal stratejisini kurdu ancak 1 saatlik kısa vade grafikte henüz alım tetiği (yeşil hacimli kırılım) gelmemiştir. Hatalı kırılıma (fakeout) yakalanmamak için tetiğin çekilmesini bekleyin.
-        </div>
-        """
+        teyit_notu = '<div style="margin-top: 15px; padding: 10px; background-color: rgba(241, 196, 15, 0.1); border-left: 4px solid #f1c40f; border-radius: 4px;"><b>⏳ 1H ZAMANLAMA UYARISI:</b> Nihai sinyal stratejisini kurdu ancak 1 saatlik kısa vade grafikte henüz alım tetiği (yeşil hacimli kırılım) gelmemiştir. Hatalı kırılıma (fakeout) yakalanmamak için tetiğin çekilmesini bekleyin.</div>'
 
-    html_kodu = f"""
-    <div style="background-color: #1e1e1e; padding: 20px; border-radius: 10px; border-left: 5px solid {renk}; margin-top: 20px; color: #ffffff; font-family: sans-serif; box-shadow: 0 4px 8px rgba(0,0,0,0.2);">
-        <h3 style="color: {renk}; margin-top: 0; font-size: 18px;">{baslik}</h3>
-        <p style="font-size: 15px; line-height: 1.6; color: #e0e0e0; margin-bottom:0;">{ana_metin}</p>
-        {teyit_notu}
-    </div>
-    """
+    html_kodu = f'<div style="background-color: #1e1e1e; padding: 20px; border-radius: 10px; border-left: 5px solid {renk}; margin-top: 20px; color: #ffffff; font-family: sans-serif; box-shadow: 0 4px 8px rgba(0,0,0,0.2);"><h3 style="color: {renk}; margin-top: 0; font-size: 18px;">{baslik}</h3><p style="font-size: 15px; line-height: 1.6; color: #e0e0e0; margin-bottom: 12px;">{ana_metin}</p>{teyit_notu}</div>'
     
     return html_kodu
 
@@ -678,11 +664,9 @@ if st.session_state.tarama_durumu:
             if secilen_detay_hisse:
                 with st.spinner(f"{secilen_detay_hisse} için grafik verileri yükleniyor..."):
                     stk_detay = yf.Ticker(secilen_detay_hisse)
-                    # GÜNCELLENDİ: 200 SMA ve son fiyat hatasını önlemek için 2 yıllık veri çekiliyor
                     df_grafik = stk_detay.history(period="2y")
                     
                     if not df_grafik.empty:
-                        # EMA 9, EMA 21 ve Bollinger Bantları
                         df_grafik['EMA9'] = df_grafik['Close'].ewm(span=9).mean()
                         df_grafik['EMA21'] = df_grafik['Close'].ewm(span=21).mean()
                         df_grafik['EMA50'] = df_grafik['Close'].ewm(span=50).mean()
@@ -693,12 +677,10 @@ if st.session_state.tarama_durumu:
                         df_grafik['BB_upper'] = df_grafik['BB_mid'] + (bb_std * 2)
                         df_grafik['BB_lower'] = df_grafik['BB_mid'] - (bb_std * 2)
                         
-                        # MACD Histogramı Hesaplaması
                         df_grafik['MACD_Line'] = df_grafik['Close'].ewm(span=12, adjust=False).mean() - df_grafik['Close'].ewm(span=26, adjust=False).mean()
                         df_grafik['MACD_Signal'] = df_grafik['MACD_Line'].ewm(span=9, adjust=False).mean()
                         df_grafik['MACD_Hist'] = df_grafik['MACD_Line'] - df_grafik['MACD_Signal']
                         
-                        # RSI & MFI
                         delta_g = df_grafik['Close'].diff()
                         rs_g = delta_g.where(delta_g>0, 0.0).ewm(alpha=1/14, adjust=False).mean() / (-delta_g.where(delta_g<0, 0.0).ewm(alpha=1/14, adjust=False).mean() + 1e-5)
                         df_grafik['RSI'] = 100 - (100 / (1 + rs_g))
@@ -709,12 +691,10 @@ if st.session_state.tarama_durumu:
                         neg_f = pd.Series(np.where(typ_p < typ_p.shift(1), raw_mf, 0))
                         df_grafik['MFI'] = 100 - (100 / (1 + (pos_f.rolling(14).sum() / (neg_f.rolling(14).sum() + 1e-5))))
 
-                        # GRAFİK YERLEŞİMİ (4 Satır)
                         fig = make_subplots(rows=4, cols=1, shared_xaxes=True, 
                                             vertical_spacing=0.03, 
                                             row_heights=[0.5, 0.15, 0.15, 0.20])
 
-                        # SATIR 1: Mumlar, EMA'lar ve Bollinger
                         fig.add_trace(go.Candlestick(
                             x=df_grafik.index,
                             open=df_grafik['Open'], high=df_grafik['High'],
@@ -735,18 +715,15 @@ if st.session_state.tarama_durumu:
                         if not df_grafik['SMA200'].isna().all():
                             fig.add_trace(go.Scatter(x=df_grafik.index, y=df_grafik['SMA200'], line=dict(color='#2962FF', width=2.5), name='200 SMA'), row=1, col=1)
 
-                        # SATIR 2: MACD
                         macd_colors = ['#00E676' if val >= 0 else '#FF1744' for val in df_grafik['MACD_Hist']]
                         fig.add_trace(go.Bar(x=df_grafik.index, y=df_grafik['MACD_Hist'], marker_color=macd_colors, name='MACD Hist'), row=2, col=1)
                         fig.add_trace(go.Scatter(x=df_grafik.index, y=df_grafik['MACD_Line'], line=dict(color='#2962FF', width=1.5), name='MACD Çizgisi'), row=2, col=1)
                         fig.add_trace(go.Scatter(x=df_grafik.index, y=df_grafik['MACD_Signal'], line=dict(color='#FF9100', width=1.5), name='Sinyal'), row=2, col=1)
 
-                        # SATIR 3: RSI
                         fig.add_trace(go.Scatter(x=df_grafik.index, y=df_grafik['RSI'], line=dict(color='#00ffcc', width=1.5), name='RSI (14)'), row=3, col=1)
                         fig.add_hline(y=70, line_dash="dash", line_color="red", row=3, col=1)
                         fig.add_hline(y=30, line_dash="dash", line_color="green", row=3, col=1)
 
-                        # SATIR 4: MFI
                         fig.add_trace(go.Scatter(x=df_grafik.index, y=df_grafik['MFI'], line=dict(color='#ff9900', width=1.5), name='MFI (Para Akışı)'), row=4, col=1)
                         fig.add_hline(y=70, line_dash="dash", line_color="red", row=4, col=1)
                         fig.add_hline(y=30, line_dash="dash", line_color="green", row=4, col=1)
@@ -762,12 +739,8 @@ if st.session_state.tarama_durumu:
 
                         st.plotly_chart(fig, use_container_width=True)
 
-                        # ==========================================
-                        # --- TEKNİK GÖSTERGE VE SÖZEL YORUM BÖLÜMÜ ---
-                        # ==========================================
                         st.markdown(f"### 📋 {secilen_detay_hisse} - Anlık Teknik Göstergeler ve Algoritmik Yorum")
 
-                        # GÜNCELLENDİ: .dropna() ile NaN/0 fiyat hatası tamamen engellendi
                         clean_close = df_grafik['Close'].dropna()
                         son_fiyat = clean_close.iloc[-1] if not clean_close.empty else 0
                         
@@ -786,7 +759,6 @@ if st.session_state.tarama_durumu:
                         son_macd_sig = df_grafik['MACD_Signal'].dropna().iloc[-1] if not df_grafik['MACD_Signal'].dropna().empty else 0
                         son_macd_hist = df_grafik['MACD_Hist'].dropna().iloc[-1] if not df_grafik['MACD_Hist'].dropna().empty else 0
 
-                        # Gösterge Metrikleri
                         m1, m2, m3, m4 = st.columns(4)
                         m1.metric("Fiyat", f"{son_fiyat:.2f}")
                         m2.metric("9 EMA (Kısa Vade)", f"{son_ema9:.2f}")
@@ -801,7 +773,6 @@ if st.session_state.tarama_durumu:
                         n3.metric("MFI (Para Akışı)", f"{son_mfi:.2f}")
                         n4.metric("MACD Hist", f"{son_macd_hist:.3f}")
 
-                        # --- YAPAY ZEKA SÖZEL YORUMLAMA MOTORU ---
                         onceki_ema9 = df_grafik['EMA9'].iloc[-2] if len(df_grafik) > 1 else 0
                         onceki_ema21 = df_grafik['EMA21'].iloc[-2] if len(df_grafik) > 1 else 0
                         
@@ -854,7 +825,7 @@ if st.session_state.tarama_durumu:
                         elif son_fiyat < son_ema50 and son_fiyat > son_sma200:
                             yorum_trend = "Uzun vadeli (SMA 200) ana destek korunsa da, orta vadede (EMA 50) belirgin bir **ivme kaybı ve fiyat düzeltmesi (dinlenme)** yaşanıyor."
 
-                        # --- GRAFİĞİN ALTINDAKİ SÖZEL YORUM KUTUSU (Bozulmadan Korundu) ---
+                        # --- TEKNİK GÖSTERGE SÖZEL ANALİZ KUTUSU ---
                         st.markdown(f'''
                         <div class="info-box">
                             <b>🤖 Algoritmik Strateji ve Göstergelerin Sözel Analizi:</b><br><br>
@@ -865,17 +836,12 @@ if st.session_state.tarama_durumu:
                         </div>
                         ''', unsafe_allow_html=True)
                         
-                        # ==========================================
-                        # --- YENİ EKSİKSİZ VE ÇELİŞKİSİZ AKSİYON REHBERİ ---
-                        # ==========================================
+                        # --- NİHAİ AKSİYON REHBERİ (SENTEZ KUTUSU) ---
                         hisse_satiri = df_sonuc[df_sonuc["Varlık"] == secilen_detay_hisse]
                         anlik_sinyal = hisse_satiri["Nihai Sinyal"].values[0] if not hisse_satiri.empty else "Nötr (İzle) ⚖️"
                         anlik_teyit = hisse_satiri["↓ Zamanlama (1H Teyit)"].values[0] if not hisse_satiri.empty else "⏳ 1H Dönüş Bekle"
                         
-                        # Yeni, tablonun nihai sinyaline ve saatlik 1H teyidine bağlı çalışan ana motoru çağırıyoruz
                         html_sentez_kutusu = aksiyon_rehberi_olustur(anlik_sinyal, anlik_teyit)
-                        
-                        # Oluşan şık HTML bloğunu ekrana basıyoruz
                         st.markdown(html_sentez_kutusu, unsafe_allow_html=True)
 
                     else:
