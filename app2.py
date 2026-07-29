@@ -129,7 +129,7 @@ def aksiyon_rehberi_olustur(nihai_sinyal, teyit_1h):
         """
     elif "Bekleniyor" in teyit_metni or "Bekle" in teyit_metni:
         teyit_notu = f"""
-        <div style="margin-top: 15px; padding: 10px; background-color: rgba(241, 196, 15, 0.1); border-left: 4px solid #f1c40f; border-radius: 4px;">
+        <div <style>="margin-top: 15px; padding: 10px; background-color: rgba(241, 196, 15, 0.1); border-left: 4px solid #f1c40f; border-radius: 4px; <style>">
             <b>⏳ 1H ZAMANLAMA UYARISI:</b> Nihai sinyal stratejisini kurdu ancak 1 saatlik kısa vade grafikte henüz alım tetiği (yeşil hacimli kırılım) gelmemiştir. Hatalı kırılıma (fakeout) yakalanmamak için tetiğin çekilmesini bekleyin.
         </div>
         """
