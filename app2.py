@@ -12,7 +12,6 @@ import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 
 # --- 1. SAYFA YAPILANDIRMASI ---
-# Bu komut daima en üstte olmalıdır!
 st.set_page_config(
     page_title="Hibrit Portföy Komuta Merkezi",
     page_icon="📈",
@@ -57,7 +56,6 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-
 # --- ÇEREZ YÖNETİCİSİ (COOKIE MANAGER) ---
 cookie_manager = stx.CookieManager(key="cookie_manager")
 saved_email = cookie_manager.get(cookie="user_email")
@@ -79,7 +77,6 @@ try:
 except:
     db = None
 
-# Varsayılan Listeler
 VARSAYILAN_TICKERS = ["AAPL", "MSFT", "TSLA", "NVDA", "AMD", "INTC", "THYAO.IS", "FROTO.IS", "TOASO.IS"]
 
 # --- OTURUM DURUMU (SESSION STATE) ---
@@ -102,7 +99,7 @@ if st.session_state.user_email is None and saved_email is not None and not st.se
             st.session_state.custom_tickers = VARSAYILAN_TICKERS.copy()
     st.rerun()
 
-# --- AKSİYON REHBERİ FONKSİYONU ---
+# --- AKILLI AKSİYON REHBERİ FONKSİYONU (Sinyal Uyumlu) ---
 def aksiyon_rehberi_olustur(nihai_sinyal, teyit_1h):
     sinyal_metni = str(nihai_sinyal).upper()
     teyit_metni = str(teyit_1h)
@@ -112,33 +109,40 @@ def aksiyon_rehberi_olustur(nihai_sinyal, teyit_1h):
         baslik = "🔵 KADEMELİ ALIM STRATEJİSİ"
         ana_metin = "Sistem; varlığın temel verilerinin ve uzun vadeli ana trendinin (50 & 200 SMA) sağlam olduğunu tespit etti. Ancak kısa vadeli teknik göstergeler (MACD, EMA 9/21) şu an bir soğuma/düzeltme evresinde. Trend güçlü olduğu için fırsat barındırıyor; fakat tam uyum henüz sağlanmadığından <b>tüm sermaye ile tek seferde girmek yerine, küçük parçalarla (kademeli) alım yapılması</b> en güvenli stratejidir."
         
+        if "TETİK AKTİF" in teyit_metni:
+            alt_not = f'<div style="margin-top: 15px; padding: 10px; background-color: rgba(46, 204, 113, 0.1); border-left: 4px solid #2ecc71; border-radius: 4px;"><b>🔥 GÜÇLÜ HİBRİT TETİK ONAYI:</b> {teyit_metni} Sinyal şartları olgunlaşmıştır, kademeli ilk parça alımı için uygundur.</div>'
+        else:
+            alt_not = f'<div style="margin-top: 15px; padding: 10px; background-color: rgba(241, 196, 15, 0.1); border-left: 4px solid #f1c40f; border-radius: 4px;"><b>⏳ HİBRİT TETİK BEKLENİYOR:</b> {teyit_metni} Fiyatın destek veya dip dönüşü onaylanana kadar kademeli disiplinle takip edilmelidir.</div>'
+
     elif "GÜÇLÜ ALIM" in sinyal_metni or "KUSURSUZ ALIM" in sinyal_metni:
         renk = "#2ecc71"
         baslik = "🟢 GÜÇLÜ ALIM ONAYI"
         ana_metin = "Kusursuz Uyum! Varlık hem temel açıdan puanları toplamış, hem de uzun ve kısa vadeli tüm teknik ortalamalarda tam bir yükseliş (boğa) trendine girmiştir. Grafikteki momentum ve sistemin puanlaması birbiriyle %100 örtüşüyor."
         
+        if "TETİK AKTİF" in teyit_metni:
+            alt_not = f'<div style="margin-top: 15px; padding: 10px; background-color: rgba(46, 204, 113, 0.1); border-left: 4px solid #2ecc71; border-radius: 4px;"><b>🔥 ONAYLI GİRİŞ:</b> {teyit_metni} Saatlik kırılım ve momentum teyidi alındı, pozisyon açılabilir.</div>'
+        else:
+            alt_not = f'<div style="margin-top: 15px; padding: 10px; background-color: rgba(241, 196, 15, 0.1); border-left: 4px solid #f1c40f; border-radius: 4px;"><b>⏳ SAATLİK ONAY BEKLENİYOR:</b> {teyit_metni} Günlük boğa trendi güçlü ancak saatlik bazda tetik mumunun oluşması bekleniyor.</div>'
+
     elif "UZAK DUR" in sinyal_metni:
         renk = "#e74c3c"
         baslik = "🔴 KESİNLİKLE UZAK DUR"
         ana_metin = "Sistem, varlığın ana trendinin (200 SMA) altında olduğunu veya ağır teknik cezalar yediğini tespit etti. Varlığın temeli veya haberi ne kadar iyi olursa olsun, düşen bıçak tutulmaz. <b>Sermayeyi koruma disiplini gereği</b>, trend tam anlamıyla yukarı dönene kadar izleme listesinden çıkarılmalı ve işlem açılmamalıdır."
+        alt_not = '<div style="margin-top: 15px; padding: 10px; background-color: rgba(231, 76, 60, 0.1); border-left: 4px solid #e74c3c; border-radius: 4px;"><b>🛡️ RİSK YÖNETİMİ UYARISI:</b> Ayı trendindeki varlıklarda tetik aranmaz. Sermayenizi korumak için bu varlıktan uzak durun.</div>'
         
     elif "KÂR" in sinyal_metni:
         renk = "#e67e22"
         baslik = "🟠 KÂR REALİZASYONU / ŞİŞKİNLİK"
         ana_metin = "Sistem, fiyatın kısa sürede hızla yükseldiğini ve teknik göstergelerin (RSI, Bollinger) aşırı alım (şişkinlik) bölgesine girdiğini tespit etti. Olası ani bir geri çekilme riskine karşı mevcut pozisyonlarda kârın bir kısmı realize edilebilir veya izleyen stop-loss seviyesi sıkılaştırılmalıdır."
+        alt_not = '<div style="margin-top: 15px; padding: 10px; background-color: rgba(230, 126, 34, 0.1); border-left: 4px solid #e67e22; border-radius: 4px;"><b>💰 DİSİPLİN ÖNERİSİ:</b> Zirve bölgelerindeki şişkinliklerde yeni alım yapılmaz, var olan kâr cebe atılır veya stop seviyesi yukarı çekilir.</div>'
         
     else:
         renk = "#95a5a6"
         baslik = "⚪ NÖTR / İZLEMEDE KAL"
         ana_metin = "Sistem sinyalleri şu an belirgin bir yön veya baskı göstermiyor (konsolidasyon/kararsızlık). Yeni bir işlem açmak için teknik uyumun ve net bir kırılımın gerçekleşmesi beklenmelidir. Mevcut pozisyonlar izlenebilir."
+        alt_not = '<div style="margin-top: 15px; padding: 10px; background-color: rgba(149, 165, 166, 0.1); border-left: 4px solid #95a5a6; border-radius: 4px;"><b>⚖️ BEKLE-GÖR MODU:</b> Net bir trend veya tetik oluşmamıştır. Sabırla piyasanın yön seçmesi beklenmelidir.</div>'
 
-    teyit_notu = ""
-    if "TETİK AKTİF" in teyit_metni:
-        teyit_notu = f'<div style="margin-top: 15px; padding: 10px; background-color: rgba(46, 204, 113, 0.1); border-left: 4px solid #2ecc71; border-radius: 4px;"><b>🔥 GÜÇLÜ HİBRİT TETİK ONAYI:</b> {teyit_metni} Sistemin verdiği strateji doğrultusunda şartlar olgunlaşmıştır, işlem açmak için uygundur.</div>'
-    else:
-        teyit_notu = f'<div style="margin-top: 15px; padding: 10px; background-color: rgba(241, 196, 15, 0.1); border-left: 4px solid #f1c40f; border-radius: 4px;"><b>⏳ HİBRİT TETİK BEKLENİYOR:</b> {teyit_metni} Fiyatın destek veya dip dönüşü onaylanana kadar kademeli disiplinle takip edilmelidir.</div>'
-
-    html_kodu = f'<div style="background-color: #1e1e1e; padding: 20px; border-radius: 10px; border-left: 5px solid {renk}; margin-top: 20px; color: #ffffff; font-family: sans-serif; box-shadow: 0 4px 8px rgba(0,0,0,0.2);"><h3 style="color: {renk}; margin-top: 0; font-size: 18px;">{baslik}</h3><p style="font-size: 15px; line-height: 1.6; color: #e0e0e0; margin-bottom: 12px;">{ana_metin}</p>{teyit_notu}</div>'
+    html_kodu = f'<div style="background-color: #1e1e1e; padding: 20px; border-radius: 10px; border-left: 5px solid {renk}; margin-top: 20px; color: #ffffff; font-family: sans-serif; box-shadow: 0 4px 8px rgba(0,0,0,0.2);"><h3 style="color: {renk}; margin-top: 0; font-size: 18px;">{baslik}</h3><p style="font-size: 15px; line-height: 1.6; color: #e0e0e0; margin-bottom: 12px;">{ana_metin}</p>{alt_not}</div>'
     
     return html_kodu
 
