@@ -86,40 +86,63 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# --- AKSİYON REHBERİ FONKSİYONU (DÜZELTİLMİŞ) ---
-def aksiyon_rehberi_olustur(sistem_sinyali, rsi_degeri, sozel_yorum):
-    sozel_yorum_lower = sozel_yorum.lower()
-    sinyal_lower = str(sistem_sinyali).lower()
+# --- AKSİYON REHBERİ FONKSİYONU ---
+def aksiyon_rehberi_olustur(nihai_sinyal, teyit_1h):
+    """
+    Tablodaki nihai sinyali ve 1H (Saatlik) teyit durumunu alarak, 
+    kullanıcıya çelişkisiz ve sentezlenmiş bir strateji kutusu sunar.
+    """
+    sinyal_metni = str(nihai_sinyal).upper()
+    teyit_metni = str(teyit_1h)
     
-    if "uzak dur" in sinyal_lower:
-        return ("🛑 UZAK DUR / DÜŞÜŞ TRENDİ RİSKİ", 
-                "Hisse ana ortalamaların altında ve satış baskısı (ayı trendi) hakim. Fiyat düşük görünse de teknik olarak dip henüz teyit edilmemiş olabilir. Yeni alım yapmak yüksek risk taşır; mevcut pozisyonlar için stop-loss seviyeleri takip edilmelidir.", 
-                "#FF5555")
-
-    elif "kar realizasyonu" in sinyal_lower or "sat" in sinyal_lower or rsi_degeri > 75:
-        return ("🛑 KÂR AL / RİSKİ AZALT", 
-                "Grafikte ciddi yorulma ve aşırı şişkinlik belirtileri mevcut. Fiyat tepe bölgelerinde olduğu için yeni alım riski çok yüksektir. Eldeki pozisyonlar için kâr realizasyonu (cebe koyma) yapılmalıdır.", 
-                "#FF5555")
-
-    elif ("alım" in sinyal_lower) and ("şişti" in sozel_yorum_lower or "şişkinliğe" in sozel_yorum_lower or "aşırı" in sozel_yorum_lower or rsi_degeri > 70):
-        return ("⚠️ KADEMELİ GİRİŞ / DÜZELTME BEKLE", 
-                "Sistem ana trendin güçlü olduğunu teyit ederek 'ALIM' diyor ancak grafik kısa vadede şişmiş durumda. Tek seferde yüklü girmek yerine ortalamalara (EMA 21/50) geri çekilme beklenmelidir.", 
-                "#f39c12")
+    if "KADEMELİ ALIM" in sinyal_metni:
+        renk = "#3498db"
+        baslik = "🔵 KADEMELİ ALIM STRATEJİSİ"
+        ana_metin = "Sistem; varlığın temel verilerinin ve uzun vadeli ana trendinin (50 & 200 SMA) sağlam olduğunu tespit etti. Ancak kısa vadeli teknik göstergeler (MACD, EMA 9/21) şu an bir soğuma/düzeltme evresinde. Trend güçlü olduğu için fırsat barındırıyor; fakat tam uyum henüz sağlanmadığından <b>tüm sermaye ile tek seferde girmek yerine, küçük parçalarla (kademeli) alım yapılması</b> en güvenli stratejidir."
         
-    elif ("alım" in sinyal_lower) and ("kusursuz" in sozel_yorum_lower or "sağlıklı" in sozel_yorum_lower or "boğa" in sozel_yorum_lower):
-        return ("🚀 GÜÇLÜ ALIM / POZİSYON KORU", 
-                "Sistem skoru ile teknik grafik kusursuz bir uyum içinde. Güçlü trend hacimle destekleniyor. Güvenle yeni pozisyon açılabilir veya tutulabilir.", 
-                "#00FF88")
+    elif "GÜÇLÜ ALIM" in sinyal_metni or "KUSURSUZ ALIM" in sinyal_metni:
+        renk = "#2ecc71"
+        baslik = "🟢 GÜÇLÜ ALIM ONAYI"
+        ana_metin = "Kusursuz Uyum! Varlık hem temel açıdan puanları toplamış, hem de uzun ve kısa vadeli tüm teknik ortalamalarda tam bir yükseliş (boğa) trendine girmiştir. Grafikteki momentum ve sistemin puanlaması birbiriyle %100 örtüşüyor."
         
-    elif "nötr" in sinyal_lower or "bekle" in sinyal_lower:
-        return ("⏳ İZLEME VE SABIR MODU", 
-                "Şu an net bir kırılım veya yön teyidi yok. Hem temel puanlama hem de grafikler kararsız/yatay seyrediyor. Destek seviyelerine yaklaşması veya hacim artışı beklenmelidir.", 
-                "#3498db")
+    elif "UZAK DUR" in sinyal_metni:
+        renk = "#e74c3c"
+        baslik = "🔴 KESİNLİKLE UZAK DUR"
+        ana_metin = "Sistem, varlığın ana trendinin (200 SMA) altında olduğunu veya ağır teknik cezalar yediğini tespit etti. Varlığın temeli veya haberi ne kadar iyi olursa olsun, düşen bıçak tutulmaz. <b>Sermayeyi koruma disiplini gereği</b>, trend tam anlamıyla yukarı dönene kadar izleme listesinden çıkarılmalı ve işlem açılmamalıdır."
+        
+    elif "KÂR" in sinyal_metni:
+        renk = "#e67e22"
+        baslik = "🟠 KÂR REALİZASYONU / ŞİŞKİNLİK"
+        ana_metin = "Sistem, fiyatın kısa sürede hızla yükseldiğini ve teknik göstergelerin (RSI, Bollinger) aşırı alım (şişkinlik) bölgesine girdiğini tespit etti. Olası ani bir geri çekilme riskine karşı mevcut pozisyonlarda kârın bir kısmı realize edilebilir veya izleyen stop-loss seviyesi sıkılaştırılmalıdır."
         
     else:
-        return ("🔎 DİKKATLİ TAKİP", 
-                "Sistem sinyali ve grafik yönü arasında belirsizlik var. Yeni işlem açmak için sinyallerin uyumlu olmasını bekleyin.", 
-                "#AAAAAA")
+        renk = "#95a5a6"
+        baslik = "⚪ NÖTR / İZLEMEDE KAL"
+        ana_metin = "Sistem sinyalleri şu an belirgin bir yön veya baskı göstermiyor (konsolidasyon/kararsızlık). Yeni bir işlem açmak için teknik uyumun ve net bir kırılımın gerçekleşmesi beklenmelidir. Mevcut pozisyonlar izlenebilir."
+
+    teyit_notu = ""
+    if "Tetiği Çek" in teyit_metni:
+        teyit_notu = f"""
+        <div style="margin-top: 15px; padding: 10px; background-color: rgba(46, 204, 113, 0.1); border-left: 4px solid #2ecc71; border-radius: 4px;">
+            <b>🔥 1H TAKTİKSEL ONAY:</b> Saatlik grafiklerde hacimli kırılım (Tetik) onaylanmıştır! Sistemin verdiği strateji doğrultusunda şu an taktiksel giriş (işlem açmak) için şartlar uygundur.
+        </div>
+        """
+    elif "Bekleniyor" in teyit_metni or "Bekle" in teyit_metni:
+        teyit_notu = f"""
+        <div style="margin-top: 15px; padding: 10px; background-color: rgba(241, 196, 15, 0.1); border-left: 4px solid #f1c40f; border-radius: 4px;">
+            <b>⏳ 1H ZAMANLAMA UYARISI:</b> Nihai sinyal stratejisini kurdu ancak 1 saatlik kısa vade grafikte henüz alım tetiği (yeşil hacimli kırılım) gelmemiştir. Hatalı kırılıma (fakeout) yakalanmamak için tetiğin çekilmesini bekleyin.
+        </div>
+        """
+
+    html_kodu = f"""
+    <div style="background-color: #1e1e1e; padding: 20px; border-radius: 10px; border-left: 5px solid {renk}; margin-top: 20px; color: #ffffff; font-family: sans-serif; box-shadow: 0 4px 8px rgba(0,0,0,0.2);">
+        <h3 style="color: {renk}; margin-top: 0; font-size: 18px;">{baslik}</h3>
+        <p style="font-size: 15px; line-height: 1.6; color: #e0e0e0; margin-bottom:0;">{ana_metin}</p>
+        {teyit_notu}
+    </div>
+    """
+    
+    return html_kodu
 
 # --- HİSSE LİSTELERİ ---
 BIST_30 = [
@@ -831,6 +854,7 @@ if st.session_state.tarama_durumu:
                         elif son_fiyat < son_ema50 and son_fiyat > son_sma200:
                             yorum_trend = "Uzun vadeli (SMA 200) ana destek korunsa da, orta vadede (EMA 50) belirgin bir **ivme kaybı ve fiyat düzeltmesi (dinlenme)** yaşanıyor."
 
+                        # --- GRAFİĞİN ALTINDAKİ SÖZEL YORUM KUTUSU (Bozulmadan Korundu) ---
                         st.markdown(f'''
                         <div class="info-box">
                             <b>🤖 Algoritmik Strateji ve Göstergelerin Sözel Analizi:</b><br><br>
@@ -841,23 +865,18 @@ if st.session_state.tarama_durumu:
                         </div>
                         ''', unsafe_allow_html=True)
                         
-                        # Aksiyon Rehberi Entegrasyonu
-                        tam_sozel_yorum = f"{yorum_kisa_vade} {yorum_bb} {yorum_macd} {yorum_trend}"
+                        # ==========================================
+                        # --- YENİ EKSİKSİZ VE ÇELİŞKİSİZ AKSİYON REHBERİ ---
+                        # ==========================================
                         hisse_satiri = df_sonuc[df_sonuc["Varlık"] == secilen_detay_hisse]
                         anlik_sinyal = hisse_satiri["Nihai Sinyal"].values[0] if not hisse_satiri.empty else "Nötr (İzle) ⚖️"
+                        anlik_teyit = hisse_satiri["↓ Zamanlama (1H Teyit)"].values[0] if not hisse_satiri.empty else "⏳ 1H Dönüş Bekle"
                         
-                        rehber_baslik, rehber_aciklama, rehber_renk = aksiyon_rehberi_olustur(
-                            anlik_sinyal, 
-                            son_rsi, 
-                            tam_sozel_yorum
-                        )
+                        # Yeni, tablonun nihai sinyaline ve saatlik 1H teyidine bağlı çalışan ana motoru çağırıyoruz
+                        html_sentez_kutusu = aksiyon_rehberi_olustur(anlik_sinyal, anlik_teyit)
                         
-                        st.markdown(f"""
-                        <div style="background-color: #1a1a1a; padding: 18px; border-radius: 8px; border-left: 6px solid {rehber_renk}; margin-top: 15px; margin-bottom: 30px; box-shadow: 0 4px 6px rgba(0,0,0,0.3);">
-                            <h4 style="color: {rehber_renk}; margin-top: 0px; margin-bottom: 8px; font-size: 16px; letter-spacing: 0.5px;">{rehber_baslik}</h4>
-                            <p style="color: #E0E0E0; font-size: 14px; margin-bottom: 0px; line-height: 1.5;">{rehber_aciklama}</p>
-                        </div>
-                        """, unsafe_allow_html=True)
+                        # Oluşan şık HTML bloğunu ekrana basıyoruz
+                        st.markdown(html_sentez_kutusu, unsafe_allow_html=True)
 
                     else:
                         st.warning("Seçilen varlık için yeterli grafik verisi bulunamadı.")
