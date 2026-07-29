@@ -12,13 +12,45 @@ import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 
 # --- 1. SAYFA YAPILANDIRMASI ---
+# Bu komut daima en üstte olmalıdır!
 st.set_page_config(
     page_title="Hibrit Portföy Komuta Merkezi",
     page_icon="📈",
     layout="wide"
 )
 
-# --- ÇEREZ YÖNETİCİSİ (COOKIE MANAGER) BAŞLATMA ---
+# --- CSS: Running yazısı gizlenir, mobil menü korunur ---
+st.markdown("""
+<style>
+    /* Sağ üstteki Running (Çalışıyor) yazısını, Deploy butonunu ve araç çubuğunu tamamen gizle */
+    [data-testid="stStatusWidget"],
+    [data-testid="stToolbar"],
+    .stDeployButton,
+    .stAppStatusIndicator { 
+        display: none !important; 
+        visibility: hidden !important; 
+        opacity: 0 !important; 
+    }
+    
+    /* MOBİL UYUM: Header arka planını şeffaf yap ama Hamburger menüyü (sol üst) kesinlikle KORU */
+    header[data-testid="stHeader"] {
+        background: transparent !important;
+        box-shadow: none !important;
+    }
+    
+    /* Özel UI Sınıfları */
+    .kpi-card { background-color: #1E1E1E; padding: 20px; border-radius: 10px; text-align: center; border: 1px solid #333; box-shadow: 2px 2px 10px rgba(0,0,0,0.5); }
+    .kpi-title { font-size: 13px; color: #AAAAAA; text-transform: uppercase; letter-spacing: 1px; }
+    .kpi-value { font-size: 26px; font-weight: bold; color: #FFFFFF; margin-top: 5px; }
+    .kpi-highlight-green { color: #00FF88; }
+    .kpi-highlight-fire { color: #FF5555; }
+    .info-box { background-color: #1E1E1E; padding: 15px; border-radius: 8px; border-left: 5px solid #3498db; margin-bottom: 15px; font-size: 13px; color: #CCCCCC; line-height: 1.6; }
+    .dataframe { font-size: 12px !important; }
+</style>
+""", unsafe_allow_html=True)
+
+
+# --- ÇEREZ YÖNETİCİSİ (COOKIE MANAGER) ---
 cookie_manager = stx.CookieManager(key="cookie_manager")
 saved_email = cookie_manager.get(cookie="user_email")
 
@@ -39,7 +71,7 @@ try:
 except:
     db = None
 
-# Senin kendi özel ve ekli varlıkların (sıfırlanmaması için buraya sabitlendi)
+# Varsayılan Listeler
 VARSAYILAN_TICKERS = ["AAPL", "MSFT", "TSLA", "NVDA", "AMD", "INTC", "THYAO.IS", "FROTO.IS", "TOASO.IS"]
 
 # --- OTURUM DURUMU (SESSION STATE) ---
@@ -61,31 +93,6 @@ if st.session_state.user_email is None and saved_email is not None and not st.se
         except:
             st.session_state.custom_tickers = VARSAYILAN_TICKERS.copy()
     st.rerun()
-
-# --- CSS: Running yazısı gizlenir, mobil menü korunur ---
-st.markdown("""
-<style>
-    [data-testid="stStatusWidget"],
-    [data-testid="stToolbarActions"],
-    [data-testid="stDecoration"],
-    .stDeployButton,
-    .stAppStatusIndicator { 
-        display: none !important; 
-        visibility: hidden !important; 
-        opacity: 0 !important; 
-        pointer-events: none !important; 
-    }
-    
-    .kpi-card { background-color: #1E1E1E; padding: 20px; border-radius: 10px; text-align: center; border: 1px solid #333; box-shadow: 2px 2px 10px rgba(0,0,0,0.5); }
-    .kpi-title { font-size: 13px; color: #AAAAAA; text-transform: uppercase; letter-spacing: 1px; }
-    .kpi-value { font-size: 26px; font-weight: bold; color: #FFFFFF; margin-top: 5px; }
-    .kpi-subtext { font-size: 11px; color: #777777; margin-top: 4px; }
-    .kpi-highlight-green { color: #00FF88; }
-    .kpi-highlight-fire { color: #FF5555; }
-    .info-box { background-color: #1E1E1E; padding: 15px; border-radius: 8px; border-left: 5px solid #3498db; margin-bottom: 15px; font-size: 13px; color: #CCCCCC; line-height: 1.6; }
-    .dataframe { font-size: 12px !important; }
-</style>
-""", unsafe_allow_html=True)
 
 # --- AKSİYON REHBERİ FONKSİYONU ---
 def aksiyon_rehberi_olustur(nihai_sinyal, teyit_1h):
@@ -118,10 +125,10 @@ def aksiyon_rehberi_olustur(nihai_sinyal, teyit_1h):
         ana_metin = "Sistem sinyalleri şu an belirgin bir yön veya baskı göstermiyor (konsolidasyon/kararsızlık). Yeni bir işlem açmak için teknik uyumun ve net bir kırılımın gerçekleşmesi beklenmelidir. Mevcut pozisyonlar izlenebilir."
 
     teyit_notu = ""
-    if "Tetiği Çek" in teyit_metni:
-        teyit_notu = '<div style="margin-top: 15px; padding: 10px; background-color: rgba(46, 204, 113, 0.1); border-left: 4px solid #2ecc71; border-radius: 4px;"><b>🔥 1H TAKTİKSEL ONAY:</b> Saatlik grafiklerde hacimli kırılım (Tetik) onaylanmıştır! Sistemin verdiği strateji doğrultusunda şu an taktiksel giriş (işlem açmak) için şartlar uygundur.</div>'
-    elif "Bekleniyor" in teyit_metni or "Bekle" in teyit_metni:
-        teyit_notu = '<div style="margin-top: 15px; padding: 10px; background-color: rgba(241, 196, 15, 0.1); border-left: 4px solid #f1c40f; border-radius: 4px;"><b>⏳ 1H ZAMANLAMA UYARISI:</b> Nihai sinyal stratejisini kurdu ancak 1 saatlik kısa vade grafikte henüz alım tetiği (yeşil hacimli kırılım) gelmemiştir. Hatalı kırılıma (fakeout) yakalanmamak için tetiğin çekilmesini bekleyin.</div>'
+    if "TETİK AKTİF" in teyit_metni:
+        teyit_notu = f'<div style="margin-top: 15px; padding: 10px; background-color: rgba(46, 204, 113, 0.1); border-left: 4px solid #2ecc71; border-radius: 4px;"><b>🔥 GÜÇLÜ HİBRİT TETİK ONAYI:</b> {teyit_metni} Sistemin verdiği strateji doğrultusunda şartlar olgunlaşmıştır, işlem açmak için uygundur.</div>'
+    else:
+        teyit_notu = f'<div style="margin-top: 15px; padding: 10px; background-color: rgba(241, 196, 15, 0.1); border-left: 4px solid #f1c40f; border-radius: 4px;"><b>⏳ HİBRİT TETİK BEKLENİYOR:</b> {teyit_metni} Fiyatın destek veya dip dönüşü onaylanana kadar kademeli disiplinle takip edilmelidir.</div>'
 
     html_kodu = f'<div style="background-color: #1e1e1e; padding: 20px; border-radius: 10px; border-left: 5px solid {renk}; margin-top: 20px; color: #ffffff; font-family: sans-serif; box-shadow: 0 4px 8px rgba(0,0,0,0.2);"><h3 style="color: {renk}; margin-top: 0; font-size: 18px;">{baslik}</h3><p style="font-size: 15px; line-height: 1.6; color: #e0e0e0; margin-bottom: 12px;">{ana_metin}</p>{teyit_notu}</div>'
     
@@ -307,7 +314,7 @@ def hisse_ekle_callback():
             try:
                 db.collection("kullanici_listeleri").document(st.session_state.user_email).set({"tickers": st.session_state.custom_tickers})
                 st.toast("✅ Varlıklar veritabanına başarıyla kaydedildi!", icon="💾")
-            except Exception as e:
+            except Exception:
                 st.error(f"Veritabanına ulaşılamadı. Varlık geçici hafızaya eklendi ancak sayfayı yenilediğinizde silinebilir.")
         else:
             st.warning("⚠️ Firebase bağlantısı yok. Eklediğiniz varlıklar sadece bu oturum için geçerlidir.")
@@ -317,7 +324,7 @@ def hisse_ekle_callback():
         st.session_state.ek_hisse_input_field = ""
 
 st.title("📈 Hibrit Portföy Komuta Merkezi")
-st.markdown("**Mod:** Derin Analiz (Cezalı Skor + F-Skoru + Hacim + Sığ Tahta Koruması + Düzeltilmiş Para Akışı + Aktif 1H Teyit)")
+st.markdown("**Mod:** Derin Analiz (Cezalı Skor + F-Skoru + Hacim + Sığ Tahta Koruması + Düzeltilmiş Para Akışı + Hibrit 1H Tetikleyiciler)")
 st.markdown("---")
 
 st.sidebar.header("⚙️ Kontrol Paneli")
@@ -358,7 +365,7 @@ if tarama_tetiklendi:
     if not selected_tickers:
         st.sidebar.warning("⚠️ Lütfen taranacak en az bir varlık seçin!")
     else:
-        with st.spinner("Hedge-Fund Katmanları İşleniyor (Cezalı Skor, F-Skoru, Sığ Tahta, Para Akışı, Aktif 1H Teyit)..."):
+        with st.spinner("Hedge-Fund Katmanları İşleniyor (Cezalı Skor, F-Skoru, Hibrit 1H Tetik Motoru)..."):
             gecici_sonuclar = []
             boga_sayisi = alim_firsati = 0
             
@@ -384,21 +391,18 @@ if tarama_tetiklendi:
                     is_bist = ".IS" in ticker
                     para_birimi = "TL" if is_bist else "$"
                     
-                    # Varsayılan olarak günlük grafiğin son kapanışını alırız
                     bugun_kapanis = float(df_long['Close'].iloc[-1])
                     onceki_kapanis = float(df_long['Close'].iloc[-2]) if len(df_long) >= 2 else bugun_kapanis
                     
-                    # --- %100 CANLI FİYAT YAKALAMA MOTORU (MİDAS SENKRONU) ---
-                    # 1 dakikalık pre-market dahil veriyi çekip son tick'i zorla grafiğe yediriyoruz
+                    # --- CANLI FİYAT YAKALAMA MOTORU ---
                     try:
                         df_live = stock.history(period="1d", interval="1m", prepost=True)
                         if not df_live.empty:
                             bugun_kapanis = float(df_live['Close'].iloc[-1])
-                            # Fiyatı df_long grafiğinin son (bugünkü) mumuna eziyoruz:
                             df_long.iloc[-1, df_long.columns.get_loc('Close')] = bugun_kapanis
                     except:
                         pass
-                    # ---------------------------------------------------------
+                    # -----------------------------------
 
                     gunluk_degisim = ((bugun_kapanis - onceki_kapanis) / onceki_kapanis) * 100 if onceki_kapanis > 0 else 0.0
                     fiyat_str = f"{bugun_kapanis:.2f} {para_birimi} ({'+' if gunluk_degisim > 0 else ''}{gunluk_degisim:.2f}%)"
@@ -544,23 +548,37 @@ if tarama_tetiklendi:
                     if uzun_vade_trend: 
                         boga_sayisi += 1
 
-                    mikro_teyit = "➖"
+                    # --- 1H HİBRİT TETİKLEYİCİ MOTORU (Sadece Alım Fırsatlarında Çalışır) ---
+                    mikro_teyit = "⏳ Tetik Bekleniyor"
                     if "ALIM" in sinyal:
                         try:
                             df_1h = stock.history(period="5d", interval="1h", prepost=True)
-                            if not df_1h.empty and len(df_1h) >= 2:
-                                son_1h_kapanis = df_1h['Close'].iloc[-1]
-                                onceki_1h_yuksek = df_1h['High'].iloc[-2]
-                                son_1h_yesil = df_1h['Close'].iloc[-1] > df_1h['Open'].iloc[-1]
+                            if not df_1h.empty and len(df_1h) >= 5:
+                                c_1h = df_1h['Close']
+                                v_1h = df_1h['Volume']
+                                bb_mid_1h = c_1h.rolling(20).mean()
                                 
-                                if son_1h_yesil and son_1h_kapanis >= onceki_1h_yuksek:
-                                    mikro_teyit = "🔥 Tetiği Çek (1H Onaylandı!)"
+                                delta_1h = c_1h.diff()
+                                rs_1h = delta_1h.where(delta_1h>0, 0.0).ewm(alpha=1/14, adjust=False).mean() / (-delta_1h.where(delta_1h<0, 0.0).ewm(alpha=1/14, adjust=False).mean() + 1e-5)
+                                rsi_1h = 100 - (100 / (1 + rs_1h))
+                                
+                                macd_l_1h = c_1h.ewm(span=12).mean() - c_1h.ewm(span=26).mean()
+                                macd_s_1h = macd_l_1h.ewm(span=9).mean()
+                                macd_hist_1h = macd_l_1h - macd_s_1h
+                                
+                                vol_sma_1h = v_1h.rolling(20).mean()
+                                
+                                kural_1_breakout = (c_1h.iloc[-1] > bb_mid_1h.iloc[-1]) and (v_1h.iloc[-1] > 1.5 * vol_sma_1h.iloc[-1])
+                                kural_3_rsi_dip = (rsi_1h.iloc[-2] < 38) and (rsi_1h.iloc[-1] >= 38) and (macd_hist_1h.iloc[-1] > macd_hist_1h.iloc[-2])
+                                
+                                if kural_1_breakout:
+                                    mikro_teyit = "🔥 TETİK AKTİF: Hacimli Kırılım (Kural 1)"
+                                elif kural_3_rsi_dip:
+                                    mikro_teyit = "🔥 TETİK AKTİF: RSI Dip + MACD Tepkisi (Kural 3)"
                                 else:
-                                    mikro_teyit = "⏳ 1H Onay Bekleniyor"
-                            else:
-                                mikro_teyit = "⏳ 1H Dönüş Bekle"
+                                    mikro_teyit = "⏳ Tetik Bekleniyor"
                         except:
-                            mikro_teyit = "⏳ 1H Dönüş Bekle"
+                            mikro_teyit = "⏳ Tetik Bekleniyor"
 
                     lot = int((bist_kasa if is_bist else nasdaq_kasa) * risk_orani / alinan_risk) if "ALIM" in sinyal else 0
 
@@ -623,15 +641,17 @@ if st.session_state.tarama_durumu:
                 <hr style="border-color: #444;">
                 <b>📈 3. Sektörel Göreceli Güç ve Hacim (Vol) Oranı</b><br>
                 • <b>Görec. Güç:</b> Hissenin son 1 aylık getirisinin ilgili ana sektöre (Banka, Sanayi, Ulaşım, Teknoloji vb.) kıyasla farkını gösterir.<br>
-                • <b>Vol:</b> O gün gerçekleşen hacmin son 20 günlük ortalama hacme oranıdır (Örn: %150, ortalamanın %50 üzerinde hacim patlaması demektir).<br><br>
+                • <b>Vol:</b> O gün gerçekleşen hacmin son 20 günlük ortalama hacme oranıdır.<br><br>
                 <hr style="border-color: #444;">
                 <b>🛡️ 4. Karma Destek & Direnç Motoru</b><br>
                 • <b>Karma Destek:</b> Hissenin yerel dibi, 50 EMA, Fib %61.8 geri çekilme seviyesi ve ATR tabanı harmanlanarak hesaplanan akıllı savunma hattıdır.<br>
                 • <b>Karma Direnç:</b> Yerel tepe, VWAP, Fib %38.2 ve Bollinger Üst Bandı sentezlenerek bulunan kâr realizasyon/direnç bölgesidir.<br><br>
                 <hr style="border-color: #444;">
-                <b>🎯 5. Operasyonel Risk Yönetimi & Aktif 1H Teyit</b><br>
-                • <b>1H Teyit Sütunu:</b> Alım sinyali üreten varlıklarda 1 saatlik intraday mumları tarayarak yeşil kapanış ve kırılım onaylandığında <b>"🔥 Tetiği Çek (1H Onaylandı!)"</b> uyarısı verir.<br>
-                • <b>Süren Stop & TP:</b> Volatilitesini ve ATR'yi hesaba katarak sermayeyi koruyan dinamik stop-loss ve kurumsal kâr hedefleridir.
+                <b>🎯 5. Hibrit 1H Tetik Motoru (Akıllı Onay)</b><br>
+                • Alım sinyali üreten varlıklarda saatlik mumları tarayarak iki özel kuralı denetler:<br>
+                &nbsp;&nbsp;1. <b>Hacimli Kırılım:</b> Fiyat Bollinger orta bandını normal hacmin en az %150'si ile yukarı kırarsa.<br>
+                &nbsp;&nbsp;2. <b>RSI Dip Dönüşü:</b> RSI 38 altından yukarı dönerken MACD histogramı toparlanmaya başlarsa.<br>
+                • Şartlardan biri sağlandığında sütunda doğrudan <b>"🔥 TETİK AKTİF"</b> uyarısı yakar.
             </div>
             """, unsafe_allow_html=True)
         
@@ -666,7 +686,7 @@ if st.session_state.tarama_durumu:
                     df_grafik = stk_detay.history(period="2y").dropna(subset=['Open', 'High', 'Low', 'Close', 'Volume'])
                     
                     if not df_grafik.empty:
-                        # --- DETAY PANELİ İÇİN %100 CANLI FİYAT YAKALAMA MOTORU ---
+                        # --- DETAY PANELİ CANLI FİYAT YAKALAMA ---
                         try:
                             df_live_detay = stk_detay.history(period="1d", interval="1m", prepost=True)
                             if not df_live_detay.empty:
@@ -674,7 +694,7 @@ if st.session_state.tarama_durumu:
                                 df_grafik.iloc[-1, df_grafik.columns.get_loc('Close')] = canli_fiyat
                         except:
                             pass
-                        # -----------------------------------------------------------
+                        # -------------------------------------------
                         
                         df_grafik['EMA9'] = df_grafik['Close'].ewm(span=9).mean()
                         df_grafik['EMA21'] = df_grafik['Close'].ewm(span=21).mean()
@@ -848,7 +868,7 @@ if st.session_state.tarama_durumu:
                         # --- NİHAİ AKSİYON REHBERİ (SENTEZ KUTUSU) ---
                         hisse_satiri = df_sonuc[df_sonuc["Varlık"] == secilen_detay_hisse]
                         anlik_sinyal = hisse_satiri["Nihai Sinyal"].values[0] if not hisse_satiri.empty else "Nötr (İzle) ⚖️"
-                        anlik_teyit = hisse_satiri["↓ Zamanlama (1H Teyit)"].values[0] if not hisse_satiri.empty else "⏳ 1H Dönüş Bekle"
+                        anlik_teyit = hisse_satiri["↓ Zamanlama (1H Teyit)"].values[0] if not hisse_satiri.empty else "⏳ Tetik Bekleniyor"
                         
                         html_sentez_kutusu = aksiyon_rehberi_olustur(anlik_sinyal, anlik_teyit)
                         st.markdown(html_sentez_kutusu, unsafe_allow_html=True)
