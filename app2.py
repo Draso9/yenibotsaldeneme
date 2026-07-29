@@ -39,6 +39,7 @@ try:
 except:
     db = None
 
+# Senin kendi özel ve ekli varlıkların (sıfırlanmaması için buraya sabitlendi)
 VARSAYILAN_TICKERS = ["AAPL", "MSFT", "TSLA", "NVDA", "AMD", "INTC", "THYAO.IS", "FROTO.IS", "TOASO.IS"]
 
 # --- OTURUM DURUMU (SESSION STATE) ---
@@ -95,18 +96,22 @@ def aksiyon_rehberi_olustur(nihai_sinyal, teyit_1h):
         renk = "#3498db"
         baslik = "🔵 KADEMELİ ALIM STRATEJİSİ"
         ana_metin = "Sistem; varlığın temel verilerinin ve uzun vadeli ana trendinin (50 & 200 SMA) sağlam olduğunu tespit etti. Ancak kısa vadeli teknik göstergeler (MACD, EMA 9/21) şu an bir soğuma/düzeltme evresinde. Trend güçlü olduğu için fırsat barındırıyor; fakat tam uyum henüz sağlanmadığından <b>tüm sermaye ile tek seferde girmek yerine, küçük parçalarla (kademeli) alım yapılması</b> en güvenli stratejidir."
+        
     elif "GÜÇLÜ ALIM" in sinyal_metni or "KUSURSUZ ALIM" in sinyal_metni:
         renk = "#2ecc71"
         baslik = "🟢 GÜÇLÜ ALIM ONAYI"
         ana_metin = "Kusursuz Uyum! Varlık hem temel açıdan puanları toplamış, hem de uzun ve kısa vadeli tüm teknik ortalamalarda tam bir yükseliş (boğa) trendine girmiştir. Grafikteki momentum ve sistemin puanlaması birbiriyle %100 örtüşüyor."
+        
     elif "UZAK DUR" in sinyal_metni:
         renk = "#e74c3c"
         baslik = "🔴 KESİNLİKLE UZAK DUR"
         ana_metin = "Sistem, varlığın ana trendinin (200 SMA) altında olduğunu veya ağır teknik cezalar yediğini tespit etti. Varlığın temeli veya haberi ne kadar iyi olursa olsun, düşen bıçak tutulmaz. <b>Sermayeyi koruma disiplini gereği</b>, trend tam anlamıyla yukarı dönene kadar izleme listesinden çıkarılmalı ve işlem açılmamalıdır."
+        
     elif "KÂR" in sinyal_metni:
         renk = "#e67e22"
         baslik = "🟠 KÂR REALİZASYONU / ŞİŞKİNLİK"
         ana_metin = "Sistem, fiyatın kısa sürede hızla yükseldiğini ve teknik göstergelerin (RSI, Bollinger) aşırı alım (şişkinlik) bölgesine girdiğini tespit etti. Olası ani bir geri çekilme riskine karşı mevcut pozisyonlarda kârın bir kısmı realize edilebilir veya izleyen stop-loss seviyesi sıkılaştırılmalıdır."
+        
     else:
         renk = "#95a5a6"
         baslik = "⚪ NÖTR / İZLEMEDE KAL"
@@ -118,7 +123,9 @@ def aksiyon_rehberi_olustur(nihai_sinyal, teyit_1h):
     elif "Bekleniyor" in teyit_metni or "Bekle" in teyit_metni:
         teyit_notu = '<div style="margin-top: 15px; padding: 10px; background-color: rgba(241, 196, 15, 0.1); border-left: 4px solid #f1c40f; border-radius: 4px;"><b>⏳ 1H ZAMANLAMA UYARISI:</b> Nihai sinyal stratejisini kurdu ancak 1 saatlik kısa vade grafikte henüz alım tetiği (yeşil hacimli kırılım) gelmemiştir. Hatalı kırılıma (fakeout) yakalanmamak için tetiğin çekilmesini bekleyin.</div>'
 
-    return f'<div style="background-color: #1e1e1e; padding: 20px; border-radius: 10px; border-left: 5px solid {renk}; margin-top: 20px; color: #ffffff; font-family: sans-serif; box-shadow: 0 4px 8px rgba(0,0,0,0.2);"><h3 style="color: {renk}; margin-top: 0; font-size: 18px;">{baslik}</h3><p style="font-size: 15px; line-height: 1.6; color: #e0e0e0; margin-bottom: 12px;">{ana_metin}</p>{teyit_notu}</div>'
+    html_kodu = f'<div style="background-color: #1e1e1e; padding: 20px; border-radius: 10px; border-left: 5px solid {renk}; margin-top: 20px; color: #ffffff; font-family: sans-serif; box-shadow: 0 4px 8px rgba(0,0,0,0.2);"><h3 style="color: {renk}; margin-top: 0; font-size: 18px;">{baslik}</h3><p style="font-size: 15px; line-height: 1.6; color: #e0e0e0; margin-bottom: 12px;">{ana_metin}</p>{teyit_notu}</div>'
+    
+    return html_kodu
 
 # --- HİSSE LİSTELERİ ---
 BIST_30 = [
@@ -371,29 +378,27 @@ if tarama_tetiklendi:
             for ticker in selected_tickers:
                 try:
                     stock = yf.Ticker(ticker)
-                    # prepost=True ile seans dışı (pre-market / after-hours) dahil verileri çekiyoruz
-                    df_long = stock.history(period="1y", prepost=True).dropna(subset=['Open', 'High', 'Low', 'Close', 'Volume'])
+                    df_long = stock.history(period="1y").dropna(subset=['Open', 'High', 'Low', 'Close', 'Volume'])
                     if df_long.empty or len(df_long) < 50: continue
                     
                     is_bist = ".IS" in ticker
                     para_birimi = "TL" if is_bist else "$"
                     
-                    info = stock.info if hasattr(stock, 'info') else {}
-                    fast_inf = stock.fast_info if hasattr(stock, 'fast_info') else {}
+                    # Varsayılan olarak günlük grafiğin son kapanışını alırız
+                    bugun_kapanis = float(df_long['Close'].iloc[-1])
+                    onceki_kapanis = float(df_long['Close'].iloc[-2]) if len(df_long) >= 2 else bugun_kapanis
                     
-                    # Güncel fiyatı hem fast_info hem info hem de son mum üzerinden en akıllı şekilde yakalıyoruz
-                    reg_price = fast_inf.get('lastPrice', info.get('regularMarketPrice', info.get('currentPrice', None)))
-                    reg_prev = fast_inf.get('previousClose', info.get('regularMarketPreviousClose', info.get('previousClose', None)))
-                    
-                    if reg_price and reg_prev and not pd.isna(reg_price) and not pd.isna(reg_prev) and reg_prev > 0:
-                        bugun_kapanis = float(reg_price)
-                        onceki_kapanis = float(reg_prev)
-                    else:
-                        bugun_kapanis = float(df_long['Close'].iloc[-1])
-                        onceki_kapanis = float(df_long['Close'].iloc[-2]) if len(df_long) >= 2 else bugun_kapanis
-
-                    if not df_long.empty:
-                        df_long.iloc[-1, df_long.columns.get_loc('Close')] = bugun_kapanis
+                    # --- %100 CANLI FİYAT YAKALAMA MOTORU (MİDAS SENKRONU) ---
+                    # 1 dakikalık pre-market dahil veriyi çekip son tick'i zorla grafiğe yediriyoruz
+                    try:
+                        df_live = stock.history(period="1d", interval="1m", prepost=True)
+                        if not df_live.empty:
+                            bugun_kapanis = float(df_live['Close'].iloc[-1])
+                            # Fiyatı df_long grafiğinin son (bugünkü) mumuna eziyoruz:
+                            df_long.iloc[-1, df_long.columns.get_loc('Close')] = bugun_kapanis
+                    except:
+                        pass
+                    # ---------------------------------------------------------
 
                     gunluk_degisim = ((bugun_kapanis - onceki_kapanis) / onceki_kapanis) * 100 if onceki_kapanis > 0 else 0.0
                     fiyat_str = f"{bugun_kapanis:.2f} {para_birimi} ({'+' if gunluk_degisim > 0 else ''}{gunluk_degisim:.2f}%)"
@@ -403,6 +408,7 @@ if tarama_tetiklendi:
                     sig_tahta_esik = 50_000_000 if is_bist else 5_000_000 
                     is_sig_tahta = ortalama_ciro_tutar < sig_tahta_esik
 
+                    info = stock.info if hasattr(stock, 'info') else {}
                     fk = info.get('trailingPE', info.get('forwardPE', None))
                     peg = info.get('trailingPegRatio', info.get('pegRatio', None))
                     temel_durum = "Nötr ⚖️"
@@ -657,17 +663,18 @@ if st.session_state.tarama_durumu:
             if secilen_detay_hisse:
                 with st.spinner(f"{secilen_detay_hisse} için grafik verileri yükleniyor..."):
                     stk_detay = yf.Ticker(secilen_detay_hisse)
-                    # Grafiğe de prepost=True eklenerek seans dışı veriler dahil edildi
-                    df_grafik = stk_detay.history(period="2y", prepost=True).dropna(subset=['Open', 'High', 'Low', 'Close', 'Volume'])
+                    df_grafik = stk_detay.history(period="2y").dropna(subset=['Open', 'High', 'Low', 'Close', 'Volume'])
                     
                     if not df_grafik.empty:
-                        # --- ANLIK VE SEANS DIŞI FİYAT SENKRONİZASYONU ---
-                        fast_inf_detay = stk_detay.fast_info if hasattr(stk_detay, 'fast_info') else {}
-                        info_detay = stk_detay.info if hasattr(stk_detay, 'info') else {}
-                        reg_price_detay = fast_inf_detay.get('lastPrice', info_detay.get('regularMarketPrice', info_detay.get('currentPrice', None)))
-                        
-                        if reg_price_detay and not pd.isna(reg_price_detay):
-                            df_grafik.iloc[-1, df_grafik.columns.get_loc('Close')] = float(reg_price_detay)
+                        # --- DETAY PANELİ İÇİN %100 CANLI FİYAT YAKALAMA MOTORU ---
+                        try:
+                            df_live_detay = stk_detay.history(period="1d", interval="1m", prepost=True)
+                            if not df_live_detay.empty:
+                                canli_fiyat = float(df_live_detay['Close'].iloc[-1])
+                                df_grafik.iloc[-1, df_grafik.columns.get_loc('Close')] = canli_fiyat
+                        except:
+                            pass
+                        # -----------------------------------------------------------
                         
                         df_grafik['EMA9'] = df_grafik['Close'].ewm(span=9).mean()
                         df_grafik['EMA21'] = df_grafik['Close'].ewm(span=21).mean()
@@ -732,7 +739,7 @@ if st.session_state.tarama_durumu:
 
                         fig.update_layout(
                             template='plotly_dark',
-                            title=f"{secilen_detay_hisse} - Kapsamlı Teknik & Momentum Paneli (Seans Dışı Dahil)",
+                            title=f"{secilen_detay_hisse} - Kapsamlı Teknik & Momentum Paneli",
                             xaxis_rangeslider_visible=False,
                             height=900,
                             margin=dict(l=10, r=10, t=40, b=10),
@@ -762,7 +769,7 @@ if st.session_state.tarama_durumu:
                         son_macd_hist = df_grafik['MACD_Hist'].dropna().iloc[-1] if not df_grafik['MACD_Hist'].dropna().empty else 0
 
                         m1, m2, m3, m4 = st.columns(4)
-                        m1.metric("Fiyat", f"{son_fiyat:.2f}")
+                        m1.metric("Fiyat (CANLI)", f"{son_fiyat:.2f}")
                         m2.metric("9 EMA (Kısa Vade)", f"{son_ema9:.2f}")
                         m3.metric("21 EMA (Orta Vade)", f"{son_ema21:.2f}")
                         m4.metric("RSI (Momentum)", f"{son_rsi:.2f}")
