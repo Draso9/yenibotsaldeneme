@@ -325,7 +325,7 @@ def hisse_ekle_callback():
         if db and st.session_state.user_email:
             try:
                 db.collection("kullanici_listeleri").document(st.session_state.user_email).set({"tickers": st.session_state.custom_tickers})
-                st.toast("✅ Varlıklar veritabanına başarıyla kaydedildi!", icon="💾")
+                st.toast("✅ Varlıklar veritabanına başarıyla eklendi!", icon="💾")
             except Exception:
                 st.error(f"Veritabanına ulaşılamadı. Varlık geçici hafızaya eklendi ancak sayfayı yenilediğinizde silinebilir.")
         else:
@@ -334,6 +334,30 @@ def hisse_ekle_callback():
         st.session_state.aktif_profil = "Kendi Listem"
         st.session_state.secilen_varliklar = st.session_state.custom_tickers.copy()
         st.session_state.ek_hisse_input_field = ""
+
+def hisse_sil_callback():
+    input_val = st.session_state.sil_hisse_input_field
+    if input_val and input_val.strip():
+        silinecekler = [h.strip().upper() for h in input_val.replace(",", " ").split() if h.strip()]
+        degisim_oldu = False
+        for h in silinecekler:
+            if h in st.session_state.custom_tickers:
+                st.session_state.custom_tickers.remove(h)
+                degisim_oldu = True
+        
+        if degisim_oldu:
+            if db and st.session_state.user_email:
+                try:
+                    db.collection("kullanici_listeleri").document(st.session_state.user_email).set({"tickers": st.session_state.custom_tickers})
+                    st.toast("✅ Varlıklar veritabanından kalıcı olarak silindi!", icon="🗑️")
+                except Exception:
+                    st.error("Veritabanına ulaşılamadı. Varlık sadece geçici hafızadan silindi.")
+            else:
+                st.warning("⚠️ Firebase bağlantısı yok. Silme işlemi sadece bu oturum için geçerlidir.")
+
+            st.session_state.aktif_profil = "Kendi Listem"
+            st.session_state.secilen_varliklar = st.session_state.custom_tickers.copy()
+        st.session_state.sil_hisse_input_field = ""
 
 st.title("📈 Hibrit Portföy Komuta Merkezi")
 st.markdown("**Mod:** Derin Analiz (Cezalı Skor + F-Skoru + Hacim + Sığ Tahta Koruması + Düzeltilmiş Para Akışı + Hibrit 1H Tetikleyiciler)")
@@ -354,8 +378,11 @@ with st.sidebar.expander("💰 Kasa ve Risk Parametreleri", expanded=True):
     risk_orani = st.slider("Risk Oranı (%)", 1.0, 5.0, 2.0, 0.5) / 100.0
 
 with st.sidebar.expander("📋 Varlık Seçimi", expanded=True):
-    st.text_input("Varlık Ekle (Örn: KCHOL.IS, INTC):", key="ek_hisse_input_field", placeholder="KCHOL.IS")
+    st.text_input("Varlık Ekle (Örn: KCHOL.IS):", key="ek_hisse_input_field")
     st.button("➕ Ekle", on_click=hisse_ekle_callback)
+    
+    st.text_input("Varlık Sil (Örn: TSLA):", key="sil_hisse_input_field")
+    st.button("🗑️ Kalıcı Sil", on_click=hisse_sil_callback)
     
     st.selectbox(
         "Profil", 
@@ -561,8 +588,9 @@ if tarama_tetiklendi:
                         boga_sayisi += 1
 
                     # --- 1H HİBRİT TETİKLEYİCİ MOTORU (Sadece Alım Fırsatlarında Çalışır) ---
-                    mikro_teyit = "⏳ Tetik Bekleniyor"
+                    mikro_teyit = "-"
                     if "ALIM" in sinyal:
+                        mikro_teyit = "⏳ Tetik Bekleniyor"
                         try:
                             df_1h = stock.history(period="5d", interval="1h", prepost=True)
                             if not df_1h.empty and len(df_1h) >= 5:
@@ -590,7 +618,7 @@ if tarama_tetiklendi:
                                 else:
                                     mikro_teyit = "⏳ Tetik Bekleniyor"
                         except:
-                            mikro_teyit = "⏳ Tetik Bekleniyor"
+                            pass
 
                     lot = int((bist_kasa if is_bist else nasdaq_kasa) * risk_orani / alinan_risk) if "ALIM" in sinyal else 0
 
@@ -641,7 +669,6 @@ if st.session_state.tarama_durumu:
                 • <b>Momentum (RSI):</b> Sağlıklı bölgedeyse (35-50) <b>+10 Puan</b>, aşırı şişmiş tepe bölgesindeyse (>70) <b>-15 Puan ceza</b>.<br>
                 • <b>MACD Teyidi:</b> Pozitif kesişim onaylıysa <b>+10 Puan</b>, negatif uyumsuzlukta <b>-10 Puan ceza</b>.<br>
                 • <b>Temel Kalite (F-Skor / PEG):</b> Bilanço/PEG cazipse <b>+15 Puan</b>, riskli/pahalıysa <b>-15 Puan ceza</b>.<br>
-                • <b>Volatilite (Bollinger):</b> Alt banttan tepki alıyorsa <b>+10 Puan</b>, üst banda çarpıp şiştiyse <b>-15 Puan ceza</b>.<br>
                 <i>Skor Aralıkları: 70+ Güçlü 🟢 | 50-69 Nötr ⚖️ | 50 Altı Cezalı 🔴</i><br><br>
                 <hr style="border-color: #444;">
                 <b>🧪 2. Piotroski F-Skoru (Finansal Kalite Katmanı)</b><br>
