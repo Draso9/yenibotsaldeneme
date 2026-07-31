@@ -8,8 +8,15 @@ import firebase_admin
 from firebase_admin import credentials, firestore, auth
 import extra_streamlit_components as stx
 import time
+import requests
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
+
+# --- YFINANCE İÇİN ÖZEL OTURUM (RATE LIMIT KORUMASI) ---
+session = requests.Session()
+session.headers.update({
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36'
+})
 
 # --- 1. SAYFA YAPILANDIRMASI ---
 st.set_page_config(
@@ -170,11 +177,11 @@ BIST_100 = list(set(BIST_30 + [
 
 ABD_HİSSELERİ = ["AAPL", "MSFT", "GOOGL", "AMZN", "META", "TSLA", "NVDA", "AMD", "INTC", "NFLX"]
 
-# --- PİOTROSKİ F-SKORU HESAPLAMA ---
+# --- PİOTROSKİ F-SKORU HESAPLAMA (Yapıyı bozmamak için fonksiyon korundu ancak ana taramadan çıkarıldı) ---
 @st.cache_data(ttl=86400)
 def hesapla_f_skor_cached(ticker_name):
     try:
-        stock = yf.Ticker(ticker_name)
+        stock = yf.Ticker(ticker_name, session=session)
         bs = stock.balance_sheet
         inc = stock.financials
         cf = stock.cashflow
@@ -361,7 +368,7 @@ def hisse_sil_callback():
         st.session_state.sil_hisse_input_field = ""
 
 st.title("📈 Hibrit Portföy Komuta Merkezi")
-st.markdown("**Mod:** Derin Analiz (Cezalı Skor + F-Skoru + Hacim + Sığ Tahta Koruması + Düzeltilmiş Para Akışı + Optimize Edilmiş Hibrit 1H Tetikleyiciler)")
+st.markdown("**Mod:** Derin Analiz (Cezalı Skor + Hacim + Sığ Tahta Koruması + Düzeltilmiş Para Akışı + Optimize Edilmiş Hibrit 1H Tetikleyiciler)")
 st.markdown("---")
 
 st.sidebar.header("⚙️ Kontrol Paneli")
@@ -405,7 +412,7 @@ if tarama_tetiklendi:
     if not selected_tickers:
         st.sidebar.warning("⚠️ Lütfen taranacak en az bir varlık seçin!")
     else:
-        with st.spinner("Hedge-Fund Katmanları İşleniyor (Güvenli İstek Aralığı & Hibrit Canlı Veri Modu)..."):
+        with st.spinner("Hedge-Fund Katmanları İşleniyor (Güvenli İstek Aralığı & Özel Kullanıcı Oturumu Modu)..."):
             gecici_sonuclar = []
             basarisi_cekilemeyen_varliklar = []
             boga_sayisi = alim_firsati = 0
@@ -417,7 +424,8 @@ if tarama_tetiklendi:
             }
             for sembol in sektor_referanslari.keys():
                 try:
-                    df_sek = yf.Ticker(sembol).history(period="2mo").dropna(subset=['Close'])
+                    # Özel Session kullanılarak istek atılıyor
+                    df_sek = yf.Ticker(sembol, session=session).history(period="2mo").dropna(subset=['Close'])
                     if len(df_sek) >= 21:
                         sektor_getirileri[sembol] = ((df_sek['Close'].iloc[-1] - df_sek['Close'].iloc[-21]) / df_sek['Close'].iloc[-21]) * 100
                 except:
@@ -425,9 +433,9 @@ if tarama_tetiklendi:
             
             for ticker in selected_tickers:
                 try:
-                    # Rate limit koruması için bekleme süresi 0.4 saniyeye çıkarıldı
-                    time.sleep(0.4) 
-                    stock = yf.Ticker(ticker)
+                    time.sleep(0.3) 
+                    # Özel Session ile Ticker çağrısı
+                    stock = yf.Ticker(ticker, session=session)
                     df_long = stock.history(period="1y").dropna(subset=['Open', 'High', 'Low', 'Close', 'Volume'])
                     if df_long.empty or len(df_long) < 50: 
                         basarisi_cekilemeyen_varliklar.append(ticker)
@@ -468,15 +476,6 @@ if tarama_tetiklendi:
                     elif fk is not None:
                         if fk > 50: temel_durum = "Aşırı Pahalı ⚠️"
                         elif 0 < fk < 15: temel_durum = "Ucuz (Klasik) 🌟"
-
-                    f_skor_ham = hesapla_f_skor_cached(ticker)
-                    if f_skor_ham is not None:
-                        if f_skor_ham >= 8: f_skor_etiket = f"{f_skor_ham}/9 (Elmas 💎)"
-                        elif f_skor_ham >= 6: f_skor_etiket = f"{f_skor_ham}/9 (Güçlü 🟢)"
-                        elif f_skor_ham >= 4: f_skor_etiket = f"{f_skor_ham}/9 (Nötr ⚖️)"
-                        else: f_skor_etiket = f"{f_skor_ham}/9 (Riskli ⚠️)"
-                    else:
-                        f_skor_etiket = "Veri Yok ❓"
 
                     son_1_ay_df = df_long.tail(21)
                     hisse_1m_getiri = ((son_1_ay_df['Close'].iloc[-1] - son_1_ay_df['Close'].iloc[0]) / son_1_ay_df['Close'].iloc[0]) * 100
@@ -549,7 +548,8 @@ if tarama_tetiklendi:
                     if macd_serisi.iloc[-1] > macd_sinyal.iloc[-1]: skor += 10
                     else: skor -= 10
                     
-                    if (f_skor_ham is not None and f_skor_ham >= 5) or (peg is not None and 0 < peg < 1.5): skor += 15
+                    # F-Skor tablodan çıkarıldığı için sadece PEG Rasyosu kontrol ediliyor
+                    if (peg is not None and 0 < peg < 1.5): skor += 15
                     else: skor -= 15
                     
                     if bugun_kapanis <= bb_mid: skor += 10
@@ -636,7 +636,6 @@ if tarama_tetiklendi:
                         "7'li Cezalı Skor": skor_etiket,
                         "Para Akışı (OBV/MFI)": para_durumu,
                         "Temel Veri (PEG/FK)": temel_durum,
-                        "F-Skor (Piotroski)": f_skor_etiket,
                         "Nihai Sinyal": sinyal,
                         "↓ Zamanlama (1H Teyit)": mikro_teyit,
                         "Karma Destek": f"{karma_destek:.2f}",
@@ -680,25 +679,18 @@ if st.session_state.tarama_durumu:
                 • <b>Sığ Tahta Koruması (Likidite):</b> Günlük ortalama işlem cirosu düşük olan sığ hisselere <b>-20 Puan ceza</b> ve <b>Sığ Tahta ⚠️</b> uyarısı basılır.<br>
                 • <b>Momentum (RSI):</b> Sağlıklı bölgedeyse (35-50) <b>+10 Puan</b>, aşırı şişmiş tepe bölgesindeyse (>70) <b>-15 Puan ceza</b>.<br>
                 • <b>MACD Teyidi:</b> Pozitif kesişim onaylıysa <b>+10 Puan</b>, negatif uyumsuzlukta <b>-10 Puan ceza</b>.<br>
-                • <b>Temel Kalite (F-Skor / PEG):</b> Bilanço/PEG cazipse <b>+15 Puan</b>, riskli/pahalıysa <b>-15 Puan ceza</b>.<br>
+                • <b>Temel Kalite (PEG Rasyosu):</b> PEG cazipse <b>+15 Puan</b>, riskli/pahalıysa <b>-15 Puan ceza</b>.<br>
                 <i>Skor Aralıkları: 70+ Güçlü 🟢 | 50-69 Nötr ⚖️ | 50 Altı Cezalı 🔴</i><br><br>
                 <hr style="border-color: #444;">
-                <b>🧪 2. Piotroski F-Skoru (Finansal Kalite Katmanı)</b><br>
-                Şirketin bilançosundan kârlılık, kaldıraç, nakit akışı vb. 9 farklı metrik taranarak hesaplanır:<br>
-                • <b>8-9 Puan:</b> Elmas 💎 (Mükemmel finansal sağlık)<br>
-                • <b>6-7 Puan:</b> Güçlü 🟢<br>
-                • <b>4-5 Puan:</b> Nötr ⚖️<br>
-                • <b>0-3 Puan:</b> Riskli ⚠️ (Bilanço zafiyeti, uzak durulmalı)<br><br>
-                <hr style="border-color: #444;">
-                <b>📈 3. Sektörel Göreceli Güç ve Hacim (Vol) Oranı</b><br>
+                <b>📈 2. Sektörel Göreceli Güç ve Hacim (Vol) Oranı</b><br>
                 • <b>Görec. Güç:</b> Hissenin son 1 aylık getirisinin ilgili ana sektöre (Banka, Sanayi, Ulaşım, Teknoloji vb.) kıyasla farkını gösterir.<br>
                 • <b>Vol:</b> O gün gerçekleşen hacmin son 20 günlük ortalama hacme oranıdır.<br><br>
                 <hr style="border-color: #444;">
-                <b>🛡️ 4. Karma Destek & Direnç Motoru</b><br>
+                <b>🛡️ 3. Karma Destek & Direnç Motoru</b><br>
                 • <b>Karma Destek:</b> Hissenin yerel dibi, 50 EMA, Fib %61.8 geri çekilme seviyesi ve ATR tabanı harmanlanarak hesaplanan akıllı savunma hattıdır.<br>
                 • <b>Karma Direnç:</b> Yerel tepe, VWAP, Fib %38.2 ve Bollinger Üst Bandı sentezlenerek bulunan kâr realizasyon/direnç bölgesidir.<br><br>
                 <hr style="border-color: #444;">
-                <b>🎯 5. Hibrit 1H Tetik Motoru (Akıllı Onay)</b><br>
+                <b>🎯 4. Hibrit 1H Tetik Motoru (Akıllı Onay)</b><br>
                 • Alım sinyali üreten varlıklarda saatlik mumları tarayarak iki özel kuralı denetler:<br>
                 &nbsp;&nbsp;1. <b>Hacimli Kırılım:</b> Fiyat Bollinger orta bandını normal hacmin en az %150'si ile yukarı kırarsa.<br>
                 &nbsp;&nbsp;2. <b>RSI Dip Dönüşü:</b> RSI 38 altından yukarı dönerken MACD histogramı toparlanmaya başlarsa.<br>
@@ -733,7 +725,7 @@ if st.session_state.tarama_durumu:
             
             if secilen_detay_hisse:
                 with st.spinner(f"{secilen_detay_hisse} için grafik verileri yükleniyor..."):
-                    stk_detay = yf.Ticker(secilen_detay_hisse)
+                    stk_detay = yf.Ticker(secilen_detay_hisse, session=session)
                     is_detay_bist = ".IS" in secilen_detay_hisse
                     df_grafik = stk_detay.history(period="2y").dropna(subset=['Open', 'High', 'Low', 'Close', 'Volume'])
                     
