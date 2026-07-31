@@ -291,6 +291,7 @@ if st.session_state.user_email is None:
 if "tarama_durumu" not in st.session_state: st.session_state.tarama_durumu = False
 if "sonuclar" not in st.session_state: st.session_state.sonuclar = []
 if "custom_tickers" not in st.session_state: st.session_state.custom_tickers = VARSAYILAN_TICKERS.copy()
+if "basarisiz_taramalar" not in st.session_state: st.session_state.basarisiz_taramalar = []
 
 def get_preset_options():
     return {
@@ -406,6 +407,7 @@ if tarama_tetiklendi:
     else:
         with st.spinner("Hedge-Fund Katmanları İşleniyor (Cezalı Skor, F-Skoru, Hibrit 1H Tetik Motoru)..."):
             gecici_sonuclar = []
+            basarisi_cekilemeyen_varliklar = []
             boga_sayisi = alim_firsati = 0
             
             sektor_getirileri = {}
@@ -423,9 +425,12 @@ if tarama_tetiklendi:
             
             for ticker in selected_tickers:
                 try:
+                    time.sleep(0.1) # Yahoo Finance Rate Limit Engeli için ufak gecikme
                     stock = yf.Ticker(ticker)
                     df_long = stock.history(period="1y").dropna(subset=['Open', 'High', 'Low', 'Close', 'Volume'])
-                    if df_long.empty or len(df_long) < 50: continue
+                    if df_long.empty or len(df_long) < 50: 
+                        basarisi_cekilemeyen_varliklar.append(ticker)
+                        continue
                     
                     is_bist = ".IS" in ticker
                     para_birimi = "TL" if is_bist else "$"
@@ -639,16 +644,21 @@ if tarama_tetiklendi:
                         "Önerilen Lot": f"{lot} Adet" if lot > 0 else "0"
                     })
                 except Exception:
+                    basarisi_cekilemeyen_varliklar.append(ticker)
                     continue
 
             st.session_state.sonuclar = gecici_sonuclar
+            st.session_state.basarisiz_taramalar = basarisi_cekilemeyen_varliklar
             st.session_state.boga_sayisi = boga_sayisi
             st.session_state.alim_firsati = alim_firsati
             st.session_state.tarama_durumu = True
 
 if st.session_state.tarama_durumu:
+    if st.session_state.basarisiz_taramalar:
+        st.warning(f"⚠️ Yahoo Finance kaynaklı bağlantı/veri hatası nedeniyle şu varlıklar es geçildi: **{', '.join(st.session_state.basarisiz_taramalar)}**")
+        
     if not st.session_state.sonuclar:
-        st.warning("⚠️ Tarama tamamlandı ancak seçilen varlıklardan veri alınamadı veya yeterli geçmiş veri bulunamadı.")
+        st.error("❌ Seçilen varlıkların hiçbirinden veri alınamadı. Yahoo Finance anlık bir kısıtlama uyguluyor olabilir, lütfen 1-2 dakika sonra tekrar deneyin.")
     else:
         col1, col2, col3 = st.columns(3)
         with col1: st.markdown(f"""<div class="kpi-card"><div class="kpi-title">Taranan Varlık</div><div class="kpi-value">{len(st.session_state.sonuclar)}</div></div>""", unsafe_allow_html=True)
