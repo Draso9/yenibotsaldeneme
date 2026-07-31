@@ -8,8 +8,45 @@ import firebase_admin
 from firebase_admin import credentials, firestore, auth
 import extra_streamlit_components as stx
 import time
+import requests
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
+
+# --- FINNHUB API YAPILANDIRMASI ---
+FINNHUB_API_KEY = "d9lpeo9r01qmpgdlvdm0d9lpeo9r01qmpgdlvdmg"
+
+def get_finnhub_candles(ticker, resolution, days_back):
+    """Finnhub üzerinden geçmiş mum verilerini çeker."""
+    end_time = int(time.time())
+    start_time = end_time - (days_back * 24 * 60 * 60)
+    url = f"https://finnhub.io/api/v1/stock/candle?symbol={ticker}&resolution={resolution}&from={start_time}&to={end_time}&token={FINNHUB_API_KEY}"
+    try:
+        r = requests.get(url, timeout=5)
+        data = r.json()
+        if data.get('s') == 'ok':
+            df = pd.DataFrame({
+                'Open': data['o'],
+                'High': data['h'],
+                'Low': data['l'],
+                'Close': data['c'],
+                'Volume': data['v']
+            })
+            # Finnhub saniye bazlı timestamp döndürür, Datetime'a çeviriyoruz
+            df.index = pd.to_datetime(data['t'], unit='s')
+            return df
+    except Exception:
+        pass
+    return pd.DataFrame()
+
+def get_finnhub_quote(ticker):
+    """Finnhub üzerinden anlık (canlı) fiyat çeker."""
+    url = f"https://finnhub.io/api/v1/quote?symbol={ticker}&token={FINNHUB_API_KEY}"
+    try:
+        r = requests.get(url, timeout=5)
+        return r.json()
+    except Exception:
+        return {}
+
 
 # --- 1. SAYFA YAPILANDIRMASI ---
 st.set_page_config(
@@ -99,7 +136,7 @@ if st.session_state.user_email is None and saved_email is not None and not st.se
             st.session_state.custom_tickers = VARSAYILAN_TICKERS.copy()
     st.rerun()
 
-# --- AKILLI AKSİYON REHBERİ FONKSİYONU (Sinyal Uyumlu) ---
+# --- AKILLI AKSİYON REHBERİ FONKSİYONU ---
 def aksiyon_rehberi_olustur(nihai_sinyal, teyit_1h):
     sinyal_metni = str(nihai_sinyal).upper()
     teyit_metni = str(teyit_1h)
@@ -405,7 +442,7 @@ if tarama_tetiklendi:
     if not selected_tickers:
         st.sidebar.warning("⚠️ Lütfen taranacak en az bir varlık seçin!")
     else:
-        with st.spinner("Hedge-Fund Katmanları İşleniyor (Cezalı Skor, F-Skoru, Hibrit 1H Tetik Motoru)..."):
+        with st.spinner("Hedge-Fund Katmanları İşleniyor (Hibrit Finnhub & YFinance Motoru devrede)..."):
             gecici_sonuclar = []
             basarisi_cekilemeyen_varliklar = []
             boga_sayisi = alim_firsati = 0
@@ -425,27 +462,46 @@ if tarama_tetiklendi:
             
             for ticker in selected_tickers:
                 try:
-                    time.sleep(0.1) # Yahoo Finance Rate Limit Engeli için ufak gecikme
+                    time.sleep(0.1) # Finnhub/Yfinance rate limit saygısı
                     stock = yf.Ticker(ticker)
-                    df_long = stock.history(period="1y").dropna(subset=['Open', 'High', 'Low', 'Close', 'Volume'])
-                    if df_long.empty or len(df_long) < 50: 
-                        basarisi_cekilemeyen_varliklar.append(ticker)
-                        continue
                     
                     is_bist = ".IS" in ticker
                     para_birimi = "TL" if is_bist else "$"
+                    
+                    # --- HİBRİT VERİ ÇEKME MOTORU ---
+                    if is_bist:
+                        # BIST için yfinance kullan
+                        df_long = stock.history(period="1y").dropna(subset=['Open', 'High', 'Low', 'Close', 'Volume'])
+                    else:
+                        # ABD için Finnhub üzerinden çek
+                        df_long = get_finnhub_candles(ticker, 'D', 365)
+                        if df_long.empty: # Eğer Finnhub yanıt vermezse yfinance yedek (fallback) motoru devreye girsin
+                            df_long = stock.history(period="1y").dropna(subset=['Open', 'High', 'Low', 'Close', 'Volume'])
+                    
+                    if df_long.empty or len(df_long) < 50: 
+                        basarisi_cekilemeyen_varliklar.append(ticker)
+                        continue
                     
                     bugun_kapanis = float(df_long['Close'].iloc[-1])
                     onceki_kapanis = float(df_long['Close'].iloc[-2]) if len(df_long) >= 2 else bugun_kapanis
                     
                     # --- CANLI FİYAT YAKALAMA MOTORU ---
-                    try:
-                        df_live = stock.history(period="1d", interval="1m", prepost=True)
-                        if not df_live.empty:
-                            bugun_kapanis = float(df_live['Close'].iloc[-1])
-                            df_long.iloc[-1, df_long.columns.get_loc('Close')] = bugun_kapanis
-                    except:
-                        pass
+                    if is_bist:
+                        try:
+                            df_live = stock.history(period="1d", interval="1m", prepost=True)
+                            if not df_live.empty:
+                                bugun_kapanis = float(df_live['Close'].iloc[-1])
+                                df_long.iloc[-1, df_long.columns.get_loc('Close')] = bugun_kapanis
+                        except:
+                            pass
+                    else:
+                        try:
+                            quote = get_finnhub_quote(ticker)
+                            if quote and quote.get('c') is not None and quote.get('c') > 0:
+                                bugun_kapanis = float(quote['c'])
+                                df_long.iloc[-1, df_long.columns.get_loc('Close')] = bugun_kapanis
+                        except:
+                            pass
                     # -----------------------------------
 
                     gunluk_degisim = ((bugun_kapanis - onceki_kapanis) / onceki_kapanis) * 100 if onceki_kapanis > 0 else 0.0
@@ -456,6 +512,7 @@ if tarama_tetiklendi:
                     sig_tahta_esik = 50_000_000 if is_bist else 5_000_000 
                     is_sig_tahta = ortalama_ciro_tutar < sig_tahta_esik
 
+                    # Temel veriler (F-Skor, PEG, PE) hala yfinance info üzerinden çekilecek (ücretsiz olduğu için)
                     info = stock.info if hasattr(stock, 'info') else {}
                     fk = info.get('trailingPE', info.get('forwardPE', None))
                     peg = info.get('trailingPegRatio', info.get('pegRatio', None))
@@ -592,12 +649,18 @@ if tarama_tetiklendi:
                     if uzun_vade_trend: 
                         boga_sayisi += 1
 
-                    # --- 1H HİBRİT TETİKLEYİCİ MOTORU (Sadece Alım Fırsatlarında Çalışır) ---
+                    # --- 1H HİBRİT TETİKLEYİCİ MOTORU ---
                     mikro_teyit = "-"
                     if "ALIM" in sinyal:
                         mikro_teyit = "⏳ Tetik Bekleniyor"
                         try:
-                            df_1h = stock.history(period="5d", interval="1h", prepost=True)
+                            if is_bist:
+                                df_1h = stock.history(period="5d", interval="1h", prepost=True)
+                            else:
+                                df_1h = get_finnhub_candles(ticker, '60', 5)
+                                if df_1h.empty:
+                                    df_1h = stock.history(period="5d", interval="1h", prepost=True)
+
                             if not df_1h.empty and len(df_1h) >= 5:
                                 c_1h = df_1h['Close']
                                 v_1h = df_1h['Volume']
@@ -655,10 +718,10 @@ if tarama_tetiklendi:
 
 if st.session_state.tarama_durumu:
     if st.session_state.basarisiz_taramalar:
-        st.warning(f"⚠️ Yahoo Finance kaynaklı bağlantı/veri hatası nedeniyle şu varlıklar es geçildi: **{', '.join(st.session_state.basarisiz_taramalar)}**")
+        st.warning(f"⚠️ Sistem/API kaynaklı bağlantı hatası nedeniyle şu varlıklar es geçildi: **{', '.join(st.session_state.basarisiz_taramalar)}**")
         
     if not st.session_state.sonuclar:
-        st.error("❌ Seçilen varlıkların hiçbirinden veri alınamadı. Yahoo Finance anlık bir kısıtlama uyguluyor olabilir, lütfen 1-2 dakika sonra tekrar deneyin.")
+        st.error("❌ Seçilen varlıkların hiçbirinden veri alınamadı. İnternet bağlantınızı veya API limitlerini kontrol ediniz.")
     else:
         col1, col2, col3 = st.columns(3)
         with col1: st.markdown(f"""<div class="kpi-card"><div class="kpi-title">Taranan Varlık</div><div class="kpi-value">{len(st.session_state.sonuclar)}</div></div>""", unsafe_allow_html=True)
@@ -732,17 +795,31 @@ if st.session_state.tarama_durumu:
             if secilen_detay_hisse:
                 with st.spinner(f"{secilen_detay_hisse} için grafik verileri yükleniyor..."):
                     stk_detay = yf.Ticker(secilen_detay_hisse)
-                    df_grafik = stk_detay.history(period="2y").dropna(subset=['Open', 'High', 'Low', 'Close', 'Volume'])
+                    is_detay_bist = ".IS" in secilen_detay_hisse
+                    
+                    if is_detay_bist:
+                        df_grafik = stk_detay.history(period="2y").dropna(subset=['Open', 'High', 'Low', 'Close', 'Volume'])
+                    else:
+                        df_grafik = get_finnhub_candles(secilen_detay_hisse, 'D', 730)
+                        if df_grafik.empty:
+                            df_grafik = stk_detay.history(period="2y").dropna(subset=['Open', 'High', 'Low', 'Close', 'Volume'])
                     
                     if not df_grafik.empty:
                         # --- DETAY PANELİ CANLI FİYAT YAKALAMA ---
-                        try:
-                            df_live_detay = stk_detay.history(period="1d", interval="1m", prepost=True)
-                            if not df_live_detay.empty:
-                                canli_fiyat = float(df_live_detay['Close'].iloc[-1])
-                                df_grafik.iloc[-1, df_grafik.columns.get_loc('Close')] = canli_fiyat
-                        except:
-                            pass
+                        if is_detay_bist:
+                            try:
+                                df_live_detay = stk_detay.history(period="1d", interval="1m", prepost=True)
+                                if not df_live_detay.empty:
+                                    canli_fiyat = float(df_live_detay['Close'].iloc[-1])
+                                    df_grafik.iloc[-1, df_grafik.columns.get_loc('Close')] = canli_fiyat
+                            except: pass
+                        else:
+                            try:
+                                quote_detay = get_finnhub_quote(secilen_detay_hisse)
+                                if quote_detay and 'c' in quote_detay and quote_detay['c'] > 0:
+                                    canli_fiyat = float(quote_detay['c'])
+                                    df_grafik.iloc[-1, df_grafik.columns.get_loc('Close')] = canli_fiyat
+                            except: pass
                         # -------------------------------------------
                         
                         df_grafik['EMA9'] = df_grafik['Close'].ewm(span=9).mean()
