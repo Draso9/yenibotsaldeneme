@@ -131,6 +131,12 @@ def aksiyon_rehberi_olustur(nihai_sinyal, teyit_1h):
         else:
             alt_not = f'<div style="margin-top: 15px; padding: 10px; background-color: rgba(241, 196, 15, 0.1); border-left: 4px solid #f1c40f; border-radius: 4px;"><b>⏳ SAATLİK ONAY BEKLENİYOR:</b> {teyit_metni} Günlük boğa trendi güçlü ancak saatlik bazda tetik mumunun oluşması bekleniyor.</div>'
 
+    elif "HACİMLİ TEPKİ" in sinyal_metni:
+        renk = "#f39c12"
+        baslik = "🟡 HACİMLİ TEPKİ / İZLEME MODU"
+        ana_metin = "Varlık uzun vadeli trendin altında olsa da, normalin çok üzerinde hacim patlaması (%130+) ve güçlü günlük getiri üretti. Bu durum sıradan bir düşüş değil, olası bir dip tepkisi veya haber kaynaklı balina alımı olabilir. Katı ayı cezası esnetildi, ancak tam onay için saatlik kırılımlar beklenmelidir."
+        alt_not = '<div style="margin-top: 15px; padding: 10px; background-color: rgba(243, 156, 18, 0.1); border-left: 4px solid #f39c12; border-radius: 4px;"><b>⚡ DİKKAT ÇEKEN HAREKET:</b> Aşırı satıştan güçlü hacimle dönüyor. Yakın takibe alınmalıdır.</div>'
+
     elif "UZAK DUR" in sinyal_metni:
         renk = "#e74c3c"
         baslik = "🔴 KESİNLİKLE UZAK DUR"
@@ -177,7 +183,7 @@ BIST_100 = list(set(BIST_30 + [
 
 ABD_HİSSELERİ = ["AAPL", "MSFT", "GOOGL", "AMZN", "META", "TSLA", "NVDA", "AMD", "INTC", "NFLX"]
 
-# --- PİOTROSKİ F-SKORU HESAPLAMA (Yapıyı bozmamak için fonksiyon korundu ancak ana taramadan çıkarıldı) ---
+# --- PİOTROSKİ F-SKORU HESAPLAMA ---
 @st.cache_data(ttl=86400)
 def hesapla_f_skor_cached(ticker_name):
     try:
@@ -368,7 +374,7 @@ def hisse_sil_callback():
         st.session_state.sil_hisse_input_field = ""
 
 st.title("📈 Hibrit Portföy Komuta Merkezi")
-st.markdown("**Mod:** Derin Analiz (Cezalı Skor + Hacim + Sığ Tahta Koruması + Düzeltilmiş Para Akışı + Optimize Edilmiş Hibrit 1H Tetikleyiciler)")
+st.markdown("**Mod:** Derin Analiz (Cezalı Skor + Hacim Patlaması Esnetmesi + Sığ Tahta Koruması + Düzeltilmiş Para Akışı)")
 st.markdown("---")
 
 st.sidebar.header("⚙️ Kontrol Paneli")
@@ -424,7 +430,6 @@ if tarama_tetiklendi:
             }
             for sembol in sektor_referanslari.keys():
                 try:
-                    # Özel Session kullanılarak istek atılıyor
                     df_sek = yf.Ticker(sembol, session=session).history(period="2mo").dropna(subset=['Close'])
                     if len(df_sek) >= 21:
                         sektor_getirileri[sembol] = ((df_sek['Close'].iloc[-1] - df_sek['Close'].iloc[-21]) / df_sek['Close'].iloc[-21]) * 100
@@ -434,7 +439,6 @@ if tarama_tetiklendi:
             for ticker in selected_tickers:
                 try:
                     time.sleep(0.3) 
-                    # Özel Session ile Ticker çağrısı
                     stock = yf.Ticker(ticker, session=session)
                     df_long = stock.history(period="1y").dropna(subset=['Open', 'High', 'Low', 'Close', 'Volume'])
                     if df_long.empty or len(df_long) < 50: 
@@ -531,9 +535,15 @@ if tarama_tetiklendi:
                     if is_sig_tahta:
                         para_durumu += " | Sığ Tahta ⚠️"
 
+                    # --- HACİM PATLAMASI ESNETME KURALI (%130 Hacim & %4 Getiri) ---
+                    hacim_patlamasi_var = (hacim_oran >= 130) and (gunluk_degisim >= 4.0)
+
                     skor = 50 
                     if bugun_kapanis > sma_200: skor += 15
-                    else: skor -= 25
+                    else: 
+                        # Eğer 200 SMA altındaysa normalde -25 yer, ama hacim patlaması varsa ceza hafifletilir (Sadece -5 ceza yer)
+                        if hacim_patlamasi_var: skor -= 5
+                        else: skor -= 25
                     
                     ema_50_val = df_long['Close'].ewm(span=50).mean().iloc[-1]
                     if bugun_kapanis > ema_50_val: skor += 10
@@ -548,7 +558,6 @@ if tarama_tetiklendi:
                     if macd_serisi.iloc[-1] > macd_sinyal.iloc[-1]: skor += 10
                     else: skor -= 10
                     
-                    # F-Skor tablodan çıkarıldığı için sadece PEG Rasyosu kontrol ediliyor
                     if (peg is not None and 0 < peg < 1.5): skor += 15
                     else: skor -= 15
                     
@@ -588,6 +597,8 @@ if tarama_tetiklendi:
                     elif rsi <= 40 and uzun_vade_trend and skor >= 50: 
                         sinyal = "KADEMELİ ALIM 🔵"
                         alim_firsati += 1
+                    elif hacim_patlamasi_var and rsi < 50:
+                        sinyal = "HACİMLİ TEPKİ 🟡"
                     elif skor < 50 or (not uzun_vade_trend and rsi < 50): 
                         sinyal = "UZAK DUR! 🛑"
 
@@ -596,7 +607,7 @@ if tarama_tetiklendi:
 
                     # --- 1H HİBRİT TETİKLEYİCİ MOTORU ---
                     mikro_teyit = "-"
-                    if "ALIM" in sinyal:
+                    if "ALIM" in sinyal or "TEPKİ" in sinyal:
                         mikro_teyit = "⏳ Tetik Bekleniyor"
                         try:
                             df_1h = stock.history(period="5d", interval="1h", prepost=True)
@@ -627,7 +638,7 @@ if tarama_tetiklendi:
                         except:
                             pass
 
-                    lot = int((bist_kasa if is_bist else nasdaq_kasa) * risk_orani / alinan_risk) if "ALIM" in sinyal else 0
+                    lot = int((bist_kasa if is_bist else nasdaq_kasa) * risk_orani / alinan_risk) if ("ALIM" in sinyal or "TEPKİ" in sinyal) else 0
 
                     gecici_sonuclar.append({
                         "Varlık": ticker,
@@ -673,7 +684,7 @@ if st.session_state.tarama_durumu:
             <div class="info-box">
                 <b>🧠 1. Cezalı & Ödüllü 7'li Skorlama Sistemi (50 Tabanlı)</b><br>
                 Sistem basitçe puan toplamaz; hatalı sinyalleri ve tuzakları (fakeout) acımasızca elemek için <b>50 Puan nötr tabanla</b> başlar, riskli durumlarda ciddi ceza puanları keser:<br>
-                • <b>Uzun Vade Trend (200 SMA):</b> Üzerindeyse <b>+15 Puan</b>, altındaysa (ayı riski) <b>-25 Puan ceza</b>.<br>
+                • <b>Uzun Vade Trend (200 SMA):</b> Üzerindeyse <b>+15 Puan</b>, altındaysa (ayı riski) normalde <b>-25 Puan ceza</b> yer. Ancak gün içinde <b>%130+ hacim ve %4+ yükseliş</b> (Hacim Patlaması) varsa bu ceza hafifletilerek <b>-5 Puana</b> düşürülür.<br>
                 • <b>Kısa Vade Trend (50 EMA):</b> Üzerindeyse <b>+10 Puan</b>, altındaysa <b>-15 Puan ceza</b>.<br>
                 • <b>Hacim & Para Akışı (OBV & Vol):</b> Hacim desteği ve pozitif OBV varsa <b>+15 Puan</b>, hacimsiz tuzak hareketse <b>-20 Puan ceza</b>.<br>
                 • <b>Sığ Tahta Koruması (Likidite):</b> Günlük ortalama işlem cirosu düşük olan sığ hisselere <b>-20 Puan ceza</b> ve <b>Sığ Tahta ⚠️</b> uyarısı basılır.<br>
@@ -690,24 +701,25 @@ if st.session_state.tarama_durumu:
                 • <b>Karma Destek:</b> Hissenin yerel dibi, 50 EMA, Fib %61.8 geri çekilme seviyesi ve ATR tabanı harmanlanarak hesaplanan akıllı savunma hattıdır.<br>
                 • <b>Karma Direnç:</b> Yerel tepe, VWAP, Fib %38.2 ve Bollinger Üst Bandı sentezlenerek bulunan kâr realizasyon/direnç bölgesidir.<br><br>
                 <hr style="border-color: #444;">
-                <b>🎯 4. Hibrit 1H Tetik Motoru (Akıllı Onay)</b><br>
-                • Alım sinyali üreten varlıklarda saatlik mumları tarayarak iki özel kuralı denetler:<br>
+                <b>🎯 4. Hibrit 1H Tetik Motoru & Hacimli Tepki (Akıllı Onay)</b><br>
+                • Alım sinyali veya hacimli tepki üreten varlıklarda saatlik mumları tarayarak iki özel kuralı denetler:<br>
                 &nbsp;&nbsp;1. <b>Hacimli Kırılım:</b> Fiyat Bollinger orta bandını normal hacmin en az %150'si ile yukarı kırarsa.<br>
                 &nbsp;&nbsp;2. <b>RSI Dip Dönüşü:</b> RSI 38 altından yukarı dönerken MACD histogramı toparlanmaya başlarsa.<br>
                 • Şartlardan biri sağlandığında sütunda doğrudan <b>"🔥 TETİK AKTİF"</b> uyarısı yakar.
             </div>
             """, unsafe_allow_html=True)
         
-        sadece_alim_goster = st.checkbox("🎯 Sadece Alım Fırsatlarını Göster", value=False)
+        sadece_alim_goster = st.checkbox("🎯 Sadece Alım Fırsatlarını & Tepkileri Göster", value=False)
         
         df_sonuc = pd.DataFrame(st.session_state.sonuclar)
         
         if sadece_alim_goster:
-            df_sonuc = df_sonuc[df_sonuc["Nihai Sinyal"].str.contains("ALIM", na=False)]
+            df_sonuc = df_sonuc[df_sonuc["Nihai Sinyal"].str.contains("ALIM|TEPKİ", na=False)]
         
         def color_df(row):
             c = ''
             if '🟢' in str(row['Nihai Sinyal']) or '🔵' in str(row['Nihai Sinyal']): c = 'background-color: rgba(39, 174, 96, 0.15)'
+            elif '🟡' in str(row['Nihai Sinyal']): c = 'background-color: rgba(243, 156, 18, 0.2)'
             elif '🛑' in str(row['Nihai Sinyal']) or '🔴' in str(row['Nihai Sinyal']): c = 'background-color: rgba(192, 57, 43, 0.15)'
             elif '⚠️' in str(row['Nihai Sinyal']): c = 'background-color: rgba(243, 156, 18, 0.25)'
             return [c] * len(row)
