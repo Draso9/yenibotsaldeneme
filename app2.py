@@ -183,6 +183,71 @@ BIST_100 = list(set(BIST_30 + [
 
 ABD_HİSSELERİ = ["AAPL", "MSFT", "GOOGL", "AMZN", "META", "TSLA", "NVDA", "AMD", "INTC", "NFLX"]
 
+# --- PİOTROSKİ F-SKORU HESAPLAMA ---
+@st.cache_data(ttl=86400)
+def hesapla_f_skor_cached(ticker_name):
+    try:
+        stock = yf.Ticker(ticker_name, session=session)
+        bs = stock.balance_sheet
+        inc = stock.financials
+        cf = stock.cashflow
+        
+        if bs.empty or inc.empty or cf.empty: return None
+        if len(bs.columns) < 2 or len(inc.columns) < 2 or len(cf.columns) < 2: return None
+        
+        score = 0
+        def get_val(df, keys, col):
+            for k in keys:
+                if k in df.index: return df.loc[k].iloc[col]
+            return 0
+        
+        ni_c = get_val(inc, ['Net Income', 'Net Income Continuous Operations'], 0)
+        if ni_c > 0: score += 1
+        
+        ocf_c = get_val(cf, ['Operating Cash Flow', 'Total Cash From Operating Activities'], 0)
+        if ocf_c > 0: score += 1
+        
+        ta_c = get_val(bs, ['Total Assets'], 0)
+        roa_c = ni_c / ta_c if ta_c != 0 else 0
+        if roa_c > 0: score += 1
+        
+        if ocf_c > ni_c: score += 1
+        
+        ni_p = get_val(inc, ['Net Income', 'Net Income Continuous Operations'], 1)
+        ta_p = get_val(bs, ['Total Assets'], 1)
+        roa_p = ni_p / ta_p if ta_p != 0 else 0
+        if roa_c > roa_p: score += 1
+        
+        debt_c = get_val(bs, ['Long Term Debt', 'Total Debt'], 0)
+        debt_p = get_val(bs, ['Long Term Debt', 'Total Debt'], 1)
+        lev_c = debt_c / ta_c if ta_c != 0 else 0
+        lev_p = debt_p / ta_p if ta_p != 0 else 0
+        if lev_c < lev_p: score += 1
+        
+        ca_c = get_val(bs, ['Current Assets'], 0)
+        cl_c = get_val(bs, ['Current Liabilities'], 0)
+        cr_c = ca_c / cl_c if cl_c != 0 else 0
+        ca_p = get_val(bs, ['Current Assets'], 1)
+        cl_p = get_val(bs, ['Current Liabilities'], 1)
+        cr_p = ca_p / cl_p if cl_p != 0 else 0
+        if cr_c > cr_p: score += 1
+        
+        shares_c = get_val(bs, ['Ordinary Shares Number', 'Share Issued'], 0)
+        shares_p = get_val(bs, ['Ordinary Shares Number', 'Share Issued'], 1)
+        if shares_c <= shares_p and shares_c != 0: score += 1
+        
+        gp_c = get_val(inc, ['Gross Profit'], 0)
+        rev_c = get_val(inc, ['Total Revenue'], 0)
+        gm_c = gp_c / rev_c if rev_c != 0 else 0
+        gp_p = get_val(inc, ['Gross Profit'], 1)
+        rev_p = get_val(inc, ['Total Revenue'], 1)
+        gm_p = gp_p / rev_p if rev_p != 0 else 0
+        if gm_c > gm_p: score += 1
+        
+        return score
+    except:
+        return None
+
 # --- GİRİŞ / KAYIT EKRANI ---
 if st.session_state.user_email is None:
     st.title("🔐 Hibrit Portföy Komuta Merkezi")
@@ -309,7 +374,7 @@ def hisse_sil_callback():
         st.session_state.sil_hisse_input_field = ""
 
 st.title("📈 Hibrit Portföy Komuta Merkezi")
-st.markdown("**Mod:** Derin Analiz (Cezalı Skor + Hacim Patlaması Esnetmesi + Sığ Tahta Koruması + Akıllı Retry Mekanizması)")
+st.markdown("**Mod:** Derin Analiz (Cezalı Skor + Hacim Patlaması Esnetmesi + Sığ Tahta Koruması + Düzeltilmiş Para Akışı + Kural 2)")
 st.markdown("---")
 
 st.sidebar.header("⚙️ Kontrol Paneli")
@@ -353,7 +418,7 @@ if tarama_tetiklendi:
     if not selected_tickers:
         st.sidebar.warning("⚠️ Lütfen taranacak en az bir varlık seçin!")
     else:
-        with st.spinner("Hedge-Fund Katmanları İşleniyor (Akıllı Retry & Güvenli Aralık 0.58s)..."):
+        with st.spinner("Hedge-Fund Katmanları İşleniyor (Güvenli İstek Aralığı & Özel Kullanıcı Oturumu Modu)..."):
             gecici_sonuclar = []
             basarisi_cekilemeyen_varliklar = []
             boga_sayisi = alim_firsati = 0
@@ -364,48 +429,29 @@ if tarama_tetiklendi:
                 "XUSIN.IS": "Sanayi", "XULAS.IS": "Ulaşım", "XHOLD.IS": "Holding"
             }
             for sembol in sektor_referanslari.keys():
-                # Sektör referansları için de güvenli retry mekanizması
-                for deneme in range(3):
-                    try:
-                        df_sek = yf.Ticker(sembol, session=session).history(period="2mo").dropna(subset=['Close'])
-                        if len(df_sek) >= 21:
-                            sektor_getirileri[sembol] = ((df_sek['Close'].iloc[-1] - df_sek['Close'].iloc[-21]) / df_sek['Close'].iloc[-21]) * 100
-                        break
-                    except:
-                        if deneme == 2:
-                            sektor_getirileri[sembol] = 0
-                        else:
-                            time.sleep(1.0)
+                try:
+                    df_sek = yf.Ticker(sembol, session=session).history(period="2mo").dropna(subset=['Close'])
+                    if len(df_sek) >= 21:
+                        sektor_getirileri[sembol] = ((df_sek['Close'].iloc[-1] - df_sek['Close'].iloc[-21]) / df_sek['Close'].iloc[-21]) * 100
+                except:
+                    sektor_getirileri[sembol] = 0
             
             for ticker in selected_tickers:
-                basarili_veri = False
-                df_long = pd.DataFrame()
-                stock = None
-                
-                # --- AKILLI RETRY (TEKRAR DENEME) MEKANİZMASI ---
-                for deneme in range(3): # En fazla 3 kez dener
-                    try:
-                        time.sleep(0.58)  # Belirlediğimiz optimize uyku süresi
-                        stock = yf.Ticker(ticker, session=session)
-                        df_long = stock.history(period="1y").dropna(subset=['Open', 'High', 'Low', 'Close', 'Volume'])
-                        if not df_long.empty and len(df_long) >= 50:
-                            basarili_veri = True
-                            break
-                    except:
-                        time.sleep(1.5) # Hata alırsak 1.5 saniye bekleyip tekrar deniyoruz
-                
-                if not basarili_veri or df_long.empty or len(df_long) < 50:
-                    basarisi_cekilemeyen_varliklar.append(ticker)
-                    continue
-                
                 try:
+                    time.sleep(0.64) 
+                    stock = yf.Ticker(ticker, session=session)
+                    df_long = stock.history(period="1y").dropna(subset=['Open', 'High', 'Low', 'Close', 'Volume'])
+                    if df_long.empty or len(df_long) < 50: 
+                        basarisi_cekilemeyen_varliklar.append(ticker)
+                        continue
+                    
                     is_bist = ".IS" in ticker
                     para_birimi = "TL" if is_bist else "$"
                     
                     bugun_kapanis = float(df_long['Close'].iloc[-1])
                     onceki_kapanis = float(df_long['Close'].iloc[-2]) if len(df_long) >= 2 else bugun_kapanis
                     
-                    # --- CANLI FİYAT YAKALAMA (Sadece ABD / NASDAQ Hisseleri İçin) ---
+                    # --- CANLI FİYAT YAKALAMA (Sadece ABD / NASDAQ Hisseleri İçin 1M - BIST Koruma Modu) ---
                     if not is_bist:
                         try:
                             df_live = stock.history(period="1d", interval="1m", prepost=True)
@@ -414,7 +460,7 @@ if tarama_tetiklendi:
                                 df_long.iloc[-1, df_long.columns.get_loc('Close')] = bugun_kapanis
                         except:
                             pass
-                    # -------------------------------------------------------------
+                    # ------------------------------------------------------------------------------------
 
                     gunluk_degisim = ((bugun_kapanis - onceki_kapanis) / onceki_kapanis) * 100 if onceki_kapanis > 0 else 0.0
                     fiyat_str = f"{bugun_kapanis:.2f} {para_birimi} ({'+' if gunluk_degisim > 0 else ''}{gunluk_degisim:.2f}%)"
@@ -495,6 +541,7 @@ if tarama_tetiklendi:
                     skor = 50 
                     if bugun_kapanis > sma_200: skor += 15
                     else: 
+                        # Eğer 200 SMA altındaysa normalde -25 yer, ama hacim patlaması varsa ceza hafifletilir (Sadece -5 ceza yer)
                         if hacim_patlamasi_var: skor -= 5
                         else: skor -= 25
                     
@@ -585,6 +632,7 @@ if tarama_tetiklendi:
                                 
                                 vol_sma_1h = v_1h.rolling(20).mean()
                                 
+                                # --- MUM ANATOMİSİ (Son güncel saatlik mum) ---
                                 acilis_1h = o_1h.iloc[-1]
                                 kapanis_1h = c_1h.iloc[-1]
                                 en_yuksek_1h = h_1h.iloc[-1]
@@ -595,10 +643,13 @@ if tarama_tetiklendi:
                                 alt_fitil = min(acilis_1h, kapanis_1h) - en_dusuk_1h
                                 ust_fitil = en_yuksek_1h - max(acilis_1h, kapanis_1h)
                                 
+                                # --- KURALLAR ---
                                 kural_1_breakout = (c_1h.iloc[-1] > bb_mid_1h.iloc[-1]) and (v_1h.iloc[-1] > 1.5 * vol_sma_1h.iloc[-1])
+                                
                                 is_pin_bar = (alt_fitil > (govde * 2)) and (alt_fitil > ust_fitil)
                                 bb_altina_igne = (en_dusuk_1h < bb_alt_val)
                                 kural_2_pin_bar = is_pin_bar and bb_altina_igne
+                                
                                 kural_3_rsi_dip = (rsi_1h.iloc[-2] < 38) and (rsi_1h.iloc[-1] >= 38) and (macd_hist_1h.iloc[-1] > macd_hist_1h.iloc[-2])
                                 
                                 if kural_1_breakout:
