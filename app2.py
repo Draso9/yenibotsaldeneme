@@ -111,10 +111,20 @@ def aksiyon_rehberi_olustur(nihai_sinyal, teyit_1h):
     sinyal_metni = str(nihai_sinyal).upper()
     teyit_metni = str(teyit_1h)
     
-    if "KADEMELİ ALIM" in sinyal_metni:
+    if "YÜKSELİŞ KIRILIMI" in sinyal_metni:
+        renk = "#00d2d3"
+        baslik = "🚀 YÜKSELİŞ KIRILIMI (BREAKOUT) ONAYI"
+        ana_metin = "Mükemmel Moment Oluşumu! Varlık önemli direnç seviyesini yüksek hacim eşliğinde yukarı kırmış ve kısa vadeli hareketli ortalamalarda (EMA 9 > 21) boğa iştahını doğrulamıştır. Bu durum sıradan bir hareket değil, güçlü bir trend başlangıcı veya ivmelenme sinyalidir."
+        
+        if "TETİK AKTİF" in teyit_metni:
+            alt_not = f'<div style="margin-top: 15px; padding: 10px; background-color: rgba(0, 210, 211, 0.1); border-left: 4px solid #00d2d3; border-radius: 4px;"><b>🔥 ONAYLI BREAKOUT GİRİŞİ:</b> {teyit_metni} Saatlik bazda kırılım teyit edildi, trende katılım için pozisyon açılabilir.</div>'
+        else:
+            alt_not = f'<div style="margin-top: 15px; padding: 10px; background-color: rgba(241, 196, 15, 0.1); border-left: 4px solid #f1c40f; border-radius: 4px;"><b>⏳ SAATLİK KIRILIM BEKLENİYOR:</b> {teyit_metni} Günlük direnç kırıldı ancak saatlik mum kapanış onayı takip edilmelidir.</div>'
+
+    elif "KADEMELİ ALIM" in sinyal_metni:
         renk = "#3498db"
         baslik = "🔵 KADEMELİ ALIM STRATEJİSİ"
-        ana_metin = "Sistem; varlığın temel verilerinin ve uzun vadeli ana trendinin (50 & 200 SMA) sağlam olduğunu tespit etti. Ancak kısa vadeli teknik göstergeler (MACD, EMA 9/21) şu an bir soğuma/düzeltme evresinde. Trend güçlü olduğu için fırsat barındırıyor; fakat tam uyum henüz sağlanmadığından <b>tüm sermaye ile tek seferde girmek yerine, küçük parçalarla (kademeli) alım yapılması</b> en güvenli stratejidir."
+        ana_metin = "Sistem; varlığın temel verilerinin ve uzun vadeli ana trendinin (50 & 200 SMA) sağlam olduğunu tespit etti. Ancak kısa vadeli teknik göstergeler (MACD, EMA 9/21) şu an bir soğuma/düzeltme evresinde. Trend güçlü olduğu için fırsat barındırıyor; fakat tam uyum henüz sağlanamadığından <b>tüm sermaye ile tek seferde girmek yerine, küçük parçalarla (kademeli) alım yapılması</b> en güvenli stratejidir."
         
         if "TETİK AKTİF" in teyit_metni:
             alt_not = f'<div style="margin-top: 15px; padding: 10px; background-color: rgba(46, 204, 113, 0.1); border-left: 4px solid #2ecc71; border-radius: 4px;"><b>🔥 GÜÇLÜ HİBRİT TETİK ONAYI:</b> {teyit_metni} Sinyal şartları olgunlaşmıştır, kademeli ilk parça alımı için uygundur.</div>'
@@ -374,7 +384,7 @@ def hisse_sil_callback():
         st.session_state.sil_hisse_input_field = ""
 
 st.title("📈 Hibrit Portföy Komuta Merkezi")
-st.markdown("**Mod:** Derin Analiz (Cezalı Skor + Hacim Patlaması Esnetmesi + Sığ Tahta Koruması + Düzeltilmiş Para Akışı + Kural 2)")
+st.markdown("**Mod:** Derin Analiz (Cezalı Skor + Hacim Patlaması Esnetmesi + Sığ Tahta Koruması + Düzeltilmiş Para Akışı + Breakout Kırılımı)")
 st.markdown("---")
 
 st.sidebar.header("⚙️ Kontrol Paneli")
@@ -541,7 +551,6 @@ if tarama_tetiklendi:
                     skor = 50 
                     if bugun_kapanis > sma_200: skor += 15
                     else: 
-                        # Eğer 200 SMA altındaysa normalde -25 yer, ama hacim patlaması varsa ceza hafifletilir (Sadece -5 ceza yer)
                         if hacim_patlamasi_var: skor -= 5
                         else: skor -= 25
                     
@@ -588,8 +597,16 @@ if tarama_tetiklendi:
                     tp1, tp2 = bugun_kapanis + (alinan_risk * 1.5), bugun_kapanis + (alinan_risk * 3.0)
                     hibrit_tp = f"⚠️ Şişti: Kâr Al" if rsi >= 65 else f"TP1: {tp1:.2f} | TP2: {tp2:.2f}"
 
+                    # --- YENİ EKLENEN BREAKOUT (KIRILIM) ŞARTI ---
+                    ema_9_val = df_long['Close'].ewm(span=9).mean().iloc[-1]
+                    ema_21_val = df_long['Close'].ewm(span=21).mean().iloc[-1]
+                    breakout_kosulu = (bugun_kapanis >= karma_direnc) and (hacim_oran >= 120) and (ema_9_val > ema_21_val) and (uzun_vade_trend)
+
                     sinyal = "Nötr (İzle) ⚖️"
-                    if bugun_kapanis > bb_ust and rsi >= 68: 
+                    if breakout_kosulu:
+                        sinyal = "YÜKSELİŞ KIRILIMI 🚀"
+                        alim_firsati += 1
+                    elif bugun_kapanis > bb_ust and rsi >= 68: 
                         sinyal = "KAR REALİZASYONU 🔴"
                     elif bugun_kapanis <= bb_alt and rsi <= 35 and uzun_vade_trend and skor >= 50: 
                         sinyal = "KUSURSUZ ALIM 🟢"
@@ -607,7 +624,7 @@ if tarama_tetiklendi:
 
                     # --- 1H HİBRİT TETİKLEYİCİ MOTORU ---
                     mikro_teyit = "-"
-                    if "ALIM" in sinyal or "TEPKİ" in sinyal:
+                    if "ALIM" in sinyal or "TEPKİ" in sinyal or "KIRILIM" in sinyal:
                         mikro_teyit = "⏳ Tetik Bekleniyor"
                         try:
                             df_1h = stock.history(period="5d", interval="1h", prepost=True)
@@ -632,7 +649,6 @@ if tarama_tetiklendi:
                                 
                                 vol_sma_1h = v_1h.rolling(20).mean()
                                 
-                                # --- MUM ANATOMİSİ (Son güncel saatlik mum) ---
                                 acilis_1h = o_1h.iloc[-1]
                                 kapanis_1h = c_1h.iloc[-1]
                                 en_yuksek_1h = h_1h.iloc[-1]
@@ -643,13 +659,10 @@ if tarama_tetiklendi:
                                 alt_fitil = min(acilis_1h, kapanis_1h) - en_dusuk_1h
                                 ust_fitil = en_yuksek_1h - max(acilis_1h, kapanis_1h)
                                 
-                                # --- KURALLAR ---
                                 kural_1_breakout = (c_1h.iloc[-1] > bb_mid_1h.iloc[-1]) and (v_1h.iloc[-1] > 1.5 * vol_sma_1h.iloc[-1])
-                                
                                 is_pin_bar = (alt_fitil > (govde * 2)) and (alt_fitil > ust_fitil)
                                 bb_altina_igne = (en_dusuk_1h < bb_alt_val)
                                 kural_2_pin_bar = is_pin_bar and bb_altina_igne
-                                
                                 kural_3_rsi_dip = (rsi_1h.iloc[-2] < 38) and (rsi_1h.iloc[-1] >= 38) and (macd_hist_1h.iloc[-1] > macd_hist_1h.iloc[-2])
                                 
                                 if kural_1_breakout:
@@ -663,7 +676,7 @@ if tarama_tetiklendi:
                         except:
                             pass
 
-                    lot = int((bist_kasa if is_bist else nasdaq_kasa) * risk_orani / alinan_risk) if ("ALIM" in sinyal or "TEPKİ" in sinyal) else 0
+                    lot = int((bist_kasa if is_bist else nasdaq_kasa) * risk_orani / alinan_risk) if ("ALIM" in sinyal or "TEPKİ" in sinyal or "KIRILIM" in sinyal) else 0
 
                     gecici_sonuclar.append({
                         "Varlık": ticker,
@@ -700,7 +713,7 @@ if st.session_state.tarama_durumu:
         col1, col2, col3 = st.columns(3)
         with col1: st.markdown(f"""<div class="kpi-card"><div class="kpi-title">Taranan Varlık</div><div class="kpi-value">{len(st.session_state.sonuclar)}</div></div>""", unsafe_allow_html=True)
         with col2: st.markdown(f"""<div class="kpi-card"><div class="kpi-title">Boğa Trendinde (200G)</div><div class="kpi-value kpi-highlight-green">{st.session_state.boga_sayisi}</div></div>""", unsafe_allow_html=True)
-        with col3: st.markdown(f"""<div class="kpi-card"><div class="kpi-title">Alım Fırsatları</div><div class="kpi-value kpi-highlight-fire">{"🔥 " + str(st.session_state.alim_firsati)}</div></div>""", unsafe_allow_html=True)
+        with col3: st.markdown(f"""<div class="kpi-card"><div class="kpi-title">Alım Fırsatları & Kırılımlar</div><div class="kpi-value kpi-highlight-fire">{"🔥 " + str(st.session_state.alim_firsati)}</div></div>""", unsafe_allow_html=True)
         
         st.markdown("<br>", unsafe_allow_html=True)
         
@@ -722,12 +735,12 @@ if st.session_state.tarama_durumu:
                 • <b>Görec. Güç:</b> Hissenin son 1 aylık getirisinin ilgili ana sektöre (Banka, Sanayi, Ulaşım, Teknoloji vb.) kıyasla farkını gösterir.<br>
                 • <b>Vol:</b> O gün gerçekleşen hacmin son 20 günlük ortalama hacme oranıdır.<br><br>
                 <hr style="border-color: #444;">
-                <b>🛡️ 3. Karma Destek & Direnç Motoru</b><br>
+                <b>🛡️ 3. Karma Destek & Direnç Motoru & Breakout</b><br>
                 • <b>Karma Destek:</b> Hissenin yerel dibi, 50 EMA, Fib %61.8 geri çekilme seviyesi ve ATR tabanı harmanlanarak hesaplanan akıllı savunma hattıdır.<br>
-                • <b>Karma Direnç:</b> Yerel tepe, VWAP, Fib %38.2 ve Bollinger Üst Bandı sentezlenerek bulunan kâr realizasyon/direnç bölgesidir.<br><br>
+                • <b>Karma Direnç & Kırılım (Breakout):</b> Yerel tepe, VWAP, Fib %38.2 ve Bollinger Üst Bandı sentezlenerek bulunur. Fiyat bu direnci hacimle kırdığında <b>YÜKSELİŞ KIRILIMI 🚀</b> sinyali üretilir.<br><br>
                 <hr style="border-color: #444;">
                 <b>🎯 4. Hibrit 1H Tetik Motoru & Hacimli Tepki (Akıllı Onay)</b><br>
-                • Alım sinyali veya hacimli tepki üreten varlıklarda saatlik mumları tarayarak 3 özel kuralı denetler:<br>
+                • Alım sinyali, kırılım veya hacimli tepki üreten varlıklarda saatlik mumları tarayarak 3 özel kuralı denetler:<br>
                 &nbsp;&nbsp;1. <b>Hacimli Kırılım (Güç Teyidi):</b> Fiyat Bollinger orta bandını normal hacmin en az %150'si ile yukarı kırarsa.<br>
                 &nbsp;&nbsp;2. <b>Destek Reddi / Pin Bar (Savunma Teyidi):</b> Fiyat Bollinger alt bandının altına iğne atıp (sarkıp) alıcıların hızla devreye girmesiyle alt fitili gövdesinin en az 2 katı olan bir mum bırakırsa.<br>
                 &nbsp;&nbsp;3. <b>RSI Dip Dönüşü (Momentum Teyidi):</b> RSI 38 altından yukarı dönerken MACD histogramı toparlanmaya başlarsa.<br>
@@ -735,16 +748,16 @@ if st.session_state.tarama_durumu:
             </div>
             """, unsafe_allow_html=True)
         
-        sadece_alim_goster = st.checkbox("🎯 Sadece Alım Fırsatlarını & Tepkileri Göster", value=False)
+        sadece_alim_goster = st.checkbox("🎯 Sadece Alım Fırsatlarını, Kırılımları & Tepkileri Göster", value=False)
         
         df_sonuc = pd.DataFrame(st.session_state.sonuclar)
         
         if sadece_alim_goster:
-            df_sonuc = df_sonuc[df_sonuc["Nihai Sinyal"].str.contains("ALIM|TEPKİ", na=False)]
+            df_sonuc = df_sonuc[df_sonuc["Nihai Sinyal"].str.contains("ALIM|TEPKİ|KIRILIM", na=False)]
         
         def color_df(row):
             c = ''
-            if '🟢' in str(row['Nihai Sinyal']) or '🔵' in str(row['Nihai Sinyal']): c = 'background-color: rgba(39, 174, 96, 0.15)'
+            if '🟢' in str(row['Nihai Sinyal']) or '🔵' in str(row['Nihai Sinyal']) or '🚀' in str(row['Nihai Sinyal']): c = 'background-color: rgba(39, 174, 96, 0.15)'
             elif '🟡' in str(row['Nihai Sinyal']): c = 'background-color: rgba(243, 156, 18, 0.2)'
             elif '🛑' in str(row['Nihai Sinyal']) or '🔴' in str(row['Nihai Sinyal']): c = 'background-color: rgba(192, 57, 43, 0.15)'
             elif '⚠️' in str(row['Nihai Sinyal']): c = 'background-color: rgba(243, 156, 18, 0.25)'
@@ -960,4 +973,4 @@ if st.session_state.tarama_durumu:
                         st.warning("Seçilen varlık için yeterli grafik verisi bulunamadı.")
 
         else:
-            st.info("Seçilen kriterlere (Sadece Alım Fırsatlarını Göster) uyan varlık bulunamadı.")
+            st.info("Seçilen kriterlere uyan varlık bulunamadı.")
