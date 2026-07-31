@@ -31,7 +31,6 @@ def get_finnhub_candles(ticker, resolution, days_back):
                 'Close': data['c'],
                 'Volume': data['v']
             })
-            # Finnhub saniye bazlı timestamp döndürür, Datetime'a çeviriyoruz
             df.index = pd.to_datetime(data['t'], unit='s')
             return df
     except Exception:
@@ -39,7 +38,7 @@ def get_finnhub_candles(ticker, resolution, days_back):
     return pd.DataFrame()
 
 def get_finnhub_quote(ticker):
-    """Finnhub üzerinden anlık (canlı) fiyat çeker."""
+    """Finnhub üzerinden anlık ve canlı fiyat verisini çeker."""
     url = f"https://finnhub.io/api/v1/quote?symbol={ticker}&token={FINNHUB_API_KEY}"
     try:
         r = requests.get(url, timeout=5)
@@ -205,7 +204,7 @@ BIST_100 = list(set(BIST_30 + [
     "TTRAK.IS", "ULKER.IS", "VAKBN.IS", "VESBE.IS", "VESTL.IS", "YEOTK.IS", "ZOREN.IS"
 ]))
 
-ABD_HİSSELERİ = ["AAPL", "MSFT", "GOOGL", "AMZN", "META", "TSLA", "NVDA", "AMD", "INTC", "NFLX"]
+ABD_HİSSELERİ = ["AAPL", "MSFT", "GOOGL", "AMZN", "META", "TSLA", "NVDA", "AMD", "INTC", "NFLX", "CAT"]
 
 # --- PİOTROSKİ F-SKORU HESAPLAMA ---
 @st.cache_data(ttl=86400)
@@ -442,7 +441,7 @@ if tarama_tetiklendi:
     if not selected_tickers:
         st.sidebar.warning("⚠️ Lütfen taranacak en az bir varlık seçin!")
     else:
-        with st.spinner("Hedge-Fund Katmanları İşleniyor (Hibrit Finnhub & YFinance Motoru devrede)..."):
+        with st.spinner("Hedge-Fund Katmanları İşleniyor (Hibrit Finnhub Canlı Fiyat Motoru Aktif)..."):
             gecici_sonuclar = []
             basarisi_cekilemeyen_varliklar = []
             boga_sayisi = alim_firsati = 0
@@ -462,7 +461,7 @@ if tarama_tetiklendi:
             
             for ticker in selected_tickers:
                 try:
-                    time.sleep(0.1) # Finnhub/Yfinance rate limit saygısı
+                    time.sleep(0.1) 
                     stock = yf.Ticker(ticker)
                     
                     is_bist = ".IS" in ticker
@@ -470,12 +469,10 @@ if tarama_tetiklendi:
                     
                     # --- HİBRİT VERİ ÇEKME MOTORU ---
                     if is_bist:
-                        # BIST için yfinance kullan
                         df_long = stock.history(period="1y").dropna(subset=['Open', 'High', 'Low', 'Close', 'Volume'])
                     else:
-                        # ABD için Finnhub üzerinden çek
                         df_long = get_finnhub_candles(ticker, 'D', 365)
-                        if df_long.empty: # Eğer Finnhub yanıt vermezse yfinance yedek (fallback) motoru devreye girsin
+                        if df_long.empty: 
                             df_long = stock.history(period="1y").dropna(subset=['Open', 'High', 'Low', 'Close', 'Volume'])
                     
                     if df_long.empty or len(df_long) < 50: 
@@ -485,7 +482,7 @@ if tarama_tetiklendi:
                     bugun_kapanis = float(df_long['Close'].iloc[-1])
                     onceki_kapanis = float(df_long['Close'].iloc[-2]) if len(df_long) >= 2 else bugun_kapanis
                     
-                    # --- CANLI FİYAT YAKALAMA MOTORU ---
+                    # --- FİNNHUB ANLIK & GECE SEANSI CANLI FİYAT YAKALAMA ---
                     if is_bist:
                         try:
                             df_live = stock.history(period="1d", interval="1m", prepost=True)
@@ -497,12 +494,14 @@ if tarama_tetiklendi:
                     else:
                         try:
                             quote = get_finnhub_quote(ticker)
+                            # Finnhub 'c' (current/live price) değerini en güncel anlık fiyat olarak basar
                             if quote and quote.get('c') is not None and quote.get('c') > 0:
                                 bugun_kapanis = float(quote['c'])
+                                # Tablonun güncel fiyat hesaplamasında baz alması için son mumu canlı fiyatla güncelliyoruz
                                 df_long.iloc[-1, df_long.columns.get_loc('Close')] = bugun_kapanis
                         except:
                             pass
-                    # -----------------------------------
+                    # --------------------------------------------------------
 
                     gunluk_degisim = ((bugun_kapanis - onceki_kapanis) / onceki_kapanis) * 100 if onceki_kapanis > 0 else 0.0
                     fiyat_str = f"{bugun_kapanis:.2f} {para_birimi} ({'+' if gunluk_degisim > 0 else ''}{gunluk_degisim:.2f}%)"
@@ -512,7 +511,6 @@ if tarama_tetiklendi:
                     sig_tahta_esik = 50_000_000 if is_bist else 5_000_000 
                     is_sig_tahta = ortalama_ciro_tutar < sig_tahta_esik
 
-                    # Temel veriler (F-Skor, PEG, PE) hala yfinance info üzerinden çekilecek (ücretsiz olduğu için)
                     info = stock.info if hasattr(stock, 'info') else {}
                     fk = info.get('trailingPE', info.get('forwardPE', None))
                     peg = info.get('trailingPegRatio', info.get('pegRatio', None))
