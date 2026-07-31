@@ -374,7 +374,7 @@ def hisse_sil_callback():
         st.session_state.sil_hisse_input_field = ""
 
 st.title("📈 Hibrit Portföy Komuta Merkezi")
-st.markdown("**Mod:** Derin Analiz (Cezalı Skor + Hacim Patlaması Esnetmesi + Sığ Tahta Koruması + Düzeltilmiş Para Akışı)")
+st.markdown("**Mod:** Derin Analiz (Cezalı Skor + Hacim Patlaması Esnetmesi + Sığ Tahta Koruması + Düzeltilmiş Para Akışı + Kural 2)")
 st.markdown("---")
 
 st.sidebar.header("⚙️ Kontrol Paneli")
@@ -611,10 +611,16 @@ if tarama_tetiklendi:
                         mikro_teyit = "⏳ Tetik Bekleniyor"
                         try:
                             df_1h = stock.history(period="5d", interval="1h", prepost=True)
-                            if not df_1h.empty and len(df_1h) >= 5:
+                            if not df_1h.empty and len(df_1h) >= 20:
                                 c_1h = df_1h['Close']
                                 v_1h = df_1h['Volume']
+                                o_1h = df_1h['Open']
+                                h_1h = df_1h['High']
+                                l_1h = df_1h['Low']
+                                
                                 bb_mid_1h = c_1h.rolling(20).mean()
+                                bb_std_1h = c_1h.rolling(20).std()
+                                bb_low_1h = bb_mid_1h - (bb_std_1h * 2)
                                 
                                 delta_1h = c_1h.diff()
                                 rs_1h = delta_1h.where(delta_1h>0, 0.0).ewm(alpha=1/14, adjust=False).mean() / (-delta_1h.where(delta_1h<0, 0.0).ewm(alpha=1/14, adjust=False).mean() + 1e-5)
@@ -626,11 +632,30 @@ if tarama_tetiklendi:
                                 
                                 vol_sma_1h = v_1h.rolling(20).mean()
                                 
+                                # --- MUM ANATOMİSİ (Son güncel saatlik mum) ---
+                                acilis_1h = o_1h.iloc[-1]
+                                kapanis_1h = c_1h.iloc[-1]
+                                en_yuksek_1h = h_1h.iloc[-1]
+                                en_dusuk_1h = l_1h.iloc[-1]
+                                bb_alt_val = bb_low_1h.iloc[-1]
+                                
+                                govde = abs(kapanis_1h - acilis_1h)
+                                alt_fitil = min(acilis_1h, kapanis_1h) - en_dusuk_1h
+                                ust_fitil = en_yuksek_1h - max(acilis_1h, kapanis_1h)
+                                
+                                # --- KURALLAR ---
                                 kural_1_breakout = (c_1h.iloc[-1] > bb_mid_1h.iloc[-1]) and (v_1h.iloc[-1] > 1.5 * vol_sma_1h.iloc[-1])
+                                
+                                is_pin_bar = (alt_fitil > (govde * 2)) and (alt_fitil > ust_fitil)
+                                bb_altina_igne = (en_dusuk_1h < bb_alt_val)
+                                kural_2_pin_bar = is_pin_bar and bb_altina_igne
+                                
                                 kural_3_rsi_dip = (rsi_1h.iloc[-2] < 38) and (rsi_1h.iloc[-1] >= 38) and (macd_hist_1h.iloc[-1] > macd_hist_1h.iloc[-2])
                                 
                                 if kural_1_breakout:
                                     mikro_teyit = "🔥 TETİK AKTİF: Hacimli Kırılım (Kural 1)"
+                                elif kural_2_pin_bar:
+                                    mikro_teyit = "🔥 TETİK AKTİF: Destek Reddi / Pin Bar (Kural 2)"
                                 elif kural_3_rsi_dip:
                                     mikro_teyit = "🔥 TETİK AKTİF: RSI Dip + MACD Tepkisi (Kural 3)"
                                 else:
@@ -702,9 +727,10 @@ if st.session_state.tarama_durumu:
                 • <b>Karma Direnç:</b> Yerel tepe, VWAP, Fib %38.2 ve Bollinger Üst Bandı sentezlenerek bulunan kâr realizasyon/direnç bölgesidir.<br><br>
                 <hr style="border-color: #444;">
                 <b>🎯 4. Hibrit 1H Tetik Motoru & Hacimli Tepki (Akıllı Onay)</b><br>
-                • Alım sinyali veya hacimli tepki üreten varlıklarda saatlik mumları tarayarak iki özel kuralı denetler:<br>
-                &nbsp;&nbsp;1. <b>Hacimli Kırılım:</b> Fiyat Bollinger orta bandını normal hacmin en az %150'si ile yukarı kırarsa.<br>
-                &nbsp;&nbsp;2. <b>RSI Dip Dönüşü:</b> RSI 38 altından yukarı dönerken MACD histogramı toparlanmaya başlarsa.<br>
+                • Alım sinyali veya hacimli tepki üreten varlıklarda saatlik mumları tarayarak 3 özel kuralı denetler:<br>
+                &nbsp;&nbsp;1. <b>Hacimli Kırılım (Güç Teyidi):</b> Fiyat Bollinger orta bandını normal hacmin en az %150'si ile yukarı kırarsa.<br>
+                &nbsp;&nbsp;2. <b>Destek Reddi / Pin Bar (Savunma Teyidi):</b> Fiyat Bollinger alt bandının altına iğne atıp (sarkıp) alıcıların hızla devreye girmesiyle alt fitili gövdesinin en az 2 katı olan bir mum bırakırsa.<br>
+                &nbsp;&nbsp;3. <b>RSI Dip Dönüşü (Momentum Teyidi):</b> RSI 38 altından yukarı dönerken MACD histogramı toparlanmaya başlarsa.<br>
                 • Şartlardan biri sağlandığında sütunda doğrudan <b>"🔥 TETİK AKTİF"</b> uyarısı yakar.
             </div>
             """, unsafe_allow_html=True)
