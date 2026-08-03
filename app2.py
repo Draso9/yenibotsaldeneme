@@ -92,7 +92,7 @@ if st.session_state.user_email is None and saved_email is not None and not st.se
             st.session_state.custom_tickers = VARSAYILAN_TICKERS.copy()
     st.rerun()
 
-# --- DETAYLI AKILLI AKSİYON REHBERİ FONKSİYONU ---
+# --- DETAYLI AKILLI AKSİYON REHBERİ FONKSİYONU (ORİJİNAL) ---
 def aksiyon_rehberi_olustur(nihai_sinyal, teyit_1h):
     sinyal_metni = str(nihai_sinyal).upper()
     teyit_metni = str(teyit_1h)
@@ -271,7 +271,7 @@ def hisse_sil_callback():
         st.session_state.sil_hisse_input_field = ""
 
 st.title("📈 Hibrit Portföy Komuta Merkezi")
-st.markdown("**Mod:** Ultra Hızlı Toplu İndirme Motoru + Canlı İlerleme Göstergesi")
+st.markdown("**Mod:** Ultra Hızlı Toplu İndirme Motoru + Tüm Kurumsal Detaylar")
 st.markdown("---")
 
 st.sidebar.header("⚙️ Kontrol Paneli")
@@ -315,289 +315,292 @@ if tarama_tetiklendi:
     if not selected_tickers:
         st.sidebar.warning("⚠️ Lütfen taranacak en az bir varlık seçin!")
     else:
-        # --- CANLI YÜZDE GÖSTERGELİ İLERLEME MOTORU ---
-        progress_text = st.empty()
-        progress_bar = st.progress(0.0)
-        total_tickers = len(selected_tickers)
-        
-        progress_text.markdown(f"**⏳ Veriler Hazırlanıyor (%0):** Toplu indirme isteği gönderiliyor...")
-        progress_bar.progress(0.1)
-
-        gecici_sonuclar = []
-        basarisi_cekilemeyen = []
-        boga_sayisi = alim_firsati = 0
-        
-        # 1. ADIM: TOPLU VERİ İNDİRME (Batch Download)
-        try:
-            data = yf.download(selected_tickers, period="1y", interval="1d", group_by="ticker", auto_adjust=True, progress=False, session=session)
-        except Exception:
-            data = pd.DataFrame()
-
-        progress_text.markdown(f"**⏳ Veriler Analiz Ediliyor (%40):** Sektörel güçler hesaplanıyor...")
-        progress_bar.progress(0.4)
-
-        # Sektörel Göreceli Güç İçin Sektör Verileri
-        sektor_getirileri = {}
-        sektor_referanslari = {
-            "XU100.IS": "BIST100", "^IXIC": "NASDAQ", "XBANK.IS": "Banka", 
-            "XUSIN.IS": "Sanayi", "XULAS.IS": "Ulaşım", "XHOLD.IS": "Holding"
-        }
-        try:
-            df_sek = yf.download(list(sektor_referanslari.keys()), period="2mo", interval="1d", group_by="ticker", progress=False, session=session)
-            for sembol in sektor_referanslari.keys():
-                try:
-                    if len(sektor_referanslari.keys()) == 1:
-                        s_seri = df_sek['Close'].dropna()
-                    else:
-                        if sembol in df_sek.columns.levels[0]:
-                            s_seri = df_sek[sembol]['Close'].dropna()
-                        else:
-                            continue
-                    if len(s_seri) >= 21:
-                        sektor_getirileri[sembol] = ((s_seri.iloc[-1] - s_seri.iloc[-21]) / s_seri.iloc[-21]) * 100
-                except:
-                    sektor_getirileri[sembol] = 0
-        except:
-            pass
-
-        progress_text.markdown(f"**⏳ Fonksiyonlar Tamamlanıyor (%70):** Teknik göstergeler ve skorlar işleniyor...")
-        progress_bar.progress(0.7)
-
-        # 2. ADIM: İNDİRİLEN VERİYİ İŞLEME
-        for i, ticker in enumerate(selected_tickers):
+        with st.spinner("Yahoo Finance Toplu Veri Motoru Çalıştırılıyor (Saniyeler İçinde Tamamlanacak)..."):
+            gecici_sonuclar = []
+            basarisi_cekilemeyen = []
+            boga_sayisi = alim_firsati = 0
+            
+            # 1. ADIM: TOPLU VERİ İNDİRME (YFinance Batch Download - WAF Engelini Aşar)
             try:
-                if len(selected_tickers) == 1:
-                    df_long = data.dropna(subset=['Open', 'High', 'Low', 'Close', 'Volume'])
-                else:
-                    if ticker not in data.columns.levels[0]:
+                data = yf.download(selected_tickers, period="1y", interval="1d", group_by="ticker", auto_adjust=True, progress=False, session=session)
+            except Exception as e:
+                data = pd.DataFrame()
+
+            # Sektörel Göreceli Güç İçin Sektör Verileri
+            sektor_getirileri = {}
+            sektor_referanslari = {
+                "XU100.IS": "BIST100", "^IXIC": "NASDAQ", "XBANK.IS": "Banka", 
+                "XUSIN.IS": "Sanayi", "XULAS.IS": "Ulaşım", "XHOLD.IS": "Holding"
+            }
+            try:
+                df_sek = yf.download(list(sektor_referanslari.keys()), period="2mo", interval="1d", group_by="ticker", progress=False, session=session)
+                for sembol in sektor_referanslari.keys():
+                    try:
+                        if len(sektor_referanslari.keys()) == 1:
+                            s_seri = df_sek['Close'].dropna()
+                        else:
+                            if sembol in df_sek.columns.levels[0]:
+                                s_seri = df_sek[sembol]['Close'].dropna()
+                            else:
+                                continue
+                        if len(s_seri) >= 21:
+                            sektor_getirileri[sembol] = ((s_seri.iloc[-1] - s_seri.iloc[-21]) / s_seri.iloc[-21]) * 100
+                    except:
+                        sektor_getirileri[sembol] = 0
+            except:
+                pass
+
+            # 2. ADIM: İNDİRİLEN VERİYİ HIZLICA İŞLEME (Döngü)
+            for ticker in selected_tickers:
+                try:
+                    if len(selected_tickers) == 1:
+                        df_long = data.dropna(subset=['Open', 'High', 'Low', 'Close', 'Volume'])
+                    else:
+                        if ticker not in data.columns.levels[0]:
+                            basarisi_cekilemeyen.append(ticker)
+                            continue
+                        df_long = data[ticker].dropna(subset=['Open', 'High', 'Low', 'Close', 'Volume'])
+                    
+                    if df_long.empty or len(df_long) < 50:
                         basarisi_cekilemeyen.append(ticker)
                         continue
-                    df_long = data[ticker].dropna(subset=['Open', 'High', 'Low', 'Close', 'Volume'])
-                
-                if df_long.empty or len(df_long) < 50:
-                    basarisi_cekilemeyen.append(ticker)
-                    continue
 
-                is_bist = ".IS" in ticker
-                para_birimi = "TL" if is_bist else "$"
-                
-                bugun_kapanis = float(df_long['Close'].iloc[-1])
-                onceki_kapanis = float(df_long['Close'].iloc[-2]) if len(df_long) >= 2 else bugun_kapanis
-                gunluk_degisim = ((bugun_kapanis - onceki_kapanis) / onceki_kapanis) * 100 if onceki_kapanis > 0 else 0.0
-                fiyat_str = f"{bugun_kapanis:.2f} {para_birimi} ({'+' if gunluk_degisim > 0 else ''}{gunluk_degisim:.2f}%)"
+                    is_bist = ".IS" in ticker
+                    para_birimi = "TL" if is_bist else "$"
+                    
+                    bugun_kapanis = float(df_long['Close'].iloc[-1])
+                    onceki_kapanis = float(df_long['Close'].iloc[-2]) if len(df_long) >= 2 else bugun_kapanis
+                    gunluk_degisim = ((bugun_kapanis - onceki_kapanis) / onceki_kapanis) * 100 if onceki_kapanis > 0 else 0.0
+                    fiyat_str = f"{bugun_kapanis:.2f} {para_birimi} ({'+' if gunluk_degisim > 0 else ''}{gunluk_degisim:.2f}%)"
 
-                ortalama_hacim_20 = df_long['Volume'].rolling(20).mean().iloc[-1]
-                ortalama_ciro_tutar = ortalama_hacim_20 * bugun_kapanis if not pd.isna(ortalama_hacim_20) else 0
-                sig_tahta_esik = 50_000_000 if is_bist else 5_000_000 
-                is_sig_tahta = ortalama_ciro_tutar < sig_tahta_esik
+                    ortalama_hacim_20 = df_long['Volume'].rolling(20).mean().iloc[-1]
+                    ortalama_ciro_tutar = ortalama_hacim_20 * bugun_kapanis if not pd.isna(ortalama_hacim_20) else 0
+                    sig_tahta_esik = 50_000_000 if is_bist else 5_000_000 
+                    is_sig_tahta = ortalama_ciro_tutar < sig_tahta_esik
 
-                # Temel Veriler
-                fk = None; peg = None
-                try:
-                    stk_temp = yf.Ticker(ticker, session=session)
-                    info = stk_temp.info
-                    fk = info.get('trailingPE', info.get('forwardPE', None))
-                    peg = info.get('trailingPegRatio', info.get('pegRatio', None))
-                except:
-                    pass
-                
-                temel_durum = "Nötr ⚖️"
-                if peg is not None and peg > 0:
-                    if peg < 1.0 and (fk is not None and fk > 0): temel_durum = f"Büyüyen Ucuz 🌟 (PEG:{peg:.1f})"
-                    elif peg > 2.0: temel_durum = f"Pahalı Büyüme ⚠️ (PEG:{peg:.1f})"
-                elif fk is not None:
-                    if fk > 50: temel_durum = "Aşırı Pahalı ⚠️"
-                    elif 0 < fk < 15: temel_durum = "Ucuz (Klasik) 🌟"
-
-                son_1_ay_df = df_long.tail(21)
-                hisse_1m_getiri = ((son_1_ay_df['Close'].iloc[-1] - son_1_ay_df['Close'].iloc[0]) / son_1_ay_df['Close'].iloc[0]) * 100
-                
-                sek_sembol = "XU100.IS"
-                sektor_adi = "Genel"
-                if is_bist:
-                    if ticker in ["AKBNK.IS", "GARAN.IS", "ISCTR.IS", "YKBNK.IS", "HALKB.IS"]: sek_sembol = "XBANK.IS"; sektor_adi = "Banka"
-                    elif ticker in ["THYAO.IS", "PGSUS.IS", "DOAS.IS", "TAVHL.IS"]: sek_sembol = "XULAS.IS"; sektor_adi = "Ulaşım"
-                    elif ticker in ["KCHOL.IS", "SAHOL.IS", "ALARK.IS", "DOHOL.IS", "AGHOL.IS"]: sek_sembol = "XHOLD.IS"; sektor_adi = "Holding"
-                    else: sek_sembol = "XUSIN.IS"; sektor_adi = "Sanayi"
-                else: sek_sembol = "^IXIC"; sektor_adi = "Teknoloji"
-
-                sek_getiri = sektor_getirileri.get(sek_sembol, 0)
-                sektorel_fark = hisse_1m_getiri - sek_getiri
-
-                bugun_hacim = df_long['Volume'].iloc[-1]
-                hacim_sma20 = df_long['Volume'].rolling(20).mean().iloc[-1]
-                hacim_oran = (bugun_hacim / hacim_sma20) * 100 if hacim_sma20 > 0 else 100
-                gorec_guc_str = f"{'+' if sektorel_fark>0 else ''}{sektorel_fark:.1f}% ({sektor_adi}) | Vol: %{hacim_oran:.0f}"
-
-                delta = df_long['Close'].diff()
-                rs = delta.where(delta>0, 0.0).ewm(alpha=1/14, adjust=False).mean() / (-delta.where(delta<0, 0.0).ewm(alpha=1/14, adjust=False).mean() + 1e-5)
-                rsi = 100 - (100 / (1 + rs)).iloc[-1]
-                
-                macd_serisi = df_long['Close'].ewm(span=12, adjust=False).mean() - df_long['Close'].ewm(span=26, adjust=False).mean()
-                macd_sinyal = macd_serisi.ewm(span=9, adjust=False).mean()
-                
-                sma_200 = df_long['Close'].rolling(200).mean().iloc[-1]
-                uzun_vade_trend = bugun_kapanis > sma_200
-                bb_mid = df_long['Close'].rolling(20).mean().iloc[-1]
-                bb_ust = (df_long['Close'].rolling(20).mean() + (df_long['Close'].rolling(20).std() * 2)).iloc[-1]
-                bb_alt = (df_long['Close'].rolling(20).mean() - (df_long['Close'].rolling(20).std() * 2)).iloc[-1]
-
-                typical_price = (df_long['High'] + df_long['Low'] + df_long['Close']) / 3
-                raw_money_flow = typical_price * df_long['Volume']
-                pos_flow = pd.Series(np.where(typical_price > typical_price.shift(1), raw_money_flow, 0))
-                neg_flow = pd.Series(np.where(typical_price < typical_price.shift(1), raw_money_flow, 0))
-                mfi = 100 - (100 / (1 + (pos_flow.rolling(14).sum() / (neg_flow.rolling(14).sum() + 1e-5))))
-                mfi_val = mfi.iloc[-1] if not pd.isna(mfi.iloc[-1]) else 50
-                
-                obv = np.where(df_long['Close'] > df_long['Close'].shift(1), df_long['Volume'],
-                    np.where(df_long['Close'] < df_long['Close'].shift(1), -df_long['Volume'], 0)).cumsum()
-                obv_ema = pd.Series(obv).ewm(span=20).mean()
-                
-                if mfi_val >= 70: para_durumu = f"Yoğun Para Girişi 🐋 (MFI:{mfi_val:.0f})"
-                elif mfi_val <= 30: para_durumu = f"Yoğun Para Çıkışı 📉 (MFI:{mfi_val:.0f})"
-                else: para_durumu = f"Dengeli Akış ⚖️ (MFI:{mfi_val:.0f})"
-
-                if is_sig_tahta: para_durumu += " | Sığ Tahta ⚠️"
-
-                hacim_patlamasi_var = (hacim_oran >= 130) and (gunluk_degisim >= 4.0)
-
-                skor = 50 
-                if bugun_kapanis > sma_200: skor += 15
-                else: 
-                    if hacim_patlamasi_var: skor -= 5
-                    else: skor -= 25
-                
-                ema_50_val = df_long['Close'].ewm(span=50).mean().iloc[-1]
-                if bugun_kapanis > ema_50_val: skor += 10
-                else: skor -= 15
-                
-                if hacim_oran >= 100 and obv.iloc[-1] > obv_ema.iloc[-1]: skor += 15
-                else: skor -= 20
-                
-                if 35 <= rsi <= 55: skor += 10
-                elif rsi > 70: skor -= 15
-                
-                if macd_serisi.iloc[-1] > macd_sinyal.iloc[-1]: skor += 10
-                else: skor -= 10
-                
-                if (peg is not None and 0 < peg < 1.5): skor += 15
-                else: skor -= 15
-                
-                if bugun_kapanis <= bb_mid: skor += 10
-                elif bugun_kapanis >= bb_ust and rsi >= 65: skor -= 15
-
-                if is_sig_tahta: skor -= 20
-
-                if skor >= 70: skor_etiket = f"{skor} Puan (Güçlü 🟢)"
-                elif skor >= 50: skor_etiket = f"{skor} Puan (Nötr ⚖️)"
-                else: skor_etiket = f"{skor} Puan (Cezalı/Riskli 🔴)"
-
-                swing_high = df_long['High'].tail(50).max()
-                swing_low = df_long['Low'].tail(50).min()
-                ema_50 = df_long['Close'].ewm(span=50).mean().iloc[-1]
-                vwap_approx = (df_long['Close'] * df_long['Volume']).tail(20).sum() / (df_long['Volume'].tail(20).sum() + 1e-5)
-                
-                tr = pd.concat([df_long['High'] - df_long['Low'], (df_long['High'] - df_long['Close'].shift()).abs(), (df_long['Low'] - df_long['Close'].shift()).abs()], axis=1).max(axis=1)
-                atr = tr[-14:].mean()
-                if pd.isna(atr) or atr == 0: atr = bugun_kapanis * 0.02
-
-                karma_destek = max([d for d in [swing_low, ema_50, swing_high - ((swing_high - swing_low) * 0.618), bugun_kapanis - (atr * 2)] if d < bugun_kapanis], default=bugun_kapanis - (atr * 1.5))
-                karma_direnc = min([dir_val for dir_val in [swing_high, vwap_approx, swing_high - ((swing_high - swing_low) * 0.382), bb_ust] if dir_val > bugun_kapanis], default=bugun_kapanis + (atr * 2.5))
-
-                trailing_stop = min(df_long['High'].rolling(22).max().iloc[-1] - (atr * 3), bugun_kapanis - (atr * 1.5))
-                alinan_risk = max(bugun_kapanis - trailing_stop, atr * 1.0)
-                tp1, tp2 = bugun_kapanis + (alinan_risk * 1.5), bugun_kapanis + (alinan_risk * 3.0)
-                hibrit_tp = f"⚠️ Şişti: Kâr Al" if rsi >= 65 else f"TP1: {tp1:.2f} | TP2: {tp2:.2f}"
-
-                ema_9_val = df_long['Close'].ewm(span=9).mean().iloc[-1]
-                ema_21_val = df_long['Close'].ewm(span=21).mean().iloc[-1]
-                breakout_kosulu = (bugun_kapanis >= karma_direnc) and (hacim_oran >= 120) and (ema_9_val > ema_21_val) and (uzun_vade_trend)
-
-                sinyal = "Nötr (İzle) ⚖️"
-                if breakout_kosulu:
-                    sinyal = "YÜKSELİŞ KIRILIMI 🚀"
-                    alim_firsati += 1
-                elif bugun_kapanis > bb_ust and rsi >= 68: 
-                    sinyal = "KAR REALİZASYONU 🔴"
-                elif bugun_kapanis <= bb_alt and rsi <= 35 and uzun_vade_trend and skor >= 50: 
-                    sinyal = "KUSURSUZ ALIM 🟢"
-                    alim_firsati += 1
-                elif rsi <= 40 and uzun_vade_trend and skor >= 50: 
-                    sinyal = "KADEMELİ ALIM 🔵"
-                    alim_firsati += 1
-                elif hacim_patlamasi_var and rsi < 50:
-                    sinyal = "HACİMLİ TEPKİ 🟡"
-                elif skor < 50 or (not uzun_vade_trend and rsi < 50): 
-                    sinyal = "UZAK DUR! 🛑"
-
-                if uzun_vade_trend: 
-                    boga_sayisi += 1
-
-                # Sadece Sinyal Verenlerde 1H Mikro Teyit
-                mikro_teyit = "-"
-                if "ALIM" in sinyal or "TEPKİ" in sinyal or "KIRILIM" in sinyal:
-                    mikro_teyit = "⏳ Tetik Bekleniyor"
+                    # Temel Veriler (Hızlı geçiş için info çağrısını try içine alıyoruz)
+                    fk = None; peg = None
                     try:
-                        stk_1h = yf.Ticker(ticker, session=session)
-                        df_1h = stk_1h.history(period="5d", interval="1h", prepost=True)
-                        if not df_1h.empty and len(df_1h) >= 20:
-                            c_1h, v_1h, o_1h, h_1h, l_1h = df_1h['Close'], df_1h['Volume'], df_1h['Open'], df_1h['High'], df_1h['Low']
-                            bb_mid_1h = c_1h.rolling(20).mean()
-                            bb_std_1h = c_1h.rolling(20).std()
-                            bb_low_1h = bb_mid_1h - (bb_std_1h * 2)
-                            delta_1h = c_1h.diff()
-                            rs_1h = delta_1h.where(delta_1h>0, 0.0).ewm(alpha=1/14, adjust=False).mean() / (-delta_1h.where(delta_1h<0, 0.0).ewm(alpha=1/14, adjust=False).mean() + 1e-5)
-                            rsi_1h = 100 - (100 / (1 + rs_1h))
-                            macd_l_1h = c_1h.ewm(span=12).mean() - c_1h.ewm(span=26).mean()
-                            macd_hist_1h = macd_l_1h - macd_l_1h.ewm(span=9).mean()
-                            vol_sma_1h = v_1h.rolling(20).mean()
-                            
-                            govde = abs(c_1h.iloc[-1] - o_1h.iloc[-1])
-                            alt_fitil = min(o_1h.iloc[-1], c_1h.iloc[-1]) - l_1h.iloc[-1]
-                            
-                            if (c_1h.iloc[-1] > bb_mid_1h.iloc[-1]) and (v_1h.iloc[-1] > 1.5 * vol_sma_1h.iloc[-1]):
-                                mikro_teyit = "🔥 TETİK AKTİF: Hacimli Kırılım"
-                            elif (alt_fitil > (govde * 2)) and (l_1h.iloc[-1] < bb_low_1h.iloc[-1]):
-                                mikro_teyit = "🔥 TETİK AKTİF: Destek Reddi / Pin Bar"
-                            elif (rsi_1h.iloc[-2] < 38) and (rsi_1h.iloc[-1] >= 38) and (macd_hist_1h.iloc[-1] > macd_hist_1h.iloc[-2]):
-                                mikro_teyit = "🔥 TETİK AKTİF: RSI Dip + MACD Tepkisi"
+                        stk_temp = yf.Ticker(ticker, session=session)
+                        info = stk_temp.info
+                        fk = info.get('trailingPE', info.get('forwardPE', None))
+                        peg = info.get('trailingPegRatio', info.get('pegRatio', None))
                     except:
                         pass
+                    
+                    temel_durum = "Nötr ⚖️"
+                    if peg is not None and peg > 0:
+                        if peg < 1.0 and (fk is not None and fk > 0): temel_durum = f"Büyüyen Ucuz 🌟 (PEG:{peg:.1f})"
+                        elif peg > 2.0: temel_durum = f"Pahalı Büyüme ⚠️ (PEG:{peg:.1f})"
+                    elif fk is not None:
+                        if fk > 50: temel_durum = "Aşırı Pahalı ⚠️"
+                        elif 0 < fk < 15: temel_durum = "Ucuz (Klasik) 🌟"
 
-                lot = int((bist_kasa if is_bist else nasdaq_kasa) * risk_orani / alinan_risk) if ("ALIM" in sinyal or "TEPKİ" in sinyal or "KIRILIM" in sinyal) else 0
+                    son_1_ay_df = df_long.tail(21)
+                    hisse_1m_getiri = ((son_1_ay_df['Close'].iloc[-1] - son_1_ay_df['Close'].iloc[0]) / son_1_ay_df['Close'].iloc[0]) * 100
+                    
+                    sek_sembol = "XU100.IS"
+                    sektor_adi = "Genel"
+                    if is_bist:
+                        if ticker in ["AKBNK.IS", "GARAN.IS", "ISCTR.IS", "YKBNK.IS", "HALKB.IS"]: sek_sembol = "XBANK.IS"; sektor_adi = "Banka"
+                        elif ticker in ["THYAO.IS", "PGSUS.IS", "DOAS.IS", "TAVHL.IS"]: sek_sembol = "XULAS.IS"; sektor_adi = "Ulaşım"
+                        elif ticker in ["KCHOL.IS", "SAHOL.IS", "ALARK.IS", "DOHOL.IS", "AGHOL.IS"]: sek_sembol = "XHOLD.IS"; sektor_adi = "Holding"
+                        else: sek_sembol = "XUSIN.IS"; sektor_adi = "Sanayi"
+                    else: sek_sembol = "^IXIC"; sektor_adi = "Teknoloji"
 
-                gecici_sonuclar.append({
-                    "Varlık": ticker,
-                    "Fiyat": fiyat_str,
-                    "Görec. Güç (Sektör)": gorec_guc_str,
-                    "7'li Cezalı Skor": skor_etiket,
-                    "Para Akışı (OBV/MFI)": para_durumu,
-                    "Temel Veri (PEG/FK)": temel_durum,
-                    "Nihai Sinyal": sinyal,
-                    "↓ Zamanlama (1H Teyit)": mikro_teyit,
-                    "Karma Destek": f"{karma_destek:.2f}",
-                    "Karma Direnç": f"{karma_direnc:.2f}",
-                    "Süren Stop": f"{trailing_stop:.2f}",
-                    "Hibrit Kâr Al (TP)": hibrit_tp,
-                    "Önerilen Lot": f"{lot} Adet" if lot > 0 else "0",
-                    "is_firsat": ("ALIM" in sinyal or "TEPKİ" in sinyal or "KIRILIM" in sinyal)
-                })
-            except Exception:
-                basarisi_cekilemeyen.append(ticker)
+                    sek_getiri = sektor_getirileri.get(sek_sembol, 0)
+                    sektorel_fark = hisse_1m_getiri - sek_getiri
 
-            # İlerleme Yüzdesi Güncelleme
-            yuzde = int(70 + ((i + 1) / total_tickers) * 30)
-            progress_text.markdown(f"**⚡ Fonksiyonlar Tamamlanıyor (%{yuzde}):** İşlenen Hisse: `{i+1}/{total_tickers}` (`{ticker}`)")
-            progress_bar.progress(yuzde / 100.0)
+                    bugun_hacim = df_long['Volume'].iloc[-1]
+                    hacim_sma20 = df_long['Volume'].rolling(20).mean().iloc[-1]
+                    hacim_oran = (bugun_hacim / hacim_sma20) * 100 if hacim_sma20 > 0 else 100
+                    gorec_guc_str = f"{'+' if sektorel_fark>0 else ''}{sektorel_fark:.1f}% ({sektor_adi}) | Vol: %{hacim_oran:.0f}"
 
-        progress_text.empty()
-        progress_bar.empty()
+                    delta = df_long['Close'].diff()
+                    rs = delta.where(delta>0, 0.0).ewm(alpha=1/14, adjust=False).mean() / (-delta.where(delta<0, 0.0).ewm(alpha=1/14, adjust=False).mean() + 1e-5)
+                    rsi = 100 - (100 / (1 + rs)).iloc[-1]
+                    
+                    macd_serisi = df_long['Close'].ewm(span=12, adjust=False).mean() - df_long['Close'].ewm(span=26, adjust=False).mean()
+                    macd_sinyal = macd_serisi.ewm(span=9, adjust=False).mean()
+                    
+                    sma_200 = df_long['Close'].rolling(200).mean().iloc[-1]
+                    uzun_vade_trend = bugun_kapanis > sma_200
+                    bb_mid = df_long['Close'].rolling(20).mean().iloc[-1]
+                    bb_ust = (df_long['Close'].rolling(20).mean() + (df_long['Close'].rolling(20).std() * 2)).iloc[-1]
+                    bb_alt = (df_long['Close'].rolling(20).mean() - (df_long['Close'].rolling(20).std() * 2)).iloc[-1]
 
-        st.session_state.sonuclar = gecici_sonuclar
-        st.session_state.basarisiz_taramalar = basarisi_cekilemeyen
-        st.session_state.boga_sayisi = boga_sayisi
-        st.session_state.alim_firsati = alim_firsati
-        st.session_state.tarama_durumu = True
+                    typical_price = (df_long['High'] + df_long['Low'] + df_long['Close']) / 3
+                    raw_money_flow = typical_price * df_long['Volume']
+                    pos_flow = pd.Series(np.where(typical_price > typical_price.shift(1), raw_money_flow, 0))
+                    neg_flow = pd.Series(np.where(typical_price < typical_price.shift(1), raw_money_flow, 0))
+                    mfi = 100 - (100 / (1 + (pos_flow.rolling(14).sum() / (neg_flow.rolling(14).sum() + 1e-5))))
+                    mfi_val = mfi.iloc[-1] if not pd.isna(mfi.iloc[-1]) else 50
+                    
+                    obv = np.where(df_long['Close'] > df_long['Close'].shift(1), df_long['Volume'],
+                        np.where(df_long['Close'] < df_long['Close'].shift(1), -df_long['Volume'], 0)).cumsum()
+                    obv_ema = pd.Series(obv).ewm(span=20).mean()
+                    
+                    if mfi_val >= 70:
+                        para_durumu = f"Yoğun Para Girişi 🐋 (MFI:{mfi_val:.0f})"
+                    elif mfi_val <= 30:
+                        para_durumu = f"Yoğun Para Çıkışı 📉 (MFI:{mfi_val:.0f})"
+                    else:
+                        para_durumu = f"Dengeli Akış ⚖️ (MFI:{mfi_val:.0f})"
+
+                    if is_sig_tahta:
+                        para_durumu += " | Sığ Tahta ⚠️"
+
+                    hacim_patlamasi_var = (hacim_oran >= 130) and (gunluk_degisim >= 4.0)
+
+                    skor = 50 
+                    if bugun_kapanis > sma_200: skor += 15
+                    else: 
+                        if hacim_patlamasi_var: skor -= 5
+                        else: skor -= 25
+                    
+                    ema_50_val = df_long['Close'].ewm(span=50).mean().iloc[-1]
+                    if bugun_kapanis > ema_50_val: skor += 10
+                    else: skor -= 15
+                    
+                    if hacim_oran >= 100 and obv.iloc[-1] > obv_ema.iloc[-1]: skor += 15
+                    else: skor -= 20
+                    
+                    if 35 <= rsi <= 55: skor += 10
+                    elif rsi > 70: skor -= 15
+                    
+                    if macd_serisi.iloc[-1] > macd_sinyal.iloc[-1]: skor += 10
+                    else: skor -= 10
+                    
+                    if (peg is not None and 0 < peg < 1.5): skor += 15
+                    else: skor -= 15
+                    
+                    if bugun_kapanis <= bb_mid: skor += 10
+                    elif bugun_kapanis >= bb_ust and rsi >= 65: skor -= 15
+
+                    if is_sig_tahta:
+                        skor -= 20
+
+                    if skor >= 70: skor_etiket = f"{skor} Puan (Güçlü 🟢)"
+                    elif skor >= 50: skor_etiket = f"{skor} Puan (Nötr ⚖️)"
+                    else: skor_etiket = f"{skor} Puan (Cezalı/Riskli 🔴)"
+
+                    swing_high = df_long['High'].tail(50).max()
+                    swing_low = df_long['Low'].tail(50).min()
+                    ema_50 = df_long['Close'].ewm(span=50).mean().iloc[-1]
+                    vwap_approx = (df_long['Close'] * df_long['Volume']).tail(20).sum() / (df_long['Volume'].tail(20).sum() + 1e-5)
+                    
+                    tr = pd.concat([df_long['High'] - df_long['Low'], (df_long['High'] - df_long['Close'].shift()).abs(), (df_long['Low'] - df_long['Close'].shift()).abs()], axis=1).max(axis=1)
+                    atr = tr[-14:].mean()
+                    if pd.isna(atr) or atr == 0: atr = bugun_kapanis * 0.02
+
+                    karma_destek = max([d for d in [swing_low, ema_50, swing_high - ((swing_high - swing_low) * 0.618), bugun_kapanis - (atr * 2)] if d < bugun_kapanis], default=bugun_kapanis - (atr * 1.5))
+                    karma_direnc = min([dir_val for dir_val in [swing_high, vwap_approx, swing_high - ((swing_high - swing_low) * 0.382), bb_ust] if dir_val > bugun_kapanis], default=bugun_kapanis + (atr * 2.5))
+
+                    trailing_stop = min(df_long['High'].rolling(22).max().iloc[-1] - (atr * 3), bugun_kapanis - (atr * 1.5))
+                    alinan_risk = max(bugun_kapanis - trailing_stop, atr * 1.0)
+                    tp1, tp2 = bugun_kapanis + (alinan_risk * 1.5), bugun_kapanis + (alinan_risk * 3.0)
+                    hibrit_tp = f"⚠️ Şişti: Kâr Al" if rsi >= 65 else f"TP1: {tp1:.2f} | TP2: {tp2:.2f}"
+
+                    ema_9_val = df_long['Close'].ewm(span=9).mean().iloc[-1]
+                    ema_21_val = df_long['Close'].ewm(span=21).mean().iloc[-1]
+                    breakout_kosulu = (bugun_kapanis >= karma_direnc) and (hacim_oran >= 120) and (ema_9_val > ema_21_val) and (uzun_vade_trend)
+
+                    sinyal = "Nötr (İzle) ⚖️"
+                    if breakout_kosulu:
+                        sinyal = "YÜKSELİŞ KIRILIMI 🚀"
+                        alim_firsati += 1
+                    elif bugun_kapanis > bb_ust and rsi >= 68: 
+                        sinyal = "KAR REALİZASYONU 🔴"
+                    elif bugun_kapanis <= bb_alt and rsi <= 35 and uzun_vade_trend and skor >= 50: 
+                        sinyal = "KUSURSUZ ALIM 🟢"
+                        alim_firsati += 1
+                    elif rsi <= 40 and uzun_vade_trend and skor >= 50: 
+                        sinyal = "KADEMELİ ALIM 🔵"
+                        alim_firsati += 1
+                    elif hacim_patlamasi_var and rsi < 50:
+                        sinyal = "HACİMLİ TEPKİ 🟡"
+                    elif skor < 50 or (not uzun_vade_trend and rsi < 50): 
+                        sinyal = "UZAK DUR! 🛑"
+
+                    if uzun_vade_trend: 
+                        boga_sayisi += 1
+
+                    # Sadece Sinyal Verenlerde 1H Mikro Teyit (Hızı Korumak İçin)
+                    mikro_teyit = "-"
+                    if "ALIM" in sinyal or "TEPKİ" in sinyal or "KIRILIM" in sinyal:
+                        mikro_teyit = "⏳ Tetik Bekleniyor"
+                        try:
+                            stk_1h = yf.Ticker(ticker, session=session)
+                            df_1h = stk_1h.history(period="5d", interval="1h", prepost=True)
+                            if not df_1h.empty and len(df_1h) >= 20:
+                                c_1h = df_1h['Close']
+                                v_1h = df_1h['Volume']
+                                o_1h = df_1h['Open']
+                                h_1h = df_1h['High']
+                                l_1h = df_1h['Low']
+                                
+                                bb_mid_1h = c_1h.rolling(20).mean()
+                                bb_std_1h = c_1h.rolling(20).std()
+                                bb_low_1h = bb_mid_1h - (bb_std_1h * 2)
+                                
+                                delta_1h = c_1h.diff()
+                                rs_1h = delta_1h.where(delta_1h>0, 0.0).ewm(alpha=1/14, adjust=False).mean() / (-delta_1h.where(delta_1h<0, 0.0).ewm(alpha=1/14, adjust=False).mean() + 1e-5)
+                                rsi_1h = 100 - (100 / (1 + rs_1h))
+                                
+                                macd_l_1h = c_1h.ewm(span=12).mean() - c_1h.ewm(span=26).mean()
+                                macd_s_1h = macd_l_1h.ewm(span=9).mean()
+                                macd_hist_1h = macd_l_1h - macd_s_1h
+                                
+                                vol_sma_1h = v_1h.rolling(20).mean()
+                                
+                                acilis_1h = o_1h.iloc[-1]
+                                kapanis_1h = c_1h.iloc[-1]
+                                en_yuksek_1h = h_1h.iloc[-1]
+                                en_dusuk_1h = l_1h.iloc[-1]
+                                bb_alt_val = bb_low_1h.iloc[-1]
+                                
+                                govde = abs(kapanis_1h - acilis_1h)
+                                alt_fitil = min(acilis_1h, kapanis_1h) - en_dusuk_1h
+                                ust_fitil = en_yuksek_1h - max(acilis_1h, kapanis_1h)
+                                
+                                kural_1_breakout = (c_1h.iloc[-1] > bb_mid_1h.iloc[-1]) and (v_1h.iloc[-1] > 1.5 * vol_sma_1h.iloc[-1])
+                                is_pin_bar = (alt_fitil > (govde * 2)) and (alt_fitil > ust_fitil)
+                                bb_altina_igne = (en_dusuk_1h < bb_alt_val)
+                                kural_2_pin_bar = is_pin_bar and bb_altina_igne
+                                kural_3_rsi_dip = (rsi_1h.iloc[-2] < 38) and (rsi_1h.iloc[-1] >= 38) and (macd_hist_1h.iloc[-1] > macd_hist_1h.iloc[-2])
+                                
+                                if kural_1_breakout: mikro_teyit = "🔥 TETİK AKTİF: Hacimli Kırılım"
+                                elif kural_2_pin_bar: mikro_teyit = "🔥 TETİK AKTİF: Destek Reddi / Pin Bar"
+                                elif kural_3_rsi_dip: mikro_teyit = "🔥 TETİK AKTİF: RSI Dip + MACD Tepkisi"
+                        except:
+                            pass
+
+                    lot = int((bist_kasa if is_bist else nasdaq_kasa) * risk_orani / alinan_risk) if ("ALIM" in sinyal or "TEPKİ" in sinyal or "KIRILIM" in sinyal) else 0
+
+                    gecici_sonuclar.append({
+                        "Varlık": ticker,
+                        "Fiyat": fiyat_str,
+                        "Görec. Güç (Sektör)": gorec_guc_str,
+                        "7'li Cezalı Skor": skor_etiket,
+                        "Para Akışı (OBV/MFI)": para_durumu,
+                        "Temel Veri (PEG/FK)": temel_durum,
+                        "Nihai Sinyal": sinyal,
+                        "↓ Zamanlama (1H Teyit)": mikro_teyit,
+                        "Karma Destek": f"{karma_destek:.2f}",
+                        "Karma Direnç": f"{karma_direnc:.2f}",
+                        "Süren Stop": f"{trailing_stop:.2f}",
+                        "Hibrit Kâr Al (TP)": hibrit_tp,
+                        "Önerilen Lot": f"{lot} Adet" if lot > 0 else "0",
+                        "is_firsat": ("ALIM" in sinyal or "TEPKİ" in sinyal or "KIRILIM" in sinyal)
+                    })
+                except Exception:
+                    basarisi_cekilemeyen.append(ticker)
+
+            st.session_state.sonuclar = gecici_sonuclar
+            st.session_state.basarisiz_taramalar = basarisi_cekilemeyen
+            st.session_state.boga_sayisi = boga_sayisi
+            st.session_state.alim_firsati = alim_firsati
+            st.session_state.tarama_durumu = True
 
 if st.session_state.tarama_durumu:
     if st.session_state.basarisiz_taramalar:
@@ -632,16 +635,18 @@ if st.session_state.tarama_durumu:
             </div>
             """, unsafe_allow_html=True)
         
-        # --- SADECE ALIMLARI GÖSTER CHECKBOX'I ---
+        # --- SADECE ALIMLARI GÖSTER CHECKBOX'I GERİ EKLENDİ ---
         sadece_alim_goster = st.checkbox("🎯 Sadece Alım Fırsatlarını, Kırılımları & Tepkileri Göster", value=False)
         
         df_sonuc = pd.DataFrame(st.session_state.sonuclar)
         if "is_firsat" in df_sonuc.columns:
+            # Checkbox durumuna göre filtrele
             if sadece_alim_goster:
                 df_sonuc = df_sonuc[df_sonuc["is_firsat"] == True]
+            # Artık is_firsat sütununa tabloda ihtiyacımız yok, silebiliriz
             df_sonuc = df_sonuc.drop(columns=["is_firsat"])
         
-        # --- TABLO RENKLENDİRME ---
+        # --- TABLO RENKLENDİRME (ORİJİNAL) ---
         def color_df(row):
             c = ''
             if '🟢' in str(row['Nihai Sinyal']) or '🔵' in str(row['Nihai Sinyal']) or '🚀' in str(row['Nihai Sinyal']): c = 'background-color: rgba(39, 174, 96, 0.15)'
@@ -654,7 +659,7 @@ if st.session_state.tarama_durumu:
             st.dataframe(df_sonuc.style.apply(color_df, axis=1), use_container_width=True, height=350)
             
             # ==========================================
-            # --- DETAYLI ÇOKLU TEKNİK GRAFİK PANELİ ---
+            # --- DETAYLI ÇOKLU TEKNİK GRAFİK PANELİ GERİ EKLENDİ ---
             # ==========================================
             st.markdown("### 📊 Detaylı Teknik Analiz & Gösterge Paneli")
             
@@ -668,6 +673,7 @@ if st.session_state.tarama_durumu:
                     df_grafik = stk_detay.history(period="2y").dropna(subset=['Open', 'High', 'Low', 'Close', 'Volume'])
                     
                     if not df_grafik.empty:
+                        # Canlı fiyat güncellemesi (ABD Hisseleri)
                         if not is_detay_bist:
                             try:
                                 df_live_detay = stk_detay.history(period="1d", interval="1m", prepost=True)
@@ -700,6 +706,7 @@ if st.session_state.tarama_durumu:
                         neg_f = pd.Series(np.where(typ_p < typ_p.shift(1), raw_mf, 0))
                         df_grafik['MFI'] = 100 - (100 / (1 + (pos_f.rolling(14).sum() / (neg_f.rolling(14).sum() + 1e-5))))
 
+                        # DETAYLI GRAFİK ÇİZİMİ
                         fig = make_subplots(rows=4, cols=1, shared_xaxes=True, vertical_spacing=0.03, row_heights=[0.5, 0.15, 0.15, 0.20])
 
                         fig.add_trace(go.Candlestick(x=df_grafik.index, open=df_grafik['Open'], high=df_grafik['High'], low=df_grafik['Low'], close=df_grafik['Close'], name='Fiyat'), row=1, col=1)
@@ -728,6 +735,7 @@ if st.session_state.tarama_durumu:
                         fig.update_layout(template='plotly_dark', title=f"{secilen_detay_hisse} - Kapsamlı Teknik & Momentum Paneli", xaxis_rangeslider_visible=False, height=900, margin=dict(l=10, r=10, t=40, b=10), legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1))
                         st.plotly_chart(fig, use_container_width=True)
 
+                        # --- DETAYLI GÖSTERGE METRİKLERİ ---
                         st.markdown(f"### 📋 {secilen_detay_hisse} - Anlık Teknik Göstergeler ve Algoritmik Yorum")
 
                         clean_close = df_grafik['Close'].dropna()
@@ -759,6 +767,7 @@ if st.session_state.tarama_durumu:
                         n3.metric("MFI (Para Akışı)", f"{son_mfi:.2f}")
                         n4.metric("MACD Hist", f"{son_macd_hist:.3f}")
 
+                        # --- SÖZEL ANALİZ ---
                         onceki_ema9 = df_grafik['EMA9'].iloc[-2] if len(df_grafik) > 1 else 0
                         onceki_ema21 = df_grafik['EMA21'].iloc[-2] if len(df_grafik) > 1 else 0
                         
@@ -802,6 +811,7 @@ if st.session_state.tarama_durumu:
                         </div>
                         ''', unsafe_allow_html=True)
                         
+                        # --- AKSİYON SENTEZ KUTUSU ---
                         hisse_satiri = pd.DataFrame(st.session_state.sonuclar)
                         hisse_satiri = hisse_satiri[hisse_satiri["Varlık"] == secilen_detay_hisse]
                         anlik_sinyal = hisse_satiri["Nihai Sinyal"].values[0] if not hisse_satiri.empty else "Nötr (İzle) ⚖️"
