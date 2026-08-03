@@ -9,13 +9,31 @@ from firebase_admin import credentials, firestore, auth
 import extra_streamlit_components as stx
 import time
 import requests
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 
-# --- YFINANCE İÇİN ÖZEL OTURUM (RATE LIMIT KORUMASI) ---
+# --- YFINANCE İÇİN GÜÇLENDİRİLMİŞ OTURUM (RETRY & WAF KORUMASI) ---
 session = requests.Session()
+
+# 429 (Rate Limit) ve sunucu hatalarında otomatik bekle ve tekrar dene
+retry = Retry(
+    total=5, 
+    backoff_factor=1.5, 
+    status_forcelist=[429, 403, 500, 502, 503, 504]
+)
+adapter = HTTPAdapter(max_retries=retry)
+session.mount('http://', adapter)
+session.mount('https://', adapter)
+
+# Tarayıcı taklidini (Spoofing) maksimuma çıkar
 session.headers.update({
-    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36'
+    'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
+    'Accept-Language': 'en-US,en;q=0.9',
+    'Connection': 'keep-alive',
+    'Upgrade-Insecure-Requests': '1'
 })
 
 # --- 1. SAYFA YAPILANDIRMASI ---
@@ -396,7 +414,7 @@ if tarama_tetiklendi:
                 # ------------------------------------
                 
                 try:
-                    time.sleep(1.8) 
+                    time.sleep(1.0) # Otomatik tekrar deneme aktif olduğu için süreyi daha makul bir seviyeye indirdik. 
                     stock = yf.Ticker(ticker, session=session)
                     df_long = stock.history(period="1y").dropna(subset=['Open', 'High', 'Low', 'Close', 'Volume'])
                     if df_long.empty or len(df_long) < 50: 
