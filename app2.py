@@ -319,7 +319,7 @@ def hisse_sil_callback():
         st.session_state.sil_hisse_input_field = ""
 
 st.title("📈 Hibrit Portföy Komuta Merkezi")
-st.markdown("**Mod:** Derin Analiz (Cezalı Skor + Hacim Patlaması Esnetmesi + Sığ Tahta Koruması + Düzeltilmiş Para Akışı + Breakout Kırılımı)")
+st.markdown("**Mod:** Derin Analiz (Cezalı Skor + Hacim Patlaması Esnetmesi + Sığ Tahta Koruması + Düzeltilmiş Para Akışı + Breakout Kırılımı + Hibrit Kararlı Veri Akışı)")
 st.markdown("---")
 
 st.sidebar.header("⚙️ Kontrol Paneli")
@@ -363,7 +363,7 @@ if tarama_tetiklendi:
     if not selected_tickers:
         st.sidebar.warning("⚠️ Lütfen taranacak en az bir varlık seçin!")
     else:
-        with st.spinner("Hedge-Fund Katmanları İşleniyor (Güvenli İstek Aralığı & Özel Kullanıcı Oturumu Modu)..."):
+        with st.spinner("Hedge-Fund Katmanları & Hibrit Kararlı Veri Akışı İşleniyor..."):
             
             progress_text = st.empty()
             progress_bar = st.progress(0.0)
@@ -379,26 +379,61 @@ if tarama_tetiklendi:
                 "XUSIN.IS": "Sanayi", "XULAS.IS": "Ulaşım", "XHOLD.IS": "Holding"
             }
             for sembol in sektor_referanslari.keys():
-                try:
-                    df_sek = yf.Ticker(sembol, session=session).history(period="2mo").dropna(subset=['Close'])
-                    if len(df_sek) >= 21:
-                        sektor_getirileri[sembol] = ((df_sek['Close'].iloc[-1] - df_sek['Close'].iloc[-21]) / df_sek['Close'].iloc[-21]) * 100
-                except:
-                    sektor_getirileri[sembol] = 0
+                for deneme in range(2):
+                    try:
+                        time.sleep(1.0)
+                        df_sek = yf.Ticker(sembol, session=session).history(period="2mo", timeout=10).dropna(subset=['Close'])
+                        if len(df_sek) >= 21:
+                            sektor_getirileri[sembol] = ((df_sek['Close'].iloc[-1] - df_sek['Close'].iloc[-21]) / df_sek['Close'].iloc[-21]) * 100
+                            break
+                    except:
+                        time.sleep(1.5)
+                        sektor_getirileri[sembol] = 0
             
+            # 1. Önce toplu indirme (yf.download) ile hızlı akış denemesi yapılır
+            df_toplu = pd.DataFrame()
+            try:
+                time.sleep(1.0)
+                df_toplu = yf.download(selected_tickers, period="1y", group_by="ticker", auto_adjust=True, session=session, timeout=20)
+            except:
+                df_toplu = pd.DataFrame()
+
             for i, ticker in enumerate(selected_tickers):
                 ilerleme_yuzdesi = (i + 1) / total_tickers
                 progress_text.markdown(f"**⏳ Taranıyor (%{int(ilerleme_yuzdesi * 100)}):** `{ticker}`")
                 progress_bar.progress(ilerleme_yuzdesi)
                 
+                df_long = pd.DataFrame()
+                
+                # Toplu indirme sonucundan veri ayıklama denemesi
+                if not df_toplu.empty:
+                    try:
+                        if len(selected_tickers) == 1:
+                            df_long = df_toplu.dropna(subset=['Open', 'High', 'Low', 'Close', 'Volume'])
+                        else:
+                            if ticker in df_toplu.columns.levels[0]:
+                                df_long = df_toplu[ticker].dropna(subset=['Open', 'High', 'Low', 'Close', 'Volume'])
+                    except:
+                        df_long = pd.DataFrame()
+
+                # Eğer toplu indirmeden veri alınamadıysa veya eksikse, hibrit mimari gereği tekil olarak try-except ve 2 sn gecikmeyle (retry) çekilir
+                if df_long.empty or len(df_long) < 50:
+                    for deneme in range(3):
+                        try:
+                            time.sleep(2.0 + (deneme * 0.5)) # 429 Rate Limit ve tıkanıklıkları önlemek için güvenli gecikme
+                            stock_obj = yf.Ticker(ticker, session=session)
+                            df_long = stock_obj.history(period="1y", timeout=15).dropna(subset=['Open', 'High', 'Low', 'Close', 'Volume'])
+                            if not df_long.empty and len(df_long) >= 50:
+                                break
+                        except Exception:
+                            time.sleep(2.0)
+
+                if df_long.empty or len(df_long) < 50:
+                    basarisi_cekilemeyen_varliklar.append(ticker)
+                    continue
+                
                 try:
-                    time.sleep(0.75) 
                     stock = yf.Ticker(ticker, session=session)
-                    df_long = stock.history(period="1y").dropna(subset=['Open', 'High', 'Low', 'Close', 'Volume'])
-                    if df_long.empty or len(df_long) < 50: 
-                        basarisi_cekilemeyen_varliklar.append(ticker)
-                        continue
-                    
                     is_bist = ".IS" in ticker
                     para_birimi = "TL" if is_bist else "$"
                     
@@ -422,7 +457,12 @@ if tarama_tetiklendi:
                     sig_tahta_esik = 50_000_000 if is_bist else 5_000_000 
                     is_sig_tahta = ortalama_ciro_tutar < sig_tahta_esik
 
-                    info = stock.info if hasattr(stock, 'info') else {}
+                    info = {}
+                    try:
+                        info = stock.info if hasattr(stock, 'info') else {}
+                    except:
+                        info = {}
+
                     fk = info.get('trailingPE', info.get('forwardPE', None))
                     peg = info.get('trailingPegRatio', info.get('pegRatio', None))
                     temel_durum = "Nötr ⚖️"
@@ -674,7 +714,7 @@ if st.session_state.tarama_durumu:
                 <i>Skor Aralıkları: 70+ Güçlü 🟢 | 50-69 Nötr ⚖️ | 50 Altı Cezalı 🔴</i><br><br>
                 <hr style="border-color: #444;">
                 <b>📈 2. Sektörel Göreceli Güç ve Hacim (Vol) Oranı</b><br>
-                • <b>Görec. Güç:</b> Hissenin son 1 aylık getirisinin ilgili ana sektöre (Banka, Sanayi, Ulaşım, Teknoloji vb.) kıyasla farkını gösterir.<br>
+                • <b>Görec. Güç:</b> Hissenin son 1 aylık getirisiningili ana sektöre (Banka, Sanayi, Ulaşım, Teknoloji vb.) kıyasla farkını gösterir.<br>
                 • <b>Vol:</b> O gün gerçekleşen hacmin son 20 günlük ortalama hacme oranıdır.<br><br>
                 <hr style="border-color: #444;">
                 <b>🛡️ 3. Karma Destek & Direnç Motoru & Breakout</b><br>
