@@ -268,7 +268,7 @@ def hisse_sil_callback():
         st.session_state.sil_hisse_input_field = ""
 
 st.title("📈 Hibrit Portföy Komuta Merkezi")
-st.markdown("**Mod:** Ultra Hızlı Toplu İndirme Motoru + Güvenli FK/PEG Hesaplama")
+st.markdown("**Mod:** Anti-Bloke Güvenli İndirme Motoru + FK/PEG Analizi")
 st.markdown("---")
 
 st.sidebar.header("⚙️ Kontrol Paneli")
@@ -312,64 +312,40 @@ if tarama_tetiklendi:
     if not selected_tickers:
         st.sidebar.warning("⚠️ Lütfen taranacak en az bir varlık seçin!")
     else:
-        # --- KUSURSUZ İLERLEME VE KORUMALI MOTOR ---
+        # --- CANLI YÜZDE GÖSTERGELİ ANTI-BLOKE MOTORU ---
         progress_text = st.empty()
         progress_bar = st.progress(0.0)
         total_tickers = len(selected_tickers)
         
-        progress_text.markdown(f"**⏳ Veriler Hazırlanıyor (%5):** Yahoo Finance toplu veri isteği gönderiliyor...")
+        progress_text.markdown(f"**⏳ Piyasalar Taranıyor (%5):** Sektör referansları yükleniyor...")
         progress_bar.progress(0.05)
 
         gecici_sonuclar = []
         basarisi_cekilemeyen = []
         boga_sayisi = alim_firsati = 0
         
-        # 1. ADIM: TOPLU VERİ İNDİRME (Anti-Timeout Korumalı)
-        try:
-            data = yf.download(selected_tickers, period="1y", interval="1d", group_by="ticker", auto_adjust=True, progress=False, session=session)
-        except Exception:
-            data = pd.DataFrame()
-
-        progress_text.markdown(f"**⏳ Veriler Analiz Ediliyor (%30):** Sektörel güçler hesaplanıyor...")
-        progress_bar.progress(0.30)
-
-        # Sektörel Göreceli Güç İçin Sektör Verileri
+        # Sektörel Göreceli Güç İçin Sektör Verileri (Güvenli Çekim)
         sektor_getirileri = {}
         sektor_referanslari = {
             "XU100.IS": "BIST100", "^IXIC": "NASDAQ", "XBANK.IS": "Banka", 
             "XUSIN.IS": "Sanayi", "XULAS.IS": "Ulaşım", "XHOLD.IS": "Holding"
         }
-        try:
-            df_sek = yf.download(list(sektor_referanslari.keys()), period="2mo", interval="1d", group_by="ticker", progress=False, session=session)
-            for sembol in sektor_referanslari.keys():
-                try:
-                    if len(sektor_referanslari.keys()) == 1:
-                        s_seri = df_sek['Close'].dropna()
-                    else:
-                        if sembol in df_sek.columns.levels[0]:
-                            s_seri = df_sek[sembol]['Close'].dropna()
-                        else:
-                            continue
-                    if len(s_seri) >= 21:
-                        sektor_getirileri[sembol] = ((s_seri.iloc[-1] - s_seri.iloc[-21]) / s_seri.iloc[-21]) * 100
-                except:
-                    sektor_getirileri[sembol] = 0
-        except:
-            pass
+        for sek_sym in sektor_referanslari.keys():
+            try:
+                df_s = yf.Ticker(sek_sym, session=session).history(period="2mo")
+                if not df_s.empty and len(df_s) >= 21:
+                    sektor_getirileri[sek_sym] = ((df_s['Close'].iloc[-1] - df_s['Close'].iloc[-21]) / df_s['Close'].iloc[-21]) * 100
+            except:
+                sektor_getirileri[sek_sym] = 0
 
-        progress_text.markdown(f"**⏳ Fonksiyonlar Tamamlanıyor (%50):** FK/PEG ve teknik veriler işleniyor...")
-        progress_bar.progress(0.50)
+        progress_text.markdown(f"**⏳ Varlıklar Teker Teker Analiz Ediliyor (%20)...**")
+        progress_bar.progress(0.20)
 
-        # 2. ADIM: İNDİRİLEN VERİYİ GÜVENLİ İŞLEME
+        # 3. ADIM: HİSSELERİ GÜVENLİ VE KESİNTİSİZ TEK TEK İŞLEME (Bloklanmayı %100 Önler)
         for i, ticker in enumerate(selected_tickers):
             try:
-                if len(selected_tickers) == 1:
-                    df_long = data.dropna(subset=['Open', 'High', 'Low', 'Close', 'Volume'])
-                else:
-                    if ticker not in data.columns.levels[0]:
-                        basarisi_cekilemeyen.append(ticker)
-                        continue
-                    df_long = data[ticker].dropna(subset=['Open', 'High', 'Low', 'Close', 'Volume'])
+                stk = yf.Ticker(ticker, session=session)
+                df_long = stk.history(period="1y").dropna(subset=['Open', 'High', 'Low', 'Close', 'Volume'])
                 
                 if df_long.empty or len(df_long) < 50:
                     basarisi_cekilemeyen.append(ticker)
@@ -391,8 +367,7 @@ if tarama_tetiklendi:
                 # FK ve PEG Korumalı Hesaplama
                 fk = None; peg = None
                 try:
-                    stk_temp = yf.Ticker(ticker, session=session)
-                    info = stk_temp.info
+                    info = stk.info
                     fk = info.get('trailingPE', info.get('forwardPE', None))
                     peg = info.get('trailingPegRatio', info.get('pegRatio', None))
                 except:
@@ -533,8 +508,7 @@ if tarama_tetiklendi:
                 mikro_teyit = "⏳ Tetik Bekleniyor"
                 if "ALIM" in sinyal or "TEPKİ" in sinyal or "KIRILIM" in sinyal:
                     try:
-                        stk_1h = yf.Ticker(ticker, session=session)
-                        df_1h = stk_1h.history(period="5d", interval="1h", prepost=True)
+                        df_1h = stk.history(period="5d", interval="1h", prepost=True)
                         if not df_1h.empty and len(df_1h) >= 20:
                             c_1h, v_1h, o_1h, l_1h = df_1h['Close'], df_1h['Volume'], df_1h['Open'], df_1h['Low']
                             bb_mid_1h = c_1h.rolling(20).mean()
@@ -581,9 +555,10 @@ if tarama_tetiklendi:
                 basarisi_cekilemeyen.append(ticker)
 
             # İlerleme Yüzdesi Güncelleme
-            yuzde = int(50 + ((i + 1) / total_tickers) * 50)
-            progress_text.markdown(f"**⚡ Fonksiyonlar Tamamlanıyor (%{yuzde}):** İşlenen Hisse: `{i+1}/{total_tickers}` (`{ticker}`)")
+            yuzde = int(20 + ((i + 1) / total_tickers) * 80)
+            progress_text.markdown(f"**⚡ Anti-Bloke Motoru Çalışıyor (%{yuzde}):** İşlenen Hisse: `{i+1}/{total_tickers}` (`{ticker}`)")
             progress_bar.progress(yuzde / 100.0)
+            time.sleep(0.05) # Yahoo güvenlik gecikmesi (Bloklanmayı önler)
 
         progress_text.empty()
         progress_bar.empty()
