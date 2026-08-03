@@ -268,7 +268,7 @@ def hisse_sil_callback():
         st.session_state.sil_hisse_input_field = ""
 
 st.title("📈 Hibrit Portföy Komuta Merkezi")
-st.markdown("**Mod:** Ultra Hızlı Toplu İndirme Motoru + Canlı İlerleme Göstergesi (Anti-Timeout)")
+st.markdown("**Mod:** Ultra Hızlı Toplu İndirme Motoru + Güvenli FK/PEG Hesaplama")
 st.markdown("---")
 
 st.sidebar.header("⚙️ Kontrol Paneli")
@@ -312,7 +312,7 @@ if tarama_tetiklendi:
     if not selected_tickers:
         st.sidebar.warning("⚠️ Lütfen taranacak en az bir varlık seçin!")
     else:
-        # --- CANLI YÜZDE GÖSTERGELİ İLERLEME MOTORU (BLOKE OLMAYAN) ---
+        # --- KUSURSUZ İLERLEME VE KORUMALI MOTOR ---
         progress_text = st.empty()
         progress_bar = st.progress(0.0)
         total_tickers = len(selected_tickers)
@@ -324,7 +324,7 @@ if tarama_tetiklendi:
         basarisi_cekilemeyen = []
         boga_sayisi = alim_firsati = 0
         
-        # 1. ADIM: TOPLU VERİ İNDİRME (Batch Download)
+        # 1. ADIM: TOPLU VERİ İNDİRME (Anti-Timeout Korumalı)
         try:
             data = yf.download(selected_tickers, period="1y", interval="1d", group_by="ticker", auto_adjust=True, progress=False, session=session)
         except Exception:
@@ -357,10 +357,10 @@ if tarama_tetiklendi:
         except:
             pass
 
-        progress_text.markdown(f"**⏳ Fonksiyonlar Tamamlanıyor (%50):** Teknik göstergeler işleniyor...")
+        progress_text.markdown(f"**⏳ Fonksiyonlar Tamamlanıyor (%50):** FK/PEG ve teknik veriler işleniyor...")
         progress_bar.progress(0.50)
 
-        # 2. ADIM: İNDİRİLEN VERİYİ HIZLICA İŞLEME (Info çağrısı kaldırıldı, donma önlendi)
+        # 2. ADIM: İNDİRİLEN VERİYİ GÜVENLİ İŞLEME
         for i, ticker in enumerate(selected_tickers):
             try:
                 if len(selected_tickers) == 1:
@@ -388,7 +388,23 @@ if tarama_tetiklendi:
                 sig_tahta_esik = 50_000_000 if is_bist else 5_000_000 
                 is_sig_tahta = ortalama_ciro_tutar < sig_tahta_esik
 
-                temel_durum = "Standart Teknik 🌟"
+                # FK ve PEG Korumalı Hesaplama
+                fk = None; peg = None
+                try:
+                    stk_temp = yf.Ticker(ticker, session=session)
+                    info = stk_temp.info
+                    fk = info.get('trailingPE', info.get('forwardPE', None))
+                    peg = info.get('trailingPegRatio', info.get('pegRatio', None))
+                except:
+                    pass
+                
+                temel_durum = "Nötr ⚖️"
+                if peg is not None and peg > 0:
+                    if peg < 1.0 and (fk is not None and fk > 0): temel_durum = f"Büyüyen Ucuz 🌟 (PEG:{peg:.1f})"
+                    elif peg > 2.0: temel_durum = f"Pahalı Büyüme ⚠️ (PEG:{peg:.1f})"
+                elif fk is not None:
+                    if fk > 50: temel_durum = "Aşırı Pahalı ⚠️"
+                    elif 0 < fk < 15: temel_durum = "Ucuz (Klasik) 🌟"
 
                 son_1_ay_df = df_long.tail(21)
                 hisse_1m_getiri = ((son_1_ay_df['Close'].iloc[-1] - son_1_ay_df['Close'].iloc[0]) / son_1_ay_df['Close'].iloc[0]) * 100
@@ -461,6 +477,9 @@ if tarama_tetiklendi:
                 if macd_serisi.iloc[-1] > macd_sinyal.iloc[-1]: skor += 10
                 else: skor -= 10
                 
+                if (peg is not None and 0 < peg < 1.5): skor += 15
+                else: skor -= 15
+                
                 if bugun_kapanis <= bb_mid: skor += 10
                 elif bugun_kapanis >= bb_ust and rsi >= 65: skor -= 15
 
@@ -512,6 +531,33 @@ if tarama_tetiklendi:
                     boga_sayisi += 1
 
                 mikro_teyit = "⏳ Tetik Bekleniyor"
+                if "ALIM" in sinyal or "TEPKİ" in sinyal or "KIRILIM" in sinyal:
+                    try:
+                        stk_1h = yf.Ticker(ticker, session=session)
+                        df_1h = stk_1h.history(period="5d", interval="1h", prepost=True)
+                        if not df_1h.empty and len(df_1h) >= 20:
+                            c_1h, v_1h, o_1h, l_1h = df_1h['Close'], df_1h['Volume'], df_1h['Open'], df_1h['Low']
+                            bb_mid_1h = c_1h.rolling(20).mean()
+                            bb_std_1h = c_1h.rolling(20).std()
+                            bb_low_1h = bb_mid_1h - (bb_std_1h * 2)
+                            delta_1h = c_1h.diff()
+                            rs_1h = delta_1h.where(delta_1h>0, 0.0).ewm(alpha=1/14, adjust=False).mean() / (-delta_1h.where(delta_1h<0, 0.0).ewm(alpha=1/14, adjust=False).mean() + 1e-5)
+                            rsi_1h = 100 - (100 / (1 + rs_1h))
+                            macd_l_1h = c_1h.ewm(span=12).mean() - c_1h.ewm(span=26).mean()
+                            macd_hist_1h = macd_l_1h - macd_l_1h.ewm(span=9).mean()
+                            vol_sma_1h = v_1h.rolling(20).mean()
+                            
+                            govde = abs(c_1h.iloc[-1] - o_1h.iloc[-1])
+                            alt_fitil = min(o_1h.iloc[-1], c_1h.iloc[-1]) - l_1h.iloc[-1]
+                            
+                            if (c_1h.iloc[-1] > bb_mid_1h.iloc[-1]) and (v_1h.iloc[-1] > 1.5 * vol_sma_1h.iloc[-1]):
+                                mikro_teyit = "🔥 TETİK AKTİF: Hacimli Kırılım"
+                            elif (alt_fitil > (govde * 2)) and (l_1h.iloc[-1] < bb_low_1h.iloc[-1]):
+                                mikro_teyit = "🔥 TETİK AKTİF: Destek Reddi / Pin Bar"
+                            elif (rsi_1h.iloc[-2] < 38) and (rsi_1h.iloc[-1] >= 38) and (macd_hist_1h.iloc[-1] > macd_hist_1h.iloc[-2]):
+                                mikro_teyit = "🔥 TETİK AKTİF: RSI Dip + MACD Tepkisi"
+                    except:
+                        pass
 
                 lot = int((bist_kasa if is_bist else nasdaq_kasa) * risk_orani / alinan_risk) if ("ALIM" in sinyal or "TEPKİ" in sinyal or "KIRILIM" in sinyal) else 0
 
@@ -566,8 +612,18 @@ if st.session_state.tarama_durumu:
             st.markdown("""
             <div class="info-box">
                 <b>🧠 1. Cezalı & Ödüllü 7'li Skorlama Sistemi (50 Tabanlı)</b><br>
-                Sistem <b>50 Puan nötr tabanla</b> başlar, riskli durumlarda cezalar keser. Uzun vade trend, kısa vade trend, momentum, MACD teyidi gibi kriterler aranır.<br>
-                <i>Skor Aralıkları: 70+ Güçlü 🟢 | 50-69 Nötr ⚖️ | 50 Altı Cezalı 🔴</i>
+                Sistem <b>50 Puan nötr tabanla</b> başlar, riskli durumlarda cezalar keser. Uzun vade trend, kısa vade trend, momentum, MACD teyidi, temel kalite gibi kriterler aranır.<br>
+                <i>Skor Aralıkları: 70+ Güçlü 🟢 | 50-69 Nötr ⚖️ | 50 Altı Cezalı 🔴</i><br><br>
+                <hr style="border-color: #444;">
+                <b>📈 2. Sektörel Göreceli Güç ve Hacim (Vol) Oranı</b><br>
+                • <b>Görec. Güç:</b> Hissenin 1 aylık getirisinin sektörüne (Banka, Sanayi vs.) kıyasla farkıdır.<br>
+                • <b>Vol:</b> O günkü hacmin, son 20 günlük ortalamaya oranıdır.<br><br>
+                <hr style="border-color: #444;">
+                <b>🛡️ 3. Karma Destek & Direnç Motoru & Breakout</b><br>
+                Fiyat teknik bir sentez direncini (Yerel Tepe+VWAP+Fib) hacimle kırdığında <b>YÜKSELİŞ KIRILIMI 🚀</b> sinyali üretilir.<br><br>
+                <hr style="border-color: #444;">
+                <b>🎯 4. Hibrit 1H Tetik Motoru & Hacimli Tepki (Akıllı Onay)</b><br>
+                Alım sinyali veren varlıklarda saatlik muma bakılarak hacimli kırılım, destek reddi (pin bar) veya RSI dip dönüşü aranır. Şart sağlanırsa <b>"🔥 TETİK AKTİF"</b> uyarısı yakar.
             </div>
             """, unsafe_allow_html=True)
         
