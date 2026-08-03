@@ -396,7 +396,7 @@ if tarama_tetiklendi:
                 # ------------------------------------
                 
                 try:
-                    time.sleep(0.88) 
+                    time.sleep(1.8) 
                     stock = yf.Ticker(ticker, session=session)
                     df_long = stock.history(period="1y").dropna(subset=['Open', 'High', 'Low', 'Close', 'Volume'])
                     if df_long.empty or len(df_long) < 50: 
