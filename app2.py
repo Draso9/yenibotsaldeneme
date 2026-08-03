@@ -193,71 +193,6 @@ BIST_100 = list(set(BIST_30 + [
 
 ABD_HİSSELERİ = ["AAPL", "MSFT", "GOOGL", "AMZN", "META", "TSLA", "NVDA", "AMD", "INTC", "NFLX"]
 
-# --- PİOTROSKİ F-SKORU HESAPLAMA ---
-@st.cache_data(ttl=86400)
-def hesapla_f_skor_cached(ticker_name):
-    try:
-        stock = yf.Ticker(ticker_name, session=session)
-        bs = stock.balance_sheet
-        inc = stock.financials
-        cf = stock.cashflow
-        
-        if bs.empty or inc.empty or cf.empty: return None
-        if len(bs.columns) < 2 or len(inc.columns) < 2 or len(cf.columns) < 2: return None
-        
-        score = 0
-        def get_val(df, keys, col):
-            for k in keys:
-                if k in df.index: return df.loc[k].iloc[col]
-            return 0
-        
-        ni_c = get_val(inc, ['Net Income', 'Net Income Continuous Operations'], 0)
-        if ni_c > 0: score += 1
-        
-        ocf_c = get_val(cf, ['Operating Cash Flow', 'Total Cash From Operating Activities'], 0)
-        if ocf_c > 0: score += 1
-        
-        ta_c = get_val(bs, ['Total Assets'], 0)
-        roa_c = ni_c / ta_c if ta_c != 0 else 0
-        if roa_c > 0: score += 1
-        
-        if ocf_c > ni_c: score += 1
-        
-        ni_p = get_val(inc, ['Net Income', 'Net Income Continuous Operations'], 1)
-        ta_p = get_val(bs, ['Total Assets'], 1)
-        roa_p = ni_p / ta_p if ta_p != 0 else 0
-        if roa_c > roa_p: score += 1
-        
-        debt_c = get_val(bs, ['Long Term Debt', 'Total Debt'], 0)
-        debt_p = get_val(bs, ['Long Term Debt', 'Total Debt'], 1)
-        lev_c = debt_c / ta_c if ta_c != 0 else 0
-        lev_p = debt_p / ta_p if ta_p != 0 else 0
-        if lev_c < lev_p: score += 1
-        
-        ca_c = get_val(bs, ['Current Assets'], 0)
-        cl_c = get_val(bs, ['Current Liabilities'], 0)
-        cr_c = ca_c / cl_c if cl_c != 0 else 0
-        ca_p = get_val(bs, ['Current Assets'], 1)
-        cl_p = get_val(bs, ['Current Liabilities'], 1)
-        cr_p = ca_p / cl_p if cl_p != 0 else 0
-        if cr_c > cr_p: score += 1
-        
-        shares_c = get_val(bs, ['Ordinary Shares Number', 'Share Issued'], 0)
-        shares_p = get_val(bs, ['Ordinary Shares Number', 'Share Issued'], 1)
-        if shares_c <= shares_p and shares_c != 0: score += 1
-        
-        gp_c = get_val(inc, ['Gross Profit'], 0)
-        rev_c = get_val(inc, ['Total Revenue'], 0)
-        gm_c = gp_c / rev_c if rev_c != 0 else 0
-        gp_p = get_val(inc, ['Gross Profit'], 1)
-        rev_p = get_val(inc, ['Total Revenue'], 1)
-        gm_p = gp_p / rev_p if rev_p != 0 else 0
-        if gm_c > gm_p: score += 1
-        
-        return score
-    except:
-        return None
-
 # --- GİRİŞ / KAYIT EKRANI ---
 if st.session_state.user_email is None:
     st.title("🔐 Hibrit Portföy Komuta Merkezi")
@@ -429,6 +364,13 @@ if tarama_tetiklendi:
         st.sidebar.warning("⚠️ Lütfen taranacak en az bir varlık seçin!")
     else:
         with st.spinner("Hedge-Fund Katmanları İşleniyor (Güvenli İstek Aralığı & Özel Kullanıcı Oturumu Modu)..."):
+            
+            # --- YENİ EKLENEN İLERLEME ÇUBUĞU BÖLÜMÜ ---
+            progress_text = st.empty()
+            progress_bar = st.progress(0.0)
+            total_tickers = len(selected_tickers)
+            # ------------------------------------------
+
             gecici_sonuclar = []
             basarisi_cekilemeyen_varliklar = []
             boga_sayisi = alim_firsati = 0
@@ -446,7 +388,13 @@ if tarama_tetiklendi:
                 except:
                     sektor_getirileri[sembol] = 0
             
-            for ticker in selected_tickers:
+            for i, ticker in enumerate(selected_tickers):
+                # --- İLERLEME ÇUBUĞU GÜNCELLEMESİ ---
+                ilerleme_yuzdesi = (i + 1) / total_tickers
+                progress_text.markdown(f"**⏳ Taranıyor (%{int(ilerleme_yuzdesi * 100)}):** `{ticker}`")
+                progress_bar.progress(ilerleme_yuzdesi)
+                # ------------------------------------
+                
                 try:
                     time.sleep(0.64) 
                     stock = yf.Ticker(ticker, session=session)
@@ -696,6 +644,10 @@ if tarama_tetiklendi:
                 except Exception:
                     basarisi_cekilemeyen_varliklar.append(ticker)
                     continue
+
+            # İşlem bitince yükleme çubuğu ekranını temizliyoruz
+            progress_text.empty()
+            progress_bar.empty()
 
             st.session_state.sonuclar = gecici_sonuclar
             st.session_state.basarisiz_taramalar = basarisi_cekilemeyen_varliklar
@@ -956,7 +908,7 @@ if st.session_state.tarama_durumu:
                             <b>🤖 Algoritmik Strateji ve Göstergelerin Sözel Analizi:</b><br><br>
                             • <b>1. Zamanlama (EMA 9-21 Kesişimi):</b> {yorum_kisa_vade}<br><br>
                             • <b>2. Volatilite (Bollinger Bantları):</b> {yorum_bb}<br><br>
-                            • <b>3. Trendin İvmesi (MACD):</b> {yorum_macd}<br><br>
+                            • <b>3. Trendin İvmesi (MACD):</b> {yorum_trend}<br><br>
                             • <b>4. Ana Resim (50 EMA & 200 SMA):</b> {yorum_trend}
                         </div>
                         ''', unsafe_allow_html=True)
