@@ -392,7 +392,7 @@ if tarama_tetiklendi:
                 progress_bar.progress(ilerleme_yuzdesi)
                 
                 try:
-                    time.sleep(1.8) 
+                    time.sleep(0.75) 
                     stock = yf.Ticker(ticker, session=session)
                     df_long = stock.history(period="1y").dropna(subset=['Open', 'High', 'Low', 'Close', 'Volume'])
                     if df_long.empty or len(df_long) < 50: 
