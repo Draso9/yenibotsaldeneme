@@ -144,7 +144,7 @@ def aksiyon_rehberi_olustur(nihai_sinyal, teyit_1h):
     elif "HACİMLİ TEPKİ" in sinyal_metni:
         renk = "#f39c12"
         baslik = "🟡 HACİMLİ TEPKİ / İZLEME MODU"
-        ana_metin = "Varlık uzun vadeli trendin altında olsa da, normalin çok üzerinde hacim patlaması (%130+) ve güçlü günlük getiri üretti. Bu durum sıradan bir düşüş değil, olası bir dip tepkisi veya haber kaynaklı balina alımı olabilir. Katı ayı cezası esnetildi, ancak tam onay için saatlik kırılımlar beklenmelidir."
+        ana_metin = "Varlık uzun vadeli trendin altında olsa da, normalin normalin çok üzerinde hacim patlaması (%130+) ve güçlü günlük getiri üretti. Bu durum sıradan bir düşüş değil, olası bir dip tepkisi veya haber kaynaklı balina alımı olabilir. Katı ayı cezası esnetildi, ancak tam onay için saatlik kırılımlar beklenmelidir."
         alt_not = '<div style="margin-top: 15px; padding: 10px; background-color: rgba(243, 156, 18, 0.1); border-left: 4px solid #f39c12; border-radius: 4px;"><b>⚡ DİKKAT ÇEKEN HAREKET:</b> Aşırı satıştan güçlü hacimle dönüyor. Yakın takibe alınmalıdır.</div>'
 
     elif "UZAK DUR" in sinyal_metni:
@@ -500,8 +500,15 @@ if tarama_tetiklendi:
                     macd_serisi = df_long['Close'].ewm(span=12, adjust=False).mean() - df_long['Close'].ewm(span=26, adjust=False).mean()
                     macd_sinyal = macd_serisi.ewm(span=9, adjust=False).mean()
                     
+                    # --- HATA DÜZELTMESİ: SMA 200 NaN HATASI ---
                     sma_200 = df_long['Close'].rolling(200).mean().iloc[-1]
-                    uzun_vade_trend = bugun_kapanis > sma_200
+                    if pd.isna(sma_200):
+                        # Hisse yeniyse ve 200 günlük veri yoksa ana trend olarak 50 EMA referans alınır.
+                        ema_50_fallback = df_long['Close'].ewm(span=50).mean().iloc[-1]
+                        uzun_vade_trend = bugun_kapanis > ema_50_fallback if not pd.isna(ema_50_fallback) else True
+                    else:
+                        uzun_vade_trend = bugun_kapanis > sma_200
+
                     bb_mid = df_long['Close'].rolling(20).mean().iloc[-1]
                     bb_ust = (df_long['Close'].rolling(20).mean() + (df_long['Close'].rolling(20).std() * 2)).iloc[-1]
                     bb_alt = (df_long['Close'].rolling(20).mean() - (df_long['Close'].rolling(20).std() * 2)).iloc[-1]
@@ -530,7 +537,7 @@ if tarama_tetiklendi:
                     hacim_patlamasi_var = (hacim_oran >= 130) and (gunluk_degisim >= 4.0)
 
                     skor = 50 
-                    if bugun_kapanis > sma_200: skor += 15
+                    if bugun_kapanis > sma_200 if not pd.isna(sma_200) else uzun_vade_trend: skor += 15
                     else: 
                         if hacim_patlamasi_var: skor -= 5
                         else: skor -= 25
@@ -582,6 +589,7 @@ if tarama_tetiklendi:
                     ema_21_val = df_long['Close'].ewm(span=21).mean().iloc[-1]
                     breakout_kosulu = (bugun_kapanis >= karma_direnc) and (hacim_oran >= 120) and (ema_9_val > ema_21_val) and (uzun_vade_trend)
 
+                    # --- HATA DÜZELTMESİ: UZAK DUR SİNYALİ MANTIĞI ---
                     sinyal = "Nötr (İzle) ⚖️"
                     if breakout_kosulu:
                         sinyal = "YÜKSELİŞ KIRILIMI 🚀"
@@ -596,8 +604,13 @@ if tarama_tetiklendi:
                         alim_firsati += 1
                     elif hacim_patlamasi_var and rsi < 50:
                         sinyal = "HACİMLİ TEPKİ 🟡"
-                    elif skor < 50 or (not uzun_vade_trend and rsi < 50): 
+                    elif not uzun_vade_trend and (skor < 50 or rsi < 50): 
+                        # Fiyat gerçekten 200 SMA (veya 50 EMA) altındaysa ve toparlanamıyorsa kesinlikle uzak dur denir.
                         sinyal = "UZAK DUR! 🛑"
+                    elif skor < 50:
+                        # Fiyat 200 SMA üzerinde ancak kısa vadede momentum kaybettiyse "Zayıf Nötr" sinyali verilir. 
+                        # Bu sayede düşen bıçak zannedilip yanlış açıklama basılmaz.
+                        sinyal = "Nötr (Zayıf) ⚖️"
 
                     if uzun_vade_trend: 
                         boga_sayisi += 1
@@ -927,12 +940,13 @@ if st.session_state.tarama_durumu:
                         elif son_fiyat < son_ema50 and son_fiyat > son_sma200:
                             yorum_trend = "Uzun vadeli (SMA 200) ana destek korunsa da, orta vadede (EMA 50) belirgin bir **ivme kaybı ve fiyat düzeltmesi (dinlenme)** yaşanıyor."
 
+                        # --- HATA DÜZELTMESİ: MACD DEĞİŞKENİ BURAYA AKTARILDI ---
                         st.markdown(f'''
                         <div class="info-box">
                             <b>🤖 Algoritmik Strateji ve Göstergelerin Sözel Analizi:</b><br><br>
                             • <b>1. Zamanlama (EMA 9-21 Kesişimi):</b> {yorum_kisa_vade}<br><br>
                             • <b>2. Volatilite (Bollinger Bantları):</b> {yorum_bb}<br><br>
-                            • <b>3. Trendin İvmesi (MACD):</b> {yorum_trend}<br><br>
+                            • <b>3. Trendin İvmesi (MACD):</b> {yorum_macd}<br><br>
                             • <b>4. Ana Resim (50 EMA & 200 SMA):</b> {yorum_trend}
                         </div>
                         ''', unsafe_allow_html=True)
