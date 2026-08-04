@@ -28,7 +28,6 @@ st.set_page_config(
 # --- CSS: Running yazısı gizlenir, MOBİL MENÜ KESİN OLARAK KORUNUR ---
 st.markdown("""
 <style>
-    /* Sağ üstteki Running (Çalışıyor) yazısını, Deploy butonunu ve 3 noktalı menüyü nokta atışıyla gizle */
     [data-testid="stStatusWidget"],
     [data-testid="stToolbarActions"],
     .stDeployButton,
@@ -38,13 +37,11 @@ st.markdown("""
         opacity: 0 !important; 
     }
     
-    /* MOBİL UYUM: Header arka planını şeffaf yap */
     header[data-testid="stHeader"] {
         background: transparent !important;
         box-shadow: none !important;
     }
     
-    /* SOL ÜSTTEKİ HAMBURGER MENÜYÜ (YAN PANEL AÇICI) KESİNLİKLE KORU */
     [data-testid="collapsedControl"] {
         display: flex !important;
         visibility: visible !important;
@@ -52,7 +49,6 @@ st.markdown("""
         z-index: 99999 !important;
     }
     
-    /* Özel UI Sınıfları */
     .kpi-card { background-color: #1E1E1E; padding: 20px; border-radius: 10px; text-align: center; border: 1px solid #333; box-shadow: 2px 2px 10px rgba(0,0,0,0.5); }
     .kpi-title { font-size: 13px; color: #AAAAAA; text-transform: uppercase; letter-spacing: 1px; }
     .kpi-value { font-size: 26px; font-weight: bold; color: #FFFFFF; margin-top: 5px; }
@@ -115,7 +111,6 @@ def aksiyon_rehberi_olustur(nihai_sinyal, teyit_1h):
         renk = "#00d2d3"
         baslik = "🚀 YÜKSELİŞ KIRILIMI (BREAKOUT) ONAYI"
         ana_metin = "Mükemmel Moment Oluşumu! Varlık önemli direnç seviyesini yüksek hacim eşliğinde yukarı kırmış ve kısa vadeli hareketli ortalamalarda (EMA 9 > 21) boğa iştahını doğrulamıştır. Bu durum sıradan bir hareket değil, güçlü bir trend başlangıcı veya ivmelenme sinyalidir."
-        
         if "TETİK AKTİF" in teyit_metni:
             alt_not = f'<div style="margin-top: 15px; padding: 10px; background-color: rgba(0, 210, 211, 0.1); border-left: 4px solid #00d2d3; border-radius: 4px;"><b>🔥 ONAYLI BREAKOUT GİRİŞİ:</b> {teyit_metni} Saatlik bazda kırılım teyit edildi, trende katılım için pozisyon açılabilir.</div>'
         else:
@@ -125,7 +120,6 @@ def aksiyon_rehberi_olustur(nihai_sinyal, teyit_1h):
         renk = "#3498db"
         baslik = "🔵 KADEMELİ ALIM STRATEJİSİ"
         ana_metin = "Sistem; varlığın temel verilerinin ve uzun vadeli ana trendinin (50 & 200 SMA) sağlam olduğunu tespit etti. Ancak kısa vadeli teknik göstergeler (MACD, EMA 9/21) şu an bir soğuma/düzeltme evresinde. Trend güçlü olduğu için fırsat barındırıyor; fakat tam uyum henüz sağlanamadığından <b>tüm sermaye ile tek seferde girmek yerine, küçük parçalarla (kademeli) alım yapılması</b> en güvenli stratejidir."
-        
         if "TETİK AKTİF" in teyit_metni:
             alt_not = f'<div style="margin-top: 15px; padding: 10px; background-color: rgba(46, 204, 113, 0.1); border-left: 4px solid #2ecc71; border-radius: 4px;"><b>🔥 GÜÇLÜ HİBRİT TETİK ONAYI:</b> {teyit_metni} Sinyal şartları olgunlaşmıştır, kademeli ilk parça alımı için uygundur.</div>'
         else:
@@ -135,7 +129,6 @@ def aksiyon_rehberi_olustur(nihai_sinyal, teyit_1h):
         renk = "#2ecc71"
         baslik = "🟢 GÜÇLÜ ALIM ONAYI"
         ana_metin = "Kusursuz Uyum! Varlık hem temel açıdan puanları toplamış, hem de uzun ve kısa vadeli tüm teknik ortalamalarda tam bir yükseliş (boğa) trendine girmiştir. Grafikteki momentum ve sistemin puanlaması birbiriyle %100 örtüşüyor."
-        
         if "TETİK AKTİF" in teyit_metni:
             alt_not = f'<div style="margin-top: 15px; padding: 10px; background-color: rgba(46, 204, 113, 0.1); border-left: 4px solid #2ecc71; border-radius: 4px;"><b>🔥 ONAYLI GİRİŞ:</b> {teyit_metni} Saatlik kırılım ve momentum teyidi alındı, pozisyon açılabilir.</div>'
         else:
@@ -172,8 +165,8 @@ def aksiyon_rehberi_olustur(nihai_sinyal, teyit_1h):
         alt_not = '<div style="margin-top: 15px; padding: 10px; background-color: rgba(149, 165, 166, 0.1); border-left: 4px solid #95a5a6; border-radius: 4px;"><b>⚖️ BEKLE-GÖR MODU:</b> Net bir trend veya tetik oluşmamıştır. Sabırla piyasanın yön seçmesi beklenmelidir.</div>'
 
     html_kodu = f'<div style="background-color: #1e1e1e; padding: 20px; border-radius: 10px; border-left: 5px solid {renk}; margin-top: 20px; color: #ffffff; font-family: sans-serif; box-shadow: 0 4px 8px rgba(0,0,0,0.2);"><h3 style="color: {renk}; margin-top: 0; font-size: 18px;">{baslik}</h3><p style="font-size: 15px; line-height: 1.6; color: #e0e0e0; margin-bottom: 12px;">{ana_metin}</p>{alt_not}</div>'
-    
     return html_kodu
+
 # --- HİSSE LİSTELERİ ---
 BIST_30 = [
     "AKBNK.IS", "ALARK.IS", "ASELS.IS", "ASTOR.IS", "BIMAS.IS", 
@@ -395,7 +388,6 @@ if tarama_tetiklendi:
                         time.sleep(1.5)
                         sektor_getirileri[sembol] = 0
             
-            # 1. Önce toplu indirme (yf.download) ile hızlı akış denemesi yapılır
             df_toplu = pd.DataFrame()
             try:
                 time.sleep(1.0)
@@ -410,22 +402,22 @@ if tarama_tetiklendi:
                 
                 df_long = pd.DataFrame()
                 
-                # Toplu indirme sonucundan veri ayıklama denemesi
                 if not df_toplu.empty:
                     try:
-                        if len(selected_tickers) == 1:
-                            df_long = df_toplu.dropna(subset=['Open', 'High', 'Low', 'Close', 'Volume'])
-                        else:
+                        # --- HATA DÜZELTMESİ 4: MultiIndex Uyumsuzluğu Koruması ---
+                        if isinstance(df_toplu.columns, pd.MultiIndex):
                             if ticker in df_toplu.columns.levels[0]:
                                 df_long = df_toplu[ticker].dropna(subset=['Open', 'High', 'Low', 'Close', 'Volume'])
+                        else:
+                            # Tek varlık seçimi durumunda yfinance düz DataFrame döndürebilir
+                            df_long = df_toplu.dropna(subset=['Open', 'High', 'Low', 'Close', 'Volume'])
                     except:
                         df_long = pd.DataFrame()
 
-                # Eğer toplu indirmeden veri alınamadıysa veya eksikse, hibrit mimari gereği tekil olarak try-except ve 2 sn gecikmeyle (retry) çekilir
                 if df_long.empty or len(df_long) < 50:
                     for deneme in range(3):
                         try:
-                            time.sleep(2.0 + (deneme * 0.5)) # 429 Rate Limit ve tıkanıklıkları önlemek için güvenli gecikme
+                            time.sleep(2.0 + (deneme * 0.5)) 
                             stock_obj = yf.Ticker(ticker, session=session)
                             df_long = stock_obj.history(period="1y", timeout=15).dropna(subset=['Open', 'High', 'Low', 'Close', 'Volume'])
                             if not df_long.empty and len(df_long) >= 50:
@@ -505,10 +497,8 @@ if tarama_tetiklendi:
                     macd_serisi = df_long['Close'].ewm(span=12, adjust=False).mean() - df_long['Close'].ewm(span=26, adjust=False).mean()
                     macd_sinyal = macd_serisi.ewm(span=9, adjust=False).mean()
                     
-                    # --- HATA DÜZELTMESİ: SMA 200 NaN HATASI ---
                     sma_200 = df_long['Close'].rolling(200).mean().iloc[-1]
                     if pd.isna(sma_200):
-                        # Hisse yeniyse ve 200 günlük veri yoksa ana trend olarak 50 EMA referans alınır.
                         ema_50_fallback = df_long['Close'].ewm(span=50).mean().iloc[-1]
                         uzun_vade_trend = bugun_kapanis > ema_50_fallback if not pd.isna(ema_50_fallback) else True
                     else:
@@ -520,8 +510,10 @@ if tarama_tetiklendi:
 
                     typical_price = (df_long['High'] + df_long['Low'] + df_long['Close']) / 3
                     raw_money_flow = typical_price * df_long['Volume']
-                    pos_flow = pd.Series(np.where(typical_price > typical_price.shift(1), raw_money_flow, 0))
-                    neg_flow = pd.Series(np.where(typical_price < typical_price.shift(1), raw_money_flow, 0))
+                    
+                    # İndeks eşleşmesi güvence altına alındı (Scanner tarafında opsiyonel ama güvenli)
+                    pos_flow = pd.Series(np.where(typical_price > typical_price.shift(1), raw_money_flow, 0), index=df_long.index)
+                    neg_flow = pd.Series(np.where(typical_price < typical_price.shift(1), raw_money_flow, 0), index=df_long.index)
                     mfi = 100 - (100 / (1 + (pos_flow.rolling(14).sum() / (neg_flow.rolling(14).sum() + 1e-5))))
                     mfi_val = mfi.iloc[-1] if not pd.isna(mfi.iloc[-1]) else 50
                     
@@ -542,7 +534,10 @@ if tarama_tetiklendi:
                     hacim_patlamasi_var = (hacim_oran >= 130) and (gunluk_degisim >= 4.0)
 
                     skor = 50 
-                    if bugun_kapanis > sma_200 if not pd.isna(sma_200) else uzun_vade_trend: skor += 15
+                    
+                    # --- HATA DÜZELTMESİ 3: Karmaşık if yapısı arındırıldı ---
+                    if uzun_vade_trend: 
+                        skor += 15
                     else: 
                         if hacim_patlamasi_var: skor -= 5
                         else: skor -= 25
@@ -594,7 +589,6 @@ if tarama_tetiklendi:
                     ema_21_val = df_long['Close'].ewm(span=21).mean().iloc[-1]
                     breakout_kosulu = (bugun_kapanis >= karma_direnc) and (hacim_oran >= 120) and (ema_9_val > ema_21_val) and (uzun_vade_trend)
 
-                   # --- YENİ SİNYAL VE KURTULUŞ ÇABASI MANTIĞI ---
                     sinyal = "Nötr (İzle) ⚖️"
                     if breakout_kosulu:
                         sinyal = "YÜKSELİŞ KIRILIMI 🚀"
@@ -610,14 +604,13 @@ if tarama_tetiklendi:
                     elif hacim_patlamasi_var and rsi < 50:
                         sinyal = "HACİMLİ TEPKİ 🟡"
                     elif not uzun_vade_trend:
-                        # Fiyat 200 SMA'nın altında ama yukarı yönlü bir kurtuluş mücadelesi varsa (50 EMA'yı geçmişse veya 9, 21'i kesmişse)
                         if bugun_kapanis > ema_50_val or ema_9_val > ema_21_val:
                             sinyal = "KURTULUŞ ÇABASI 🧗"
                         else:
-                            # Varlık her anlamda eziliyorsa "Uzak Dur" cezası verilir
                             sinyal = "UZAK DUR! 🛑"
                     elif skor < 50:
                         sinyal = "Nötr (Zayıf) ⚖️"
+                        
                     if uzun_vade_trend: 
                         boga_sayisi += 1
 
@@ -809,8 +802,10 @@ if st.session_state.tarama_durumu:
                         
                         typ_p = (df_grafik['High'] + df_grafik['Low'] + df_grafik['Close']) / 3
                         raw_mf = typ_p * df_grafik['Volume']
-                        pos_f = pd.Series(np.where(typ_p > typ_p.shift(1), raw_mf, 0))
-                        neg_f = pd.Series(np.where(typ_p < typ_p.shift(1), raw_mf, 0))
+                        
+                        # --- HATA DÜZELTMESİ 1: Detay sayfasında NaN üreten indeks hatası giderildi ---
+                        pos_f = pd.Series(np.where(typ_p > typ_p.shift(1), raw_mf, 0), index=df_grafik.index)
+                        neg_f = pd.Series(np.where(typ_p < typ_p.shift(1), raw_mf, 0), index=df_grafik.index)
                         df_grafik['MFI'] = 100 - (100 / (1 + (pos_f.rolling(14).sum() / (neg_f.rolling(14).sum() + 1e-5))))
 
                         fig = make_subplots(rows=4, cols=1, shared_xaxes=True, 
@@ -889,9 +884,11 @@ if st.session_state.tarama_durumu:
                         
                         st.markdown("<br>", unsafe_allow_html=True)
                         
+                        # --- HATA DÜZELTMESİ 2: 0.00 yerine Yetersiz Veri yazımı ---
                         n1, n2, n3, n4 = st.columns(4)
                         n1.metric("50 EMA (Trend)", f"{son_ema50:.2f}")
-                        n2.metric("200 SMA (Ana Yön)", f"{son_sma200:.2f}")
+                        sma_metric_val = f"{son_sma200:.2f}" if son_sma200 > 0 else "Yetersiz Veri"
+                        n2.metric("200 SMA (Ana Yön)", sma_metric_val)
                         n3.metric("MFI (Para Akışı)", f"{son_mfi:.2f}")
                         n4.metric("MACD Hist", f"{son_macd_hist:.3f}")
 
@@ -947,7 +944,6 @@ if st.session_state.tarama_durumu:
                         elif son_fiyat < son_ema50 and son_fiyat > son_sma200:
                             yorum_trend = "Uzun vadeli (SMA 200) ana destek korunsa da, orta vadede (EMA 50) belirgin bir **ivme kaybı ve fiyat düzeltmesi (dinlenme)** yaşanıyor."
 
-                        # --- HATA DÜZELTMESİ: MACD DEĞİŞKENİ BURAYA AKTARILDI ---
                         st.markdown(f'''
                         <div class="info-box">
                             <b>🤖 Algoritmik Strateji ve Göstergelerin Sözel Analizi:</b><br><br>
