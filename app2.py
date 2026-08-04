@@ -116,6 +116,12 @@ def aksiyon_rehberi_olustur(nihai_sinyal, teyit_1h):
         else:
             alt_not = f'<div style="margin-top: 15px; padding: 10px; background-color: rgba(241, 196, 15, 0.1); border-left: 4px solid #f1c40f; border-radius: 4px;"><b>⏳ SAATLİK KIRILIM BEKLENİYOR:</b> {teyit_metni} Günlük direnç kırıldı ancak saatlik mum kapanış onayı takip edilmelidir.</div>'
 
+    elif "UZUN VADELİ ADAY" in sinyal_metni:
+        renk = "#8e44ad"
+        baslik = "🌟 UZUN VADELİ PORTFÖY ADAYI (GARP - DEĞER & TREND)"
+        ana_metin = "Mükemmel Temel ve Makro Uyum! Varlık güçlü boğa trendinde (200 SMA üstü) yer alıyor, cezalı skor barajını aşıyor ve son derece cazip bir PEG oranına (büyüyen ucuz) sahip. Fiyat şu an anlık bir kırılım veya aşırı dip bölgesinde değil; orta bantta sağlıklı bir konsolidasyon (dinlenme) sürdürüyor."
+        alt_not = '<div style="margin-top: 15px; padding: 10px; background-color: rgba(142, 68, 173, 0.1); border-left: 4px solid #8e44ad; border-radius: 4px;"><b>💡 STRATEJİK DEĞERLENDİRME:</b> Anlık tetik (hacimli kırılım) henüz gelmediği için tüm sermayeyle tek seferde girmek yerine, kademeli toplama havuzu veya uzun vadeli sepet için ideal birincil adaydır.</div>'
+
     elif "KADEMELİ ALIM" in sinyal_metni:
         renk = "#3498db"
         baslik = "🔵 KADEMELİ ALIM STRATEJİSİ"
@@ -317,7 +323,7 @@ def hisse_sil_callback():
         st.session_state.sil_hisse_input_field = ""
 
 st.title("📈 Hibrit Portföy Komuta Merkezi")
-st.markdown("**Mod:** Derin Analiz (Cezalı Skor + Hacim Patlaması Esnetmesi + Sığ Tahta Koruması + Düzeltilmiş Para Akışı + Breakout Kırılımı + Hibrit Kararlı Veri Akışı)")
+st.markdown("**Mod:** Derin Analiz (Cezalı Skor + Hacim Patlaması Esnetmesi + Sığ Tahta Koruması + Düzeltilmiş Para Akışı + Breakout Kırılımı + Uzun Vadeli GARP Portföy Adayı)")
 st.markdown("---")
 
 st.sidebar.header("⚙️ Kontrol Paneli")
@@ -404,12 +410,10 @@ if tarama_tetiklendi:
                 
                 if not df_toplu.empty:
                     try:
-                        # --- HATA DÜZELTMESİ 4: MultiIndex Uyumsuzluğu Koruması ---
                         if isinstance(df_toplu.columns, pd.MultiIndex):
                             if ticker in df_toplu.columns.levels[0]:
                                 df_long = df_toplu[ticker].dropna(subset=['Open', 'High', 'Low', 'Close', 'Volume'])
                         else:
-                            # Tek varlık seçimi durumunda yfinance düz DataFrame döndürebilir
                             df_long = df_toplu.dropna(subset=['Open', 'High', 'Low', 'Close', 'Volume'])
                     except:
                         df_long = pd.DataFrame()
@@ -511,7 +515,6 @@ if tarama_tetiklendi:
                     typical_price = (df_long['High'] + df_long['Low'] + df_long['Close']) / 3
                     raw_money_flow = typical_price * df_long['Volume']
                     
-                    # İndeks eşleşmesi güvence altına alındı (Scanner tarafında opsiyonel ama güvenli)
                     pos_flow = pd.Series(np.where(typical_price > typical_price.shift(1), raw_money_flow, 0), index=df_long.index)
                     neg_flow = pd.Series(np.where(typical_price < typical_price.shift(1), raw_money_flow, 0), index=df_long.index)
                     mfi = 100 - (100 / (1 + (pos_flow.rolling(14).sum() / (neg_flow.rolling(14).sum() + 1e-5))))
@@ -535,7 +538,6 @@ if tarama_tetiklendi:
 
                     skor = 50 
                     
-                    # --- HATA DÜZELTMESİ 3: Karmaşık if yapısı arındırıldı ---
                     if uzun_vade_trend: 
                         skor += 15
                     else: 
@@ -588,10 +590,21 @@ if tarama_tetiklendi:
                     ema_9_val = df_long['Close'].ewm(span=9).mean().iloc[-1]
                     ema_21_val = df_long['Close'].ewm(span=21).mean().iloc[-1]
                     breakout_kosulu = (bugun_kapanis >= karma_direnc) and (hacim_oran >= 120) and (ema_9_val > ema_21_val) and (uzun_vade_trend)
+                    
+                    # --- YENİ EKLENEN KURALLAR: UZUN VADELİ PORTFÖY ADAYI (GARP) ---
+                    uzun_vadeli_aday_kosulu = (
+                        uzun_vade_trend and 
+                        skor >= 70 and 
+                        peg is not None and 0 < peg < 1.0 and 
+                        (bugun_kapanis < karma_direnc)
+                    )
 
                     sinyal = "Nötr (İzle) ⚖️"
                     if breakout_kosulu:
                         sinyal = "YÜKSELİŞ KIRILIMI 🚀"
+                        alim_firsati += 1
+                    elif uzun_vadeli_aday_kosulu:
+                        sinyal = "UZUN VADELİ ADAY 🌟"
                         alim_firsati += 1
                     elif bugun_kapanis > bb_ust and rsi >= 68: 
                         sinyal = "KAR REALİZASYONU 🔴"
@@ -615,7 +628,7 @@ if tarama_tetiklendi:
                         boga_sayisi += 1
 
                     mikro_teyit = "-"
-                    if "ALIM" in sinyal or "TEPKİ" in sinyal or "KIRILIM" in sinyal:
+                    if "ALIM" in sinyal or "TEPKİ" in sinyal or "KIRILIM" in sinyal or "ADAY" in sinyal:
                         mikro_teyit = "⏳ Tetik Bekleniyor"
                         try:
                             df_1h = stock.history(period="5d", interval="1h", prepost=True)
@@ -667,7 +680,7 @@ if tarama_tetiklendi:
                         except:
                             pass
 
-                    lot = int((bist_kasa if is_bist else nasdaq_kasa) * risk_orani / alinan_risk) if ("ALIM" in sinyal or "TEPKİ" in sinyal or "KIRILIM" in sinyal) else 0
+                    lot = int((bist_kasa if is_bist else nasdaq_kasa) * risk_orani / alinan_risk) if ("ALIM" in sinyal or "TEPKİ" in sinyal or "KIRILIM" in sinyal or "ADAY" in sinyal) else 0
 
                     gecici_sonuclar.append({
                         "Varlık": ticker,
@@ -726,7 +739,7 @@ if st.session_state.tarama_durumu:
                 <i>Skor Aralıkları: 70+ Güçlü 🟢 | 50-69 Nötr ⚖️ | 50 Altı Cezalı 🔴</i><br><br>
                 <hr style="border-color: #444;">
                 <b>📈 2. Sektörel Göreceli Güç ve Hacim (Vol) Oranı</b><br>
-                • <b>Görec. Güç:</b> Hissenin son 1 aylık getirisiningili ana sektöre (Banka, Sanayi, Ulaşım, Teknoloji vb.) kıyasla farkını gösterir.<br>
+                • <b>Görec. Güç:</b> Hissenin son 1 aylık getirisinin ana sektöre (Banka, Sanayi, Ulaşım, Teknoloji vb.) kıyasla farkını gösterir.<br>
                 • <b>Vol:</b> O gün gerçekleşen hacmin son 20 günlük ortalama hacme oranıdır.<br><br>
                 <hr style="border-color: #444;">
                 <b>🛡️ 3. Karma Destek & Direnç Motoru & Breakout</b><br>
@@ -747,11 +760,11 @@ if st.session_state.tarama_durumu:
         df_sonuc = pd.DataFrame(st.session_state.sonuclar)
         
         if sadece_alim_goster:
-            df_sonuc = df_sonuc[df_sonuc["Nihai Sinyal"].str.contains("ALIM|TEPKİ|KIRILIM", na=False)]
+            df_sonuc = df_sonuc[df_sonuc["Nihai Sinyal"].str.contains("ALIM|TEPKİ|KIRILIM|ADAY", na=False)]
         
         def color_df(row):
             c = ''
-            if '🟢' in str(row['Nihai Sinyal']) or '🔵' in str(row['Nihai Sinyal']) or '🚀' in str(row['Nihai Sinyal']): c = 'background-color: rgba(39, 174, 96, 0.15)'
+            if '🟢' in str(row['Nihai Sinyal']) or '🔵' in str(row['Nihai Sinyal']) or '🚀' in str(row['Nihai Sinyal']) or '🌟' in str(row['Nihai Sinyal']): c = 'background-color: rgba(39, 174, 96, 0.15)'
             elif '🟡' in str(row['Nihai Sinyal']): c = 'background-color: rgba(243, 156, 18, 0.2)'
             elif '🛑' in str(row['Nihai Sinyal']) or '🔴' in str(row['Nihai Sinyal']): c = 'background-color: rgba(192, 57, 43, 0.15)'
             elif '⚠️' in str(row['Nihai Sinyal']): c = 'background-color: rgba(243, 156, 18, 0.25)'
@@ -803,7 +816,6 @@ if st.session_state.tarama_durumu:
                         typ_p = (df_grafik['High'] + df_grafik['Low'] + df_grafik['Close']) / 3
                         raw_mf = typ_p * df_grafik['Volume']
                         
-                        # --- HATA DÜZELTMESİ 1: Detay sayfasında NaN üreten indeks hatası giderildi ---
                         pos_f = pd.Series(np.where(typ_p > typ_p.shift(1), raw_mf, 0), index=df_grafik.index)
                         neg_f = pd.Series(np.where(typ_p < typ_p.shift(1), raw_mf, 0), index=df_grafik.index)
                         df_grafik['MFI'] = 100 - (100 / (1 + (pos_f.rolling(14).sum() / (neg_f.rolling(14).sum() + 1e-5))))
@@ -884,7 +896,6 @@ if st.session_state.tarama_durumu:
                         
                         st.markdown("<br>", unsafe_allow_html=True)
                         
-                        # --- HATA DÜZELTMESİ 2: 0.00 yerine Yetersiz Veri yazımı ---
                         n1, n2, n3, n4 = st.columns(4)
                         n1.metric("50 EMA (Trend)", f"{son_ema50:.2f}")
                         sma_metric_val = f"{son_sma200:.2f}" if son_sma200 > 0 else "Yetersiz Veri"
