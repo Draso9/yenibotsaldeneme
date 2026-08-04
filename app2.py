@@ -146,7 +146,11 @@ def aksiyon_rehberi_olustur(nihai_sinyal, teyit_1h):
         baslik = "🟡 HACİMLİ TEPKİ / İZLEME MODU"
         ana_metin = "Varlık uzun vadeli trendin altında olsa da, normalin normalin çok üzerinde hacim patlaması (%130+) ve güçlü günlük getiri üretti. Bu durum sıradan bir düşüş değil, olası bir dip tepkisi veya haber kaynaklı balina alımı olabilir. Katı ayı cezası esnetildi, ancak tam onay için saatlik kırılımlar beklenmelidir."
         alt_not = '<div style="margin-top: 15px; padding: 10px; background-color: rgba(243, 156, 18, 0.1); border-left: 4px solid #f39c12; border-radius: 4px;"><b>⚡ DİKKAT ÇEKEN HAREKET:</b> Aşırı satıştan güçlü hacimle dönüyor. Yakın takibe alınmalıdır.</div>'
-
+elif "KURTULUŞ" in sinyal_metni:
+        renk = "#d35400"
+        baslik = "🧗 KURTULUŞ ÇABASI - RİSKLİ BÖLGE"
+        ana_metin = "Varlık makro planda ayı trendinde (200 SMA altında) kalsa da, dipten gelen güçlü bir alım dalgasıyla ana dirence doğru toparlanmaya çalışıyor. <b>'Düşük risk, yüksek ihtimal' stratejiniz gereği</b>, varlık 200 SMA'yı kalıcı olarak kırıp güvenli sulara geçene kadar izlemede kalınmalıdır. Henüz sular durulmamıştır ve erken giriş yüksek risk taşır."
+        alt_not = '<div style="margin-top: 15px; padding: 10px; background-color: rgba(211, 84, 0, 0.1); border-left: 4px solid #d35400; border-radius: 4px;"><b>⚠️ DİSİPLİN UYARISI:</b> Gerçek trend onaylanana kadar işlem açmayın, ana kırılımı bekleyin.</div>'
     elif "UZAK DUR" in sinyal_metni:
         renk = "#e74c3c"
         baslik = "🔴 KESİNLİKLE UZAK DUR"
