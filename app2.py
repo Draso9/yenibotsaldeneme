@@ -650,7 +650,7 @@ if tarama_tetiklendi:
                                 alt_fitil = min(acilis_1h, kapanis_1h) - en_dusuk_1h
                                 ust_fitil = en_yuksek_1h - max(acilis_1h, kapanis_1h)
                                 
-                                kural_1_breakout = (c_1h.iloc[-1] > bb_mid_1h.iloc[-1]) and (v_1h.iloc[-1] > 1.5 * vol_sma_1h.iloc[-1])
+                                kural_1_breakout = (c_1h.iloc[-1] > bb_mid_1h.iloc[-1]) and (v_1h.iloc[-1] > 1.2 * vol_sma_1h.iloc[-1])
                                 is_pin_bar = (alt_fitil > (govde * 2)) and (alt_fitil > ust_fitil)
                                 bb_altina_igne = (en_dusuk_1h < bb_alt_val)
                                 kural_2_pin_bar = is_pin_bar and bb_altina_igne
@@ -735,7 +735,7 @@ if st.session_state.tarama_durumu:
                 <hr style="border-color: #444;">
                 <b>🎯 4. Hibrit 1H Tetik Motoru & Hacimli Tepki (Akıllı Onay)</b><br>
                 • Alım sinyali, kırılım veya hacimli tepki üreten varlıklarda saatlik mumları tarayarak 3 özel kuralı denetler:<br>
-                &nbsp;&nbsp;1. <b>Hacimli Kırılım (Güç Teyidi):</b> Fiyat Bollinger orta bandını normal hacmin en az %150'si ile yukarı kırarsa.<br>
+                &nbsp;&nbsp;1. <b>Hacimli Kırılım (Güç Teyidi):</b> Fiyat Bollinger orta bandını normal hacmin en az %120'si ile yukarı kırarsa.<br>
                 &nbsp;&nbsp;2. <b>Destek Reddi / Pin Bar (Savunma Teyidi):</b> Fiyat Bollinger alt bandının altına iğne atıp (sarkıp) alıcıların hızla devreye girmesiyle alt fitili gövdesinin en az 2 katı olan bir mum bırakırsa.<br>
                 &nbsp;&nbsp;3. <b>RSI Dip Dönüşü (Momentum Teyidi):</b> RSI 38 altından yukarı dönerken MACD histogramı toparlanmaya başlarsa.<br>
                 • Şartlardan biri sağlandığında sütunda doğrudan <b>"🔥 TETİK AKTİF"</b> uyarısı yakar.
