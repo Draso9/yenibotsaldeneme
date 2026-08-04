@@ -593,7 +593,7 @@ if tarama_tetiklendi:
                     ema_21_val = df_long['Close'].ewm(span=21).mean().iloc[-1]
                     breakout_kosulu = (bugun_kapanis >= karma_direnc) and (hacim_oran >= 120) and (ema_9_val > ema_21_val) and (uzun_vade_trend)
 
-                    # --- HATA DÜZELTMESİ: UZAK DUR SİNYALİ MANTIĞI ---
+                   # --- YENİ SİNYAL VE KURTULUŞ ÇABASI MANTIĞI ---
                     sinyal = "Nötr (İzle) ⚖️"
                     if breakout_kosulu:
                         sinyal = "YÜKSELİŞ KIRILIMI 🚀"
@@ -608,14 +608,15 @@ if tarama_tetiklendi:
                         alim_firsati += 1
                     elif hacim_patlamasi_var and rsi < 50:
                         sinyal = "HACİMLİ TEPKİ 🟡"
-                    elif not uzun_vade_trend and (skor < 50 or rsi < 50): 
-                        # Fiyat gerçekten 200 SMA (veya 50 EMA) altındaysa ve toparlanamıyorsa kesinlikle uzak dur denir.
-                        sinyal = "UZAK DUR! 🛑"
+                    elif not uzun_vade_trend:
+                        # Fiyat 200 SMA'nın altında ama yukarı yönlü bir kurtuluş mücadelesi varsa (50 EMA'yı geçmişse veya 9, 21'i kesmişse)
+                        if bugun_kapanis > ema_50_val or ema_9_val > ema_21_val:
+                            sinyal = "KURTULUŞ ÇABASI 🧗"
+                        else:
+                            # Varlık her anlamda eziliyorsa "Uzak Dur" cezası verilir
+                            sinyal = "UZAK DUR! 🛑"
                     elif skor < 50:
-                        # Fiyat 200 SMA üzerinde ancak kısa vadede momentum kaybettiyse "Zayıf Nötr" sinyali verilir. 
-                        # Bu sayede düşen bıçak zannedilip yanlış açıklama basılmaz.
                         sinyal = "Nötr (Zayıf) ⚖️"
-
                     if uzun_vade_trend: 
                         boga_sayisi += 1
 
