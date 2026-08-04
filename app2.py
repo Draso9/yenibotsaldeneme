@@ -761,6 +761,7 @@ if st.session_state.tarama_durumu:
             elif '🟡' in str(row['Nihai Sinyal']): c = 'background-color: rgba(243, 156, 18, 0.2)'
             elif '🛑' in str(row['Nihai Sinyal']) or '🔴' in str(row['Nihai Sinyal']): c = 'background-color: rgba(192, 57, 43, 0.15)'
             elif '⚠️' in str(row['Nihai Sinyal']): c = 'background-color: rgba(243, 156, 18, 0.25)'
+            elif '🧗' in str(row['Nihai Sinyal']): c = 'background-color: rgba(211, 84, 0, 0.2)' 
             return [c] * len(row)
 
         if not df_sonuc.empty:
