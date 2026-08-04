@@ -144,13 +144,15 @@ def aksiyon_rehberi_olustur(nihai_sinyal, teyit_1h):
     elif "HACİMLİ TEPKİ" in sinyal_metni:
         renk = "#f39c12"
         baslik = "🟡 HACİMLİ TEPKİ / İZLEME MODU"
-        ana_metin = "Varlık uzun vadeli trendin altında olsa da, normalin normalin çok üzerinde hacim patlaması (%130+) ve güçlü günlük getiri üretti. Bu durum sıradan bir düşüş değil, olası bir dip tepkisi veya haber kaynaklı balina alımı olabilir. Katı ayı cezası esnetildi, ancak tam onay için saatlik kırılımlar beklenmelidir."
+        ana_metin = "Varlık uzun vadeli trendin altında olsa da, normalin çok üzerinde hacim patlaması (%130+) ve güçlü günlük getiri üretti. Bu durum sıradan bir düşüş değil, olası bir dip tepkisi veya haber kaynaklı balina alımı olabilir. Katı ayı cezası esnetildi, ancak tam onay için saatlik kırılımlar beklenmelidir."
         alt_not = '<div style="margin-top: 15px; padding: 10px; background-color: rgba(243, 156, 18, 0.1); border-left: 4px solid #f39c12; border-radius: 4px;"><b>⚡ DİKKAT ÇEKEN HAREKET:</b> Aşırı satıştan güçlü hacimle dönüyor. Yakın takibe alınmalıdır.</div>'
-elif "KURTULUŞ" in sinyal_metni:
+
+    elif "KURTULUŞ" in sinyal_metni:
         renk = "#d35400"
         baslik = "🧗 KURTULUŞ ÇABASI - RİSKLİ BÖLGE"
         ana_metin = "Varlık makro planda ayı trendinde (200 SMA altında) kalsa da, dipten gelen güçlü bir alım dalgasıyla ana dirence doğru toparlanmaya çalışıyor. <b>'Düşük risk, yüksek ihtimal' stratejiniz gereği</b>, varlık 200 SMA'yı kalıcı olarak kırıp güvenli sulara geçene kadar izlemede kalınmalıdır. Henüz sular durulmamıştır ve erken giriş yüksek risk taşır."
         alt_not = '<div style="margin-top: 15px; padding: 10px; background-color: rgba(211, 84, 0, 0.1); border-left: 4px solid #d35400; border-radius: 4px;"><b>⚠️ DİSİPLİN UYARISI:</b> Gerçek trend onaylanana kadar işlem açmayın, ana kırılımı bekleyin.</div>'
+
     elif "UZAK DUR" in sinyal_metni:
         renk = "#e74c3c"
         baslik = "🔴 KESİNLİKLE UZAK DUR"
@@ -172,7 +174,6 @@ elif "KURTULUŞ" in sinyal_metni:
     html_kodu = f'<div style="background-color: #1e1e1e; padding: 20px; border-radius: 10px; border-left: 5px solid {renk}; margin-top: 20px; color: #ffffff; font-family: sans-serif; box-shadow: 0 4px 8px rgba(0,0,0,0.2);"><h3 style="color: {renk}; margin-top: 0; font-size: 18px;">{baslik}</h3><p style="font-size: 15px; line-height: 1.6; color: #e0e0e0; margin-bottom: 12px;">{ana_metin}</p>{alt_not}</div>'
     
     return html_kodu
-
 # --- HİSSE LİSTELERİ ---
 BIST_30 = [
     "AKBNK.IS", "ALARK.IS", "ASELS.IS", "ASTOR.IS", "BIMAS.IS", 
