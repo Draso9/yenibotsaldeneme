@@ -150,7 +150,7 @@ def _finnhub_symbol(ticker):
     # BIST sembollerinde kapsama sınırlı olabildiği için Yahoo fallback kullanılır.
     return ticker.replace(".IS", "") if ticker.endswith(".IS") else ticker
 
-def _finnhub_get(endpoint, params, timeout=8):
+def _finnhub_get(endpoint, params, timeout=3):
     if not FINNHUB_API_KEY:
         return None
     try:
@@ -175,6 +175,7 @@ def taze_veri_indir(tickers_tuple):
             progress=False,
             threads=True,
             auto_adjust=False,
+            timeout=10,
         )
         return data
     except Exception:
@@ -212,7 +213,63 @@ def intraday_veri_cek(ticker, interval="5m", period="5d"):
     except Exception:
         return pd.DataFrame()
 
-def canli_ohlcv_ile_guncelle(ticker, df_long):
+
+@st.cache_data(ttl=30, show_spinner=False)
+def toplu_intraday_veri_cek(tickers_tuple, interval="5m", period="5d"):
+    """Tüm varlıkların gün içi verisini tek Yahoo isteğinde indirir."""
+    if not tickers_tuple:
+        return pd.DataFrame()
+    try:
+        return yf.download(
+            list(tickers_tuple),
+            period=period,
+            interval=interval,
+            group_by="ticker",
+            progress=False,
+            prepost=True,
+            threads=True,
+            auto_adjust=False,
+            timeout=8,
+        )
+    except Exception:
+        return pd.DataFrame()
+
+
+def toplu_veriden_ticker_ayir(toplu_df, ticker, toplam_adet):
+    if toplu_df is None or toplu_df.empty:
+        return pd.DataFrame()
+    try:
+        if toplam_adet == 1 and not isinstance(toplu_df.columns, pd.MultiIndex):
+            return _normalize_yf_columns(toplu_df.copy())
+        if isinstance(toplu_df.columns, pd.MultiIndex):
+            # group_by='ticker' biçimi
+            if ticker in toplu_df.columns.get_level_values(0):
+                return _normalize_yf_columns(toplu_df[ticker].copy())
+            # Bazı yfinance sürümlerinde ticker ikinci seviyede olabilir.
+            if ticker in toplu_df.columns.get_level_values(-1):
+                return _normalize_yf_columns(toplu_df.xs(ticker, axis=1, level=-1).copy())
+    except Exception:
+        pass
+    return pd.DataFrame()
+
+
+def finnhub_quotelari_paralel_cek(tickers, max_workers=6):
+    """ABD hisselerinin quote verisini paralel çeker; BIST Yahoo ile devam eder."""
+    abd = [t for t in tickers if not str(t).endswith('.IS')]
+    sonuc = {t: None for t in tickers}
+    if not FINNHUB_API_KEY or not abd:
+        return sonuc
+    with ThreadPoolExecutor(max_workers=min(max_workers, len(abd))) as executor:
+        futures = {executor.submit(finnhub_quote_cek, t): t for t in abd}
+        for future in as_completed(futures):
+            t = futures[future]
+            try:
+                sonuc[t] = future.result()
+            except Exception:
+                sonuc[t] = None
+    return sonuc
+
+def canli_ohlcv_ile_guncelle(ticker, df_long, intraday_hazir=None, quote_hazir=None):
     """Günlük seriyi son 5 dakikalık seans verisiyle günceller.
 
     Günlük veri bugünün satırını henüz içermiyorsa yeni satır ekler; böylece
@@ -222,8 +279,8 @@ def canli_ohlcv_ile_guncelle(ticker, df_long):
     """
     df = df_long.copy().sort_index()
     kaynak = "Yahoo günlük (fallback)"
-    quote = finnhub_quote_cek(ticker)
-    intraday = intraday_veri_cek(ticker, interval="5m", period="5d")
+    quote = quote_hazir if quote_hazir is not None else finnhub_quote_cek(ticker)
+    intraday = intraday_hazir.copy() if isinstance(intraday_hazir, pd.DataFrame) else intraday_veri_cek(ticker, interval="5m", period="5d")
 
     if not intraday.empty:
         intraday = intraday.dropna(subset=["Close"]).sort_index()
@@ -1609,7 +1666,11 @@ with tab1:
             with st.spinner("Piyasa geçmişi ve güncel seans canlı fiyatları çekiliyor..."):
                 st.session_state.opsiyon_sonuclar = None
                 
+                # Günlük ve gün içi veriler toplu indirilir; her hisse için ayrı Yahoo
+                # isteği açılmadığı için büyük listelerde tarama belirgin biçimde hızlanır.
                 toplu_df = taze_veri_indir(tuple(selected_tickers))
+                toplu_intraday = toplu_intraday_veri_cek(tuple(selected_tickers), interval="5m", period="5d")
+                quote_haritasi = finnhub_quotelari_paralel_cek(list(selected_tickers))
                 
                 gecici_sonuclar = []
                 gecici_sozlu_analizler = {}
@@ -1620,18 +1681,27 @@ with tab1:
                 sektor_referanslari = {"XU100.IS": "BIST100", "^IXIC": "NASDAQ", "XBANK.IS": "Banka", "XUSIN.IS": "Sanayi"}
                 sektor_getirileri = {}
                 
+                try:
+                    sektor_toplu = yf.download(
+                        list(sektor_referanslari.keys()), period="40d", group_by="ticker",
+                        progress=False, threads=True, auto_adjust=False, timeout=8
+                    )
+                except Exception:
+                    sektor_toplu = pd.DataFrame()
                 for sembol in sektor_referanslari.keys():
                     try:
-                        df_sek = yf.download(sembol, period="40d", progress=False, auto_adjust=False)
-                        if isinstance(df_sek.columns, pd.MultiIndex): df_sek.columns = df_sek.columns.get_level_values(0)
-                        if len(df_sek) >= 21:
+                        df_sek = toplu_veriden_ticker_ayir(sektor_toplu, sembol, len(sektor_referanslari))
+                        if len(df_sek) >= 21 and 'Close' in df_sek:
                             sektor_getirileri[sembol] = ((df_sek['Close'].iloc[-1] - df_sek['Close'].iloc[-21]) / df_sek['Close'].iloc[-21]) * 100
                         else:
                             sektor_getirileri[sembol] = 0
-                    except:
+                    except Exception:
                         sektor_getirileri[sembol] = 0
 
-                for ticker in selected_tickers:
+                ilerleme = st.progress(0, text="Tarama hazırlanıyor...")
+                toplam_ticker = max(len(selected_tickers), 1)
+                for sira, ticker in enumerate(selected_tickers, start=1):
+                    ilerleme.progress((sira - 1) / toplam_ticker, text=f"{ticker} analiz ediliyor ({sira}/{toplam_ticker})")
                     try:
                         if len(selected_tickers) == 1:
                             df_long = toplu_df.copy()
@@ -1651,7 +1721,10 @@ with tab1:
                         para_birimi = "TL" if is_bist else "$"
                         
                         # --- CANLI OHLCV: FINNHUB + YAHOO 5 DAKİKALIK FALLBACK ---
-                        df_long, df_intraday, veri_kaynagi = canli_ohlcv_ile_guncelle(ticker, df_long)
+                        intraday_ticker = toplu_veriden_ticker_ayir(toplu_intraday, ticker, len(selected_tickers))
+                        df_long, df_intraday, veri_kaynagi = canli_ohlcv_ile_guncelle(
+                            ticker, df_long, intraday_hazir=intraday_ticker, quote_hazir=quote_haritasi.get(ticker)
+                        )
                         bugun_kapanis = float(df_long['Close'].iloc[-1])
 
                         onceki_kapanis = float(df_long['Close'].iloc[-2]) if len(df_long) >= 2 else bugun_kapanis
@@ -1964,6 +2037,7 @@ with tab1:
                         basarisi_cekilemeyen_varliklar.append(ticker)
                         continue
 
+                ilerleme.progress(1.0, text="Tarama tamamlandı")
                 st.session_state.sonuclar = gecici_sonuclar
                 st.session_state.sozlu_analizler = gecici_sozlu_analizler
                 st.session_state.teknik_paneller = gecici_teknik_paneller
