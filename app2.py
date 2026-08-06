@@ -367,7 +367,7 @@ if tarama_tetiklendi:
     if not selected_tickers:
         st.sidebar.warning("⚠️ Lütfen taranacak en az bir varlık seçin!")
     else:
-        with st.spinner("Hedge-Fund Katmanları & Hibrit Kararlı Veri Akışı İşleniyor..."):
+        with st.spinner("Hedge-Fund Katmanları & Midas Paralel Akış Motoru İşleniyor..."):
             
             progress_text = st.empty()
             progress_bar = st.progress(0.0)
@@ -438,17 +438,38 @@ if tarama_tetiklendi:
                     is_bist = ".IS" in ticker
                     para_birimi = "TL" if is_bist else "$"
                     
-                    # --- YENİ EKLENEN/DÜZELTİLEN VERİ ÇEKME BLOĞU (PRE-MARKET KORUMASI) ---
-                    
-                    # 1. Önceki Kapanışı Netleştir: Yfinance df_long'u bazen dünün datasını en sona atar.
+                    # --- MIDAS PARALEL AKIŞ & PRE/POST MARKET VERİ MOTORU ---
+                    info = {}
                     try:
-                        onceki_kapanis = float(stock.fast_info.previous_close)
+                        info = stock.info if hasattr(stock, 'info') else {}
                     except:
-                        onceki_kapanis = float(df_long['Close'].iloc[-2]) if len(df_long) >= 2 else float(df_long['Close'].iloc[-1])
+                        info = {}
 
-                    # 2. Anlık (veya Pre-Market) Fiyatı Çek
-                    bugun_kapanis = float(df_long['Close'].iloc[-1])
+                    # 1. Önceki Kapanışı Kesinleştir
+                    onceki_kapanis = info.get('regularMarketPreviousClose', info.get('previousClose', 0))
+                    if not onceki_kapanis or onceki_kapanis == 0:
+                        try:
+                            onceki_kapanis = float(stock.fast_info.previous_close)
+                        except:
+                            onceki_kapanis = float(df_long['Close'].iloc[-2]) if len(df_long) >= 2 else float(df_long['Close'].iloc[-1])
+
+                    # 2. Canlı, Pre-Market veya Post-Market Fiyatını Al (Midas Mantığı)
+                    bugun_kapanis = info.get('currentPrice', info.get('regularMarketPrice', 0))
+                    
                     if not is_bist:
+                        pre_market = info.get('preMarketPrice', None)
+                        post_market = info.get('postMarketPrice', None)
+                        regular_market = info.get('regularMarketPrice', None)
+                        
+                        # Seans dışı hareketleri aktif olarak yakala
+                        if post_market and post_market > 0:
+                            bugun_kapanis = post_market
+                        elif pre_market and pre_market > 0:
+                            bugun_kapanis = pre_market
+                        elif regular_market and regular_market > 0:
+                            bugun_kapanis = regular_market
+
+                    if not bugun_kapanis or bugun_kapanis == 0:
                         try:
                             df_live = stock.history(period="1d", interval="1m", prepost=True)
                             if not df_live.empty:
@@ -456,17 +477,12 @@ if tarama_tetiklendi:
                             else:
                                 bugun_kapanis = float(stock.fast_info.last_price)
                         except:
-                            pass
-                    else:
-                        try:
-                            bugun_kapanis = float(stock.fast_info.last_price)
-                        except:
-                            pass
+                            bugun_kapanis = float(df_long['Close'].iloc[-1])
 
                     gunluk_degisim = ((bugun_kapanis - onceki_kapanis) / onceki_kapanis) * 100 if onceki_kapanis > 0 else 0.0
                     fiyat_str = f"{bugun_kapanis:.2f} {para_birimi} ({'+' if gunluk_degisim > 0 else ''}{gunluk_degisim:.2f}%)"
 
-                    # 3. İndikatörler için df_long'u güvenle güncelle (Eğer piyasa kapalıysa ve dünün verisiyse ezme, yeni mum ekle)
+                    # 3. Grafik ve Göstergeler İçin Mum Tablosunu Güncelle
                     try:
                         son_tarih = pd.to_datetime(df_long.index[-1]).date()
                         bugun_tarihi = pd.Timestamp.now(tz=df_long.index.tz).date() if df_long.index.tz else pd.Timestamp.now().date()
@@ -480,19 +496,12 @@ if tarama_tetiklendi:
                             df_long.iloc[-1, df_long.columns.get_loc('Close')] = bugun_kapanis
                     except:
                         df_long.iloc[-1, df_long.columns.get_loc('Close')] = bugun_kapanis
-                        
-                    # -----------------------------------------------------------------------
+                    # --------------------------------------------------------
 
                     ortalama_hacim_20 = df_long['Volume'].rolling(20).mean().iloc[-1]
                     ortalama_ciro_tutar = ortalama_hacim_20 * bugun_kapanis if not pd.isna(ortalama_hacim_20) else 0
                     sig_tahta_esik = 50_000_000 if is_bist else 5_000_000 
                     is_sig_tahta = ortalama_ciro_tutar < sig_tahta_esik
-
-                    info = {}
-                    try:
-                        info = stock.info if hasattr(stock, 'info') else {}
-                    except:
-                        info = {}
 
                     fk = info.get('trailingPE', info.get('forwardPE', None))
                     peg = info.get('trailingPegRatio', info.get('pegRatio', None))
@@ -815,14 +824,18 @@ if st.session_state.tarama_durumu:
                     df_grafik = stk_detay.history(period="2y").dropna(subset=['Open', 'High', 'Low', 'Close', 'Volume'])
                     
                     if not df_grafik.empty:
-                        # --- DETAY GRAFİK İÇİN YENİ GÜN KONTROLÜ VE PRE-MARKET KORUMASI ---
+                        # --- DETAY GRAFİK İÇİN MİDAS PRE/POST MARKET UYARLAMASI ---
                         try:
+                            detay_info = stk_detay.info if hasattr(stk_detay, 'info') else {}
                             if not is_detay_bist:
-                                df_live_detay = stk_detay.history(period="1d", interval="1m", prepost=True)
-                                if not df_live_detay.empty:
-                                    canli_fiyat = float(df_live_detay['Close'].iloc[-1])
-                                else:
-                                    canli_fiyat = float(stk_detay.fast_info.last_price)
+                                p_post = detay_info.get('postMarketPrice', None)
+                                p_pre = detay_info.get('preMarketPrice', None)
+                                p_reg = detay_info.get('regularMarketPrice', None)
+                                
+                                if p_post and p_post > 0: canli_fiyat = p_post
+                                elif p_pre and p_pre > 0: canli_fiyat = p_pre
+                                elif p_reg and p_reg > 0: canli_fiyat = p_reg
+                                else: canli_fiyat = float(stk_detay.fast_info.last_price)
                             else:
                                 canli_fiyat = float(stk_detay.fast_info.last_price)
                             
@@ -838,7 +851,7 @@ if st.session_state.tarama_durumu:
                                 df_grafik.iloc[-1, df_grafik.columns.get_loc('Close')] = canli_fiyat
                         except:
                             pass
-                        # ------------------------------------------------------------------
+                        # -----------------------------------------------------------
                         
                         df_grafik['EMA9'] = df_grafik['Close'].ewm(span=9).mean()
                         df_grafik['EMA21'] = df_grafik['Close'].ewm(span=21).mean()
