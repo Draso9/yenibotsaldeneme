@@ -3,6 +3,8 @@ import pandas as pd
 import numpy as np
 from datetime import datetime, timedelta
 import time
+import requests
+import requests_cache
 import yfinance as yf
 import firebase_admin
 from firebase_admin import credentials, firestore, auth
@@ -51,6 +53,19 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
+# --- YFINANCE ARKA PLAN ÖNBELLEĞİNİ (CACHE) TAMAMEN DEVRE DIŞI BIRAKMA ---
+try:
+    requests_cache.clear()
+except:
+    pass
+
+session = requests.Session()
+session.headers.update({
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+    "Cache-Control": "no-cache",
+    "Pragma": "no-cache"
+})
+
 # --- ÇEREZ YÖNETİCİSİ (COOKIE MANAGER) ---
 cookie_manager = stx.CookieManager(key="cookie_manager")
 saved_email = cookie_manager.get(cookie="user_email")
@@ -97,17 +112,17 @@ if st.session_state.user_email is None and saved_email is not None and not st.se
             st.session_state.custom_tickers = VARSAYILAN_TICKERS.copy()
     st.rerun()
 
-# --- ANLIK CANLI VERİ ÇEKME MOTORU ---
+# --- %100 TAZE VE ÖNBELLEKSİZ VERİ MOTORU (SESSION İLE) ---
 def taze_veri_indir(tickers_tuple):
     try:
-        data = yf.download(list(tickers_tuple), period="400d", group_by='ticker', progress=False, threads=True)
+        data = yf.download(list(tickers_tuple), period="400d", group_by='ticker', progress=False, threads=True, session=session)
         return data
     except Exception:
         return pd.DataFrame()
 
 def tekil_taze_veri_cek(ticker):
     try:
-        df = yf.download(ticker, period="60d", interval="1h", progress=False)
+        df = yf.download(ticker, period="60d", interval="1h", progress=False, session=session)
         if isinstance(df.columns, pd.MultiIndex):
             df.columns = df.columns.get_level_values(0)
         return df
@@ -266,7 +281,7 @@ def hisse_sil_callback():
         st.session_state.sil_hisse_input_field = ""
 
 st.title("📈 Hibrit Portföy Komuta Merkezi")
-st.markdown("**Mod:** Canlı & Anlık Fiyat Garantili Derin Analiz (Fast-Info Entegrasyonlu)")
+st.markdown("**Mod:** Requests-Session & Önbelleksiz %100 Canlı Fiyat Motoru")
 st.markdown("---")
 
 st.sidebar.header("⚙️ Kontrol Paneli")
@@ -300,9 +315,10 @@ with tab1:
         if not selected_tickers:
             st.sidebar.warning("⚠️ Lütfen taranacak en az bir varlık seçin!")
         else:
-            with st.spinner("Piyasa verileri ve canlı fiyatlar çekiliyor..."):
+            with st.spinner("Piyasa verileri ve anlık canlı fiyatlar çekiliyor..."):
                 st.session_state.opsiyon_sonuclar = None
                 
+                # Toplu indirmeye session parametresi eklendi
                 toplu_df = taze_veri_indir(tuple(selected_tickers))
                 
                 gecici_sonuclar = []
@@ -314,7 +330,7 @@ with tab1:
                 
                 for sembol in sektor_referanslari.keys():
                     try:
-                        df_sek = yf.download(sembol, period="40d", progress=False)
+                        df_sek = yf.download(sembol, period="40d", progress=False, session=session)
                         if isinstance(df_sek.columns, pd.MultiIndex): df_sek.columns = df_sek.columns.get_level_values(0)
                         if len(df_sek) >= 21:
                             sektor_getirileri[sembol] = ((df_sek['Close'].iloc[-1] - df_sek['Close'].iloc[-21]) / df_sek['Close'].iloc[-21]) * 100
@@ -342,25 +358,25 @@ with tab1:
                         is_bist = ".IS" in ticker
                         para_birimi = "TL" if is_bist else "$"
                         
-                        # --- CANLI / ANLIK FİYAT GÜVENCESİ (FAST-INFO) ---
-                        t_obj = yf.Ticker(ticker)
+                        # --- CANLI / ANLIK FİYAT ZORLAMASI (SESSION İLE) ---
+                        t_obj = yf.Ticker(ticker, session=session)
                         canli_fiyat = None
                         try:
-                            canli_fiyat = t_obj.fast_info.get('last_price', None)
+                            h_recent = t_obj.history(period="2d")
+                            if not h_recent.empty:
+                                canli_fiyat = float(h_recent['Close'].iloc[-1])
                         except:
                             pass
                         
                         if not canli_fiyat or pd.isna(canli_fiyat):
                             try:
-                                h_1d = t_obj.history(period="1d")
-                                if not h_1d.empty:
-                                    canli_fiyat = float(h_1d['Close'].iloc[-1])
+                                canli_fiyat = t_obj.fast_info.get('last_price', None)
                             except:
                                 pass
 
                         if canli_fiyat and not pd.isna(canli_fiyat):
                             bugun_kapanis = float(canli_fiyat)
-                            df_long.iloc[-1, df_long.columns.get_loc('Close')] = bugun_kapanis
+                            df_long.loc[df_long.index[-1], 'Close'] = bugun_kapanis
                         else:
                             bugun_kapanis = float(df_long['Close'].iloc[-1])
 
@@ -540,7 +556,7 @@ with tab1:
                 secilen_detay_hisse = st.selectbox("İncelemek İçin Varlık Seçin:", options=df_sonuc["Varlık"].tolist(), key="detay_hisse_secici")
                 
                 if secilen_detay_hisse:
-                    df_grafik = yf.download(secilen_detay_hisse, period="730d", progress=False)
+                    df_grafik = yf.download(secilen_detay_hisse, period="730d", progress=False, session=session)
                     if isinstance(df_grafik.columns, pd.MultiIndex): df_grafik.columns = df_grafik.columns.get_level_values(0)
                     
                     if not df_grafik.empty:
