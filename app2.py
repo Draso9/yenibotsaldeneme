@@ -376,7 +376,6 @@ with tab1:
         else:
             with st.spinner("Hedge-Fund Katmanları & Hibrit Kararlı Veri Akışı İşleniyor..."):
                 
-                # Yeni taramada eski opsiyon hesaplamalarını sıfırla
                 st.session_state.opsiyon_sonuclar = None
                 
                 progress_text = st.empty()
@@ -448,20 +447,50 @@ with tab1:
                         is_bist = ".IS" in ticker
                         para_birimi = "TL" if is_bist else "$"
                         
+                        # --- DOĞRU PİYASA ÖNCESİ (PRE-MARKET) VE CANLI VERİ ENTEGRASYONU ---
+                        # 1. Önceki Kapanışı Netleştir: Yfinance df_long'u bazen dünün datasını en sona atar.
+                        try:
+                            onceki_kapanis = float(stock.fast_info.previous_close)
+                        except:
+                            onceki_kapanis = float(df_long['Close'].iloc[-2]) if len(df_long) >= 2 else float(df_long['Close'].iloc[-1])
+
+                        # 2. Anlık (veya Pre-Market) Fiyatı Çek
                         bugun_kapanis = float(df_long['Close'].iloc[-1])
-                        onceki_kapanis = float(df_long['Close'].iloc[-2]) if len(df_long) >= 2 else bugun_kapanis
-                        
-                        if not is_bist:
-                            try:
+                        try:
+                            if is_bist:
+                                try:
+                                    bugun_kapanis = float(stock.fast_info.last_price)
+                                except:
+                                    df_live = stock.history(period="1d", interval="5m")
+                                    if not df_live.empty:
+                                        bugun_kapanis = float(df_live['Close'].iloc[-1])
+                            else:
                                 df_live = stock.history(period="1d", interval="1m", prepost=True)
                                 if not df_live.empty:
                                     bugun_kapanis = float(df_live['Close'].iloc[-1])
-                                    df_long.iloc[-1, df_long.columns.get_loc('Close')] = bugun_kapanis
-                            except:
-                                pass
+                                else:
+                                    bugun_kapanis = float(stock.fast_info.last_price)
+                        except:
+                            pass
 
                         gunluk_degisim = ((bugun_kapanis - onceki_kapanis) / onceki_kapanis) * 100 if onceki_kapanis > 0 else 0.0
                         fiyat_str = f"{bugun_kapanis:.2f} {para_birimi} ({'+' if gunluk_degisim > 0 else ''}{gunluk_degisim:.2f}%)"
+
+                        # 3. İndikatörler için df_long'u güvenle güncelle (Eğer piyasa kapalıysa ve dünün verisiyse ezme, ekle)
+                        try:
+                            son_tarih = pd.to_datetime(df_long.index[-1]).date()
+                            bugun_tarihi = pd.Timestamp.now(tz=df_long.index.tz).date() if df_long.index.tz else pd.Timestamp.now().date()
+                            
+                            if son_tarih < bugun_tarihi:
+                                yeni_satir = df_long.iloc[-1:].copy()
+                                yeni_satir.index = [pd.Timestamp.now(tz=df_long.index.tz) if df_long.index.tz else pd.Timestamp.now()]
+                                yeni_satir['Close'] = bugun_kapanis
+                                df_long = pd.concat([df_long, yeni_satir])
+                            else:
+                                df_long.iloc[-1, df_long.columns.get_loc('Close')] = bugun_kapanis
+                        except:
+                            df_long.iloc[-1, df_long.columns.get_loc('Close')] = bugun_kapanis
+                        # ------------------------------------------------------------------
 
                         ortalama_hacim_20 = df_long['Volume'].rolling(20).mean().iloc[-1]
                         ortalama_ciro_tutar = ortalama_hacim_20 * bugun_kapanis if not pd.isna(ortalama_hacim_20) else 0
@@ -815,14 +844,35 @@ with tab1:
                         df_grafik = stk_detay.history(period="2y").dropna(subset=['Open', 'High', 'Low', 'Close', 'Volume'])
                         
                         if not df_grafik.empty:
-                            if not is_detay_bist:
-                                try:
+                            
+                            # --- DETAY GRAFİK İÇİN PİYASA ÖNCESİ KORUMASI ---
+                            try:
+                                if is_detay_bist:
+                                    try:
+                                        canli_fiyat = float(stk_detay.fast_info.last_price)
+                                    except:
+                                        df_live_detay = stk_detay.history(period="1d", interval="5m")
+                                        canli_fiyat = float(df_live_detay['Close'].iloc[-1]) if not df_live_detay.empty else float(df_grafik['Close'].iloc[-1])
+                                else:
                                     df_live_detay = stk_detay.history(period="1d", interval="1m", prepost=True)
                                     if not df_live_detay.empty:
                                         canli_fiyat = float(df_live_detay['Close'].iloc[-1])
-                                        df_grafik.iloc[-1, df_grafik.columns.get_loc('Close')] = canli_fiyat
-                                except:
-                                    pass
+                                    else:
+                                        canli_fiyat = float(stk_detay.fast_info.last_price)
+                                
+                                son_tarih_grafik = pd.to_datetime(df_grafik.index[-1]).date()
+                                bugun_tarihi_grafik = pd.Timestamp.now(tz=df_grafik.index.tz).date() if df_grafik.index.tz else pd.Timestamp.now().date()
+                                
+                                if son_tarih_grafik < bugun_tarihi_grafik:
+                                    yeni_satir_grafik = df_grafik.iloc[-1:].copy()
+                                    yeni_satir_grafik.index = [pd.Timestamp.now(tz=df_grafik.index.tz) if df_grafik.index.tz else pd.Timestamp.now()]
+                                    yeni_satir_grafik['Close'] = canli_fiyat
+                                    df_grafik = pd.concat([df_grafik, yeni_satir_grafik])
+                                else:
+                                    df_grafik.iloc[-1, df_grafik.columns.get_loc('Close')] = canli_fiyat
+                            except:
+                                pass
+                            # ------------------------------------------------
                             
                             df_grafik['EMA9'] = df_grafik['Close'].ewm(span=9).mean()
                             df_grafik['EMA21'] = df_grafik['Close'].ewm(span=21).mean()
