@@ -1,7 +1,8 @@
 streamlit
-yfinance
 pandas
 numpy
+requests
+yfinance
 firebase-admin
 extra-streamlit-components
 plotly
