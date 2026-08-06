@@ -451,14 +451,17 @@ with tab1:
                         bugun_kapanis = float(df_long['Close'].iloc[-1])
                         onceki_kapanis = float(df_long['Close'].iloc[-2]) if len(df_long) >= 2 else bugun_kapanis
                         
-                        if not is_bist:
-                            try:
-                                df_live = stock.history(period="1d", interval="1m", prepost=True)
-                                if not df_live.empty:
-                                    bugun_kapanis = float(df_live['Close'].iloc[-1])
-                                    df_long.iloc[-1, df_long.columns.get_loc('Close')] = bugun_kapanis
-                            except:
-                                pass
+                        # Hem BIST hem ABD için anlık veriyi çekmeye zorla
+                        try:
+                            df_live = stock.history(period="1d", interval="1m", prepost=False)
+                            if df_live.empty:
+                                df_live = stock.history(period="1d", interval="5m", prepost=False)
+                                
+                            if not df_live.empty:
+                                bugun_kapanis = float(df_live['Close'].iloc[-1])
+                                df_long.iloc[-1, df_long.columns.get_loc('Close')] = bugun_kapanis
+                        except Exception:
+                            pass
 
                         gunluk_degisim = ((bugun_kapanis - onceki_kapanis) / onceki_kapanis) * 100 if onceki_kapanis > 0 else 0.0
                         fiyat_str = f"{bugun_kapanis:.2f} {para_birimi} ({'+' if gunluk_degisim > 0 else ''}{gunluk_degisim:.2f}%)"
@@ -821,14 +824,16 @@ with tab1:
                         df_grafik = stk_detay.history(period="2y").dropna(subset=['Open', 'High', 'Low', 'Close', 'Volume'])
                         
                         if not df_grafik.empty:
-                            if not is_detay_bist:
-                                try:
-                                    df_live_detay = stk_detay.history(period="1d", interval="1m", prepost=True)
-                                    if not df_live_detay.empty:
-                                        canli_fiyat = float(df_live_detay['Close'].iloc[-1])
-                                        df_grafik.iloc[-1, df_grafik.columns.get_loc('Close')] = canli_fiyat
-                                except:
-                                    pass
+                            try:
+                                df_live_detay = stk_detay.history(period="1d", interval="1m", prepost=False)
+                                if df_live_detay.empty:
+                                    df_live_detay = stk_detay.history(period="1d", interval="5m", prepost=False)
+                                    
+                                if not df_live_detay.empty:
+                                    canli_fiyat = float(df_live_detay['Close'].iloc[-1])
+                                    df_grafik.iloc[-1, df_grafik.columns.get_loc('Close')] = canli_fiyat
+                            except Exception:
+                                pass
                             
                             df_grafik['EMA9'] = df_grafik['Close'].ewm(span=9).mean()
                             df_grafik['EMA21'] = df_grafik['Close'].ewm(span=21).mean()
