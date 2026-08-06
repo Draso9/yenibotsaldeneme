@@ -15,7 +15,9 @@ from plotly.subplots import make_subplots
 # --- YFINANCE İÇİN ÖZEL OTURUM (RATE LIMIT KORUMASI) ---
 session = requests.Session()
 session.headers.update({
-    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36'
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+    'Cache-Control': 'no-cache',
+    'Pragma': 'no-cache'
 })
 
 # --- 1. SAYFA YAPILANDIRMASI ---
@@ -374,7 +376,7 @@ with tab1:
         if not selected_tickers:
             st.sidebar.warning("⚠️ Lütfen taranacak en az bir varlık seçin!")
         else:
-            with st.spinner("Hedge-Fund Katmanları & Hibrit Kararlı Veri Akışı İşleniyor..."):
+            with st.spinner("Hedge-Fund Katmanları & Hibrit Taze Veri Akışı İşleniyor..."):
                 
                 # Yeni taramada eski opsiyon hesaplamalarını sıfırla
                 st.session_state.opsiyon_sonuclar = None
@@ -392,64 +394,36 @@ with tab1:
                     "XU100.IS": "BIST100", "^IXIC": "NASDAQ", "XBANK.IS": "Banka", 
                     "XUSIN.IS": "Sanayi", "XULAS.IS": "Ulaşım", "XHOLD.IS": "Holding"
                 }
-                for sembol in sektor_referanslari.keys():
-                    for deneme in range(2):
-                        try:
-                            time.sleep(1.0)
-                            df_sek = yf.Ticker(sembol, session=session).history(period="2mo", timeout=10).dropna(subset=['Close'])
-                            if len(df_sek) >= 21:
-                                sektor_getirileri[sembol] = ((df_sek['Close'].iloc[-1] - df_sek['Close'].iloc[-21]) / df_sek['Close'].iloc[-21]) * 100
-                                break
-                        except:
-                            time.sleep(1.5)
-                            sektor_getirileri[sembol] = 0
                 
-                df_toplu = pd.DataFrame()
-                try:
-                    time.sleep(1.0)
-                    # Yahoo'nun sunucu önbelleğini (cache) bypass etmek için rastgele bir param ekliyoruz
-                    session.headers['Cache-Control'] = 'no-cache'
-                    session.headers['Pragma'] = 'no-cache'
-                    
-                    df_toplu = yf.download(
-                        selected_tickers, 
-                        period="1y", 
-                        group_by="ticker", 
-                        auto_adjust=True, 
-                        session=session, 
-                        timeout=20,
-                        threads=True
-                    )
-                except:
-                    df_toplu = pd.DataFrame()
+                # Sektör referanslarını taze tekil çekimle alıyoruz (Önbellek takılmasını önlemek için)
+                for sembol in sektor_referanslari.keys():
+                    try:
+                        time.sleep(0.3)
+                        stk_sek = yf.Ticker(sembol, session=session)
+                        df_sek = stk_sek.history(period="2mo", timeout=10).dropna(subset=['Close'])
+                        if len(df_sek) >= 21:
+                            sektor_getirileri[sembol] = ((df_sek['Close'].iloc[-1] - df_sek['Close'].iloc[-21]) / df_sek['Close'].iloc[-21]) * 100
+                        else:
+                            sektor_getirileri[sembol] = 0
+                    except:
+                        sektor_getirileri[sembol] = 0
 
+                # TOPLU İNDİRME YERİNE %100 TAZE GARANTİLİ TEKİL DÖNGÜSEL İNDİRME MOTORU
                 for i, ticker in enumerate(selected_tickers):
                     ilerleme_yuzdesi = (i + 1) / total_tickers
                     progress_text.markdown(f"**⏳ Taranıyor (%{int(ilerleme_yuzdesi * 100)}):** `{ticker}`")
                     progress_bar.progress(ilerleme_yuzdesi)
                     
                     df_long = pd.DataFrame()
-                    
-                    if not df_toplu.empty:
+                    for deneme in range(3):
                         try:
-                            if isinstance(df_toplu.columns, pd.MultiIndex):
-                                if ticker in df_toplu.columns.levels[0]:
-                                    df_long = df_toplu[ticker].dropna(subset=['Open', 'High', 'Low', 'Close', 'Volume'])
-                            else:
-                                df_long = df_toplu.dropna(subset=['Open', 'High', 'Low', 'Close', 'Volume'])
-                        except:
-                            df_long = pd.DataFrame()
-
-                    if df_long.empty or len(df_long) < 50:
-                        for deneme in range(3):
-                            try:
-                                time.sleep(2.0 + (deneme * 0.5)) 
-                                stock_obj = yf.Ticker(ticker, session=session)
-                                df_long = stock_obj.history(period="1y", timeout=15).dropna(subset=['Open', 'High', 'Low', 'Close', 'Volume'])
-                                if not df_long.empty and len(df_long) >= 50:
-                                    break
-                            except Exception:
-                                time.sleep(2.0)
+                            time.sleep(0.4) # Sunucunun banlamasını önleyen akıllı gecikme
+                            stock_obj = yf.Ticker(ticker, session=session)
+                            df_long = stock_obj.history(period="1y", timeout=15).dropna(subset=['Open', 'High', 'Low', 'Close', 'Volume'])
+                            if not df_long.empty and len(df_long) >= 50:
+                                break
+                        except Exception:
+                            time.sleep(0.5)
 
                     if df_long.empty or len(df_long) < 50:
                         basarisi_cekilemeyen_varliklar.append(ticker)
@@ -463,6 +437,7 @@ with tab1:
                         bugun_kapanis = float(df_long['Close'].iloc[-1])
                         onceki_kapanis = float(df_long['Close'].iloc[-2]) if len(df_long) >= 2 else bugun_kapanis
                         
+                        # NASDAQ için anlık 1 dakikalık veri ile canlı fiyat kontrolü
                         if not is_bist:
                             try:
                                 df_live = stock.history(period="1d", interval="1m", prepost=True)
@@ -579,7 +554,6 @@ with tab1:
                         if macd_serisi.iloc[-1] > macd_sinyal.iloc[-1]: skor += 10
                         else: skor -= 10
                         
-                        # DÜZELTME: PEG None ise ceza kesilmez, sadece varsa kontrol edilir
                         if peg is not None:
                             if 0 < peg < 1.5: skor += 15
                             else: skor -= 15
@@ -615,7 +589,6 @@ with tab1:
                         ema_21_val = df_long['Close'].ewm(span=21).mean().iloc[-1]
                         breakout_kosulu = (bugun_kapanis >= karma_direnc) and (hacim_oran >= 120) and (ema_9_val > ema_21_val) and (uzun_vade_trend)
                         
-                        # DÜZELTME: PEG None olsa bile BIST veya verisi eksik güçlü trenddeki hisseler uzun vadeli aday havuzuna girebilsin
                         uzun_vadeli_aday_kosulu = (
                             uzun_vade_trend and 
                             skor >= 70 and 
@@ -1051,15 +1024,15 @@ with tab2:
                         if not aktif_df.empty:
                             essiz_varliklar = aktif_df["varlik"].unique().tolist()
                             
-                            df_fiyatlar = yf.download(essiz_varliklar, period="1d", group_by="ticker", auto_adjust=True, session=session, timeout=15)
-                            
                             guncel_fiyatlar = {}
                             for v in essiz_varliklar:
                                 try:
-                                    if len(essiz_varliklar) == 1:
-                                        guncel_fiyatlar[v] = float(df_fiyatlar['Close'].iloc[-1])
+                                    stk_p = yf.Ticker(v, session=session)
+                                    df_p = stk_p.history(period="1d")
+                                    if not df_p.empty:
+                                        guncel_fiyatlar[v] = float(df_p['Close'].iloc[-1])
                                     else:
-                                        guncel_fiyatlar[v] = float(df_fiyatlar[v]['Close'].iloc[-1])
+                                        guncel_fiyatlar[v] = None
                                 except:
                                     guncel_fiyatlar[v] = None
                             
