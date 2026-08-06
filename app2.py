@@ -1153,16 +1153,15 @@ def sinyal_yonu_belirle(sinyal):
 
 
 def sinyal_kayitlarini_firestore_yaz(sonuclar, teknik_paneller):
-    """Sinyal değişim odaklı performans kaydı tutar.
+    """İlk alım fiyatını koruyan, tekrar kayıt üretmeyen pozisyon takibi.
 
-    - Aynı varlıkta aynı ALIM sinyali devam ediyorsa Firestore'a tekrar yazmaz.
-    - Açık pozisyon varken ALIM sinyal türü değişirse aynı performans kaydını günceller;
-      yeni bir işlem kaydı oluşturmaz.
-    - Sinyal ALIM dışına çıktığında açık pozisyonu kapatır.
-    - Yeni ALIM kaydı ancak önceki pozisyon kapandıktan sonra oluşturulur.
-
-    Bu yapı hem Firestore yazma kotasını korur hem de aynı fiyat hareketinin
-    performans istatistiğinde birden fazla bağımsız işlem gibi sayılmasını önler.
+    - İlk ALIM/KIRILIM/ADAY sinyalinde tek açık pozisyon oluşturur.
+    - Aynı pozisyon sürerken giriş tarihi ve giriş fiyatı asla değişmez.
+    - Sinyal türü değişirse yalnızca güncel sinyal/teknik alanlar güncellenir.
+    - Alım yönü kaybolursa pozisyon kapanır ve geçmişe taşınır.
+    - Aynı hissede daha sonra yeniden alım oluşursa yeni dönem kaydı açılır.
+    - Eski sürümlerden kalan açık arşiv kaydı varsa yeni kayıt açmak yerine
+      en eski açık kaydı aktif pozisyon olarak yeniden bağlar.
     """
     if not db or not st.session_state.user_email:
         return
@@ -1170,6 +1169,30 @@ def sinyal_kayitlarini_firestore_yaz(sonuclar, teknik_paneller):
     simdi = datetime.now()
     email = st.session_state.user_email
     email_anahtari = email.replace("@", "_").replace(".", "_")
+
+    # Eski sürümlerden kalan, aktif_sinyaller belgesiyle bağlantısı kopmuş açık
+    # kayıtları bir kez okuyup ticker -> en eski açık pozisyon haritası oluştur.
+    eski_acik_haritasi = {}
+    try:
+        sorgu = (db.collection("sinyal_arsivi")
+                 .where("user_email", "==", email)
+                 .limit(500))
+        for doc in sorgu.stream():
+            veri = doc.to_dict() or {}
+            if veri.get("yon") != "ALIM":
+                continue
+            durum = str(veri.get("durum", "ACIK") or "ACIK").upper()
+            if durum != "ACIK":
+                continue
+            ticker_eski = veri.get("ticker")
+            if not ticker_eski:
+                continue
+            tarih = str(veri.get("olusturma_zamani", ""))
+            mevcut = eski_acik_haritasi.get(ticker_eski)
+            if mevcut is None or tarih < mevcut[1]:
+                eski_acik_haritasi[ticker_eski] = (doc.id, tarih, veri)
+    except Exception:
+        eski_acik_haritasi = {}
 
     for sonuc in sonuclar:
         ticker = sonuc.get("Varlık")
@@ -1186,27 +1209,50 @@ def sinyal_kayitlarini_firestore_yaz(sonuclar, teknik_paneller):
             aktif_snap = aktif_ref.get()
             aktif = aktif_snap.to_dict() if aktif_snap.exists else {}
         except Exception:
-            # Aktif durum okunamazsa yanlışlıkla yeni tekrar kayıt üretmemek için
-            # bu varlığı o taramada atla.
             continue
 
-        aktif_mi = aktif.get("durum") == "ACIK"
+        aktif_mi = str(aktif.get("durum", "")).upper() == "ACIK"
         onceki_sinyal = str(aktif.get("sinyal", ""))
         arsiv_doc_id = aktif.get("arsiv_doc_id")
         fiyat = float(panel.get("fiyat", 0) or 0)
 
-        if yon == "ALIM" and panel and fiyat > 0:
-            # Aynı açık pozisyonda sinyal değişmediyse hiçbir yazma yapma.
-            if aktif_mi and onceki_sinyal == sinyal:
-                continue
+        # Aktif belge yok ama geçmişten açık arşiv kaydı varsa onu yeniden bağla.
+        if not aktif_mi and ticker in eski_acik_haritasi:
+            eski_id, _, eski_veri = eski_acik_haritasi[ticker]
+            arsiv_doc_id = eski_id
+            aktif_mi = True
+            onceki_sinyal = str(eski_veri.get("sinyal", ""))
+            try:
+                aktif_ref.set({
+                    "user_email": email,
+                    "ticker": ticker,
+                    "durum": "ACIK",
+                    "sinyal": onceki_sinyal,
+                    "arsiv_doc_id": eski_id,
+                    "acilis_zamani": eski_veri.get("olusturma_zamani"),
+                    "giris_fiyati": float(eski_veri.get("giris_fiyati", 0) or 0),
+                    "guncelleme_zamani": simdi.isoformat(),
+                }, merge=True)
+                aktif = {
+                    **aktif,
+                    "durum": "ACIK",
+                    "sinyal": onceki_sinyal,
+                    "arsiv_doc_id": eski_id,
+                    "giris_fiyati": float(eski_veri.get("giris_fiyati", 0) or 0),
+                }
+            except Exception:
+                pass
 
+        if yon == "ALIM" and panel and fiyat > 0:
             ortak_guncel = {
                 "sinyal": sinyal,
                 "yon": "ALIM",
+                "durum": "ACIK",
                 "son_fiyat": fiyat,
                 "stop": float(panel.get("stop", 0) or 0),
                 "tp1": float(panel.get("tp1", 0) or 0),
                 "tp2": float(panel.get("tp2", 0) or 0),
+                "tp3": float(panel.get("tp3", 0) or 0),
                 "rsi": float(panel.get("rsi", 0) or 0),
                 "tetik": panel.get("teyit", ""),
                 "tetik_puani": int(panel.get("tetik_puani", 0) or 0),
@@ -1216,29 +1262,33 @@ def sinyal_kayitlarini_firestore_yaz(sonuclar, teknik_paneller):
             }
 
             if aktif_mi and arsiv_doc_id:
-                # Pozisyon açık; sinyal seviyesi değişti. Aynı işlemi güncelle.
-                degisim_sayisi = int(aktif.get("sinyal_degisim_sayisi", 0) or 0) + 1
-                try:
-                    db.collection("sinyal_arsivi").document(arsiv_doc_id).set({
-                        **ortak_guncel,
+                # İlk giriş bilgileri değiştirilmez. Sinyal aynıysa yalnızca fiyat ve
+                # teknik seviyeler güncellenir; sinyal değişirse değişim bilgisi eklenir.
+                arsiv_guncelleme = dict(ortak_guncel)
+                aktif_guncelleme = {
+                    "user_email": email,
+                    "ticker": ticker,
+                    "durum": "ACIK",
+                    "sinyal": sinyal,
+                    "arsiv_doc_id": arsiv_doc_id,
+                    "guncelleme_zamani": simdi.isoformat(),
+                }
+                if onceki_sinyal != sinyal:
+                    degisim_sayisi = int(aktif.get("sinyal_degisim_sayisi", 0) or 0) + 1
+                    arsiv_guncelleme.update({
                         "onceki_sinyal": onceki_sinyal,
                         "son_sinyal_degisim_zamani": simdi.isoformat(),
                         "sinyal_degisim_sayisi": degisim_sayisi,
-                    }, merge=True)
-                    aktif_ref.set({
-                        "user_email": email,
-                        "ticker": ticker,
-                        "durum": "ACIK",
-                        "sinyal": sinyal,
-                        "arsiv_doc_id": arsiv_doc_id,
-                        "sinyal_degisim_sayisi": degisim_sayisi,
-                        "guncelleme_zamani": simdi.isoformat(),
-                    }, merge=True)
+                    })
+                    aktif_guncelleme["sinyal_degisim_sayisi"] = degisim_sayisi
+                try:
+                    db.collection("sinyal_arsivi").document(arsiv_doc_id).set(arsiv_guncelleme, merge=True)
+                    aktif_ref.set(aktif_guncelleme, merge=True)
                 except Exception:
                     pass
                 continue
 
-            # Açık pozisyon yok: tek bir yeni performans kaydı oluştur.
+            # Gerçekten açık pozisyon yoksa yeni dönem başlat.
             yeni_arsiv_id = f"{aktif_doc_id}_{simdi.strftime('%Y%m%d_%H%M%S_%f')}"
             yeni_veri = {
                 "user_email": email,
@@ -1251,6 +1301,7 @@ def sinyal_kayitlarini_firestore_yaz(sonuclar, teknik_paneller):
                 "stop": float(panel.get("stop", 0) or 0),
                 "tp1": float(panel.get("tp1", 0) or 0),
                 "tp2": float(panel.get("tp2", 0) or 0),
+                "tp3": float(panel.get("tp3", 0) or 0),
                 "rsi": float(panel.get("rsi", 0) or 0),
                 "tetik": panel.get("teyit", ""),
                 "tetik_puani": int(panel.get("tetik_puani", 0) or 0),
@@ -1274,11 +1325,12 @@ def sinyal_kayitlarini_firestore_yaz(sonuclar, teknik_paneller):
                     "giris_fiyati": fiyat,
                     "guncelleme_zamani": simdi.isoformat(),
                 })
+                eski_acik_haritasi[ticker] = (yeni_arsiv_id, simdi.isoformat(), yeni_veri)
             except Exception:
                 pass
 
         elif aktif_mi and arsiv_doc_id:
-            # Aktif alım koşulu ortadan kalktı: pozisyon kaydını bir kez kapat.
+            # Alım yönü kaybolduğunda ilk giriş fiyatına göre kapanış performansı sabitlenir.
             giris = float(aktif.get("giris_fiyati", 0) or 0)
             if giris <= 0:
                 try:
@@ -1305,6 +1357,7 @@ def sinyal_kayitlarini_firestore_yaz(sonuclar, teknik_paneller):
                     "arsiv_doc_id": None,
                     "guncelleme_zamani": simdi.isoformat(),
                 }, merge=True)
+                eski_acik_haritasi.pop(ticker, None)
             except Exception:
                 pass
 
@@ -2140,8 +2193,9 @@ with tab1:
 with tab2:
     st.subheader("📊 Sinyal Performans Takibi")
     st.markdown(
-        "Sistem yalnızca gerçek **alım yönlü** sinyalleri kaydeder. "
-        "Bu bölüm, alım sinyalinin verildiği fiyat ile güncel fiyat arasındaki değişimi sade biçimde gösterir."
+        "Her hissede **ilk alım sinyali tarihi ve fiyatı sabit tutulur**. "
+        "Aynı alım dönemi devam ederken sinyal türü değişse bile yeni kayıt açılmaz; "
+        "performans ilk giriş fiyatından güncel fiyata göre hesaplanır."
     )
 
     if not st.session_state.user_email or not db:
@@ -2152,12 +2206,12 @@ with tab2:
             guncelle_tiklandi = st.button("🔄 Güncel Fiyatları Yenile", use_container_width=True)
         with col_p2:
             st.caption(
-                "Aynı açık pozisyon tekrar kaydedilmez. Yeni kayıt yalnızca yeni bir alım pozisyonu açıldığında oluşur."
+                "Sinyal kaybolursa pozisyon kapanır. Aynı hissede daha sonra yeniden alım oluşursa yeni dönem başlatılır."
             )
 
         kayitlar = performans_kayitlarini_getir()
         if guncelle_tiklandi and kayitlar:
-            with st.spinner("Alım kayıtları güncel fiyatlarla karşılaştırılıyor..."):
+            with st.spinner("Açık alım kayıtları güncel fiyatlarla karşılaştırılıyor..."):
                 kayitlar = performans_fiyatlarini_guncelle(kayitlar)
             st.success("Güncel fiyatlar yenilendi.")
 
@@ -2166,101 +2220,142 @@ with tab2:
                 "Henüz takip edilen bir alım pozisyonu yok. İlk ALIM, KIRILIM veya ADAY sinyali oluştuğunda burada görüntülenecek."
             )
         else:
-            # Firestore filtrelerinden kalan eski indeksleri sıfırla; aksi halde
-            # pandas farklı indeksli sütunları hizalayıp boş satırlar üretebilir.
             df_perf = pd.DataFrame(kayitlar).reset_index(drop=True)
-            for col in ["giris_fiyati", "son_fiyat", "getiri_yuzde"]:
+            for col in ["giris_fiyati", "son_fiyat", "kapanis_fiyati", "getiri_yuzde"]:
                 if col in df_perf.columns:
                     df_perf[col] = pd.to_numeric(df_perf[col], errors="coerce")
 
-            tarih_serisi = pd.to_datetime(df_perf.get("olusturma_zamani"), errors="coerce")
-            simdi_ts = pd.Timestamp.now(tz=None)
-            tarih_naive = tarih_serisi.dt.tz_localize(None) if getattr(tarih_serisi.dt, "tz", None) is not None else tarih_serisi
-            gecen_gun = (simdi_ts.normalize() - tarih_naive.dt.normalize()).dt.days.clip(lower=0)
-
-            toplam = len(df_perf)
-            # Eski Firestore kayıtlarında durum alanı olmayabilir.
             if "durum" not in df_perf.columns:
                 df_perf["durum"] = "ACIK"
-            df_perf["durum"] = df_perf["durum"].fillna("ACIK").replace({"None": "ACIK", "": "ACIK"}).astype(str).str.upper()
-            acik_mask = df_perf["durum"].eq("ACIK")
-            pozitif = int((df_perf["getiri_yuzde"] > 0).sum())
-            negatif = int((df_perf["getiri_yuzde"] < 0).sum())
-            ort_getiri = float(df_perf["getiri_yuzde"].mean()) if toplam else 0.0
+            df_perf["durum"] = (
+                df_perf["durum"].fillna("ACIK")
+                .replace({"None": "ACIK", "": "ACIK"})
+                .astype(str).str.upper()
+            )
+            df_perf["_tarih"] = pd.to_datetime(df_perf.get("olusturma_zamani"), errors="coerce")
+            df_perf["_kapanis_tarih"] = pd.to_datetime(df_perf.get("kapanis_zamani"), errors="coerce")
+
+            # Ana tabloda her hisse için yalnızca en eski ilk alım kaydı tutulur.
+            # Böylece eski sürümlerden kalan mükerrer açık belgeler ekranda çoğalmaz.
+            acik_df = df_perf[df_perf["durum"].eq("ACIK")].copy()
+            acik_df = (
+                acik_df.sort_values(["ticker", "_tarih"], ascending=[True, True])
+                .drop_duplicates(subset=["ticker"], keep="first")
+                .sort_values("_tarih", ascending=False)
+                .reset_index(drop=True)
+            )
+            kapali_df = (
+                df_perf[df_perf["durum"].eq("KAPALI")].copy()
+                .sort_values(["_kapanis_tarih", "_tarih"], ascending=False)
+                .reset_index(drop=True)
+            )
+
+            simdi_ts = pd.Timestamp.now(tz=None)
+
+            def naive_tarih(seri):
+                if seri.empty:
+                    return seri
+                return seri.dt.tz_localize(None) if getattr(seri.dt, "tz", None) is not None else seri
+
+            acik_tarih = naive_tarih(acik_df["_tarih"]) if not acik_df.empty else pd.Series(dtype="datetime64[ns]")
+            acik_gecen = ((simdi_ts.normalize() - acik_tarih.dt.normalize()).dt.days.clip(lower=0)
+                           if not acik_df.empty else pd.Series(dtype=float))
+
+            pozitif = int((acik_df.get("getiri_yuzde", pd.Series(dtype=float)) > 0).sum())
+            negatif = int((acik_df.get("getiri_yuzde", pd.Series(dtype=float)) < 0).sum())
+            ort_getiri = float(acik_df["getiri_yuzde"].mean()) if not acik_df.empty else 0.0
 
             kp1, kp2, kp3, kp4 = st.columns(4)
-            kp1.metric("Takip Edilen Alım", toplam)
-            kp2.metric("Açık Pozisyon", int(acik_mask.sum()))
-            kp3.metric("Kârda / Zararda", f"{pozitif} / {negatif}")
-            kp4.metric("Ortalama Kâr/Zarar", f"%{ort_getiri:.1f}")
+            kp1.metric("Aktif Hisse", int(len(acik_df)))
+            kp2.metric("Kârda / Zararda", f"{pozitif} / {negatif}")
+            kp3.metric("Ort. Açık Performans", f"%{ort_getiri:+.1f}")
+            kp4.metric("Kapanmış Dönem", int(len(kapali_df)))
 
-            gorunum = pd.DataFrame({
-                "_tarih_siralama": tarih_serisi,
-                "Alım Tarihi": tarih_serisi.dt.strftime("%d.%m.%Y %H:%M"),
-                "Varlık": df_perf.get("ticker"),
-                "Alım Sinyali": df_perf.get("sinyal"),
-                "Alım Fiyatı": df_perf.get("giris_fiyati"),
-                "Güncel Fiyat": df_perf.get("son_fiyat"),
-                "Kâr / Zarar %": df_perf.get("getiri_yuzde"),
-                "Geçen Gün": gecen_gun,
-                "Durum": df_perf["durum"].replace({"ACIK": "🟢 Açık", "KAPALI": "⚪ Kapalı"}),
-            }).sort_values("_tarih_siralama", ascending=False).drop(columns=["_tarih_siralama"])
-
-            # Streamlit'in açık/koyu temasında yazı kontrastı kaybolmasın diye
-            # tabloyu sabit metin rengi vermeden, yalnızca Kâr/Zarar hücresini
-            # hafif arka plan ve kalın yazıyla vurguluyoruz.
             def performans_hucre_stili(val):
                 if pd.isna(val):
                     return ""
                 if val > 0:
-                    return "background-color: rgba(39,174,96,0.18); font-weight: 700;"
+                    return "background-color: rgba(39,174,96,0.18); font-weight:700;"
                 if val < 0:
-                    return "background-color: rgba(231,76,60,0.18); font-weight: 700;"
-                return "background-color: rgba(149,165,166,0.10); font-weight: 600;"
+                    return "background-color: rgba(231,76,60,0.18); font-weight:700;"
+                return "background-color: rgba(149,165,166,0.10); font-weight:600;"
 
-            stil = (
-                gorunum.style
-                .format({
-                    "Alım Fiyatı": "{:.2f}",
-                    "Güncel Fiyat": "{:.2f}",
-                    "Kâr / Zarar %": "{:+.2f}%",
-                    "Geçen Gün": "{:.0f}",
-                }, na_rep="-")
-                .map(performans_hucre_stili, subset=["Kâr / Zarar %"])
-                .set_properties(**{
-                    "font-size": "13px",
-                    "text-align": "left",
-                    "white-space": "nowrap",
+            def tablo_stili(df_gorunum):
+                return (
+                    df_gorunum.style
+                    .format({
+                        "İlk Alım Fiyatı": "{:.2f}",
+                        "Güncel Fiyat": "{:.2f}",
+                        "Kapanış Fiyatı": "{:.2f}",
+                        "Kâr / Zarar %": "{:+.2f}%",
+                        "Geçen Gün": "{:.0f}",
+                    }, na_rep="-")
+                    .map(performans_hucre_stili, subset=["Kâr / Zarar %"])
+                    .set_properties(**{
+                        "font-size": "13px",
+                        "text-align": "left",
+                        "white-space": "nowrap",
+                    })
+                    .set_properties(
+                        subset=[c for c in ["İlk Alım Fiyatı", "Güncel Fiyat", "Kapanış Fiyatı", "Kâr / Zarar %", "Geçen Gün"] if c in df_gorunum.columns],
+                        **{"text-align": "right", "font-variant-numeric": "tabular-nums"}
+                    )
+                    .set_table_styles([
+                        {"selector": "th", "props": [("font-weight", "700"), ("text-align", "left"), ("white-space", "nowrap")]},
+                        {"selector": "td", "props": [("border-bottom", "1px solid rgba(128,128,128,0.18)")]},
+                    ])
+                )
+
+            st.markdown("### 📌 Aktif Alım Pozisyonları")
+            if acik_df.empty:
+                st.info("Şu anda açık alım pozisyonu bulunmuyor.")
+            else:
+                aktif_gorunum = pd.DataFrame({
+                    "İlk Alım Tarihi": acik_df["_tarih"].dt.strftime("%d.%m.%Y %H:%M"),
+                    "Varlık": acik_df.get("ticker"),
+                    "İlk Sinyal / Güncel Sinyal": acik_df.get("sinyal"),
+                    "İlk Alım Fiyatı": acik_df.get("giris_fiyati"),
+                    "Güncel Fiyat": acik_df.get("son_fiyat"),
+                    "Kâr / Zarar %": acik_df.get("getiri_yuzde"),
+                    "Geçen Gün": acik_gecen.reset_index(drop=True),
+                    "Durum": "🟢 Açık",
                 })
-                .set_properties(subset=["Alım Fiyatı", "Güncel Fiyat", "Kâr / Zarar %", "Geçen Gün"], **{
-                    "text-align": "right",
-                    "font-variant-numeric": "tabular-nums",
-                })
-                .set_table_styles([
-                    {"selector": "th", "props": [("font-weight", "700"), ("text-align", "left"), ("white-space", "nowrap")]},
-                    {"selector": "td", "props": [("border-bottom", "1px solid rgba(128,128,128,0.18)")]},
-                ])
-            )
-            st.dataframe(
-                stil,
-                use_container_width=True,
-                height=440,
-                hide_index=True,
-                column_config={
-                    "Alım Tarihi": st.column_config.TextColumn("📅 Alım Tarihi", width="medium"),
-                    "Varlık": st.column_config.TextColumn("📌 Varlık", width="small"),
-                    "Alım Sinyali": st.column_config.TextColumn("🎯 Alım Sinyali", width="large"),
-                    "Alım Fiyatı": st.column_config.NumberColumn("💵 Alım Fiyatı", format="%.2f", width="small"),
-                    "Güncel Fiyat": st.column_config.NumberColumn("📈 Güncel Fiyat", format="%.2f", width="small"),
-                    "Kâr / Zarar %": st.column_config.NumberColumn("💹 Kâr / Zarar", format="%+.2f%%", width="small"),
-                    "Geçen Gün": st.column_config.NumberColumn("⏱️ Gün", format="%d", width="small"),
-                    "Durum": st.column_config.TextColumn("📍 Durum", width="small"),
-                },
-            )
-            st.caption(
-                "Kâr/zarar, güncel fiyatın alım sinyali verildiği fiyata göre yüzdesel değişimidir. "
-                "Komisyon, vergi, temettü ve gerçekleşen işlem fiyatı hesaba katılmaz."
-            )
+                st.dataframe(
+                    tablo_stili(aktif_gorunum),
+                    use_container_width=True,
+                    height=min(440, 82 + 36 * len(aktif_gorunum)),
+                    hide_index=True,
+                )
+                st.caption(
+                    "Performans, hissenin bu alım dönemindeki ilk sinyal fiyatından güncel fiyata göre hesaplanır. "
+                    "Aynı dönem içinde Kademeli Alım, Kusursuz Alım veya Kırılım arasında geçiş olması giriş fiyatını değiştirmez."
+                )
+
+            with st.expander(f"🗃️ Kapanmış Pozisyon Geçmişi ({len(kapali_df)})", expanded=False):
+                if kapali_df.empty:
+                    st.info("Henüz kapanmış alım dönemi bulunmuyor.")
+                else:
+                    kapanmis_gorunum = pd.DataFrame({
+                        "İlk Alım Tarihi": kapali_df["_tarih"].dt.strftime("%d.%m.%Y %H:%M"),
+                        "Kapanış Tarihi": kapali_df["_kapanis_tarih"].dt.strftime("%d.%m.%Y %H:%M"),
+                        "Varlık": kapali_df.get("ticker"),
+                        "Son Alım Sinyali": kapali_df.get("sinyal"),
+                        "Kapanış Nedeni": kapali_df.get("kapanis_sinyali"),
+                        "İlk Alım Fiyatı": kapali_df.get("giris_fiyati"),
+                        "Kapanış Fiyatı": kapali_df.get("kapanis_fiyati", kapali_df.get("son_fiyat")),
+                        "Kâr / Zarar %": kapali_df.get("getiri_yuzde"),
+                        "Durum": "⚪ Kapalı",
+                    })
+                    st.dataframe(
+                        tablo_stili(kapanmis_gorunum),
+                        use_container_width=True,
+                        height=min(480, 82 + 36 * len(kapanmis_gorunum)),
+                        hide_index=True,
+                    )
+                    st.caption(
+                        "Aynı hissede alım sinyali sona erip daha sonra yeniden oluşursa yeni dönem aktif tabloda açılır; "
+                        "önceki dönem burada saklanır."
+                    )
 
 with tab3:
     st.subheader("🎯 Akıllı Projeksiyon Motoru")
