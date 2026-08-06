@@ -1354,7 +1354,6 @@ Gelişmiş bonus ve cezalar sınırlandırılır; böylece yeni katman eski skor
 - **Sinyal Performans Takibi:** Yalnızca gerçek alım yönlü sinyallerin giriş fiyatına göre canlı performansını izler; tam backtest değildir.
 - **Akıllı Projeksiyon:** ATR ile tarihsel volatiliteyi birleştirerek yaklaşık 45 günlük hareket bandı üretir; gerçek implied volatility kullanmaz.
 - **Strateji Doğrulama / Backtest:** Geçmiş günlük veride 5, 10, 20 ve 45 gün sonraki sonuçları ölçer. Komisyon, kayma ve gün içi stop–hedef sırası tam modellenmez.
-- **Öğrenen Performans Profili:** Canlı kayıtları sinyal türü ve RSI dilimine göre gruplar; yeterli örnek olmadan eşikleri değiştirmez.
 """)
 
     st.warning("Bu uygulama algoritmik teknik analiz ve karar desteği sağlar; yatırım tavsiyesi, kesin getiri veya zarar etmeme garantisi değildir. Haber, bilanço, makro gelişme, likidite ve piyasa boşlukları teknik seviyeleri geçersiz kılabilir.")
@@ -1839,69 +1838,94 @@ with tab1:
 
 with tab2:
     st.subheader("📊 Sinyal Performans Takibi")
-    st.markdown("Yalnızca pozisyon açma önerisi taşıyan alım, kırılım ve uzun vadeli aday sinyallerinin giriş fiyatına göre performansını takip eder.")
+    st.markdown(
+        "Sistem yalnızca gerçek **alım yönlü** sinyalleri kaydeder. "
+        "Bu bölüm, alım sinyalinin verildiği fiyat ile güncel fiyat arasındaki değişimi sade biçimde gösterir."
+    )
 
     if not st.session_state.user_email or not db:
         st.warning("Bu bölüm için Firebase bağlantısı ve kullanıcı oturumu gereklidir.")
     else:
         col_p1, col_p2 = st.columns([1, 3])
         with col_p1:
-            guncelle_tiklandi = st.button("🔄 Fiyatları Güncelle", use_container_width=True)
+            guncelle_tiklandi = st.button("🔄 Güncel Fiyatları Yenile", use_container_width=True)
         with col_p2:
-            st.caption("Aynı açık pozisyon tekrar kaydedilmez. Firestore yalnızca yeni alım pozisyonu açıldığında, alım sinyali türü değiştiğinde veya pozisyon kapandığında yazılır.")
+            st.caption(
+                "Aynı açık pozisyon tekrar kaydedilmez. Yeni kayıt yalnızca yeni bir alım pozisyonu açıldığında oluşur."
+            )
 
         kayitlar = performans_kayitlarini_getir()
         if guncelle_tiklandi and kayitlar:
-            with st.spinner("Arşivdeki sinyaller güncel fiyatlarla karşılaştırılıyor..."):
+            with st.spinner("Alım kayıtları güncel fiyatlarla karşılaştırılıyor..."):
                 kayitlar = performans_fiyatlarini_guncelle(kayitlar)
-            st.success("Performans tablosu güncellendi.")
+            st.success("Güncel fiyatlar yenilendi.")
 
         if not kayitlar:
-            st.info("Henüz arşivlenmiş alım pozisyonu yok. İlk ALIM, KIRILIM veya ADAY sinyali tek bir pozisyon kaydı açar; aynı sinyalin tekrarları yeni kayıt oluşturmaz.")
+            st.info(
+                "Henüz takip edilen bir alım pozisyonu yok. İlk ALIM, KIRILIM veya ADAY sinyali oluştuğunda burada görüntülenecek."
+            )
         else:
             df_perf = pd.DataFrame(kayitlar)
-            for col in ["giris_fiyati", "son_fiyat", "stop", "tp1", "tp2", "getiri_yuzde"]:
+            for col in ["giris_fiyati", "son_fiyat", "getiri_yuzde"]:
                 if col in df_perf.columns:
                     df_perf[col] = pd.to_numeric(df_perf[col], errors="coerce")
 
+            tarih_serisi = pd.to_datetime(df_perf.get("olusturma_zamani"), errors="coerce")
+            simdi_ts = pd.Timestamp.now(tz=None)
+            tarih_naive = tarih_serisi.dt.tz_localize(None) if getattr(tarih_serisi.dt, "tz", None) is not None else tarih_serisi
+            gecen_gun = (simdi_ts.normalize() - tarih_naive.dt.normalize()).dt.days.clip(lower=0)
+
             toplam = len(df_perf)
-            kazanan = int((df_perf.get("getiri_yuzde", pd.Series(dtype=float)) > 0).sum())
-            ort_getiri = float(df_perf.get("getiri_yuzde", pd.Series(dtype=float)).mean() or 0)
-            basari = (kazanan / toplam * 100) if toplam else 0
+            acik_mask = df_perf.get("durum", pd.Series(["ACIK"] * toplam)).astype(str).str.upper().eq("ACIK")
+            pozitif = int((df_perf["getiri_yuzde"] > 0).sum())
+            negatif = int((df_perf["getiri_yuzde"] < 0).sum())
+            ort_getiri = float(df_perf["getiri_yuzde"].mean()) if toplam else 0.0
+
             kp1, kp2, kp3, kp4 = st.columns(4)
-            kp1.metric("Toplam Alım Sinyali", toplam)
-            kp2.metric("Pozitif Alım", kazanan)
-            kp3.metric("Başarı Oranı", f"%{basari:.1f}")
-            kp4.metric("Ort. Getiri", f"%{ort_getiri:.2f}")
+            kp1.metric("Takip Edilen Alım", toplam)
+            kp2.metric("Açık Pozisyon", int(acik_mask.sum()))
+            kp3.metric("Kârda / Zararda", f"{pozitif} / {negatif}")
+            kp4.metric("Ortalama Kâr/Zarar", f"%{ort_getiri:.1f}")
 
             gorunum = pd.DataFrame({
-                "Tarih": pd.to_datetime(df_perf.get("olusturma_zamani"), errors="coerce").dt.strftime("%d.%m.%Y %H:%M"),
+                "_tarih_siralama": tarih_serisi,
+                "Alım Tarihi": tarih_serisi.dt.strftime("%d.%m.%Y %H:%M"),
                 "Varlık": df_perf.get("ticker"),
-                "Durum": df_perf.get("durum", pd.Series(["ACIK"] * len(df_perf))),
-                "Sinyal": df_perf.get("sinyal"),
-                "Giriş": df_perf.get("giris_fiyati").round(2),
-                "Güncel": df_perf.get("son_fiyat").round(2),
-                "Getiri %": df_perf.get("getiri_yuzde").round(2),
-                "Stop": df_perf.get("stop").round(2),
-                "TP1": df_perf.get("tp1").round(2),
-                "TP2": df_perf.get("tp2").round(2),
-            })
+                "Alım Sinyali": df_perf.get("sinyal"),
+                "Alım Fiyatı": df_perf.get("giris_fiyati"),
+                "Güncel Fiyat": df_perf.get("son_fiyat"),
+                "Kâr / Zarar %": df_perf.get("getiri_yuzde"),
+                "Geçen Gün": gecen_gun,
+                "Durum": df_perf.get("durum", pd.Series(["ACIK"] * toplam)).replace({"ACIK": "Açık", "KAPALI": "Kapalı"}),
+            }).sort_values("_tarih_siralama", ascending=False).drop(columns=["_tarih_siralama"])
 
-            def perf_renk(row):
-                val = row.get("Getiri %")
+            def performans_satir_rengi(row):
+                val = row.get("Kâr / Zarar %")
                 if pd.isna(val):
                     return [""] * len(row)
-                bg = "background-color: rgba(39,174,96,0.16)" if val > 0 else ("background-color: rgba(192,57,43,0.16)" if val < 0 else "")
+                if val > 0:
+                    bg = "background-color: rgba(39,174,96,0.14); color: #dff7e8"
+                elif val < 0:
+                    bg = "background-color: rgba(192,57,43,0.14); color: #ffe3df"
+                else:
+                    bg = "background-color: rgba(149,165,166,0.08)"
                 return [bg] * len(row)
 
-            st.dataframe(gorunum.style.apply(perf_renk, axis=1), use_container_width=True, height=430)
-            profil = ogrenme_profili_olustur(kayitlar)
-            st.markdown("### 🧬 Öğrenen Performans Profili")
-            if profil.empty:
-                st.info("Uyarlanabilir eşik önerisi için aynı sinyal/RSI diliminde en az 3 tamamlanmış kayıt gerekir. Otomatik eşik değişikliği, örnek sayısı 30'a ulaşmadan yapılmaz.")
-            else:
-                st.dataframe(profil, use_container_width=True, hide_index=True)
-                st.caption("Bu tablo sistemin hangi sinyal ve RSI bölgelerinde daha iyi sonuç verdiğini gösterir; küçük örneklemde otomatik karar değiştirmez.")
+            stil = (
+                gorunum.style
+                .format({
+                    "Alım Fiyatı": "{:.2f}",
+                    "Güncel Fiyat": "{:.2f}",
+                    "Kâr / Zarar %": "{:+.2f}%",
+                    "Geçen Gün": "{:.0f}",
+                }, na_rep="-")
+                .apply(performans_satir_rengi, axis=1)
+            )
+            st.dataframe(stil, use_container_width=True, height=440, hide_index=True)
+            st.caption(
+                "Kâr/zarar, güncel fiyatın alım sinyali verildiği fiyata göre yüzdesel değişimidir. "
+                "Komisyon, vergi, temettü ve gerçekleşen işlem fiyatı hesaba katılmaz."
+            )
 
 with tab3:
     st.subheader("🎯 Akıllı Projeksiyon Motoru")
@@ -2002,22 +2026,94 @@ with tab3:
 
 with tab4:
     st.subheader("🧪 Strateji Doğrulama ve Backtest")
-    st.markdown("Mevcut alım koşullarını geçmiş günlük veride ileriye bakmadan test eder. Sonuçlar yatırım garantisi değil, strateji geliştirme ölçümüdür.")
-    bt_ticker = st.selectbox("Backtest varlığı", options=tum_varliklar_havuzu, key="bt_ticker")
-    bt_period = st.selectbox("Geçmiş aralığı", ["3y","5y","10y"], index=1, key="bt_period")
-    if st.button("🧪 Backtest Çalıştır", type="primary"):
-        with st.spinner("Geçmiş sinyaller ve ileri dönem getirileri hesaplanıyor..."):
+    st.markdown(
+        "Alım sinyallerinin geçmişte 5, 10, 20 ve 45 işlem günü sonra nasıl sonuçlandığını gösterir. "
+        "Amaç, stratejiyi sade ve karşılaştırılabilir sayılarla değerlendirmektir."
+    )
+
+    bt_c1, bt_c2, bt_c3 = st.columns([2, 1, 1])
+    with bt_c1:
+        bt_ticker = st.selectbox("Test edilecek varlık", options=tum_varliklar_havuzu, key="bt_ticker")
+    with bt_c2:
+        bt_period = st.selectbox("Geçmiş dönem", ["3y", "5y", "10y"], index=1, key="bt_period")
+    with bt_c3:
+        detay_adedi = st.selectbox("Gösterilecek kayıt", [50, 100, 300], index=1, key="bt_detay_adedi")
+
+    if st.button("🧪 Backtest'i Çalıştır", type="primary", use_container_width=True):
+        with st.spinner("Geçmiş alım sinyalleri hesaplanıyor..."):
             bt, stats = basit_backtest(bt_ticker, bt_period)
+
         if bt.empty:
-            st.warning("Backtest için yeterli veri veya sinyal bulunamadı.")
+            st.warning("Seçilen dönem için yeterli veri veya alım sinyali bulunamadı.")
         else:
-            q1,q2,q3,q4 = st.columns(4)
-            q1.metric("Toplam Sinyal", stats['sinyal'])
-            q2.metric("20G Kazanma", f"%{stats['kazanma20']:.1f}")
-            q3.metric("20G Ort. Getiri", f"%{stats['ort20']:.2f}")
-            q4.metric("45G Kazanma", f"%{stats['kazanma45']:.1f}")
-            st.dataframe(bt.sort_values('Tarih',ascending=False).head(300), use_container_width=True, hide_index=True)
-            st.markdown("### Sinyal türüne göre sonuç")
-            ozet=bt.groupby('Sinyal').agg(Örnek=('Sinyal','size'), Kazanma_20G=('20G %',lambda x:(x>0).mean()*100), Ort_20G=('20G %','mean'), Ort_45G=('45G %','mean')).reset_index()
-            st.dataframe(ozet, use_container_width=True, hide_index=True)
-            st.caption("Komisyon, vergi, kayma ve gün içi stop/TP sıralaması bu hızlı doğrulamada modellenmez. Profesyonel değerlendirmede walk-forward ve out-of-sample test eklenmelidir.")
+            q1, q2, q3, q4 = st.columns(4)
+            q1.metric("Toplam Alım Sinyali", f"{int(stats['sinyal'])}")
+            q2.metric("20 Gün Sonra Kârda", f"%{stats['kazanma20']:.1f}")
+            q3.metric("20 Gün Ort. Getiri", f"%{stats['ort20']:+.1f}")
+            q4.metric("45 Gün Sonra Kârda", f"%{stats['kazanma45']:.1f}")
+
+            st.markdown("### 📌 Sinyal türlerine göre özet")
+            ozet = (
+                bt.groupby("Sinyal")
+                .agg(
+                    Örnek=("Sinyal", "size"),
+                    **{
+                        "20G Kârda %": ("20G %", lambda x: (x > 0).mean() * 100),
+                        "20G Ort. %": ("20G %", "mean"),
+                        "45G Kârda %": ("45G %", lambda x: (x > 0).mean() * 100),
+                        "45G Ort. %": ("45G %", "mean"),
+                    },
+                )
+                .reset_index()
+                .sort_values(["45G Kârda %", "Örnek"], ascending=False)
+            )
+            ozet_stil = ozet.style.format({
+                "Örnek": "{:.0f}",
+                "20G Kârda %": "{:.1f}%",
+                "20G Ort. %": "{:+.2f}%",
+                "45G Kârda %": "{:.1f}%",
+                "45G Ort. %": "{:+.2f}%",
+            }, na_rep="-")
+            st.dataframe(ozet_stil, use_container_width=True, hide_index=True)
+
+            st.markdown("### 🗓️ Geçmiş sinyal sonuçları")
+            bt_gorunum = bt.sort_values("Tarih", ascending=False).head(detay_adedi).copy()
+            bt_gorunum["Tarih"] = pd.to_datetime(bt_gorunum["Tarih"], errors="coerce").dt.strftime("%d.%m.%Y")
+            bt_gorunum = bt_gorunum.rename(columns={
+                "Giriş": "Sinyal Fiyatı",
+                "5G %": "5 Gün %",
+                "10G %": "10 Gün %",
+                "20G %": "20 Gün %",
+                "45G %": "45 Gün %",
+            })
+
+            getiri_kolonlari = ["5 Gün %", "10 Gün %", "20 Gün %", "45 Gün %"]
+            def backtest_renk(val):
+                if pd.isna(val):
+                    return ""
+                if val > 0:
+                    return "background-color: rgba(39,174,96,0.14); color: #dff7e8"
+                if val < 0:
+                    return "background-color: rgba(192,57,43,0.14); color: #ffe3df"
+                return ""
+
+            bt_stil = (
+                bt_gorunum.style
+                .format({
+                    "Sinyal Fiyatı": "{:.2f}",
+                    "5 Gün %": "{:+.2f}%",
+                    "10 Gün %": "{:+.2f}%",
+                    "20 Gün %": "{:+.2f}%",
+                    "45 Gün %": "{:+.2f}%",
+                }, na_rep="-")
+                .applymap(backtest_renk, subset=getiri_kolonlari)
+            )
+            st.dataframe(bt_stil, use_container_width=True, height=430, hide_index=True)
+
+            with st.expander("ℹ️ Backtest sonuçları nasıl okunur?", expanded=False):
+                st.markdown("""
+- **Kârda %**, sinyalden sonra ilgili gün sayısında fiyatı giriş fiyatının üzerinde olan örneklerin oranıdır.
+- **Ortalama getiri**, tüm sinyallerin aynı dönemdeki ortalama yüzdesel sonucudur.
+- Yüksek kazanma oranı tek başına yeterli değildir; ortalama getiri ve örnek sayısı birlikte değerlendirilmelidir.
+- Bu hızlı test komisyon, vergi, fiyat kayması ve gün içindeki stop/TP sıralamasını modellemez.
+""")
