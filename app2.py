@@ -327,6 +327,12 @@ st.markdown("**Mod:** Derin Analiz (Cezalı Skor + Hacim Patlaması Esnetmesi + 
 st.markdown("---")
 
 st.sidebar.header("⚙️ Kontrol Paneli")
+
+# --- MİDAS TARZI CANLI AKIŞ KONTROLÜ ---
+st.sidebar.subheader("⚡ Canlı Akış (Midas Modu)")
+canli_mod = st.sidebar.checkbox("Canlı Akış Modunu Aç", value=False)
+refresh_araligi = st.sidebar.slider("Yenileme Sıklığı (Saniye)", 5, 60, 15)
+
 if st.sidebar.button("🚪 Çıkış Yap"):
     cookie_manager.delete("user_email") 
     st.session_state.user_email = None
@@ -363,11 +369,15 @@ with st.sidebar.expander("📋 Varlık Seçimi", expanded=True):
 
 tarama_tetiklendi = st.sidebar.button("🚀 Derin Taramayı Başlat", type="primary", use_container_width=True)
 
+# Otomatik canlı akış tetiklemesi (Canlı mod aktifse ve daha önce tarama yapıldıysa)
+if canli_mod and st.session_state.tarama_durumu and not tarama_tetiklendi:
+    tarama_tetiklendi = True
+
 if tarama_tetiklendi:
     if not selected_tickers:
         st.sidebar.warning("⚠️ Lütfen taranacak en az bir varlık seçin!")
     else:
-        with st.spinner("Hedge-Fund Katmanları & Midas Paralel Akış Motoru İşleniyor..."):
+        with st.spinner("Hedge-Fund Katmanları & Midas Paralel Canlı Akış İşleniyor..."):
             
             progress_text = st.empty()
             progress_bar = st.progress(0.0)
@@ -438,14 +448,13 @@ if tarama_tetiklendi:
                     is_bist = ".IS" in ticker
                     para_birimi = "TL" if is_bist else "$"
                     
-                    # --- MIDAS PARALEL AKIŞ & PRE/POST MARKET VERİ MOTORU ---
+                    # --- MİDAS PRE-MARKET & POST-MARKET ENTEGRASYONU ---
                     info = {}
                     try:
                         info = stock.info if hasattr(stock, 'info') else {}
                     except:
                         info = {}
 
-                    # 1. Önceki Kapanışı Kesinleştir
                     onceki_kapanis = info.get('regularMarketPreviousClose', info.get('previousClose', 0))
                     if not onceki_kapanis or onceki_kapanis == 0:
                         try:
@@ -453,21 +462,20 @@ if tarama_tetiklendi:
                         except:
                             onceki_kapanis = float(df_long['Close'].iloc[-2]) if len(df_long) >= 2 else float(df_long['Close'].iloc[-1])
 
-                    # 2. Canlı, Pre-Market veya Post-Market Fiyatını Al (Midas Mantığı)
+                    # Seans dışı ve anlık fiyat tespiti
                     bugun_kapanis = info.get('currentPrice', info.get('regularMarketPrice', 0))
                     
                     if not is_bist:
-                        pre_market = info.get('preMarketPrice', None)
-                        post_market = info.get('postMarketPrice', None)
-                        regular_market = info.get('regularMarketPrice', None)
+                        pre_m = info.get('preMarketPrice', None)
+                        post_m = info.get('postMarketPrice', None)
+                        reg_m = info.get('regularMarketPrice', None)
                         
-                        # Seans dışı hareketleri aktif olarak yakala
-                        if post_market and post_market > 0:
-                            bugun_kapanis = post_market
-                        elif pre_market and pre_market > 0:
-                            bugun_kapanis = pre_market
-                        elif regular_market and regular_market > 0:
-                            bugun_kapanis = regular_market
+                        if post_m and post_m > 0:
+                            bugun_kapanis = post_m
+                        elif pre_m and pre_m > 0:
+                            bugun_kapanis = pre_m
+                        elif reg_m and reg_m > 0:
+                            bugun_kapanis = reg_m
 
                     if not bugun_kapanis or bugun_kapanis == 0:
                         try:
@@ -482,7 +490,7 @@ if tarama_tetiklendi:
                     gunluk_degisim = ((bugun_kapanis - onceki_kapanis) / onceki_kapanis) * 100 if onceki_kapanis > 0 else 0.0
                     fiyat_str = f"{bugun_kapanis:.2f} {para_birimi} ({'+' if gunluk_degisim > 0 else ''}{gunluk_degisim:.2f}%)"
 
-                    # 3. Grafik ve Göstergeler İçin Mum Tablosunu Güncelle
+                    # Tabloyu güncel fiyatla eşitle
                     try:
                         son_tarih = pd.to_datetime(df_long.index[-1]).date()
                         bugun_tarihi = pd.Timestamp.now(tz=df_long.index.tz).date() if df_long.index.tz else pd.Timestamp.now().date()
@@ -496,7 +504,7 @@ if tarama_tetiklendi:
                             df_long.iloc[-1, df_long.columns.get_loc('Close')] = bugun_kapanis
                     except:
                         df_long.iloc[-1, df_long.columns.get_loc('Close')] = bugun_kapanis
-                    # --------------------------------------------------------
+                    # ---------------------------------------------------
 
                     ortalama_hacim_20 = df_long['Volume'].rolling(20).mean().iloc[-1]
                     ortalama_ciro_tutar = ortalama_hacim_20 * bugun_kapanis if not pd.isna(ortalama_hacim_20) else 0
@@ -824,7 +832,7 @@ if st.session_state.tarama_durumu:
                     df_grafik = stk_detay.history(period="2y").dropna(subset=['Open', 'High', 'Low', 'Close', 'Volume'])
                     
                     if not df_grafik.empty:
-                        # --- DETAY GRAFİK İÇİN MİDAS PRE/POST MARKET UYARLAMASI ---
+                        # --- GRAFİK İÇİN MİDAS PRE/POST MARKET ENTEGRASYONU ---
                         try:
                             detay_info = stk_detay.info if hasattr(stk_detay, 'info') else {}
                             if not is_detay_bist:
@@ -851,7 +859,7 @@ if st.session_state.tarama_durumu:
                                 df_grafik.iloc[-1, df_grafik.columns.get_loc('Close')] = canli_fiyat
                         except:
                             pass
-                        # -----------------------------------------------------------
+                        # -----------------------------------------------------
                         
                         df_grafik['EMA9'] = df_grafik['Close'].ewm(span=9).mean()
                         df_grafik['EMA21'] = df_grafik['Close'].ewm(span=21).mean()
@@ -1035,3 +1043,8 @@ if st.session_state.tarama_durumu:
 
         else:
             st.info("Seçilen kriterlere uyan varlık bulunamadı.")
+
+# --- MİDAS MODU OTOMATİK YENİLEME TETİKLEYİCİSİ ---
+if st.session_state.tarama_durumu and canli_mod:
+    time.sleep(refresh_araligi)
+    st.rerun()
