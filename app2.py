@@ -18,43 +18,35 @@ session.headers.update({
     'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36'
 })
 
-# --- ANLIK VE SEANS DIŞI (PRE-MARKET / AFTER-HOURS) FİYAT AVCISI ---
+# --- ANLIK FİYAT GETİRİCİ (4 KADEMELİ AGRESİF ARAMA) ---
 def anlik_fiyat_getir(stock_obj):
-    # 1. Yöntem: stock.info üzerinden Pre-Market, Post-Market ve Anlık Fiyatlar (Piyasa kapalıyken veri akışı için kritik)
-    try:
-        if hasattr(stock_obj, 'info') and stock_obj.info:
-            info = stock_obj.info
-            # Öncelik sırası: Pre-Market -> Post-Market -> Current -> Regular -> Last
-            for key in ['preMarketPrice', 'postMarketPrice', 'currentPrice', 'regularMarketPrice', 'last_price']:
-                val = info.get(key)
-                if val is not None and val > 0:
-                    return float(val)
-    except: 
-        pass
-    
-    # 2. Yöntem: fast_info
+    # 1. Yöntem: fast_info (En hızlı, pre-market ve BIST gecikmeli son tik)
     try:
         if hasattr(stock_obj, 'fast_info'):
             fiyat = stock_obj.fast_info.get('last_price')
             if fiyat: return float(fiyat)
-    except: 
-        pass
+    except: pass
     
-    # 3. Yöntem: 1m grafik (prepost=True ile pre-market ve after-hours dahil)
+    # 2. Yöntem: info sözlüğü
+    try:
+        if hasattr(stock_obj, 'info'):
+            fiyat = stock_obj.info.get('currentPrice') or stock_obj.info.get('regularMarketPrice')
+            if fiyat: return float(fiyat)
+    except: pass
+    
+    # 3. Yöntem: 1m grafik (prepost=True ile ABD pre-market hareketleri için)
     try:
         df_live = stock_obj.history(period="1d", interval="1m", prepost=True)
         if not df_live.empty:
             return float(df_live['Close'].iloc[-1])
-    except: 
-        pass
+    except: pass
     
     # 4. Yöntem: 5m grafik
     try:
         df_live = stock_obj.history(period="1d", interval="5m", prepost=True)
         if not df_live.empty:
             return float(df_live['Close'].iloc[-1])
-    except: 
-        pass
+    except: pass
     
     return None
 
@@ -490,7 +482,7 @@ with tab1:
                         bugun_kapanis = float(df_long['Close'].iloc[-1])
                         onceki_kapanis = float(df_long['Close'].iloc[-2]) if len(df_long) >= 2 else bugun_kapanis
                         
-                        # --- ANLIK / PRE-MARKET FİYAT AVCISI ---
+                        # --- YENİ EKLENEN AGRESİF FİYAT AVCISI ---
                         guncel_fiyat = anlik_fiyat_getir(stock)
                         if guncel_fiyat is not None and guncel_fiyat > 0:
                             bugun_kapanis = guncel_fiyat
@@ -856,7 +848,7 @@ with tab1:
                         
                         if not df_grafik.empty:
                             
-                            # --- DETAY EKRANI İÇİN SEANS DIŞI FİYAT GÜNCELLEMESİ ---
+                            # --- YENİ EKLENEN AGRESİF FİYAT AVCISI (DETAY EKRANI İÇİN) ---
                             guncel_fiyat_detay = anlik_fiyat_getir(stk_detay)
                             if guncel_fiyat_detay is not None and guncel_fiyat_detay > 0:
                                 df_grafik.iloc[-1, df_grafik.columns.get_loc('Close')] = guncel_fiyat_detay
@@ -1075,6 +1067,7 @@ with tab2:
                             guncel_fiyatlar = {}
                             for v in essiz_varliklar:
                                 try:
+                                    # Performans sekmesi için de 4 kademeli fiyat avcısını ekleyelim
                                     stock_perf = yf.Ticker(v, session=session)
                                     perf_fiyat = anlik_fiyat_getir(stock_perf)
                                     
