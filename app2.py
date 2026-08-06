@@ -1,5 +1,4 @@
 import streamlit as st
-import yfinance as yf
 import pandas as pd
 import numpy as np
 from datetime import datetime, timedelta, timezone
@@ -99,6 +98,52 @@ if st.session_state.user_email is None and saved_email is not None and not st.se
             st.session_state.custom_tickers = VARSAYILAN_TICKERS.copy()
     st.rerun()
 
+# --- YAHOO DOĞRUDAN API VERİ ÇEKME MOTORU (ÖNBELLEĞİ KESİN OLARAK ATLATIR) ---
+def yahoo_dogrudan_veri_cek(ticker, interval="1d", range_days=400):
+    end_ts = int(time.time())
+    start_ts = end_ts - (range_days * 86400)
+    
+    # URL'ye rastgele cache-buster eklenir
+    url = f"https://query1.finance.yahoo.com/v8/finance/chart/{ticker}?period1={start_ts}&period2={end_ts}&interval={interval}&_cb={end_ts}"
+    
+    headers = {
+        'User-Agent': f'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/122.{end_ts}',
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
+        'Pragma': 'no-cache',
+        'Expires': '0'
+    }
+    
+    try:
+        response = requests.get(url, headers=headers, timeout=10)
+        if response.status_code != 200:
+            return pd.DataFrame(), {}
+        
+        res_json = response.json()
+        result = res_json.get('chart', {}).get('result', None)
+        if not result:
+            return pd.DataFrame(), {}
+            
+        res = result[0]
+        meta = res.get('meta', {})
+        timestamps = res.get('timestamp', [])
+        quotes = res.get('indicators', {}).get('quote', [{}])[0]
+        
+        if not timestamps or not quotes:
+            return pd.DataFrame(), meta
+            
+        df = pd.DataFrame({
+            'Open': quotes.get('open', []),
+            'High': quotes.get('high', []),
+            'Low': quotes.get('low', []),
+            'Close': quotes.get('close', []),
+            'Volume': quotes.get('volume', [])
+        }, index=pd.to_datetime(timestamps, unit='s'))
+        
+        df = df.dropna(subset=['Open', 'High', 'Low', 'Close', 'Volume'])
+        return df, meta
+    except Exception:
+        return pd.DataFrame(), {}
+
 # --- AKILLI AKSİYON REHBERİ FONKSİYONU ---
 def aksiyon_rehberi_olustur(nihai_sinyal, teyit_1h):
     sinyal_metni = str(nihai_sinyal).upper()
@@ -107,22 +152,22 @@ def aksiyon_rehberi_olustur(nihai_sinyal, teyit_1h):
     if "YÜKSELİŞ KIRILIMI" in sinyal_metni:
         renk = "#00d2d3"
         baslik = "🚀 YÜKSELİŞ KIRILIMI (BREAKOUT) ONAYI"
-        ana_metin = "Mükemmel Moment Oluşumu! Varlık önemli direnç seviyesini yüksek hacim eşliğinde yukarı kırmış ve kısa vadeli hareketli ortalamalarda (EMA 9 > 21) boğa iştahını doğrulamıştır. Bu durum sıradan bir hareket değil, güçlü bir trend başlangıcı veya ivmelenme sinyalidir."
+        ana_metin = "Mükemmel Moment Oluşumu! Varlık önemli direnç seviyesini yüksek hacim eşliğinde yukarı kırmış ve kısa vadeli hareketli ortalamalarda (EMA 9 > 21) boğa iştahını doğrulamıştır."
         if "TETİK AKTİF" in teyit_metni:
-            alt_not = f'<div style="margin-top: 15px; padding: 10px; background-color: rgba(0, 210, 211, 0.1); border-left: 4px solid #00d2d3; border-radius: 4px;"><b>🔥 ONAYLI BREAKOUT GİRİŞİ:</b> {teyit_metni} Saatlik bazda kırılım teyit edildi, trende katılım için pozisyon açılabilir.</div>'
+            alt_not = f'<div style="margin-top: 15px; padding: 10px; background-color: rgba(0, 210, 211, 0.1); border-left: 4px solid #00d2d3; border-radius: 4px;"><b>🔥 ONAYLI BREAKOUT GİRİŞİ:</b> {teyit_metni} Saatlik bazda kırılım teyit edildi, pozisyon açılabilir.</div>'
         else:
             alt_not = f'<div style="margin-top: 15px; padding: 10px; background-color: rgba(241, 196, 15, 0.1); border-left: 4px solid #f1c40f; border-radius: 4px;"><b>⏳ SAATLİK KIRILIM BEKLENİYOR:</b> {teyit_metni} Günlük direnç kırıldı ancak saatlik mum kapanış onayı takip edilmelidir.</div>'
 
     elif "UZUN VADELİ ADAY" in sinyal_metni:
         renk = "#8e44ad"
         baslik = "🌟 UZUN VADELİ PORTFÖY ADAYI (GARP - DEĞER & TREND)"
-        ana_metin = "Mükemmel Temel ve Makro Uyum! Varlık güçlü boğa trendinde (200 SMA üstü) yer alıyor, cezalı skor barajını aşıyor ve son derece cazip bir PEG oranına (veya desteklenen trend yapısına) sahip. Fiyat şu an anlık bir kırılım veya aşırı dip bölgesinde değil; orta bantta sağlıklı bir konsolidasyon (dinlenme) sürdürüyor."
-        alt_not = '<div style="margin-top: 15px; padding: 10px; background-color: rgba(142, 68, 173, 0.1); border-left: 4px solid #8e44ad; border-radius: 4px;"><b>💡 STRATEJİK DEĞERLENDİRME:</b> Anlık tetik (hacimli kırılım) henüz gelmediği için tüm sermayeyle tek seferde girmek yerine, kademeli toplama havuzu veya uzun vadeli sepet için ideal birincil adaydır.</div>'
+        ana_metin = "Mükemmel Temel ve Makro Uyum! Varlık güçlü boğa trendinde (200 SMA üstü) yer alıyor, cezalı skor barajını aşıyor ve son derece cazip bir yapıya sahip."
+        alt_not = '<div style="margin-top: 15px; padding: 10px; background-color: rgba(142, 68, 173, 0.1); border-left: 4px solid #8e44ad; border-radius: 4px;"><b>💡 STRATEJİK DEĞERLENDİRME:</b> Anlık tetik henüz gelmediği için kademeli toplama havuzu veya uzun vadeli sepet için ideal birincil adaydır.</div>'
 
     elif "KADEMELİ ALIM" in sinyal_metni:
         renk = "#3498db"
         baslik = "🔵 KADEMELİ ALIM STRATEJİSİ"
-        ana_metin = "Sistem; varlığın temel verilerinin ve uzun vadeli ana trendinin (50 & 200 SMA) sağlam olduğunu tespit etti. Ancak kısa vadeli teknik göstergeler (MACD, EMA 9/21) şu an bir soğuma/düzeltme evresinde. Trend güçlü olduğu için fırsat barındırıyor; fakat tam uyum henüz sağlanamadığından <b>tüm sermaye ile tek seferde girmek yerine, küçük parçalarla (kademeli) alım yapılması</b> en güvenli stratejidir."
+        ana_metin = "Sistem; varlığın temel verilerinin ve uzun vadeli ana trendinin (50 & 200 SMA) sağlam olduğunu tespit etti. Ancak kısa vadeli teknik göstergeler bir soğuma evresinde."
         if "TETİK AKTİF" in teyit_metni:
             alt_not = f'<div style="margin-top: 15px; padding: 10px; background-color: rgba(46, 204, 113, 0.1); border-left: 4px solid #2ecc71; border-radius: 4px;"><b>🔥 GÜÇLÜ HİBRİT TETİK ONAYI:</b> {teyit_metni} Sinyal şartları olgunlaşmıştır, kademeli ilk parça alımı için uygundur.</div>'
         else:
@@ -131,7 +176,7 @@ def aksiyon_rehberi_olustur(nihai_sinyal, teyit_1h):
     elif "GÜÇLÜ ALIM" in sinyal_metni or "KUSURSUZ ALIM" in sinyal_metni:
         renk = "#2ecc71"
         baslik = "🟢 GÜÇLÜ ALIM ONAYI"
-        ana_metin = "Kusursuz Uyum! Varlık hem temel açıdan puanları toplamış, hem de uzun ve kısa vadeli tüm teknik ortalamalarda tam bir yükseliş (boğa) trendine girmiştir. Grafikteki momentum ve sistemin puanlaması birbiriyle %100 örtüşüyor."
+        ana_metin = "Kusursuz Uyum! Varlık hem temel açıdan puanları toplamış, hem de uzun ve kısa vadeli tüm teknik ortalamalarda tam bir yükseliş trendine girmiştir."
         if "TETİK AKTİF" in teyit_metni:
             alt_not = f'<div style="margin-top: 15px; padding: 10px; background-color: rgba(46, 204, 113, 0.1); border-left: 4px solid #2ecc71; border-radius: 4px;"><b>🔥 ONAYLI GİRİŞ:</b> {teyit_metni} Saatlik kırılım ve momentum teyidi alındı, pozisyon açılabilir.</div>'
         else:
@@ -140,35 +185,34 @@ def aksiyon_rehberi_olustur(nihai_sinyal, teyit_1h):
     elif "HACİMLİ TEPKİ" in sinyal_metni:
         renk = "#f39c12"
         baslik = "🟡 HACİMLİ TEPKİ / İZLEME MODU"
-        ana_metin = "Varlık uzun vadeli trendin altında olsa da, normalin çok üzerinde hacim patlaması (%130+) ve güçlü günlük getiri üretti. Bu durum sıradan bir düşüş değil, olası bir dip tepkisi veya haber kaynaklı balina alımı olabilir. Katı ayı cezası esnetildi, ancak tam onay için saatlik kırılımlar beklenmelidir."
-        alt_not = '<div style="margin-top: 15px; padding: 10px; background-color: rgba(243, 156, 18, 0.1); border-left: 4px solid #f39c12; border-radius: 4px;"><b>⚡ DİKKAT ÇEKEN HAREKET:</b> Aşırı satıştan güçlü hacimle dönüyor. Yakın takibe alınmalıdır.</div>'
+        ana_metin = "Varlık uzun vadeli trendin altında olsa da, normalin çok üzerinde hacim patlaması ve güçlü günlük getiri üretti. Yakın takibe alınmalıdır."
+        alt_not = '<div style="margin-top: 15px; padding: 10px; background-color: rgba(243, 156, 18, 0.1); border-left: 4px solid #f39c12; border-radius: 4px;"><b>⚡ DİKKAT ÇEKEN HAREKET:</b> Aşırı satıştan güçlü hacimle dönüyor.</div>'
 
     elif "KURTULUŞ" in sinyal_metni:
         renk = "#d35400"
         baslik = "🧗 KURTULUŞ ÇABASI - RİSKLİ BÖLGE"
-        ana_metin = "Varlık makro planda ayı trendinde (200 SMA altında) kalsa da, dipten gelen güçlü bir alım dalgasıyla ana dirence doğru toparlanmaya çalışıyor. <b>'Düşük risk, yüksek ihtimal' stratejiniz gereği</b>, varlık 200 SMA'yı kalıcı olarak kırıp güvenli sulara geçene kadar izlemede kalınmalıdır. Henüz sular durulmamıştır ve erken giriş yüksek risk taşır."
-        alt_not = '<div style="margin-top: 15px; padding: 10px; background-color: rgba(211, 84, 0, 0.1); border-left: 4px solid #d35400; border-radius: 4px;"><b>⚠️ DİSİPLİN UYARISI:</b> Gerçek trend onaylanana kadar işlem açmayın, ana kırılımı bekleyin.</div>'
+        ana_metin = "Varlık makro planda ayı trendinde kalsa da, dipten gelen güçlü bir alım dalgasıyla ana dirence doğru toparlanmaya çalışıyor."
+        alt_not = '<div style="margin-top: 15px; padding: 10px; background-color: rgba(211, 84, 0, 0.1); border-left: 4px solid #d35400; border-radius: 4px;"><b>⚠️ DİSİPLİN UYARISI:</b> Gerçek trend onaylanana kadar işlem açmayın.</div>'
 
     elif "UZAK DUR" in sinyal_metni:
         renk = "#e74c3c"
         baslik = "🔴 KESİNLİKLE UZAK DUR"
-        ana_metin = "Sistem, varlığın ana trendinin (200 SMA) altında olduğunu veya ağır teknik cezalar yediğini tespit etti. Varlığın temeli veya haberi ne kadar iyi olursa olsun, düşen bıçak tutulmaz. <b>Sermayeyi koruma disiplini gereği</b>, trend tam anlamıyla yukarı dönene kadar izleme listesinden çıkarılmalı ve işlem açılmamalıdır."
-        alt_not = '<div style="margin-top: 15px; padding: 10px; background-color: rgba(231, 76, 60, 0.1); border-left: 4px solid #e74c3c; border-radius: 4px;"><b>🛡️ RİSK YÖNETİMİ UYARISI:</b> Ayı trendindeki varlıklarda tetik aranmaz. Sermayenizi korumak için bu varlıktan uzak durun.</div>'
+        ana_metin = "Sistem, varlığın ana trendinin altında olduğunu veya ağır teknik cezalar yediğini tespit etti. Sermayeyi koruma disiplini gereği bu varlıktan uzak durulmalıdır."
+        alt_not = '<div style="margin-top: 15px; padding: 10px; background-color: rgba(231, 76, 60, 0.1); border-left: 4px solid #e74c3c; border-radius: 4px;"><b>🛡️ RİSK YÖNETİMİ UYARISI:</b> Ayı trendindeki varlıklarda işlem açılmamalıdır.</div>'
         
     elif "KÂR" in sinyal_metni:
         renk = "#e67e22"
         baslik = "🟠 KÂR REALİZASYONU / ŞİŞKİNLİK"
-        ana_metin = "Sistem, fiyatın kısa sürede hızla yükseldiğini ve teknik göstergelerin (RSI, Bollinger) aşırı alım (şişkinlik) bölgesine girdiğini tespit etti. Olası ani bir geri çekilme riskine karşı mevcut pozisyonlarda kârın bir kısmı realize edilebilir veya izleyen stop-loss seviyesi sıkılaştırılmalıdır."
-        alt_not = '<div style="margin-top: 15px; padding: 10px; background-color: rgba(230, 126, 34, 0.1); border-left: 4px solid #e67e22; border-radius: 4px;"><b>💰 DİSİPLİN ÖNERİSİ:</b> Zirve bölgelerindeki şişkinliklerde yeni alım yapılmaz, var olan kâr cebe atılır veya stop seviyesi yukarı çekilir.</div>'
+        ana_metin = "Sistem, fiyatın kısa sürede hızla yükseldiğini ve teknik göstergelerin aşırı alım bölgesine girdiğini tespit etti."
+        alt_not = '<div style="margin-top: 15px; padding: 10px; background-color: rgba(230, 126, 34, 0.1); border-left: 4px solid #e67e22; border-radius: 4px;"><b>💰 DİSİPLİN ÖNERİSİ:</b> Zirve bölgelerinde kâr realizasyonu değerlendirilmelidir.</div>'
         
     else:
         renk = "#95a5a6"
         baslik = "⚪ NÖTR / İZLEMEDE KAL"
-        ana_metin = "Sistem sinyalleri şu an belirgin bir yön veya baskı göstermiyor (konsolidasyon/kararsızlık). Yeni bir işlem açmak için teknik uyumun ve net bir kırılımın gerçekleşmesi beklenmelidir. Mevcut pozisyonlar izlenebilir."
-        alt_not = '<div style="margin-top: 15px; padding: 10px; background-color: rgba(149, 165, 166, 0.1); border-left: 4px solid #95a5a6; border-radius: 4px;"><b>⚖️ BEKLE-GÖR MODU:</b> Net bir trend veya tetik oluşmamıştır. Sabırla piyasanın yön seçmesi beklenmelidir.</div>'
+        ana_metin = "Sistem sinyalleri şu an belirgin bir yön veya baskı göstermiyor. Sabırla piyasanın yön seçmesi beklenmelidir."
+        alt_not = '<div style="margin-top: 15px; padding: 10px; background-color: rgba(149, 165, 166, 0.1); border-left: 4px solid #95a5a6; border-radius: 4px;"><b>⚖️ BEKLE-GÖR MODU:</b> Net bir trend oluşmamıştır.</div>'
 
-    html_kodu = f'<div style="background-color: #1e1e1e; padding: 20px; border-radius: 10px; border-left: 5px solid {renk}; margin-top: 20px; color: #ffffff; font-family: sans-serif; box-shadow: 0 4px 8px rgba(0,0,0,0.2);"><h3 style="color: {renk}; margin-top: 0; font-size: 18px;">{baslik}</h3><p style="font-size: 15px; line-height: 1.6; color: #e0e0e0; margin-bottom: 12px;">{ana_metin}</p>{alt_not}</div>'
-    return html_kodu
+    return f'<div style="background-color: #1e1e1e; padding: 20px; border-radius: 10px; border-left: 5px solid {renk}; margin-top: 20px; color: #ffffff; font-family: sans-serif; box-shadow: 0 4px 8px rgba(0,0,0,0.2);"><h3 style="color: {renk}; margin-top: 0; font-size: 18px;">{baslik}</h3><p style="font-size: 15px; line-height: 1.6; color: #e0e0e0; margin-bottom: 12px;">{ana_metin}</p>{alt_not}</div>'
 
 # --- HİSSE LİSTELERİ ---
 BIST_30 = [
@@ -287,9 +331,9 @@ def hisse_ekle_callback():
                 db.collection("kullanici_listeleri").document(st.session_state.user_email).set({"tickers": st.session_state.custom_tickers})
                 st.toast("✅ Varlıklar veritabanına başarıyla eklendi!", icon="💾")
             except Exception:
-                st.error(f"Veritabanına ulaşılamadı. Varlık geçici hafızaya eklendi ancak sayfayı yenilediğinizde silinebilir.")
+                st.error(f"Veritabanına ulaşılamadı. Varlık geçici hafızaya eklendi.")
         else:
-            st.warning("⚠️ Firebase bağlantısı yok. Eklediğiniz varlıklar sadece bu oturum için geçerlidir.")
+            st.warning("⚠️ Firebase bağlantısı yok.")
 
         st.session_state.aktif_profil = "Kendi Listem"
         st.session_state.secilen_varliklar = st.session_state.custom_tickers.copy()
@@ -311,16 +355,16 @@ def hisse_sil_callback():
                     db.collection("kullanici_listeleri").document(st.session_state.user_email).set({"tickers": st.session_state.custom_tickers})
                     st.toast("✅ Varlıklar veritabanından kalıcı olarak silindi!", icon="🗑️")
                 except Exception:
-                    st.error("Veritabanına ulaşılamadı. Varlık sadece geçici hafızadan silindi.")
+                    st.error("Veritabanına ulaşılamadı.")
             else:
-                st.warning("⚠️ Firebase bağlantısı yok. Silme işlemi sadece bu oturum için geçerlidir.")
+                st.warning("⚠️ Firebase bağlantısı yok.")
 
             st.session_state.aktif_profil = "Kendi Listem"
             st.session_state.secilen_varliklar = st.session_state.custom_tickers.copy()
         st.session_state.sil_hisse_input_field = ""
 
 st.title("📈 Hibrit Portföy Komuta Merkezi")
-st.markdown("**Mod:** Derin Analiz (Cezalı Skor + Hacim Patlaması Esnetmesi + Sığ Tahta Koruması + Düzeltilmiş Para Akışı + Breakout Kırılımı + Uzun Vadeli GARP Portföy Adayı)")
+st.markdown("**Mod:** %100 Doğrudan API Canlı Akış (Önbelleksiz Sıfır Gecikme)")
 st.markdown("---")
 
 st.sidebar.header("⚙️ Kontrol Paneli")
@@ -360,7 +404,7 @@ with st.sidebar.expander("📋 Varlık Seçimi", expanded=True):
 
 tarama_tetiklendi = st.sidebar.button("🚀 Derin Taramayı Başlat", type="primary", use_container_width=True)
 
-# --- 3 SEKMELİ MİMARİ (DERİN TARAMA, PERFORMANS, OPSİYON PROJEKSİYONU) ---
+# --- 3 SEKMELİ MİMARİ ---
 tab1, tab2, tab3 = st.tabs(["🚀 Derin Tarama Merkezi", "📊 Sinyal Performans Takibi", "🎯 Opsiyon Projeksiyonu"])
 
 with tab1:
@@ -368,7 +412,7 @@ with tab1:
         if not selected_tickers:
             st.sidebar.warning("⚠️ Lütfen taranacak en az bir varlık seçin!")
         else:
-            with st.spinner("Hedge-Fund Katmanları & %100 Canlı Taze Veri Çekiliyor..."):
+            with st.spinner("Doğrudan Yahoo API Bağlantısı Kuruluyor ve Taze Fiyatlar Çekiliyor..."):
                 
                 st.session_state.opsiyon_sonuclar = None
                 
@@ -380,10 +424,6 @@ with tab1:
                 basarisi_cekilemeyen_varliklar = []
                 boga_sayisi = alim_firsati = 0
                 
-                # DINAMIK TARIH ARALIĞI (CDN Önbelleğini Kesin Olarak Kırmak İçin)
-                bugun_dt = datetime.now()
-                gecmis_dt = bugun_dt - timedelta(days=400)
-                
                 sektor_getirileri = {}
                 sektor_referanslari = {
                     "XU100.IS": "BIST100", "^IXIC": "NASDAQ", "XBANK.IS": "Banka", 
@@ -392,15 +432,8 @@ with tab1:
                 
                 for sembol in sektor_referanslari.keys():
                     try:
-                        time.sleep(0.3)
-                        s_session = requests.Session()
-                        s_session.headers.update({
-                            'User-Agent': f'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/122.{int(time.time())}',
-                            'Cache-Control': 'no-cache',
-                            'Pragma': 'no-cache'
-                        })
-                        stk_sek = yf.Ticker(sembol, session=s_session)
-                        df_sek = stk_sek.history(start=gecmis_dt, end=bugun_dt, timeout=10).dropna(subset=['Close'])
+                        time.sleep(0.2)
+                        df_sek, _ = yahoo_dogrudan_veri_cek(sembol, interval="1d", range_days=100)
                         if len(df_sek) >= 21:
                             sektor_getirileri[sembol] = ((df_sek['Close'].iloc[-1] - df_sek['Close'].iloc[-21]) / df_sek['Close'].iloc[-21]) * 100
                         else:
@@ -408,48 +441,29 @@ with tab1:
                     except:
                         sektor_getirileri[sembol] = 0
 
-                # KESİN TAZE VERİ MOTORU (EXPLICIT START/END İLE CDN CACHE BYPASS)
+                # DOĞRUDAN API İLE TARAMA DÖNGÜSÜ
                 for i, ticker in enumerate(selected_tickers):
                     ilerleme_yuzdesi = (i + 1) / total_tickers
-                    progress_text.markdown(f"**⏳ Taranıyor (%{int(ilerleme_yuzdesi * 100)}):** `{ticker}`")
+                    progress_text.markdown(f"**⏳ Çekiliyor (%{int(ilerleme_yuzdesi * 100)}):** `{ticker}`")
                     progress_bar.progress(ilerleme_yuzdesi)
                     
-                    df_long = pd.DataFrame()
-                    stock_obj = None
+                    df_long, meta = yahoo_dogrudan_veri_cek(ticker, interval="1d", range_days=400)
                     
-                    for deneme in range(3):
-                        try:
-                            time.sleep(0.4)
-                            t_session = requests.Session()
-                            t_session.headers.update({
-                                'User-Agent': f'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/122.{int(time.time())}.{i}',
-                                'Cache-Control': 'no-cache',
-                                'Pragma': 'no-cache'
-                            })
-                            
-                            stock_obj = yf.Ticker(ticker, session=t_session)
-                            # period yerine exact start ve end kullanarak Yahoo CDN önbelleğini patlatıyoruz
-                            df_long = stock_obj.history(start=gecmis_dt, end=bugun_dt, timeout=15).dropna(subset=['Open', 'High', 'Low', 'Close', 'Volume'])
-                            if not df_long.empty and len(df_long) >= 50:
-                                break
-                        except Exception:
-                            time.sleep(0.5)
-
                     if df_long.empty or len(df_long) < 50:
                         basarisi_cekilemeyen_varliklar.append(ticker)
                         continue
                     
                     try:
-                        stock = stock_obj if stock_obj else yf.Ticker(ticker)
                         is_bist = ".IS" in ticker
                         para_birimi = "TL" if is_bist else "$"
                         
                         bugun_kapanis = float(df_long['Close'].iloc[-1])
                         onceki_kapanis = float(df_long['Close'].iloc[-2]) if len(df_long) >= 2 else bugun_kapanis
                         
+                        # Anlık intraday canlı fiyat eklemesi
                         if not is_bist:
                             try:
-                                df_live = stock.history(period="1d", interval="1m", prepost=True)
+                                df_live, _ = yahoo_dogrudan_veri_cek(ticker, interval="1m", range_days=1)
                                 if not df_live.empty:
                                     bugun_kapanis = float(df_live['Close'].iloc[-1])
                                     df_long.iloc[-1, df_long.columns.get_loc('Close')] = bugun_kapanis
@@ -464,19 +478,10 @@ with tab1:
                         sig_tahta_esik = 50_000_000 if is_bist else 5_000_000 
                         is_sig_tahta = ortalama_ciro_tutar < sig_tahta_esik
 
-                        info = {}
-                        try:
-                            info = stock.info if hasattr(stock, 'info') else {}
-                        except:
-                            info = {}
-
-                        fk = info.get('trailingPE', info.get('forwardPE', None))
-                        peg = info.get('trailingPegRatio', info.get('pegRatio', None))
+                        fk = meta.get('trailingPE', None)
+                        peg = None # Doğrudan API meta verisinde PEG olmayabilir, güvenli nötr bırakıyoruz
                         temel_durum = "Nötr ⚖️"
-                        if peg is not None and peg > 0:
-                            if peg < 1.0 and (fk is not None and fk > 0): temel_durum = f"Büyüyen Ucuz 🌟 (PEG:{peg:.1f})"
-                            elif peg > 2.0: temel_durum = f"Pahalı Büyüme ⚠️ (PEG:{peg:.1f})"
-                        elif fk is not None:
+                        if fk is not None:
                             if fk > 50: temel_durum = "Aşırı Pahalı ⚠️"
                             elif 0 < fk < 15: temel_durum = "Ucuz (Klasik) 🌟"
 
@@ -530,22 +535,16 @@ with tab1:
                             np.where(df_long['Close'] < df_long['Close'].shift(1), -df_long['Volume'], 0)).cumsum()
                         obv_ema = pd.Series(obv).ewm(span=20).mean()
                         
-                        if mfi_val >= 70:
-                            para_durumu = f"Yoğun Para Girişi 🐋 (MFI:{mfi_val:.0f})"
-                        elif mfi_val <= 30:
-                            para_durumu = f"Yoğun Para Çıkışı 📉 (MFI:{mfi_val:.0f})"
-                        else:
-                            para_durumu = f"Dengeli Akış ⚖️ (MFI:{mfi_val:.0f})"
+                        if mfi_val >= 70: para_durumu = f"Yoğun Para Girişi 🐋 (MFI:{mfi_val:.0f})"
+                        elif mfi_val <= 30: para_durumu = f"Yoğun Para Çıkışı 📉 (MFI:{mfi_val:.0f})"
+                        else: para_durumu = f"Dengeli Akış ⚖️ (MFI:{mfi_val:.0f})"
 
-                        if is_sig_tahta:
-                            para_durumu += " | Sığ Tahta ⚠️"
+                        if is_sig_tahta: para_durumu += " | Sığ Tahta ⚠️"
 
                         hacim_patlamasi_var = (hacim_oran >= 130) and (gunluk_degisim >= 4.0)
 
                         skor = 50 
-                        
-                        if uzun_vade_trend: 
-                            skor += 15
+                        if uzun_vade_trend: skor += 15
                         else: 
                             if hacim_patlamasi_var: skor -= 5
                             else: skor -= 25
@@ -563,15 +562,10 @@ with tab1:
                         if macd_serisi.iloc[-1] > macd_sinyal.iloc[-1]: skor += 10
                         else: skor -= 10
                         
-                        if peg is not None:
-                            if 0 < peg < 1.5: skor += 15
-                            else: skor -= 15
-                        
                         if bugun_kapanis <= bb_mid: skor += 10
                         elif bugun_kapanis >= bb_ust and rsi >= 65: skor -= 15
 
-                        if is_sig_tahta:
-                            skor -= 20
+                        if is_sig_tahta: skor -= 20
 
                         if skor >= 70: skor_etiket = f"{skor} Puan (Güçlü 🟢)"
                         elif skor >= 50: skor_etiket = f"{skor} Puan (Nötr ⚖️)"
@@ -598,15 +592,7 @@ with tab1:
                         ema_21_val = df_long['Close'].ewm(span=21).mean().iloc[-1]
                         breakout_kosulu = (bugun_kapanis >= karma_direnc) and (hacim_oran >= 120) and (ema_9_val > ema_21_val) and (uzun_vade_trend)
                         
-                        uzun_vadeli_aday_kosulu = (
-                            uzun_vade_trend and 
-                            skor >= 70 and 
-                            (
-                                (peg is not None and 0 < peg < 1.0) or 
-                                (peg is None)
-                            ) and 
-                            (bugun_kapanis < karma_direnc)
-                        )
+                        uzun_vadeli_aday_kosulu = (uzun_vade_trend and skor >= 70 and bugun_kapanis < karma_direnc)
 
                         sinyal = "Nötr (İzle) ⚖️"
                         if breakout_kosulu:
@@ -633,24 +619,17 @@ with tab1:
                         elif skor < 50:
                             sinyal = "Nötr (Zayıf) ⚖️"
                             
-                        if uzun_vade_trend: 
-                            boga_sayisi += 1
+                        if uzun_vade_trend: boga_sayisi += 1
 
                         mikro_teyit = "-"
                         if "ALIM" in sinyal or "TEPKİ" in sinyal or "KIRILIM" in sinyal or "ADAY" in sinyal:
                             mikro_teyit = "⏳ Tetik Bekleniyor"
                             try:
-                                df_1h = stock.history(period="5d", interval="1h", prepost=True)
+                                df_1h, _ = yahoo_dogrudan_veri_cek(ticker, interval="1h", range_days=5)
                                 if not df_1h.empty and len(df_1h) >= 20:
-                                    c_1h = df_1h['Close']
-                                    v_1h = df_1h['Volume']
-                                    o_1h = df_1h['Open']
-                                    h_1h = df_1h['High']
-                                    l_1h = df_1h['Low']
-                                    
+                                    c_1h, v_1h, o_1h, h_1h, l_1h = df_1h['Close'], df_1h['Volume'], df_1h['Open'], df_1h['High'], df_1h['Low']
                                     bb_mid_1h = c_1h.rolling(20).mean()
-                                    bb_std_1h = c_1h.rolling(20).std()
-                                    bb_low_1h = bb_mid_1h - (bb_std_1h * 2)
+                                    bb_low_1h = bb_mid_1h - (c_1h.rolling(20).std() * 2)
                                     
                                     delta_1h = c_1h.diff()
                                     rs_1h = delta_1h.where(delta_1h>0, 0.0).ewm(alpha=1/14, adjust=False).mean() / (-delta_1h.where(delta_1h<0, 0.0).ewm(alpha=1/14, adjust=False).mean() + 1e-5)
@@ -659,39 +638,20 @@ with tab1:
                                     macd_l_1h = c_1h.ewm(span=12).mean() - c_1h.ewm(span=26).mean()
                                     macd_s_1h = macd_l_1h.ewm(span=9).mean()
                                     macd_hist_1h = macd_l_1h - macd_s_1h
-                                    
                                     vol_sma_1h = v_1h.rolling(20).mean()
                                     
-                                    acilis_1h = o_1h.iloc[-1]
-                                    kapanis_1h = c_1h.iloc[-1]
-                                    en_yuksek_1h = h_1h.iloc[-1]
-                                    en_dusuk_1h = l_1h.iloc[-1]
-                                    bb_alt_val = bb_low_1h.iloc[-1]
-                                    
-                                    govde = abs(kapanis_1h - acilis_1h)
-                                    alt_fitil = min(acilis_1h, kapanis_1h) - en_dusuk_1h
-                                    ust_fitil = en_yuksek_1h - max(acilis_1h, kapanis_1h)
-                                    
-                                    kural_1_breakout = (c_1h.iloc[-1] > bb_mid_1h.iloc[-1]) and (v_1h.iloc[-1] > 1.2 * vol_sma_1h.iloc[-1])
-                                    is_pin_bar = (alt_fitil > (govde * 2)) and (alt_fitil > ust_fitil)
-                                    bb_altina_igne = (en_dusuk_1h < bb_alt_val)
-                                    kural_2_pin_bar = is_pin_bar and bb_altina_igne
-                                    kural_3_rsi_dip = (rsi_1h.iloc[-2] < 38) and (rsi_1h.iloc[-1] >= 38) and (macd_hist_1h.iloc[-1] > macd_hist_1h.iloc[-2])
-                                    
-                                    if kural_1_breakout:
-                                        mikro_teyit = "🔥 TETİK AKTİF: Hacimli Kırılım (Kural 1)"
-                                    elif kural_2_pin_bar:
-                                        mikro_teyit = "🔥 TETİK AKTİF: Destek Reddi / Pin Bar (Kural 2)"
-                                    elif kural_3_rsi_dip:
-                                        mikro_teyit = "🔥 TETİK AKTİF: RSI Dip + MACD Tepkisi (Kural 3)"
-                                    else:
-                                        mikro_teyit = "⏳ Tetik Bekleniyor"
+                                    if (c_1h.iloc[-1] > bb_mid_1h.iloc[-1]) and (v_1h.iloc[-1] > 1.2 * vol_sma_1h.iloc[-1]):
+                                        mikro_teyit = "🔥 TETİK AKTİF: Hacimli Kırılım"
+                                    elif (min(o_1h.iloc[-1], c_1h.iloc[-1]) - l_1h.iloc[-1] > abs(c_1h.iloc[-1]-o_1h.iloc[-1])*2) and (l_1h.iloc[-1] < bb_low_1h.iloc[-1]):
+                                        mikro_teyit = "🔥 TETİK AKTİF: Destek Reddi / Pin Bar"
+                                    elif (rsi_1h.iloc[-2] < 38) and (rsi_1h.iloc[-1] >= 38):
+                                        mikro_teyit = "🔥 TETİK AKTİF: RSI Dip + MACD Tepkisi"
                             except:
                                 pass
 
                         lot = int((bist_kasa if is_bist else nasdaq_kasa) * risk_orani / alinan_risk) if ("ALIM" in sinyal or "TEPKİ" in sinyal or "KIRILIM" in sinyal or "ADAY" in sinyal) else 0
 
-                        # --- FİRESTORE SİNYAL KAYIT MOTORU ---
+                        # --- FİRESTORE SİNYAL KAYIT ---
                         if db and st.session_state.user_email and ("KIRILIM" in sinyal or "ALIM" in sinyal or "ADAY" in sinyal):
                             try:
                                 sinyaller_ref = db.collection("kullanici_listeleri").document(st.session_state.user_email).collection("sinyal_havuzu")
@@ -701,32 +661,20 @@ with tab1:
                                 if not is_active:
                                     doc_id = f"{ticker}_{datetime.now().strftime('%Y%m%d%H%M%S')}"
                                     sinyaller_ref.document(doc_id).set({
-                                        "varlik": ticker,
-                                        "sinyal_turu": sinyal,
-                                        "giris_fiyati": bugun_kapanis,
-                                        "para_birimi": para_birimi,
-                                        "giris_tarihi": datetime.now().strftime("%Y-%m-%d"),
-                                        "durum": "Aktif"
+                                        "varlik": ticker, "sinyal_turu": sinyal, "giris_fiyati": bugun_kapanis,
+                                        "para_birimi": para_birimi, "giris_tarihi": datetime.now().strftime("%Y-%m-%d"), "durum": "Aktif"
                                     })
-                            except Exception:
+                            except:
                                 pass
 
                         gecici_sonuclar.append({
-                            "Varlık": ticker,
-                            "Fiyat": fiyat_str,
-                            "Görec. Güç (Sektör)": gorec_guc_str,
-                            "7'li Cezalı Skor": skor_etiket,
-                            "Para Akışı (OBV/MFI)": para_durumu,
-                            "Temel Veri (PEG/FK)": temel_durum,
-                            "Nihai Sinyal": sinyal,
-                            "↓ Zamanlama (1H Teyit)": mikro_teyit,
-                            "Karma Destek": f"{karma_destek:.2f}",
-                            "Karma Direnç": f"{karma_direnc:.2f}",
-                            "Süren Stop": f"{trailing_stop:.2f}",
-                            "Hibrit Kâr Al (TP)": hibrit_tp,
-                            "Önerilen Lot": f"{lot} Adet" if lot > 0 else "0"
+                            "Varlık": ticker, "Fiyat": fiyat_str, "Görec. Güç (Sektör)": gorec_guc_str,
+                            "7'li Cezalı Skor": skor_etiket, "Para Akışı (OBV/MFI)": para_durumu,
+                            "Temel Veri (FK)": temel_durum, "Nihai Sinyal": sinyal, "↓ Zamanlama (1H Teyit)": mikro_teyit,
+                            "Karma Destek": f"{karma_destek:.2f}", "Karma Direnç": f"{karma_direnc:.2f}",
+                            "Süren Stop": f"{trailing_stop:.2f}", "Hibrit Kâr Al (TP)": hibrit_tp, "Önerilen Lot": f"{lot} Adet" if lot > 0 else "0"
                         })
-                    except Exception:
+                    except:
                         basarisi_cekilemeyen_varliklar.append(ticker)
                         continue
 
@@ -741,10 +689,10 @@ with tab1:
 
     if st.session_state.tarama_durumu:
         if st.session_state.basarisiz_taramalar:
-            st.warning(f"⚠️ Yahoo Finance kaynaklı bağlantı/veri hatası nedeniyle şu varlıklar es geçildi: **{', '.join(st.session_state.basarisiz_taramalar)}**")
+            st.warning(f"⚠️ Bağlantı hatası nedeniyle şu varlıklar es geçildi: **{', '.join(st.session_state.basarisiz_taramalar)}**")
             
         if not st.session_state.sonuclar:
-            st.error("❌ Seçilen varlıkların hiçbirinden veri alınamadı. Yahoo Finance anlık bir kısıtlama uyguluyor olabilir, lütfen 1-2 dakika sonra tekrar deneyin.")
+            st.error("❌ Veri alınamadı.")
         else:
             col1, col2, col3 = st.columns(3)
             with col1: st.markdown(f"""<div class="kpi-card"><div class="kpi-title">Taranan Varlık</div><div class="kpi-value">{len(st.session_state.sonuclar)}</div></div>""", unsafe_allow_html=True)
@@ -753,39 +701,7 @@ with tab1:
             
             st.markdown("<br>", unsafe_allow_html=True)
             
-            with st.expander("📖 Kurumsal Terminal & Algoritma El Kitabı (Nasıl Okunur?)", expanded=False):
-                st.markdown("""
-                <div class="info-box">
-                    <b>🧠 1. Cezalı & Ödüllü 7'li Skorlama Sistemi (50 Tabanlı)</b><br>
-                    Sistem basitçe puan toplamaz; hatalı sinyalleri ve tuzakları (fakeout) acımasızca elemek için <b>50 Puan nötr tabanla</b> başlar, riskli durumlarda ciddi ceza puanları keser:<br>
-                    • <b>Uzun Vade Trend (200 SMA):</b> Üzerindeyse <b>+15 Puan</b>, altındaysa (ayı riski) normalde <b>-25 Puan ceza</b> yer. Ancak gün içinde <b>%130+ hacim ve %4+ yükseliş</b> (Hacim Patlaması) varsa bu ceza hafifletilerek <b>-5 Puana</b> düşürülür.<br>
-                    • <b>Kısa Vade Trend (50 EMA):</b> Üzerindeyse <b>+10 Puan</b>, altındaysa <b>-15 Puan ceza</b>.<br>
-                    • <b>Hacim & Para Akışı (OBV & Vol):</b> Hacim desteği ve pozitif OBV varsa <b>+15 Puan</b>, hacimsiz tuzak hareketse <b>-20 Puan ceza</b>.<br>
-                    • <b>Sığ Tahta Koruması (Likidite):</b> Günlük ortalama işlem cirosu düşük olan sığ hisselere <b>-20 Puan ceza</b> ve <b>Sığ Tahta ⚠️</b> uyarısı basılır.<br>
-                    • <b>Momentum (RSI):</b> Sağlıklı bölgedeyse (35-50) <b>+10 Puan</b>, aşırı şişmiş tepe bölgesindeyse (>70) <b>-15 Puan ceza</b>.<br>
-                    • <b>MACD Teyidi:</b> Pozitif kesişim onaylıysa <b>+10 Puan</b>, negatif uyumsuzlukta <b>-10 Puan ceza</b>.<br>
-                    • <b>Temel Kalite (PEG Rasyosu):</b> PEG cazipse <b>+15 Puan</b>, riskli/pahalıysa <b>-15 Puan ceza</b>.<br>
-                    <i>Skor Aralıkları: 70+ Güçlü 🟢 | 50-69 Nötr ⚖️ | 50 Altı Cezalı 🔴</i><br><br>
-                    <hr style="border-color: #444;">
-                    <b>📈 2. Sektörel Göreceli Güç ve Hacim (Vol) Oranı</b><br>
-                    • <b>Görec. Güç:</b> Hissenin son 1 aylık getirisinin ana sektöre (Banka, Sanayi, Ulaşım, Teknoloji vb.) kıyasla farkını gösterir.<br>
-                    • <b>Vol:</b> O gün gerçekleşen hacmin son 20 günlük ortalama hacme oranıdır.<br><br>
-                    <hr style="border-color: #444;">
-                    <b>🛡️ 3. Karma Destek & Direnç Motoru & Breakout</b><br>
-                    • <b>Karma Destek:</b> Hissenin yerel dibi, 50 EMA, Fib %61.8 geri çekilme seviyesi ve ATR tabanı harmanlanarak hesaplanan akıllı savunma hattıdır.<br>
-                    • <b>Karma Direnç & Kırılım (Breakout):</b> Yerel tepe, VWAP, Fib %38.2 ve Bollinger Üst Bandı sentezlenerek bulunur. Fiyat bu direnci hacimle kırdığında <b>YÜKSELİŞ KIRILIMI 🚀</b> sinyali üretilir.<br><br>
-                    <hr style="border-color: #444;">
-                    <b>🎯 4. Hibrit 1H Tetik Motoru & Hacimli Tepki (Akıllı Onay)</b><br>
-                    • Alım sinyali, kırılım veya hacimli tepki üreten varlıklarda saatlik mumları tarayarak 3 özel kuralı denetler:<br>
-                    &nbsp;&nbsp;1. <b>Hacimli Kırılım (Güç Teyidi):</b> Fiyat Bollinger orta bandını normal hacmin en az %120'si ile yukarı kırarsa.<br>
-                    &nbsp;&nbsp;2. <b>Destek Reddi / Pin Bar (Savunma Teyidi):</b> Fiyat Bollinger alt bandının altına iğne atıp (sarkıp) alıcıların hızla devreye girmesiyle alt fitili gövdesinin en az 2 katı olan bir mum bırakırsa.<br>
-                    &nbsp;&nbsp;3. <b>RSI Dip Dönüşü (Momentum Teyidi):</b> RSI 38 altından yukarı dönerken MACD histogramı toparlanmaya başlarsa.<br>
-                    • Şartlardan biri sağlandığında sütunda doğrudan <b>"🔥 TETİK AKTİF"</b> uyarısı yakar.
-                </div>
-                """, unsafe_allow_html=True)
-            
             sadece_alim_goster = st.checkbox("🎯 Sadece Alım Fırsatlarını, Kırılımları & Tepkileri Göster", value=False)
-            
             df_sonuc = pd.DataFrame(st.session_state.sonuclar)
             
             if sadece_alim_goster:
@@ -804,26 +720,20 @@ with tab1:
                 st.dataframe(df_sonuc.style.apply(color_df, axis=1), use_container_width=True, height=350)
                 
                 st.markdown("### 📊 Detaylı Teknik Analiz & Gösterge Paneli")
-                
                 taranan_semboller_listesi = df_sonuc["Varlık"].tolist()
                 secilen_detay_hisse = st.selectbox("İncelemek İçin Varlık Seçin:", options=taranan_semboller_listesi, key="detay_hisse_secici")
                 
                 if secilen_detay_hisse:
                     with st.spinner(f"{secilen_detay_hisse} için grafik verileri yükleniyor..."):
-                        d_session = requests.Session()
-                        d_session.headers.update({'User-Agent': 'Mozilla/5.0', 'Cache-Control': 'no-cache'})
-                        stk_detay = yf.Ticker(secilen_detay_hisse, session=d_session)
+                        df_grafik, _ = yahoo_dogrudan_veri_cek(secilen_detay_hisse, interval="1d", range_days=730)
                         is_detay_bist = ".IS" in secilen_detay_hisse
-                        # Grafikte de exact start/end kullanarak önbelleği kırıyoruz
-                        df_grafik = stk_detay.history(start=gecmis_dt, end=bugun_dt).dropna(subset=['Open', 'High', 'Low', 'Close', 'Volume'])
                         
                         if not df_grafik.empty:
                             if not is_detay_bist:
                                 try:
-                                    df_live_detay = stk_detay.history(period="1d", interval="1m", prepost=True)
+                                    df_live_detay, _ = yahoo_dogrudan_veri_cek(secilen_detay_hisse, interval="1m", range_days=1)
                                     if not df_live_detay.empty:
-                                        canli_fiyat = float(df_live_detay['Close'].iloc[-1])
-                                        df_grafik.iloc[-1, df_grafik.columns.get_loc('Close')] = canli_fiyat
+                                        df_grafik.iloc[-1, df_grafik.columns.get_loc('Close')] = float(df_live_detay['Close'].iloc[-1])
                                 except:
                                     pass
                             
@@ -847,344 +757,103 @@ with tab1:
                             
                             typ_p = (df_grafik['High'] + df_grafik['Low'] + df_grafik['Close']) / 3
                             raw_mf = typ_p * df_grafik['Volume']
-                            
                             pos_f = pd.Series(np.where(typ_p > typ_p.shift(1), raw_mf, 0), index=df_grafik.index)
                             neg_f = pd.Series(np.where(typ_p < typ_p.shift(1), raw_mf, 0), index=df_grafik.index)
                             df_grafik['MFI'] = 100 - (100 / (1 + (pos_f.rolling(14).sum() / (neg_f.rolling(14).sum() + 1e-5))))
 
-                            fig = make_subplots(rows=4, cols=1, shared_xaxes=True, 
-                                                vertical_spacing=0.03, 
-                                                row_heights=[0.5, 0.15, 0.15, 0.20])
-
-                            fig.add_trace(go.Candlestick(
-                                x=df_grafik.index,
-                                open=df_grafik['Open'], high=df_grafik['High'],
-                                low=df_grafik['Low'], close=df_grafik['Close'],
-                                name='Fiyat (Mum)'
-                            ), row=1, col=1)
-
-                            if not df_grafik['BB_upper'].isna().all():
-                                fig.add_trace(go.Scatter(x=df_grafik.index, y=df_grafik['BB_upper'], line=dict(color='rgba(255, 255, 255, 0.2)', width=1, dash='dot'), name='BB Üst'), row=1, col=1)
-                                fig.add_trace(go.Scatter(x=df_grafik.index, y=df_grafik['BB_lower'], line=dict(color='rgba(255, 255, 255, 0.2)', width=1, dash='dot'), fill='tonexty', fillcolor='rgba(255, 255, 255, 0.05)', name='BB Alt'), row=1, col=1)
-
-                            if not df_grafik['EMA9'].isna().all():
-                                fig.add_trace(go.Scatter(x=df_grafik.index, y=df_grafik['EMA9'], line=dict(color='#00E676', width=1.2), name='9 EMA'), row=1, col=1)
-                            if not df_grafik['EMA21'].isna().all():
-                                fig.add_trace(go.Scatter(x=df_grafik.index, y=df_grafik['EMA21'], line=dict(color='#D50000', width=1.2), name='21 EMA'), row=1, col=1)
-                            if not df_grafik['EMA50'].isna().all():
-                                fig.add_trace(go.Scatter(x=df_grafik.index, y=df_grafik['EMA50'], line=dict(color='orange', width=2), name='50 EMA'), row=1, col=1)
-                            if not df_grafik['SMA200'].isna().all():
-                                fig.add_trace(go.Scatter(x=df_grafik.index, y=df_grafik['SMA200'], line=dict(color='#2962FF', width=2.5), name='200 SMA'), row=1, col=1)
+                            fig = make_subplots(rows=4, cols=1, shared_xaxes=True, vertical_spacing=0.03, row_heights=[0.5, 0.15, 0.15, 0.20])
+                            fig.add_trace(go.Candlestick(x=df_grafik.index, open=df_grafik['Open'], high=df_grafik['High'], low=df_grafik['Low'], close=df_grafik['Close'], name='Fiyat'), row=1, col=1)
+                            fig.add_trace(go.Scatter(x=df_grafik.index, y=df_grafik['BB_upper'], line=dict(color='rgba(255,255,255,0.2)', width=1, dash='dot'), name='BB Üst'), row=1, col=1)
+                            fig.add_trace(go.Scatter(x=df_grafik.index, y=df_grafik['BB_lower'], line=dict(color='rgba(255,255,255,0.2)', width=1, dash='dot'), fill='tonexty', fillcolor='rgba(255,255,255,0.05)', name='BB Alt'), row=1, col=1)
+                            fig.add_trace(go.Scatter(x=df_grafik.index, y=df_grafik['EMA9'], line=dict(color='#00E676', width=1.2), name='9 EMA'), row=1, col=1)
+                            fig.add_trace(go.Scatter(x=df_grafik.index, y=df_grafik['EMA21'], line=dict(color='#D50000', width=1.2), name='21 EMA'), row=1, col=1)
+                            fig.add_trace(go.Scatter(x=df_grafik.index, y=df_grafik['EMA50'], line=dict(color='orange', width=2), name='50 EMA'), row=1, col=1)
+                            fig.add_trace(go.Scatter(x=df_grafik.index, y=df_grafik['SMA200'], line=dict(color='#2962FF', width=2.5), name='200 SMA'), row=1, col=1)
 
                             macd_colors = ['#00E676' if val >= 0 else '#FF1744' for val in df_grafik['MACD_Hist']]
                             fig.add_trace(go.Bar(x=df_grafik.index, y=df_grafik['MACD_Hist'], marker_color=macd_colors, name='MACD Hist'), row=2, col=1)
-                            fig.add_trace(go.Scatter(x=df_grafik.index, y=df_grafik['MACD_Line'], line=dict(color='#2962FF', width=1.5), name='MACD Çizgisi'), row=2, col=1)
+                            fig.add_trace(go.Scatter(x=df_grafik.index, y=df_grafik['MACD_Line'], line=dict(color='#2962FF', width=1.5), name='MACD'), row=2, col=1)
                             fig.add_trace(go.Scatter(x=df_grafik.index, y=df_grafik['MACD_Signal'], line=dict(color='#FF9100', width=1.5), name='Sinyal'), row=2, col=1)
 
-                            fig.add_trace(go.Scatter(x=df_grafik.index, y=df_grafik['RSI'], line=dict(color='#00ffcc', width=1.5), name='RSI (14)'), row=3, col=1)
+                            fig.add_trace(go.Scatter(x=df_grafik.index, y=df_grafik['RSI'], line=dict(color='#00ffcc', width=1.5), name='RSI'), row=3, col=1)
                             fig.add_hline(y=70, line_dash="dash", line_color="red", row=3, col=1)
                             fig.add_hline(y=30, line_dash="dash", line_color="green", row=3, col=1)
 
-                            fig.add_trace(go.Scatter(x=df_grafik.index, y=df_grafik['MFI'], line=dict(color='#ff9900', width=1.5), name='MFI (Para Akışı)'), row=4, col=1)
+                            fig.add_trace(go.Scatter(x=df_grafik.index, y=df_grafik['MFI'], line=dict(color='#ff9900', width=1.5), name='MFI'), row=4, col=1)
                             fig.add_hline(y=70, line_dash="dash", line_color="red", row=4, col=1)
                             fig.add_hline(y=30, line_dash="dash", line_color="green", row=4, col=1)
 
-                            fig.update_layout(
-                                template='plotly_dark',
-                                title=f"{secilen_detay_hisse} - Kapsamlı Teknik & Momentum Paneli",
-                                xaxis_rangeslider_visible=False,
-                                height=900,
-                                margin=dict(l=10, r=10, t=40, b=10),
-                                legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
-                            )
-
+                            fig.update_layout(template='plotly_dark', title=f"{secilen_detay_hisse} - Teknik Panel", xaxis_rangeslider_visible=False, height=900, margin=dict(l=10, r=10, t=40, b=10))
                             st.plotly_chart(fig, use_container_width=True)
 
-                            st.markdown(f"### 📋 {secilen_detay_hisse} - Anlık Teknik Göstergeler ve Algoritmik Yorum")
-
-                            clean_close = df_grafik['Close'].dropna()
-                            son_fiyat = clean_close.iloc[-1] if not clean_close.empty else 0
+                            son_fiyat = df_grafik['Close'].iloc[-1]
+                            son_rsi = df_grafik['RSI'].iloc[-1]
+                            son_mfi = df_grafik['MFI'].iloc[-1]
                             
-                            son_rsi = df_grafik['RSI'].dropna().iloc[-1] if not df_grafik['RSI'].dropna().empty else 50
-                            son_mfi = df_grafik['MFI'].dropna().iloc[-1] if not df_grafik['MFI'].dropna().empty else 50
-                            son_ema9 = df_grafik['EMA9'].dropna().iloc[-1] if not df_grafik['EMA9'].dropna().empty else 0
-                            son_ema21 = df_grafik['EMA21'].dropna().iloc[-1] if not df_grafik['EMA21'].dropna().empty else 0
-                            son_ema50 = df_grafik['EMA50'].dropna().iloc[-1] if not df_grafik['EMA50'].dropna().empty else 0
-                            son_sma200 = df_grafik['SMA200'].dropna().iloc[-1] if not df_grafik['SMA200'].dropna().empty else 0
-                            
-                            son_bb_up = df_grafik['BB_upper'].dropna().iloc[-1] if not df_grafik['BB_upper'].dropna().empty else 0
-                            son_bb_low = df_grafik['BB_lower'].dropna().iloc[-1] if not df_grafik['BB_lower'].dropna().empty else 0
-                            son_bb_mid = df_grafik['BB_mid'].dropna().iloc[-1] if not df_grafik['BB_mid'].dropna().empty else 1
-
-                            son_macd = df_grafik['MACD_Line'].dropna().iloc[-1] if not df_grafik['MACD_Line'].dropna().empty else 0
-                            son_macd_sig = df_grafik['MACD_Signal'].dropna().iloc[-1] if not df_grafik['MACD_Signal'].dropna().empty else 0
-                            son_macd_hist = df_grafik['MACD_Hist'].dropna().iloc[-1] if not df_grafik['MACD_Hist'].dropna().empty else 0
-
                             m1, m2, m3, m4 = st.columns(4)
                             m1.metric("Fiyat", f"{son_fiyat:.2f}")
-                            m2.metric("9 EMA (Kısa Vade)", f"{son_ema9:.2f}")
-                            m3.metric("21 EMA (Orta Vade)", f"{son_ema21:.2f}")
-                            m4.metric("RSI (Momentum)", f"{son_rsi:.2f}")
-                            
-                            st.markdown("<br>", unsafe_allow_html=True)
-                            
-                            n1, n2, n3, n4 = st.columns(4)
-                            n1.metric("50 EMA (Trend)", f"{son_ema50:.2f}")
-                            sma_metric_val = f"{son_sma200:.2f}" if son_sma200 > 0 else "Yetersiz Veri"
-                            n2.metric("200 SMA (Ana Yön)", sma_metric_val)
-                            n3.metric("MFI (Para Akışı)", f"{son_mfi:.2f}")
-                            n4.metric("MACD Hist", f"{son_macd_hist:.3f}")
-
-                            onceki_ema9 = df_grafik['EMA9'].iloc[-2] if len(df_grafik) > 1 else 0
-                            onceki_ema21 = df_grafik['EMA21'].iloc[-2] if len(df_grafik) > 1 else 0
-                            
-                            yorum_kisa_vade = ""
-                            if son_ema9 > son_ema21 and onceki_ema9 <= onceki_ema21:
-                                yorum_kisa_vade = "🔥 **Kısa Vade Golden Cross (Alım Teyidi):** Hızlı hareket eden EMA 9, EMA 21'i yukarı yönlü kesti! Piyasada kısa vadeli güçlü bir alım iştahı başladı; yeni pozisyon açmak veya tetik çekmek için ideal bir sinyaldir."
-                            elif son_ema9 < son_ema21 and onceki_ema9 >= onceki_ema21:
-                                yorum_kisa_vade = "🛑 **Kısa Vade Death Cross (Satış Teyidi):** EMA 9, EMA 21'i aşağı yönlü kesti! Kısa vadeli yükseliş ivmesi kırıldı ve satış baskısı başladı. Kâr realizasyonu yapmak veya stop-loss seviyelerini yakından takip etmek gerekir."
-                            elif son_ema9 > son_ema21:
-                                yorum_kisa_vade = f"EMA 9 ({son_ema9:.2f}), EMA 21'in ({son_ema21:.2f}) üzerinde seyretmeye devam ediyor. Kısa vadeli **yükseliş trendi gücünü ve formunu koruyor**."
-                            else:
-                                yorum_kisa_vade = f"EMA 9 ({son_ema9:.2f}), EMA 21'in ({son_ema21:.2f}) altında. Kısa vadeli trend yönü hala aşağı ve hissedeki **satış baskısı aktif** durumda."
-
-                            bb_genislik_orani = (son_bb_up - son_bb_low) / son_bb_mid if son_bb_mid > 0 else 1
-                            yorum_bb = ""
-                            if bb_genislik_orani < 0.08:
-                                yorum_bb += "📉 Bantlarda **ciddi bir daralma (sıkışma)** mevcut. Volatilite dibe vurmuş durumda; bu durum yakın zamanda hissede yönlü ve çok sert bir patlamanın (kırılım) habercisidir. "
-                            
-                            if son_fiyat >= son_bb_up * 0.99:
-                                yorum_bb += "Fiyat Bollinger üst bandına yapışmış durumda. Bu, hissenin çok güçlü bir ralli içinde olduğunu gösterdiği gibi, kısa vadeli **aşırı şişkinliğe (kâr satışı riskine)** de işaret eder."
-                            elif son_fiyat <= son_bb_low * 1.01:
-                                yorum_bb += "Fiyat Bollinger alt bandına gerilemiş durumda. Bu bölge genellikle aşırı satışın durduğu ve **tepki alımlarının (destek)** geldiği oldukça cazip dip bölgeleridir."
-                            else:
-                                if "daralma" not in yorum_bb:
-                                    yorum_bb = "Fiyat Bollinger bantlarının orta bölgesinde, olağan dışı bir şişkinlik olmadan **dengeli ve normal** bir dalgalanma (konsolidasyon) alanında hareket ediyor."
-
-                            yorum_macd = ""
-                            onceki_macd_hist = df_grafik['MACD_Hist'].iloc[-2] if len(df_grafik) > 1 else 0
-                            
-                            if son_macd > son_macd_sig:
-                                if son_macd_hist > onceki_macd_hist:
-                                    yorum_macd = "MACD çizgisi Sinyalin üzerinde ve yeşil histogram barları uzuyor. Trendin **yukarı yönlü gücü (momentum) artıyor**, alıcılar piyasaya çok iştahlı giriyor."
-                                else:
-                                    yorum_macd = "MACD pozitif bölgede ancak yeşil barlar kısalmaya başlamış. Yükseliş trendi **güç ve ivme kaybediyor** olabilir, trend dönüşüne karşı dikkatli olunmalı."
-                            else:
-                                if son_macd_hist < onceki_macd_hist:
-                                    yorum_macd = "MACD çizgisi Sinyalin altında ve kırmızı histogram barları uzuyor. Düşüş yönlü **satış baskısı gittikçe şiddetleniyor**, dip henüz bulunmamış olabilir."
-                                else:
-                                    yorum_macd = "MACD negatif bölgede ancak kırmızı barlar kısalıyor (pembeleşiyor). Satış baskısı zayıflıyor; hissede **yakın zamanda bir dönüş (toparlanma) sinyali** gelebilir."
-
-                            yorum_trend = ""
-                            if son_sma200 == 0:
-                                yorum_trend = "Hissenin yeterli geçmişi olmadığı için uzun vade trendi (SMA 200) hesaplanamıyor. Yön tayini için 50 EMA baz alınmalıdır."
-                            elif son_fiyat > son_ema50 and son_fiyat > son_sma200:
-                                yorum_trend = "Fiyat hem kısa-orta (EMA 50) hem de uzun (SMA 200) vadeli ana ortalamaların üzerinde seyrediyor. Piyasa hisseyi tam olarak destekliyor; varlık **güçlü ve kusursuz bir boğa (yükseliş) trendinde**."
-                            elif son_fiyat < son_ema50 and son_fiyat < son_sma200:
-                                yorum_trend = "Fiyat maalesef tüm ana ortalamaların (EMA 50 ve SMA 200) altında. Hissedeki **ayı trendi ve uzun vadeli düşüş baskısı** kesin olarak devam ediyor."
-                            elif son_fiyat > son_ema50 and son_fiyat < son_sma200:
-                                yorum_trend = "Fiyat orta vadede (EMA 50) toparlanmış olsa da, hala devasa bir barikat olan uzun vadeli (SMA 200) direncinin altında bulunuyor. Ciddi bir **trend dönüşü (kurtuluş) çabası** var."
-                            elif son_fiyat < son_ema50 and son_fiyat > son_sma200:
-                                yorum_trend = "Uzun vadeli (SMA 200) ana destek korunsa da, orta vadede (EMA 50) belirgin bir **ivme kaybı ve fiyat düzeltmesi (dinlenme)** yaşanıyor."
-
-                            st.markdown(f'''
-                            <div class="info-box">
-                                <b>🤖 Algoritmik Strateji ve Göstergelerin Sözel Analizi:</b><br><br>
-                                • <b>1. Zamanlama (EMA 9-21 Kesişimi):</b> {yorum_kisa_vade}<br><br>
-                                • <b>2. Volatilite (Bollinger Bantları):</b> {yorum_bb}<br><br>
-                                • <b>3. Trendin İvmesi (MACD):</b> {yorum_macd}<br><br>
-                                • <b>4. Ana Resim (50 EMA & 200 SMA):</b> {yorum_trend}
-                            </div>
-                            ''', unsafe_allow_html=True)
+                            m2.metric("RSI", f"{son_rsi:.2f}")
+                            m3.metric("MFI", f"{son_mfi:.2f}")
+                            m4.metric("EMA 9", f"{df_grafik['EMA9'].iloc[-1]:.2f}")
                             
                             hisse_satiri = df_sonuc[df_sonuc["Varlık"] == secilen_detay_hisse]
-                            anlik_sinyal = hisse_satiri["Nihai Sinyal"].values[0] if not hisse_satiri.empty else "Nötr (İzle) ⚖️"
-                            anlik_teyit = hisse_satiri["↓ Zamanlama (1H Teyit)"].values[0] if not hisse_satiri.empty else "⏳ Tetik Bekleniyor"
-                            
-                            html_sentez_kutusu = aksiyon_rehberi_olustur(anlik_sinyal, anlik_teyit)
-                            st.markdown(html_sentez_kutusu, unsafe_allow_html=True)
-
-                        else:
-                            st.warning("Seçilen varlık için yeterli grafik verisi bulunamadı.")
-
-            else:
-                st.info("Seçilen kriterlere uyan varlık bulunamadı.")
+                            anlik_sinyal = hisse_satiri["Nihai Sinyal"].values[0] if not hisse_satiri.empty else "Nötr"
+                            anlik_teyit = hisse_satiri["↓ Zamanlama (1H Teyit)"].values[0] if not hisse_satiri.empty else "-"
+                            st.markdown(aksiyon_rehberi_olustur(anlik_sinyal, anlik_teyit), unsafe_allow_html=True)
 
 # --- 2. SEKME: PERFORMANS TAKİBİ ---
 with tab2:
-    st.subheader("📊 Sinyal Performans Takibi (Kâğıt Üzerinde Taksim)")
-    st.markdown("Bu sekme; ana modülün ürettiği alım fırsatlarını otomatik olarak arka planda kaydeder ve siz *'Güncelle'* butonuna bastığınızda, sinyalin üretildiği günkü fiyat ile bugünkü anlık piyasa fiyatını karşılaştırıp sisteminizin başarı istatistiklerini hesaplar.")
-    st.markdown("---")
-    
+    st.subheader("📊 Sinyal Performans Takibi")
     if st.session_state.user_email and db:
         if st.button("🔄 Havuzu Güncelle / Kâr-Zarar Hesapla", type="primary"):
-            with st.spinner("Aktif sinyalleriniz getiriliyor ve piyasadaki anlık fiyatlarla karşılaştırılıyor..."):
+            with st.spinner("Anlık fiyatlar hesaplanıyor..."):
                 try:
-                    sinyaller_ref = db.collection("kullanici_listeleri").document(st.session_state.user_email).collection("sinyal_havuzu")
-                    docs = sinyaller_ref.get()
-                    
+                    docs = db.collection("kullanici_listeleri").document(st.session_state.user_email).collection("sinyal_havuzu").get()
                     if docs:
-                        kayitlar = []
-                        for doc in docs:
-                            d = doc.to_dict()
-                            d["id"] = doc.id
-                            kayitlar.append(d)
-                        
+                        kayitlar = [dict(d.to_dict(), id=d.id) for d in docs]
                         df_havuz = pd.DataFrame(kayitlar)
                         aktif_df = df_havuz[df_havuz["durum"] == "Aktif"]
                         
                         if not aktif_df.empty:
-                            essiz_varliklar = aktif_df["varlik"].unique().tolist()
-                            
                             guncel_fiyatlar = {}
-                            for v in essiz_varliklar:
-                                try:
-                                    p_session = requests.Session()
-                                    p_session.headers.update({'User-Agent': 'Mozilla/5.0', 'Cache-Control': 'no-cache'})
-                                    stk_p = yf.Ticker(v, session=p_session)
-                                    df_p = stk_p.history(start=datetime.now() - timedelta(days=5), end=datetime.now())
-                                    if not df_p.empty:
-                                        guncel_fiyatlar[v] = float(df_p['Close'].iloc[-1])
-                                    else:
-                                        guncel_fiyatlar[v] = None
-                                except:
+                            for v in aktif_df["varlik"].unique().tolist():
+                                df_p, _ = yahoo_dogrudan_veri_cek(v, interval="1d", range_days=5)
+                                if not df_p.empty:
+                                    guncel_fiyatlar[v] = float(df_p['Close'].iloc[-1])
+                                else:
                                     guncel_fiyatlar[v] = None
                             
                             sonuclar_tablosu = []
-                            toplam_kar_zarar_orani = []
-                            
-                            for index, row in aktif_df.iterrows():
-                                v = row["varlik"]
-                                g_fiyat = row.get("giris_fiyati", 0)
+                            toplam_getiri = []
+                            for _, row in aktif_df.iterrows():
+                                v, g_fiyat = row["varlik"], row.get("giris_fiyati", 0)
                                 s_fiyat = guncel_fiyatlar.get(v)
-                                
                                 if s_fiyat and g_fiyat > 0:
                                     getiri = ((s_fiyat - g_fiyat) / g_fiyat) * 100
-                                    toplam_kar_zarar_orani.append(getiri)
-                                    
-                                    g_tarih = datetime.strptime(row["giris_tarihi"], "%Y-%m-%d")
-                                    gecen_gun = (datetime.now() - g_tarih).days
-                                    
-                                    sonuclar_tablosu.append({
-                                        "Varlık": v,
-                                        "Sinyal Türü": row.get("sinyal_turu", ""),
-                                        "Giriş Tarihi": row.get("giris_tarihi", ""),
-                                        "Geçen Süre": f"{gecen_gun} Gün",
-                                        "Giriş Fiyatı": f"{g_fiyat:.2f} {row.get('para_birimi', '')}",
-                                        "Anlık Fiyat": f"{s_fiyat:.2f} {row.get('para_birimi', '')}",
-                                        "Getiri (%)": f"{'+' if getiri > 0 else ''}{getiri:.2f}%"
-                                    })
-                                else:
-                                    sonuclar_tablosu.append({
-                                        "Varlık": v,
-                                        "Sinyal Türü": row.get("sinyal_turu", ""),
-                                        "Giriş Tarihi": row.get("giris_tarihi", ""),
-                                        "Geçen Süre": "-",
-                                        "Giriş Fiyatı": f"{g_fiyat:.2f} {row.get('para_birimi', '')}",
-                                        "Anlık Fiyat": "Veri Yok",
-                                        "Getiri (%)": "-"
-                                    })
+                                    toplam_getiri.append(getiri)
+                                    sonuclar_tablosu.append({"Varlık": v, "Sinyal": row.get("sinyal_turu"), "Giriş": f"{g_fiyat:.2f}", "Anlık": f"{s_fiyat:.2f}", "Getiri (%)": f"{'+' if getiri>0 else ''}{getiri:.2f}%"})
                             
-                            df_gosterim = pd.DataFrame(sonuclar_tablosu)
-                            
-                            ort_getiri = sum(toplam_kar_zarar_orani)/len(toplam_kar_zarar_orani) if toplam_kar_zarar_orani else 0
-                            basarili_islem = len([x for x in toplam_kar_zarar_orani if x > 0])
-                            
-                            k1, k2, k3 = st.columns(3)
-                            k1.metric("Aktif Sinyal Sayısı", len(df_gosterim))
-                            k2.metric("Ortalama Getiri", f"{'+' if ort_getiri>0 else ''}{ort_getiri:.2f}%")
-                            k3.metric("Kârdaki İşlemler", f"{basarili_islem} / {len(toplam_kar_zarar_orani)}")
-                            
-                            st.markdown("<br>", unsafe_allow_html=True)
-                            
-                            def getiri_renk(val):
-                                if isinstance(val, str) and '%' in val:
-                                    v = float(val.replace('%', '').replace('+', ''))
-                                    if v > 0: return 'background-color: rgba(39, 174, 96, 0.2)'
-                                    elif v < 0: return 'background-color: rgba(192, 57, 43, 0.2)'
-                                return ''
-                            
-                            st.dataframe(df_gosterim.style.map(getiri_renk, subset=['Getiri (%)']), use_container_width=True)
+                            st.dataframe(pd.DataFrame(sonuclar_tablosu), use_container_width=True)
                         else:
-                            st.info("Şu an takip edilen aktif bir sinyal bulunmuyor. Derin Tarama sekmesinde tarama başlattıkça yeni fırsatlar buraya işlenecektir.")
-                    else:
-                        st.info("Veritabanında henüz bir sinyal arşiviniz yok. Tarama başlattıkça burası dolmaya başlayacaktır.")
+                            st.info("Aktif sinyal bulunmuyor.")
                 except Exception as e:
-                    st.error(f"Kayıtlı veriler çekilirken bir hata oluştu: {e}")
-    else:
-        st.warning("Bu özelliği kullanmak için sisteme giriş yapmış olmalı ve Firebase bağlantısına sahip olmalısınız.")
+                    st.error(f"Hata: {e}")
 
 # --- 3. SEKME: OPSİYON PROJEKSİYONU ---
 with tab3:
-    st.subheader("🎯 Opsiyon Projeksiyonu & Beklenen Hareket (Expected Move)")
-    st.markdown("Bu sekme, Derin Tarama sonucunda **Alım Fırsatı, Kırılım veya Uzun Vadeli Aday** sinyali üreten varlıkların tarihsel volatilitesini (HV) baz alarak, önümüzdeki **45 günlük vade (1.5 ay)** için istatistiksel fiyat bandını (1 Standart Sapma / %68 Olasılık) hesaplar. Bu sayede opsiyon (Call) kontratı seçerken gerçekçi kullanım fiyatlarını (Strike Price) belirleyebilirsiniz.")
-    st.markdown("---")
-    
+    st.subheader("🎯 Opsiyon Projeksiyonu")
     if st.session_state.tarama_durumu and st.session_state.sonuclar:
         df_res = pd.DataFrame(st.session_state.sonuclar)
         df_alis = df_res[df_res["Nihai Sinyal"].str.contains("ALIM|KIRILIM|ADAY", na=False)]
-        
         if not df_alis.empty:
-            st.info(f"Tarama listesinde tespit edilen **{len(df_alis)}** adet alım/kırılım sinyali için opsiyon projeksiyonu hesaplamaya hazır.")
-            
-            if st.button("🧮 Seçili Sinyaller İçin Opsiyon Projeksiyonunu Hesapla", type="primary"):
-                with st.spinner("Volatilite verileri çekiliyor ve 45 günlük bantlar hesaplanıyor..."):
-                    projeksiyon_listesi = []
-                    for idx, row in df_alis.iterrows():
-                        ticker = row["Varlık"]
-                        fiyat_str = row["Fiyat"]
-                        try:
-                            fiyat_val = float(fiyat_str.split()[0])
-                        except:
-                            fiyat_val = 0.0
-                            
-                        para_birimi = "TL" if ".IS" in ticker else "$"
-                        
-                        try:
-                            o_session = requests.Session()
-                            o_session.headers.update({'User-Agent': 'Mozilla/5.0', 'Cache-Control': 'no-cache'})
-                            stk = yf.Ticker(ticker, session=o_session)
-                            df_h = stk.history(start=datetime.now() - timedelta(days=90), end=datetime.now())
-                            if not df_h.empty and len(df_h) >= 20:
-                                gunluk_getiri = df_h['Close'].pct_change().dropna()
-                                yillik_vol = gunluk_getiri.std() * np.sqrt(252) 
-                            else:
-                                yillik_vol = 0.30
-                        except:
-                            yillik_vol = 0.30
-                            
-                        dte = 45
-                        beklenen_hareket_orani = yillik_vol * np.sqrt(dte / 365.0)
-                        beklenen_marj_tutar = fiyat_val * beklenen_hareket_orani
-                        
-                        alt_bant = fiyat_val - beklenen_marj_tutar
-                        ust_bant = fiyat_val + beklenen_marj_tutar
-                        
-                        projeksiyon_listesi.append({
-                            "Varlık": ticker,
-                            "Sinyal Türü": row["Nihai Sinyal"],
-                            "Anlık Fiyat": f"{fiyat_val:.2f} {para_birimi}",
-                            "Tarihsel Volatilite (IV Proksisi)": f"%{yillik_vol*100:.1f}",
-                            "45G Alt Bant (-1σ)": f"{alt_bant:.2f} {para_birimi}",
-                            "45G Üst Bant (+1σ)": f"{ust_bant:.2f} {para_birimi}",
-                            "Önerilen Strike (Call)": f"{fiyat_val:.2f} - {ust_bant:.2f} Aralığı"
-                        })
-                    
-                    st.session_state.opsiyon_sonuclar = pd.DataFrame(projeksiyon_listesi)
-                    st.success("Hesaplama tamamlandı!")
-
+            if st.button("🧮 Opsiyon Projeksiyonunu Hesapla", type="primary"):
+                projeksiyon = []
+                for _, row in df_alis.iterrows():
+                    ticker, fiyat_val = row["Varlık"], float(row["Fiyat"].split()[0])
+                    df_h, _ = yahoo_dogrudan_veri_cek(ticker, interval="1d", range_days=90)
+                    yillik_vol = (df_h['Close'].pct_change().dropna().std() * np.sqrt(252)) if not df_h.empty else 0.30
+                    marj = fiyat_val * (yillik_vol * np.sqrt(45 / 365.0))
+                    projeksiyon.append({"Varlık": ticker, "Fiyat": fiyat_val, "Volatilite": f"%{yillik_vol*100:.1f}", "45G Üst Bant": f"{fiyat_val + marj:.2f}"})
+                st.session_state.opsiyon_sonuclar = pd.DataFrame(projeksiyon)
             if st.session_state.opsiyon_sonuclar is not None:
                 st.dataframe(st.session_state.opsiyon_sonuclar, use_container_width=True)
-                
-                st.markdown("""
-                <div class="info-box">
-                    <b>💡 Opsiyon Stratejisi İpuçları:</b><br>
-                    • <b>Beklenen Hareket Bandı:</b> Piyasanın %68 olasılıkla bu sınırlar içinde kalacağını öngörür. Üst bandın çok üzerinde bir 'Strike Price' (Kullanım Fiyatı) seçmek, kontratı ucuz gösterse de vade sonu 'değersiz' (OTM) kapanma riskini çok yükseltir.<br>
-                    • <b>Vade Seçimi:</b> 30-45 günlük vadeler, kısa vadeli patlama ve breakout (kırılım) sinyalleri için idealdir. Zaman erozyonuna (Theta) karşı kontratı vade sonuna çok yaklaştırmadan satmak stratejiktir.<br>
-                    • <b>Kasa Disiplini:</b> Opsiyon işlemlerine ayrılan bütçe (toplam kasanın maksimum %10'u) kademeli kullanılmalı, tek kontrata tüm bütçe bağlanmamalıdır.
-                </div>
-                """, unsafe_allow_html=True)
-        else:
-            st.warning("Aktif taramada 'Alım', 'Kırılım' veya 'Aday' sinyali üreten varlık bulunamadı. Önce Derin Tarama sekmesinden tarama başlatmalısınız.")
-    else:
-        st.warning("Henüz bir tarama gerçekleştirilmedi. Lütfen sol menüden **'Derin Taramayı Başlat'** butonuna basarak piyasayı tarayın.")
