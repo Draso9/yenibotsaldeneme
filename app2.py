@@ -260,7 +260,7 @@ def aksiyon_rehberi_olustur(nihai_sinyal, teyit_5dk):
     if "YÜKSELİŞ KIRILIMI" in sinyal_metni:
         renk = "#00d2d3"
         baslik = "🚀 YÜKSELİŞ KIRILIMI (BREAKOUT) ONAYI"
-        ana_metin = "Mükemmel Moment Oluşumu! Varlık önemli direnç seviyesini yüksek hacim eşliğinde yukarı kırmış ve kısa vadeli hareketli ortalamalarda (EMA 9 > 21) boğa iştahını doğrulamıştır."
+        ana_metin = "Varlık önemli direnç seviyesini yüksek hacim eşliğinde yukarı kırmış, EMA 9 > EMA 21 yapısıyla kısa vadeli momentumu teyit etmiştir. Kırılımın kalıcılığı için fiyatın kırılan direnç üzerinde tutunması ve hacmin tamamen sönmemesi gerekir; aksi halde sahte kırılım riski oluşur."
         alt_not = f'<div style="margin-top: 15px; padding: 10px; background-color: rgba(0, 210, 211, 0.1); border-left: 4px solid #00d2d3; border-radius: 4px;"><b>🔥 ONAYLI BREAKOUT:</b> {teyit_metni}</div>'
 
     elif "UZUN VADELİ ADAY" in sinyal_metni:
@@ -308,10 +308,67 @@ def aksiyon_rehberi_olustur(nihai_sinyal, teyit_5dk):
     else:
         renk = "#95a5a6"
         baslik = "⚪ NÖTR / İZLEMEDE KAL"
-        ana_metin = "Sinyaller şu an belirgin bir yön veya baskı göstermiyor. Sabırla piyasanın yön seçmesi beklenmelidir."
+        ana_metin = "Teknik göstergeler şu anda ortak ve güçlü bir yön üretmiyor. Fiyat destek ile direnç arasında karar aşamasında olabilir; yeni pozisyon için hacim artışı, EMA uyumu veya önemli seviyelerden gelecek net kırılım teyidi beklenmelidir."
         alt_not = '<div style="margin-top: 15px; padding: 10px; background-color: rgba(149, 165, 166, 0.1); border-left: 4px solid #e67e22; border-radius: 4px;"><b>⚖️ BEKLE-GÖR:</b> Net trend bekleniyor.</div>'
 
     return f'<div style="background-color: #1e1e1e; padding: 20px; border-radius: 10px; border-left: 5px solid {renk}; margin-top: 20px; color: #ffffff; font-family: sans-serif; box-shadow: 0 4px 8px rgba(0,0,0,0.2);"><h3 style="color: {renk}; margin-top: 0; font-size: 18px;">{baslik}</h3><p style="font-size: 15px; line-height: 1.6; color: #e0e0e0; margin-bottom: 12px;">{ana_metin}</p>{alt_not}</div>'
+
+
+def sozlu_teknik_analiz_olustur(ticker, fiyat, gunluk_degisim, rsi, macd, macd_sinyal,
+                                  ema9, ema21, ema50, sma200, bb_alt, bb_mid, bb_ust,
+                                  hacim_oran, mfi, sektorel_fark, destek, direnc, stop,
+                                  tp1, tp2, sinyal, veri_kaynagi):
+    trend_uzun = "yukarı" if fiyat > sma200 else "aşağı"
+    trend_orta = "pozitif" if fiyat > ema50 else "zayıf"
+    trend_kisa = "boğa lehine" if ema9 > ema21 else "ayı lehine"
+
+    if rsi >= 70:
+        rsi_yorum = "RSI aşırı alım bölgesinde; yeni alımda acele etmek yerine kâr koruma ve geri çekilme riski izlenmeli."
+    elif rsi <= 30:
+        rsi_yorum = "RSI aşırı satım bölgesinde; tepki ihtimali artsa da dönüş teyidi olmadan risk yüksektir."
+    elif rsi <= 40:
+        rsi_yorum = "RSI zayıf bölgede; fiyatın destek çevresindeki davranışı ve kısa vadeli teyit önem taşıyor."
+    elif rsi <= 60:
+        rsi_yorum = "RSI dengeli bölgede; fiyatın yön seçmesi için uygun, aşırılaşmamış bir yapı var."
+    else:
+        rsi_yorum = "RSI güçlü bölgede; momentum olumlu olmakla birlikte aşırı alıma yaklaşma riski izlenmeli."
+
+    macd_yorum = "MACD, sinyal çizgisinin üzerinde ve momentum yükselişi destekliyor." if macd > macd_sinyal else "MACD, sinyal çizgisinin altında; kısa vadeli momentum henüz tam destek vermiyor."
+    hacim_yorum = (
+        "Hacim 20 günlük ortalamanın belirgin üzerinde; hareketin katılımı güçlü." if hacim_oran >= 130 else
+        "Hacim ortalamanın üzerinde; fiyat hareketi destek buluyor." if hacim_oran >= 100 else
+        "Hacim ortalamanın altında; mevcut hareketin teyidi sınırlı."
+    )
+    mfi_yorum = (
+        "MFI para girişinin yoğunlaştığını gösteriyor." if mfi >= 70 else
+        "MFI para çıkışının baskın olduğuna işaret ediyor." if mfi <= 30 else
+        "MFI dengeli para akışına işaret ediyor."
+    )
+    sektor_yorum = (
+        f"Varlık son bir ayda referansına göre %{sektorel_fark:.1f} daha güçlü performans gösteriyor." if sektorel_fark >= 0 else
+        f"Varlık son bir ayda referansının %{abs(sektorel_fark):.1f} gerisinde kalıyor."
+    )
+    bant_yorum = (
+        "Fiyat üst Bollinger bandına yakın; kısa vadede şişkinlik ve kâr satışı riski artmış durumda." if fiyat >= bb_ust * 0.995 else
+        "Fiyat alt Bollinger bandına yakın; tepki olasılığı artsa da zayıflık devam ediyor." if fiyat <= bb_alt * 1.005 else
+        "Fiyat Bollinger bantlarının içinde; hareket henüz aşırılaşmış görünmüyor."
+    )
+
+    return f"""
+    <div style="background:#161616;border:1px solid #333;border-radius:12px;padding:20px;margin-top:18px;color:#e8e8e8;line-height:1.65;">
+      <h3 style="margin:0 0 12px 0;color:#ffffff;">🧠 {ticker} Sözel Teknik Analizi</h3>
+      <p><b>Genel görünüm:</b> Fiyat {fiyat:.2f} seviyesinde ve günlük değişim %{gunluk_degisim:+.2f}. Uzun vadeli ana trend <b>{trend_uzun}</b>, orta vadeli yapı <b>{trend_orta}</b>, EMA 9/21 ilişkisi ise <b>{trend_kisa}</b>.</p>
+      <p><b>Momentum:</b> {rsi_yorum} {macd_yorum}</p>
+      <p><b>Hacim ve para akışı:</b> {hacim_yorum} {mfi_yorum}</p>
+      <p><b>Göreceli güç:</b> {sektor_yorum}</p>
+      <p><b>Volatilite ve konum:</b> {bant_yorum}</p>
+      <p><b>Kritik seviyeler:</b> Yakın destek <b>{destek:.2f}</b>, direnç <b>{direnc:.2f}</b>, süren stop <b>{stop:.2f}</b>. Olumlu senaryoda izlenebilecek hedefler <b>{tp1:.2f}</b> ve <b>{tp2:.2f}</b>.</p>
+      <p><b>Sistem sonucu:</b> {sinyal}. Veri kaynağı: <b>{veri_kaynagi}</b>.</p>
+      <div style="margin-top:12px;padding:10px 12px;border-left:4px solid #3498db;background:rgba(52,152,219,.10);border-radius:6px;">
+        Bu bölüm otomatik teknik göstergelere dayanır; tek başına yatırım kararı yerine trend, hacim, destek/direnç ve risk yönetimi birlikte değerlendirilmelidir.
+      </div>
+    </div>
+    """
 
 # --- HİSSE LİSTELERİ ---
 BIST_30 = ["AKBNK.IS", "ALARK.IS", "ASELS.IS", "ASTOR.IS", "BIMAS.IS", "BRISA.IS", "CCOLA.IS", "ENKAI.IS", "EREGL.IS", "FROTO.IS", "GARAN.IS", "GUBRF.IS", "HEKTS.IS", "ISCTR.IS", "KCHOL.IS", "KONTR.IS", "KOZAA.IS", "KOZAL.IS", "KRDMD.IS", "OYAKC.IS", "PETKM.IS", "PGSUS.IS", "SAHOL.IS", "SASA.IS", "SISE.IS", "TCELL.IS", "THYAO.IS", "TOASO.IS", "TUPRS.IS", "YKBNK.IS"]
@@ -362,6 +419,7 @@ if st.session_state.user_email is None:
 # --- ASIL UYGULAMA ---
 if "tarama_durumu" not in st.session_state: st.session_state.tarama_durumu = False
 if "sonuclar" not in st.session_state: st.session_state.sonuclar = []
+if "sozlu_analizler" not in st.session_state: st.session_state.sozlu_analizler = {}
 if "custom_tickers" not in st.session_state: st.session_state.custom_tickers = VARSAYILAN_TICKERS.copy()
 if "basarisiz_taramalar" not in st.session_state: st.session_state.basarisiz_taramalar = []
 
@@ -448,6 +506,7 @@ with tab1:
                 toplu_df = taze_veri_indir(tuple(selected_tickers))
                 
                 gecici_sonuclar = []
+                gecici_sozlu_analizler = {}
                 basarisi_cekilemeyen_varliklar = []
                 boga_sayisi = alim_firsati = 0
                 
@@ -614,6 +673,16 @@ with tab1:
 
                         lot = int((bist_kasa if is_bist else nasdaq_kasa) * risk_orani / alinan_risk) if "ALIM" in sinyal or "KIRILIM" in sinyal or "ADAY" in sinyal else 0
 
+                        gecici_sozlu_analizler[ticker] = sozlu_teknik_analiz_olustur(
+                            ticker=ticker, fiyat=bugun_kapanis, gunluk_degisim=gunluk_degisim,
+                            rsi=float(rsi), macd=float(macd_serisi.iloc[-1]), macd_sinyal=float(macd_sinyal.iloc[-1]),
+                            ema9=float(ema_9_val), ema21=float(ema_21_val), ema50=float(ema_50_val), sma200=float(sma_200),
+                            bb_alt=float(bb_alt), bb_mid=float(bb_mid), bb_ust=float(bb_ust),
+                            hacim_oran=float(hacim_oran), mfi=float(mfi_val), sektorel_fark=float(sektorel_fark),
+                            destek=float(karma_destek), direnc=float(karma_direnc), stop=float(trailing_stop),
+                            tp1=float(tp1), tp2=float(tp2), sinyal=sinyal, veri_kaynagi=veri_kaynagi
+                        )
+
                         gecici_sonuclar.append({
                             "Varlık": ticker, "Fiyat": fiyat_str, "Görec. Güç (Sektör)": gorec_guc_str,
                             "7'li Cezalı Skor": skor_etiket, "Para Akışı (OBV/MFI)": para_durumu,
@@ -626,6 +695,7 @@ with tab1:
                         continue
 
                 st.session_state.sonuclar = gecici_sonuclar
+                st.session_state.sozlu_analizler = gecici_sozlu_analizler
                 st.session_state.basarisiz_taramalar = basarisi_cekilemeyen_varliklar
                 st.session_state.boga_sayisi = boga_sayisi
                 st.session_state.alim_firsati = alim_firsati
@@ -685,6 +755,10 @@ with tab1:
                         
                         fig.update_layout(template='plotly_dark', title=f"{secilen_detay_hisse} - Teknik Grafik", height=600, xaxis_rangeslider_visible=False)
                         st.plotly_chart(fig, use_container_width=True)
+
+                        sozlu_analiz_html = st.session_state.sozlu_analizler.get(secilen_detay_hisse)
+                        if sozlu_analiz_html:
+                            st.markdown(sozlu_analiz_html, unsafe_allow_html=True)
                         
                         hisse_satiri = df_sonuc[df_sonuc["Varlık"] == secilen_detay_hisse]
                         anlik_sinyal = hisse_satiri["Nihai Sinyal"].values[0] if not hisse_satiri.empty else "Nötr (İzle)"
