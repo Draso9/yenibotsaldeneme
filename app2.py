@@ -368,9 +368,8 @@ with tab1:
         if not selected_tickers:
             st.sidebar.warning("⚠️ Lütfen taranacak en az bir varlık seçin!")
         else:
-            with st.spinner("Hedge-Fund Katmanları & %100 Taze Veri Akışı İşleniyor..."):
+            with st.spinner("Hedge-Fund Katmanları & %100 Canlı Taze Veri Çekiliyor..."):
                 
-                # Yeni taramada eski opsiyon hesaplamalarını sıfırla
                 st.session_state.opsiyon_sonuclar = None
                 
                 progress_text = st.empty()
@@ -381,24 +380,27 @@ with tab1:
                 basarisi_cekilemeyen_varliklar = []
                 boga_sayisi = alim_firsati = 0
                 
+                # DINAMIK TARIH ARALIĞI (CDN Önbelleğini Kesin Olarak Kırmak İçin)
+                bugun_dt = datetime.now()
+                gecmis_dt = bugun_dt - timedelta(days=400)
+                
                 sektor_getirileri = {}
                 sektor_referanslari = {
                     "XU100.IS": "BIST100", "^IXIC": "NASDAQ", "XBANK.IS": "Banka", 
                     "XUSIN.IS": "Sanayi", "XULAS.IS": "Ulaşım", "XHOLD.IS": "Holding"
                 }
                 
-                # Sektör verileri için her defasında taze session
                 for sembol in sektor_referanslari.keys():
                     try:
                         time.sleep(0.3)
                         s_session = requests.Session()
                         s_session.headers.update({
-                            'User-Agent': f'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/122.0.{int(time.time())%1000}.0',
+                            'User-Agent': f'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/122.{int(time.time())}',
                             'Cache-Control': 'no-cache',
                             'Pragma': 'no-cache'
                         })
                         stk_sek = yf.Ticker(sembol, session=s_session)
-                        df_sek = stk_sek.history(period="2mo", timeout=10).dropna(subset=['Close'])
+                        df_sek = stk_sek.history(start=gecmis_dt, end=bugun_dt, timeout=10).dropna(subset=['Close'])
                         if len(df_sek) >= 21:
                             sektor_getirileri[sembol] = ((df_sek['Close'].iloc[-1] - df_sek['Close'].iloc[-21]) / df_sek['Close'].iloc[-21]) * 100
                         else:
@@ -406,7 +408,7 @@ with tab1:
                     except:
                         sektor_getirileri[sembol] = 0
 
-                # TAZE VE İZOLE OTURUM DÖNGÜSÜ (Önbellek takılmasını %100 engeller)
+                # KESİN TAZE VERİ MOTORU (EXPLICIT START/END İLE CDN CACHE BYPASS)
                 for i, ticker in enumerate(selected_tickers):
                     ilerleme_yuzdesi = (i + 1) / total_tickers
                     progress_text.markdown(f"**⏳ Taranıyor (%{int(ilerleme_yuzdesi * 100)}):** `{ticker}`")
@@ -418,16 +420,16 @@ with tab1:
                     for deneme in range(3):
                         try:
                             time.sleep(0.4)
-                            # Her istek için tamamen bağımsız yeni bir taze oturum oluşturulur
                             t_session = requests.Session()
                             t_session.headers.update({
-                                'User-Agent': f'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/122.0.{int(time.time())%1000}.{i}',
+                                'User-Agent': f'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/122.{int(time.time())}.{i}',
                                 'Cache-Control': 'no-cache',
                                 'Pragma': 'no-cache'
                             })
                             
                             stock_obj = yf.Ticker(ticker, session=t_session)
-                            df_long = stock_obj.history(period="1y", timeout=15).dropna(subset=['Open', 'High', 'Low', 'Close', 'Volume'])
+                            # period yerine exact start ve end kullanarak Yahoo CDN önbelleğini patlatıyoruz
+                            df_long = stock_obj.history(start=gecmis_dt, end=bugun_dt, timeout=15).dropna(subset=['Open', 'High', 'Low', 'Close', 'Volume'])
                             if not df_long.empty and len(df_long) >= 50:
                                 break
                         except Exception:
@@ -808,12 +810,12 @@ with tab1:
                 
                 if secilen_detay_hisse:
                     with st.spinner(f"{secilen_detay_hisse} için grafik verileri yükleniyor..."):
-                        # Detay grafiği için de taze izole oturum
                         d_session = requests.Session()
-                        d_session.headers.update({'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/122.0.0.0', 'Cache-Control': 'no-cache'})
+                        d_session.headers.update({'User-Agent': 'Mozilla/5.0', 'Cache-Control': 'no-cache'})
                         stk_detay = yf.Ticker(secilen_detay_hisse, session=d_session)
                         is_detay_bist = ".IS" in secilen_detay_hisse
-                        df_grafik = stk_detay.history(period="2y").dropna(subset=['Open', 'High', 'Low', 'Close', 'Volume'])
+                        # Grafikte de exact start/end kullanarak önbelleği kırıyoruz
+                        df_grafik = stk_detay.history(start=gecmis_dt, end=bugun_dt).dropna(subset=['Open', 'High', 'Low', 'Close', 'Volume'])
                         
                         if not df_grafik.empty:
                             if not is_detay_bist:
@@ -1040,7 +1042,7 @@ with tab2:
                                     p_session = requests.Session()
                                     p_session.headers.update({'User-Agent': 'Mozilla/5.0', 'Cache-Control': 'no-cache'})
                                     stk_p = yf.Ticker(v, session=p_session)
-                                    df_p = stk_p.history(period="1d")
+                                    df_p = stk_p.history(start=datetime.now() - timedelta(days=5), end=datetime.now())
                                     if not df_p.empty:
                                         guncel_fiyatlar[v] = float(df_p['Close'].iloc[-1])
                                     else:
@@ -1142,7 +1144,7 @@ with tab3:
                             o_session = requests.Session()
                             o_session.headers.update({'User-Agent': 'Mozilla/5.0', 'Cache-Control': 'no-cache'})
                             stk = yf.Ticker(ticker, session=o_session)
-                            df_h = stk.history(period="3mo")
+                            df_h = stk.history(start=datetime.now() - timedelta(days=90), end=datetime.now())
                             if not df_h.empty and len(df_h) >= 20:
                                 gunluk_getiri = df_h['Close'].pct_change().dropna()
                                 yillik_vol = gunluk_getiri.std() * np.sqrt(252) 
