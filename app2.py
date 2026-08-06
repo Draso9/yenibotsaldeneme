@@ -434,65 +434,96 @@ def ogrenme_profili_olustur(kayitlar):
 
 # --- AKILLI AKSİYON REHBERİ ---
 def aksiyon_rehberi_olustur(nihai_sinyal, teyit_5dk):
+    """Nihai sinyali, algoritmanın gerçekten kullandığı teknik koşullarla açıklar."""
     sinyal_metni = str(nihai_sinyal).upper()
     teyit_metni = str(teyit_5dk)
-    
+
     if "YÜKSELİŞ KIRILIMI" in sinyal_metni:
         renk = "#00d2d3"
-        baslik = "🚀 YÜKSELİŞ KIRILIMI (BREAKOUT) ONAYI"
-        ana_metin = "Varlık önemli direnç seviyesini yüksek hacim eşliğinde yukarı kırmış, EMA 9 > EMA 21 yapısıyla kısa vadeli momentumu teyit etmiştir. Kırılımın kalıcılığı için fiyatın kırılan direnç üzerinde tutunması ve hacmin tamamen sönmemesi gerekir; aksi halde sahte kırılım riski oluşur."
-        alt_not = f'<div style="margin-top: 15px; padding: 10px; background-color: rgba(0, 210, 211, 0.1); border-left: 4px solid #00d2d3; border-radius: 4px;"><b>🔥 ONAYLI BREAKOUT:</b> {teyit_metni}</div>'
+        baslik = "🚀 YÜKSELİŞ KIRILIMI — DİRENÇ ÜZERİ TEYİT"
+        ana_metin = ("Fiyat, önceki teknik direnç bölgesini artan hacim ve kısa vadeli momentum desteğiyle aşmıştır. "
+                      "EMA 9'un EMA 21 üzerinde olması kırılım yönünü destekler; ancak sinyalin kalitesi, kırılan seviyenin "
+                      "yeni destek olarak korunmasına ve hacmin tamamen sönmemesine bağlıdır. İlk geri çekilmede direnç "
+                      "üstünde tutunma görülmezse sahte kırılım riski artar.")
+        alt_not = f'<div style="margin-top:15px;padding:11px;background:rgba(0,210,211,.10);border-left:4px solid #00d2d3;border-radius:5px;"><b>5 DK TEYİT:</b> {teyit_metni}</div>'
 
-    elif "UZUN VADELİ ADAY" in sinyal_metni:
-        renk = "#8e44ad"
-        baslik = "🌟 UZUN VADELİ PORTFÖY ADAYI (GARP - DEĞER & TREND)"
-        ana_metin = "Mükemmel Temel ve Makro Uyum! Varlık güçlü boğa trendinde (200 SMA üstü) yer alıyor ve cezalı skor barajını aşıyor."
-        alt_not = '<div style="margin-top: 15px; padding: 10px; background-color: rgba(142, 68, 173, 0.1); border-left: 4px solid #8e44ad; border-radius: 4px;"><b>💡 STRATEJİK DEĞERLENDİRME:</b> Kademeli toplama havuzu veya uzun vadeli sepet için idealdir.</div>'
+    elif "KUSURSUZ ALIM" in sinyal_metni or "GÜÇLÜ ALIM" in sinyal_metni:
+        renk = "#2ecc71"
+        baslik = "🟢 KUSURSUZ ALIM — TREND İÇİ GÜÇLÜ GERİ ÇEKİLME"
+        ana_metin = ("Uzun vadeli yükseliş eğilimi korunurken fiyat, Bollinger alt bandı ve destek bölgesine doğru belirgin "
+                      "biçimde geri çekilmiştir. Düşük RSI kısa vadeli satış baskısını gösterir; bu yapı tek başına dönüş "
+                      "garantisi değildir. Hacim, MFI/OBV ve 5 dakikalık tepki teyidi olumluysa trend yönünde yeniden "
+                      "pozisyonlanma için yüksek öncelikli bir aday olarak değerlendirilir. Tek seferde tam pozisyon yerine "
+                      "stop seviyesine bağlı kontrollü giriş daha uygundur.")
+        alt_not = f'<div style="margin-top:15px;padding:11px;background:rgba(46,204,113,.10);border-left:4px solid #2ecc71;border-radius:5px;"><b>KISA VADELİ TEYİT:</b> {teyit_metni}</div>'
 
     elif "KADEMELİ ALIM" in sinyal_metni:
         renk = "#3498db"
-        baslik = "🔵 KADEMELİ ALIM STRATEJİSİ"
-        ana_metin = "Sistem; varlığın temel verilerinin ve ana trendinin sağlam olduğunu tespit etti. Kısa vadeli teknik göstergeler soğuma evresinde olduğu için kademeli parçalarla alım uygundur."
-        alt_not = f'<div style="margin-top: 15px; padding: 10px; background-color: rgba(46, 204, 113, 0.1); border-left: 4px solid #2ecc71; border-radius: 4px;"><b>🔥 TETİK:</b> {teyit_metni}</div>'
+        baslik = "🔵 KADEMELİ ALIM — TEYİT BEKLEYEN TREND İÇİ ZAYIFLIK"
+        ana_metin = ("Ana yükseliş trendi henüz bozulmamış olsa da kısa vadeli momentum zayıftır ve kesin dönüş teyidi "
+                      "oluşmamıştır. Fiyat destek veya Bollinger orta-alt bölgesine yaklaşırken RSI soğumaktadır. Bu nedenle "
+                      "işlem, tek noktadan toplu alım yerine planlı kademelerle; her kademe için stop, toplam risk ve maksimum "
+                      "pozisyon büyüklüğü önceden belirlenerek ele alınmalıdır.")
+        alt_not = f'<div style="margin-top:15px;padding:11px;background:rgba(52,152,219,.10);border-left:4px solid #3498db;border-radius:5px;"><b>TETİK DURUMU:</b> {teyit_metni}</div>'
 
-    elif "GÜÇLÜ ALIM" in sinyal_metni or "KUSURSUZ ALIM" in sinyal_metni:
-        renk = "#2ecc71"
-        baslik = "🟢 GÜÇLÜ ALIM ONAYI"
-        ana_metin = "Kusursuz Uyum! Varlık hem temel açıdan puanları toplamış, hem de uzun ve kısa vadeli tüm teknik ortalamalarda yükseliş trendine girmiştir."
-        alt_not = f'<div style="margin-top: 15px; padding: 10px; background-color: rgba(46, 204, 113, 0.1); border-left: 4px solid #2ecc71; border-radius: 4px;"><b>🔥 ONAY:</b> {teyit_metni}</div>'
+    elif "UZUN VADELİ ADAY" in sinyal_metni:
+        renk = "#8e44ad"
+        baslik = "🌟 UZUN VADELİ TEKNİK TREND ADAYI"
+        ana_metin = ("Fiyat SMA 200 ve orta vadeli trend ölçütlerinin üzerinde seyretmekte, hibrit skor sistemi de teknik "
+                      "yapıyı olumlu değerlendirmektedir. Bu etiket bilanço, değerleme, büyüme veya GARP analizi değildir; "
+                      "yalnızca fiyat, trend, momentum, hacim ve para akışı göstergelerinden üretilen uzun vadeli teknik "
+                      "izleme sinyalidir. Yeni pozisyon için desteklere yakın kademeli giriş veya direnç üzeri teyit yaklaşımı "
+                      "tercih edilmelidir.")
+        alt_not = '<div style="margin-top:15px;padding:11px;background:rgba(142,68,173,.10);border-left:4px solid #8e44ad;border-radius:5px;"><b>NOT:</b> Temel analiz yapılmadan yalnızca bu etikete dayanarak uzun vadeli yatırım kararı verilmemelidir.</div>'
 
     elif "HACİMLİ TEPKİ" in sinyal_metni:
         renk = "#f39c12"
-        baslik = "🟡 HACİMLİ TEPKİ / İZLEME MODU"
-        ana_metin = "Varlık normalin çok üzerinde hacim patlaması ve güçlü günlük getiri üretti. Yakın takibe alınmalıdır."
-        alt_not = '<div style="margin-top: 15px; padding: 10px; background-color: rgba(243, 156, 18, 0.1); border-left: 4px solid #f39c12; border-radius: 4px;"><b>⚡ DİKKAT:</b> Aşırı satıştan güçlü hacimle dönüyor.</div>'
+        baslik = "🟡 HACİMLİ TEPKİ — İZLEME VE TEYİT MODU"
+        ana_metin = ("Fiyat, normalin üzerinde hacimle güçlü bir günlük tepki üretmiştir. Bu hareket satış baskısının "
+                      "zayıfladığına işaret edebilir; ancak tek başına yeni bir yükseliş trendi veya doğrudan alım sinyali "
+                      "değildir. Tepkinin devamı için EMA uyumu, destek üzerinde kalıcılık ve para akışında iyileşme aranmalıdır.")
+        alt_not = '<div style="margin-top:15px;padding:11px;background:rgba(243,156,18,.10);border-left:4px solid #f39c12;border-radius:5px;"><b>YAKLAŞIM:</b> İzleme listesine alın; teyit oluşmadan alım sinyali olarak değerlendirmeyin.</div>'
 
     elif "KURTULUŞ" in sinyal_metni:
         renk = "#d35400"
-        baslik = "🧗 KURTULUŞ ÇABASI - RİSKLİ BÖLGE"
-        ana_metin = "Varlık makro planda ayı trendinde kalsa da toparlanmaya çalışıyor. Güvenli sulara geçene kadar izlemede kalınmalıdır."
-        alt_not = '<div style="margin-top: 15px; padding: 10px; background-color: rgba(211, 84, 0, 0.1); border-left: 4px solid #d35400; border-radius: 4px;"><b>⚠️ UYARI:</b> Ana kırılımı bekleyin.</div>'
+        baslik = "🧗 KURTULUŞ ÇABASI — ANA TREND HÂLÂ ZAYIF"
+        ana_metin = ("Varlık ana trend ölçütlerinin altında kalmasına rağmen kısa vadeli toparlanma göstermektedir. EMA 50 "
+                      "üzerine çıkış olumlu bir ilk adım olsa da SMA 200, trend gücü ve hacim teyidi sağlanmadan dönüş tamamlanmış "
+                      "kabul edilmez. Bu bölge yüksek hata payı taşıdığı için sermaye koruma öncelikli olmalıdır.")
+        alt_not = '<div style="margin-top:15px;padding:11px;background:rgba(211,84,0,.10);border-left:4px solid #d35400;border-radius:5px;"><b>BEKLENTİ:</b> Ana direnç ve uzun vadeli ortalama üzerinde kalıcı kapanış beklenmelidir.</div>'
 
     elif "UZAK DUR" in sinyal_metni:
         renk = "#e74c3c"
-        baslik = "🔴 KESİNLİKLE UZAK DUR"
-        ana_metin = "Sistem ana trendin altında veya ağır teknik cezalar olduğunu tespit etti. Sermayeyi koruma disiplini gereği uzak durulmalıdır."
-        alt_not = '<div style="margin-top: 15px; padding: 10px; background-color: rgba(231, 76, 60, 0.1); border-left: 4px solid #e74c3c; border-radius: 4px;"><b>🛡️ RİSK:</b> Düşen bıçak tutulmaz.</div>'
-        
-    elif "KÂR" in sinyal_metni:
+        baslik = "🔴 UZAK DUR — RİSK / GETİRİ YAPISI ZAYIF"
+        ana_metin = ("Fiyat ana trendin altında, momentum ve/veya para akışı zayıf ya da likidite cezaları belirgindir. Sistem "
+                      "bu koşullarda yeni alım için yeterli teknik avantaj görmemektedir. Mevcut pozisyonda stop planı ve sermaye "
+                      "koruma disiplini öncelikli; yeni pozisyon için trend ve hacim yapısının yeniden güçlenmesi beklenmelidir.")
+        alt_not = '<div style="margin-top:15px;padding:11px;background:rgba(231,76,60,.10);border-left:4px solid #e74c3c;border-radius:5px;"><b>RİSK:</b> Düşen trendde yalnızca ucuz görünen fiyata dayanarak işlem açmayın.</div>'
+
+    elif "KAR REALİZASYONU" in sinyal_metni or "KÂR REALİZASYONU" in sinyal_metni:
         renk = "#e67e22"
-        baslik = "🟠 KÂR REALİZASYONU / ŞİŞKİNLİK"
-        ana_metin = "Fiyat kısa sürede hızla yükseldi ve aşırı alım bölgesine girdi. Kârın bir kısmı cebe atılabilir."
-        alt_not = '<div style="margin-top: 15px; padding: 10px; background-color: rgba(230, 126, 34, 0.1); border-left: 4px solid #e67e22; border-radius: 4px;"><b>💰 ÖNERİ:</b> Stop seviyenizi yukarı çekin.</div>'
-        
+        baslik = "🟠 KÂR REALİZASYONU — AŞIRI ALIM / ÜST BANT RİSKİ"
+        ana_metin = ("Fiyat Bollinger üst bandına taşınmış ve RSI yüksek bölgeye ulaşmıştır. Bu durum trendin mutlaka biteceği "
+                      "anlamına gelmez; fakat kısa vadeli getiri potansiyeline kıyasla geri çekilme riski artmıştır. Pozisyonun "
+                      "bir bölümünde kâr alma, stop seviyesini yükseltme veya yeni alım için daha dengeli bir geri çekilme bekleme "
+                      "yaklaşımı değerlendirilebilir.")
+        alt_not = '<div style="margin-top:15px;padding:11px;background:rgba(230,126,34,.10);border-left:4px solid #e67e22;border-radius:5px;"><b>POZİSYON YÖNETİMİ:</b> Tam çıkış zorunlu değildir; risk azaltma ve stop güncelleme sinyalidir.</div>'
+
     else:
         renk = "#95a5a6"
-        baslik = "⚪ NÖTR / İZLEMEDE KAL"
-        ana_metin = "Teknik göstergeler şu anda ortak ve güçlü bir yön üretmiyor. Fiyat destek ile direnç arasında karar aşamasında olabilir; yeni pozisyon için hacim artışı, EMA uyumu veya önemli seviyelerden gelecek net kırılım teyidi beklenmelidir."
-        alt_not = '<div style="margin-top: 15px; padding: 10px; background-color: rgba(149, 165, 166, 0.1); border-left: 4px solid #e67e22; border-radius: 4px;"><b>⚖️ BEKLE-GÖR:</b> Net trend bekleniyor.</div>'
+        baslik = "⚪ NÖTR — NET TEKNİK AVANTAJ YOK"
+        ana_metin = ("Trend, momentum, hacim ve para akışı göstergeleri ortak ve güçlü bir yön üretmemektedir. Fiyat destek ile "
+                      "direnç arasında karar aşamasında olabilir. Yeni işlem için direnç üzeri hacimli kırılım, destekten doğrulanmış "
+                      "tepki veya çoklu zaman dilimlerinde belirgin yön uyumu beklenmelidir.")
+        alt_not = '<div style="margin-top:15px;padding:11px;background:rgba(149,165,166,.10);border-left:4px solid #95a5a6;border-radius:5px;"><b>YAKLAŞIM:</b> İşlem üretmek yerine sabırlı kalıp teyit bekleyin.</div>'
 
-    return f'<div style="background-color: #1e1e1e; padding: 20px; border-radius: 10px; border-left: 5px solid {renk}; margin-top: 20px; color: #ffffff; font-family: sans-serif; box-shadow: 0 4px 8px rgba(0,0,0,0.2);"><h3 style="color: {renk}; margin-top: 0; font-size: 18px;">{baslik}</h3><p style="font-size: 15px; line-height: 1.6; color: #e0e0e0; margin-bottom: 12px;">{ana_metin}</p>{alt_not}</div>'
-
+    return (
+        f'<div style="background:#1e1e1e;padding:22px;border-radius:12px;border-left:5px solid {renk};'
+        f'margin-top:20px;color:#fff;font-family:sans-serif;box-shadow:0 4px 12px rgba(0,0,0,.25);">'
+        f'<h3 style="color:{renk};margin:0 0 12px 0;font-size:18px;">{baslik}</h3>'
+        f'<p style="font-size:14px;line-height:1.75;color:#e4e4e4;margin:0 0 12px 0;">{ana_metin}</p>'
+        f'{alt_not}</div>'
+    )
 
 def sozlu_teknik_analiz_olustur(ticker, fiyat, gunluk_degisim, rsi, macd, macd_sinyal,
                                   ema9, ema21, ema50, sma200, bb_alt, bb_mid, bb_ust,
@@ -943,36 +974,106 @@ st.title("📈 Hibrit Portföy Komuta Merkezi")
 st.markdown("**Mod:** Finnhub + Yahoo Hibrit Canlı OHLCV Motoru")
 st.markdown("---")
 
-with st.expander("📘 Nasıl Kullanılır? Tablo, skorlar ve sinyaller nasıl okunur?", expanded=False):
+with st.expander("📘 Nasıl Kullanılır? — Tablo, skorlar, sinyaller ve risk yönetimi", expanded=False):
     st.markdown("""
-### 1. Tarama tablosu
-- **Fiyat:** Son erişilebilen güncel fiyat ve önceki kapanışa göre günlük değişimdir.
-- **Gelişmiş Skor:** Eski cezalı skorun, ADX–CMF–SuperTrend–VWAP ve çoklu zaman dilimi teyitleriyle kontrollü biçimde birleştirilmiş halidir.
-- **Güven:** Göstergelerin aynı yönde ne ölçüde birleştiğini gösteren algoritmik uyum puanıdır; başarı olasılığı değildir.
-- **MTF Uyum:** 5 dakika, 15 dakika, 1 saat, 4 saat ve günlük görünümün yön uyumudur.
-- **Risk:** Stop mesafesi, ATR ve trend gücüne göre düşük/orta/yüksek sınıflandırmadır.
-- **Para Akışı:** MFI, OBV ve hacim davranışının kısa özetidir.
+<div style="background:linear-gradient(135deg,#17191f,#20242d);border:1px solid #343a46;border-radius:14px;padding:20px 22px;margin-bottom:16px;">
+  <div style="font-size:20px;font-weight:700;color:#ffffff;margin-bottom:8px;">Hibrit Portföy Komuta Merkezi kullanım rehberi</div>
+  <div style="color:#c8ced8;line-height:1.7;font-size:14px;">Bu ekran tek bir göstergeden “al” veya “sat” üretmez. Trend, momentum, hacim, para akışı, volatilite, likidite ve çoklu zaman dilimi verilerini birlikte değerlendirir. En sağlıklı kullanım; önce tabloyla adayları daraltmak, sonra detay paneliyle gerekçeyi okumak ve son olarak destek–stop–hedef planını kontrol etmektir.</div>
+</div>
+""", unsafe_allow_html=True)
 
-### 2. Sinyaller
-- **Kusursuz Alım:** Ana trend yukarıyken aşırı satış bölgesine yaklaşan güçlü geri çekilme adayıdır.
-- **Kademeli Alım:** Ana trend korunurken fiyatın destek/orta bant bölgesine çekildiği durumdur; tek sefer yerine kademeli yaklaşım içindir.
-- **Yükseliş Kırılımı:** Önceki direnç yüksek hacim ve kısa vadeli EMA teyidiyle geçilmiştir.
-- **Uzun Vadeli Aday:** SMA200 üzeri, güçlü teknik skor taşıyan trend adayıdır; gerçek bilanço değerlemesi değildir.
-- **Kâr Realizasyonu:** Aşırı alım ve üst bant şişkinliği nedeniyle risk azaltma uyarısıdır.
-- **Hacimli Tepki:** İzleme sinyalidir; doğrudan alım emri değildir.
-
-### 3. Destek, direnç, stop ve hedefler
-- **Karma Destek/Direnç:** Geçmiş tepe-dip, EMA50, Bollinger ve ATR bileşiminden hesaplanır.
-- **Süren Stop:** Fiyatın altında kalan en yakın geçerli Chandelier/ATR destek adayından seçilir.
-- **TP1 / TP2:** Giriş–stop arasındaki riske göre yaklaşık 1,5R ve 3R hedefleridir.
-- Seviyeler kesin sonuç değil, karar destek referansıdır; piyasa boşlukları ve ani haberler bu seviyeleri aşabilir.
-
-### 4. Skorun mantığı
-**Eski cezalı skor** sistemin ana gövdesidir: SMA200, EMA50, hacim+OBV, RSI, MACD, Bollinger ve likidite değerlendirilir.  
-**Gelişmiş katman** yalnızca sınırlı bonus/ceza ekler: ADX, CMF, SuperTrend, VWAP, sektör gücü ve çoklu zaman dilimi uyumu. Böylece eski sistemin karakteri korunur, fakat daha güçlü teyitlerle desteklenir.
-
-> Bu uygulama algoritmik karar desteğidir; yatırım tavsiyesi veya kesin getiri garantisi değildir.
+    st.markdown("### 1) Önerilen kullanım sırası")
+    st.markdown("""
+1. **Varlıkları seçin ve Derin Taramayı çalıştırın.** İlk tarama; trendi, skoru, para akışını ve sinyali aynı tabloda karşılaştırır.  
+2. **Sadece sinyal adına bakmayın.** Gelişmiş skor, risk seviyesi, MTF uyumu, veri kaynağı ve 5 dakikalık teyidi birlikte okuyun.  
+3. **Detay panelinde göstergelerin birbiriyle uyumunu kontrol edin.** RSI düşükken MACD ve para akışı hâlâ zayıfsa dönüş teyidi tamamlanmamış olabilir.  
+4. **Destek, stop ve hedefleri işlemden önce belirleyin.** Önerilen lot, seçtiğiniz kasa ve risk oranına göre hesaplanır; körü körüne uygulanmamalıdır.  
+5. **Sinyal performansı ve backtest sonuçlarını izleyin.** Stratejinin hangi piyasa ve RSI bölgelerinde daha iyi çalıştığını zaman içinde ölçün.
 """)
+
+    st.markdown("### 2) Tarama tablosundaki sütunlar nasıl okunur?")
+    st.markdown("""
+| Alan | Ne anlatır? | Nasıl yorumlanmalı? |
+|---|---|---|
+| **Varlık / Fiyat** | Güncel sembol, fiyat ve günlük değişim | Fiyatın tek başına ucuz veya pahalı olduğunu göstermez. |
+| **Görec. Güç (Sektör)** | Yaklaşık 1 aylık performansın referans endekse göre farkı ve hacim oranı | Pozitif fark göreceli gücü; yüksek hacim oranı daha geniş katılımı gösterir. |
+| **Hibrit / Cezalı Skor** | Eski cezalı skor ile yeni teyit bonus ve cezalarının birleşimi | **70+ güçlü**, **50–69 nötr/karışık**, **50 altı cezalı** bölgedir; başarı olasılığı değildir. |
+| **Para Akışı** | MFI, OBV, CMF ve hacim davranışının özeti | Fiyat yükselirken para akışı zayıfsa hareketin kalıcılığı sorgulanmalıdır. |
+| **Nihai Sinyal** | Algoritmanın teknik koşullara verdiği sınıflandırma | Emir değildir; sinyal açıklaması ve risk planıyla birlikte kullanılmalıdır. |
+| **5 Dk Teyit** | Kısa vadeli fiyat–hacim davranışının sinyali destekleyip desteklemediği | “Tetik aktif” sinyali güçlendirir; teyit yokluğu acele giriş riskini artırır. |
+| **Karma Destek / Direnç** | Tepe-dip, EMA50, Bollinger ve ATR’den türetilen karar seviyeleri | Destek altı kalıcılık riski; direnç üstü hacimli kapanış yükseliş senaryosunu güçlendirir. |
+| **Süren Stop** | ATR/Chandelier mantığıyla hesaplanan teknik iptal noktası | Gap ve sert haber hareketlerinde fiyat stop seviyesini atlayabilir. |
+| **TP1 / TP2** | Giriş–stop riskinin yaklaşık 1,5 ve 3 katı hedefler | Fiyat tahmini değil, risk/ödül planlama seviyeleridir. |
+| **Önerilen Lot** | Kasa × risk oranı ÷ birim başına risk | Likidite, komisyon ve toplam portföy yoğunluğu ayrıca kontrol edilmelidir. |
+| **Veri Kaynağı** | Finnhub, Yahoo 5 dk veya fallback bilgisi | Kaynaklar arasında küçük fiyat ve zaman farkları oluşabilir. |
+""")
+
+    st.markdown("### 3) Hibrit skor nasıl oluşur?")
+    st.markdown("""
+Skorun ana gövdesi **eski cezalı skor sistemidir**. Yeni göstergeler bu sistemi değiştirmek yerine kontrollü bonus veya ceza ekler.
+
+**Eski skorun ana kalemleri**
+- Fiyatın **SMA 200** üzerindeki konumu
+- Fiyatın **EMA 50** üzerindeki konumu
+- Hacim ve OBV uyumu
+- RSI bölgesi
+- MACD–sinyal çizgisi ilişkisi
+- Bollinger konumu
+- Likidite / sığ tahta cezası
+
+**Gelişmiş doğrulama katmanı**
+- ADX ve +DI/−DI ile trend gücü
+- CMF ve diğer para akışı teyitleri
+- SuperTrend yönü
+- Seans VWAP konumu
+- Sektöre/endekse göre göreceli güç
+- 5 dk, 15 dk, 1 saat, 4 saat ve günlük zaman dilimi uyumu
+
+Gelişmiş bonus ve cezalar sınırlandırılır; böylece yeni katman eski skorun karakterini bastırmaz. Detay panelindeki **“Skor nasıl oluştu?”** alanı puanları ayrı gösterir.
+""")
+
+    st.markdown("### 4) Sinyallerin doğru anlamı")
+    st.markdown("""
+- **🟢 Kusursuz Alım:** Uzun vadeli trend korunurken fiyatın Bollinger alt bandı/destek bölgesine güçlü biçimde geri çekildiği yüksek öncelikli adaydır. Düşük RSI dönüş garantisi değildir; hacim ve kısa vadeli tepki teyidi aranmalıdır.
+- **🔵 Kademeli Alım:** Ana trend pozitif kalmasına rağmen kısa vadeli zayıflık sürmektedir. Kesin dönüş teyidi olmadığı için tek seferde tam pozisyon yerine kontrollü kademeler önerir.
+- **🚀 Yükseliş Kırılımı:** Önceki direnç; hacim, EMA 9–21 ve trend desteğiyle aşılmıştır. Kırılan seviyenin destek olarak korunması kritiktir.
+- **🌟 Uzun Vadeli Teknik Aday:** SMA 200 üzerindeki güçlü teknik trend ve yüksek skor yapısını gösterir. **Temel analiz veya GARP sinyali değildir.**
+- **🟡 Hacimli Tepki:** Olağan dışı hacimli toparlanmadır; izleme sinyalidir, doğrudan alım sinyali değildir.
+- **🟠 Kâr Realizasyonu:** RSI ve Bollinger üst bant şişkinliği nedeniyle risk azaltma, kısmi kâr alma veya stop yükseltme uyarısıdır; trendin kesin bittiği anlamına gelmez.
+- **🧗 Kurtuluş Çabası:** Ana trend zayıfken kısa vadeli toparlanmadır. SMA 200 ve güçlü hacim teyidi gelmeden dönüş tamamlanmış sayılmaz.
+- **🔴 Uzak Dur:** Trend, momentum, para akışı veya likidite yapısında yeni alımı desteklemeyen ağır riskler vardır.
+- **⚪ Nötr:** Sistem ortak yön bulamamıştır; işlem üretmek yerine teyit bekler.
+""")
+
+    st.markdown("### 5) Göstergeler birlikte nasıl okunur?")
+    st.markdown("""
+- **RSI:** 30 altı aşırı satış, 70 üstü aşırı alım için klasik referanstır; tek başına dönüş sinyali değildir.
+- **MACD:** MACD'nin sinyal çizgisinin üzerinde olması momentum avantajını destekler; histogram yönü de önemlidir.
+- **ADX / DI:** ADX trend gücünü ölçer. +DI > −DI yükseliş, −DI > +DI düşüş yönünü destekler.
+- **MFI / OBV / CMF:** Fiyat hareketine para ve hacim katılımını ölçer. Ayrışma varsa sinyal güveni düşer.
+- **VWAP:** Gün içi ortalama işlem maliyetidir. Fiyatın üzerinde kalması kısa vadeli alıcı avantajını destekleyebilir.
+- **ATR:** Yön değil, hareket genişliği ve risk ölçüsüdür. ATR yükseldikçe stop ve lot daha dikkatli ayarlanmalıdır.
+- **MTF uyumu:** Zaman dilimlerinin aynı yönde olması teyidi artırır; çatışma varsa daha küçük pozisyon veya bekleme uygundur.
+""")
+
+    st.markdown("### 6) Destek, stop, hedef ve pozisyon büyüklüğü")
+    st.markdown("""
+- **Karma destek/direnç**, geçmiş tepe-dip, EMA50, Bollinger ve ATR bileşimidir.
+- **Süren stop**, fiyatın altında kalan en yakın geçerli teknik adaydan seçilir. Stop büyüdükçe önerilen lot azalır.
+- **TP1 / TP2**, yaklaşık **1,5R ve 3R** seviyeleridir; hedefe ulaşma garantisi değildir.
+- İşlem riski yaklaşık **(Giriş − Stop) × Lot** şeklinde düşünülmelidir.
+- Aynı yönde yüksek korelasyonlu hisseler toplam portföy riskini büyütebilir.
+""")
+
+    st.markdown("### 7) Diğer bölümler ne işe yarar?")
+    st.markdown("""
+- **Sinyal Performans Takibi:** Yalnızca gerçek alım yönlü sinyallerin giriş fiyatına göre canlı performansını izler; tam backtest değildir.
+- **Akıllı Projeksiyon:** ATR ile tarihsel volatiliteyi birleştirerek yaklaşık 45 günlük hareket bandı üretir; gerçek implied volatility kullanmaz.
+- **Strateji Doğrulama / Backtest:** Geçmiş günlük veride 5, 10, 20 ve 45 gün sonraki sonuçları ölçer. Komisyon, kayma ve gün içi stop–hedef sırası tam modellenmez.
+- **Öğrenen Performans Profili:** Canlı kayıtları sinyal türü ve RSI dilimine göre gruplar; yeterli örnek olmadan eşikleri değiştirmez.
+""")
+
+    st.warning("Bu uygulama algoritmik teknik analiz ve karar desteği sağlar; yatırım tavsiyesi, kesin getiri veya zarar etmeme garantisi değildir. Haber, bilanço, makro gelişme, likidite ve piyasa boşlukları teknik seviyeleri geçersiz kılabilir.")
 
 st.sidebar.header("⚙️ Kontrol Paneli")
 
