@@ -18,7 +18,7 @@ st.set_page_config(
     layout="wide"
 )
 
-# --- CSS: Arayüz ve Mobil Menü Koruma ---
+# --- CSS: PROFESYONEL KOYU TEMA & MOBİL MENÜ KORUMA ---
 st.markdown("""
 <style>
     [data-testid="stStatusWidget"],
@@ -101,7 +101,7 @@ if st.session_state.user_email is None and saved_email is not None and not st.se
             st.session_state.custom_tickers = VARSAYILAN_TICKERS.copy()
     st.rerun()
 
-# --- %100 TAZE DOĞRUDAN API VERİ ÇEKME MOTORU (ÖNBELLEKSİZ) ---
+# --- DOĞRUDAN VE KESİN TAZE VERİ ÇEKME MOTORU (ÖNBELLEĞİ TAMAMEN BYPASS EDER) ---
 def yahoo_dogrudan_veri_cek(ticker, interval="1d", range_days=400):
     try:
         session = requests.Session()
@@ -112,18 +112,11 @@ def yahoo_dogrudan_veri_cek(ticker, interval="1d", range_days=400):
             'Expires': '0'
         })
         
-        try:
-            session.get("https://fc.yahoo.com", timeout=3)
-            crumb_res = session.get("https://query2.finance.yahoo.com/v1/test/getcrumb", timeout=3)
-            crumb = crumb_res.text if crumb_res.status_code == 200 else ""
-        except:
-            crumb = ""
-            
         end_ts = int(time.time())
         start_ts = end_ts - (range_days * 86400)
-        cb = int(time.time() * 1000) # Benzersiz cache-buster
+        cb = int(time.time() * 1000) # Milisaniyelik benzersiz cache-buster
         
-        url = f"https://query1.finance.yahoo.com/v8/finance/chart/{ticker}?period1={start_ts}&period2={end_ts}&interval={interval}&crumb={crumb}&_cb={cb}"
+        url = f"https://query1.finance.yahoo.com/v8/finance/chart/{ticker}?period1={start_ts}&period2={end_ts}&interval={interval}&_cb={cb}"
         
         response = session.get(url, timeout=10)
         if response.status_code != 200:
@@ -270,7 +263,7 @@ def hisse_sil_callback():
         st.session_state.sil_hisse_input_field = ""
 
 st.title("📈 Hibrit Portföy Komuta Merkezi")
-st.markdown("**Mod:** %100 Önbelleksiz Doğrudan Taze API Akışı")
+st.markdown("**Mod:** %100 Canlı ve Taze Doğrudan API Akışı")
 st.markdown("---")
 
 st.sidebar.header("⚙️ Kontrol Paneli")
@@ -300,7 +293,7 @@ with tab1:
         if not selected_tickers:
             st.warning("⚠️ Lütfen taranacak varlık seçin!")
         else:
-            with st.spinner("Önbellekler atlatıldı, taze API verileri doğrudan çekiliyor..."):
+            with st.spinner("Önbellekler tamamen atlatıldı, anlık taze veriler çekiliyor..."):
                 st.session_state.opsiyon_sonuclar = None
                 gecici_sonuclar = []
                 basarisiz = []
@@ -353,29 +346,72 @@ with tab1:
 
     if st.session_state.tarama_durumu and st.session_state.sonuclar:
         col1, col2, col3 = st.columns(3)
-        with col1: st.metric("Taranan Varlık", len(st.session_state.sonuclar))
-        with col2: st.metric("Boğa Trendinde", st.session_state.boga_sayisi)
-        with col3: st.metric("Alım Fırsatları", st.session_state.alim_firsati)
+        with col1: st.markdown(f"""<div class="kpi-card"><div class="kpi-title">Taranan Varlık</div><div class="kpi-value">{len(st.session_state.sonuclar)}</div></div>""", unsafe_allow_html=True)
+        with col2: st.markdown(f"""<div class="kpi-card"><div class="kpi-title">Boğa Trendinde (200G)</div><div class="kpi-value kpi-highlight-green">{st.session_state.boga_sayisi}</div></div>""", unsafe_allow_html=True)
+        with col3: st.markdown(f"""<div class="kpi-card"><div class="kpi-title">Alım Fırsatları</div><div class="kpi-value kpi-highlight-fire">{"🔥 " + str(st.session_state.alim_firsati)}</div></div>""", unsafe_allow_html=True)
         
+        st.markdown("<br>", unsafe_allow_html=True)
         df_sonuc = pd.DataFrame(st.session_state.sonuclar)
-        st.dataframe(df_sonuc, use_container_width=True)
+        st.dataframe(df_sonuc, use_container_width=True, height=350)
         
-        secilen_hisse = st.selectbox("Grafik İncele:", options=df_sonuc["Varlık"].tolist())
+        st.markdown("### 📊 Detaylı Teknik Analiz & Gösterge Paneli")
+        secilen_hisse = st.selectbox("İncelemek İçin Varlık Seçin:", options=df_sonuc["Varlık"].tolist())
         if secilen_hisse:
-            df_g, _ = yahoo_dogrudan_veri_cek(secilen_hisse, interval="1d", range_days=365)
-            if not df_g.empty:
-                df_g['EMA9'] = df_g['Close'].ewm(span=9).mean()
-                df_g['EMA21'] = df_g['Close'].ewm(span=21).mean()
-                fig = make_subplots(rows=2, cols=1, shared_xaxes=True, row_heights=[0.7, 0.3])
-                fig.add_trace(go.Candlestick(x=df_g.index, open=df_g['Open'], high=df_g['High'], low=df_g['Low'], close=df_g['Close'], name='Fiyat'), row=1, col=1)
-                fig.add_trace(go.Scatter(x=df_g.index, y=df_g['EMA9'], line=dict(color='#00E676', width=1.5), name='9 EMA'), row=1, col=1)
-                fig.add_trace(go.Scatter(x=df_g.index, y=df_g['EMA21'], line=dict(color='#FF1744', width=1.5), name='21 EMA'), row=1, col=1)
-                fig.update_layout(template='plotly_dark', title=f"{secilen_hisse} - Taze Doğrudan API Grafiği", height=600, xaxis_rangeslider_visible=False)
-                st.plotly_chart(fig, use_container_width=True)
-                
-                satir = df_sonuc[df_sonuc["Varlık"] == secilen_hisse]
-                s = satir["Nihai Sinyal"].values[0] if not satir.empty else "Nötr"
-                st.markdown(aksiyon_rehberi_olustur(s, "Tetik Bekleniyor"), unsafe_allow_html=True)
+            with st.spinner(f"{secilen_hisse} taze grafik verileri yükleniyor..."):
+                df_g, _ = yahoo_dogrudan_veri_cek(secilen_hisse, interval="1d", range_days=730)
+                if not df_g.empty:
+                    df_g['EMA9'] = df_g['Close'].ewm(span=9).mean()
+                    df_g['EMA21'] = df_g['Close'].ewm(span=21).mean()
+                    df_g['EMA50'] = df_g['Close'].ewm(span=50).mean()
+                    df_g['SMA200'] = df_g['Close'].rolling(200).mean()
+                    
+                    df_g['BB_mid'] = df_g['Close'].rolling(window=20).mean()
+                    bb_std = df_g['Close'].rolling(window=20).std()
+                    df_g['BB_upper'] = df_g['BB_mid'] + (bb_std * 2)
+                    df_g['BB_lower'] = df_g['BB_mid'] - (bb_std * 2)
+                    
+                    df_g['MACD_Line'] = df_g['Close'].ewm(span=12, adjust=False).mean() - df_g['Close'].ewm(span=26, adjust=False).mean()
+                    df_g['MACD_Signal'] = df_g['MACD_Line'].ewm(span=9, adjust=False).mean()
+                    df_g['MACD_Hist'] = df_g['MACD_Line'] - df_g['MACD_Signal']
+                    
+                    delta_g = df_g['Close'].diff()
+                    rs_g = delta_g.where(delta_g>0, 0.0).ewm(alpha=1/14, adjust=False).mean() / (-delta_g.where(delta_g<0, 0.0).ewm(alpha=1/14, adjust=False).mean() + 1e-5)
+                    df_g['RSI'] = 100 - (100 / (1 + rs_g))
+                    
+                    typ_p = (df_g['High'] + df_g['Low'] + df_g['Close']) / 3
+                    raw_mf = typ_p * df_g['Volume']
+                    pos_f = pd.Series(np.where(typ_p > typ_p.shift(1), raw_mf, 0), index=df_g.index)
+                    neg_f = pd.Series(np.where(typ_p < typ_p.shift(1), raw_mf, 0), index=df_g.index)
+                    df_g['MFI'] = 100 - (100 / (1 + (pos_f.rolling(14).sum() / (neg_f.rolling(14).sum() + 1e-5))))
+
+                    fig = make_subplots(rows=4, cols=1, shared_xaxes=True, vertical_spacing=0.03, row_heights=[0.5, 0.15, 0.15, 0.20])
+                    fig.add_trace(go.Candlestick(x=df_g.index, open=df_g['Open'], high=df_g['High'], low=df_g['Low'], close=df_g['Close'], name='Fiyat'), row=1, col=1)
+                    fig.add_trace(go.Scatter(x=df_g.index, y=df_g['BB_upper'], line=dict(color='rgba(255,255,255,0.2)', width=1, dash='dot'), name='BB Üst'), row=1, col=1)
+                    fig.add_trace(go.Scatter(x=df_g.index, y=df_g['BB_lower'], line=dict(color='rgba(255,255,255,0.2)', width=1, dash='dot'), fill='tonexty', fillcolor='rgba(255,255,255,0.05)', name='BB Alt'), row=1, col=1)
+                    fig.add_trace(go.Scatter(x=df_g.index, y=df_g['EMA9'], line=dict(color='#00E676', width=1.2), name='9 EMA'), row=1, col=1)
+                    fig.add_trace(go.Scatter(x=df_g.index, y=df_g['EMA21'], line=dict(color='#D50000', width=1.2), name='21 EMA'), row=1, col=1)
+                    fig.add_trace(go.Scatter(x=df_g.index, y=df_g['EMA50'], line=dict(color='orange', width=2), name='50 EMA'), row=1, col=1)
+                    fig.add_trace(go.Scatter(x=df_g.index, y=df_g['SMA200'], line=dict(color='#2962FF', width=2.5), name='200 SMA'), row=1, col=1)
+
+                    macd_colors = ['#00E676' if val >= 0 else '#FF1744' for val in df_g['MACD_Hist']]
+                    fig.add_trace(go.Bar(x=df_g.index, y=df_g['MACD_Hist'], marker_color=macd_colors, name='MACD Hist'), row=2, col=1)
+                    fig.add_trace(go.Scatter(x=df_g.index, y=df_g['MACD_Line'], line=dict(color='#2962FF', width=1.5), name='MACD'), row=2, col=1)
+                    fig.add_trace(go.Scatter(x=df_g.index, y=df_g['MACD_Signal'], line=dict(color='#FF9100', width=1.5), name='Sinyal'), row=2, col=1)
+
+                    fig.add_trace(go.Scatter(x=df_g.index, y=df_g['RSI'], line=dict(color='#00ffcc', width=1.5), name='RSI'), row=3, col=1)
+                    fig.add_hline(y=70, line_dash="dash", line_color="red", row=3, col=1)
+                    fig.add_hline(y=30, line_dash="dash", line_color="green", row=3, col=1)
+
+                    fig.add_trace(go.Scatter(x=df_g.index, y=df_g['MFI'], line=dict(color='#ff9900', width=1.5), name='MFI'), row=4, col=1)
+                    fig.add_hline(y=70, line_dash="dash", line_color="red", row=4, col=1)
+                    fig.add_hline(y=30, line_dash="dash", line_color="green", row=4, col=1)
+
+                    fig.update_layout(template='plotly_dark', title=f"{secilen_hisse} - 4 Panelli Canlı Teknik Panel", xaxis_rangeslider_visible=False, height=900, margin=dict(l=10, r=10, t=40, b=10))
+                    st.plotly_chart(fig, use_container_width=True)
+                    
+                    satir = df_sonuc[df_sonuc["Varlık"] == secilen_hisse]
+                    s = satir["Nihai Sinyal"].values[0] if not satir.empty else "Nötr"
+                    st.markdown(aksiyon_rehberi_olustur(s, "Tetik Bekleniyor"), unsafe_allow_html=True)
 
 with tab2:
     st.subheader("📊 Sinyal Performans Takibi")
