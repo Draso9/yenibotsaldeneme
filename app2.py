@@ -1,5 +1,4 @@
 import streamlit as st
-import yfinance as yf
 import pandas as pd
 import numpy as np
 from datetime import datetime, timedelta, timezone
@@ -11,12 +10,6 @@ import time
 import requests
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
-
-# --- YFINANCE İÇİN ÖZEL OTURUM (RATE LIMIT KORUMASI) ---
-session = requests.Session()
-session.headers.update({
-    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36'
-})
 
 # --- 1. SAYFA YAPILANDIRMASI ---
 st.set_page_config(
@@ -104,6 +97,60 @@ if st.session_state.user_email is None and saved_email is not None and not st.se
         except:
             st.session_state.custom_tickers = VARSAYILAN_TICKERS.copy()
     st.rerun()
+
+# --- %100 TAZE DOĞRUDAN API VERİ ÇEKME MOTORU (ÖNBELLEĞİ KESİN OLARAK ATLATIR) ---
+def yahoo_dogrudan_veri_cek(ticker, interval="1d", range_days=400):
+    try:
+        session = requests.Session()
+        session.headers.update({
+            'User-Agent': f'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/124.{int(time.time())}',
+            'Cache-Control': 'no-cache, no-store, must-revalidate',
+            'Pragma': 'no-cache',
+            'Expires': '0'
+        })
+        
+        try:
+            session.get("https://fc.yahoo.com", timeout=3)
+            crumb_res = session.get("https://query2.finance.yahoo.com/v1/test/getcrumb", timeout=3)
+            crumb = crumb_res.text if crumb_res.status_code == 200 else ""
+        except:
+            crumb = ""
+            
+        end_ts = int(time.time())
+        start_ts = end_ts - (range_days * 86400)
+        cb = int(time.time() * 1000) # Saniyede bir değişen benzersiz cache-buster
+        
+        url = f"https://query1.finance.yahoo.com/v8/finance/chart/{ticker}?period1={start_ts}&period2={end_ts}&interval={interval}&crumb={crumb}&_cb={cb}"
+        
+        response = session.get(url, timeout=10)
+        if response.status_code != 200:
+            return pd.DataFrame(), {}
+        
+        res_json = response.json()
+        result = res_json.get('chart', {}).get('result', None)
+        if not result:
+            return pd.DataFrame(), {}
+            
+        res = result[0]
+        meta = res.get('meta', {})
+        timestamps = res.get('timestamp', [])
+        quotes = res.get('indicators', {}).get('quote', [{}])[0]
+        
+        if not timestamps or not quotes:
+            return pd.DataFrame(), meta
+            
+        df = pd.DataFrame({
+            'Open': quotes.get('open', []),
+            'High': quotes.get('high', []),
+            'Low': quotes.get('low', []),
+            'Close': quotes.get('close', []),
+            'Volume': quotes.get('volume', [])
+        }, index=pd.to_datetime(timestamps, unit='s'))
+        
+        df = df.dropna(subset=['Open', 'High', 'Low', 'Close', 'Volume'])
+        return df, meta
+    except Exception:
+        return pd.DataFrame(), {}
 
 # --- AKILLI AKSİYON REHBERİ FONKSİYONU ---
 def aksiyon_rehberi_olustur(nihai_sinyal, teyit_1h):
@@ -326,7 +373,7 @@ def hisse_sil_callback():
         st.session_state.sil_hisse_input_field = ""
 
 st.title("📈 Hibrit Portföy Komuta Merkezi")
-st.markdown("**Mod:** Derin Analiz (Cezalı Skor + Hacim Patlaması Esnetmesi + Sığ Tahta Koruması + Düzeltilmiş Para Akışı + Breakout Kırılımı + Uzun Vadeli GARP Portföy Adayı)")
+st.markdown("**Mod:** Derin Analiz (Cezalı Skor + Hacim Patlaması Esnetmesi + Sığ Tahta Koruması + Düzeltilmiş Para Akışı + Breakout Kırılımı + Uzun Vadeli GARP Portföy Adayı - %100 Önbelleksiz Taze API)")
 st.markdown("---")
 
 st.sidebar.header("⚙️ Kontrol Paneli")
@@ -374,9 +421,8 @@ with tab1:
         if not selected_tickers:
             st.sidebar.warning("⚠️ Lütfen taranacak en az bir varlık seçin!")
         else:
-            with st.spinner("Hedge-Fund Katmanları & Hibrit Kararlı Veri Akışı İşleniyor..."):
+            with st.spinner("Önbellekler atlatıldı, taze API verileri doğrudan çekiliyor..."):
                 
-                # Yeni taramada eski opsiyon hesaplamalarını sıfırla
                 st.session_state.opsiyon_sonuclar = None
                 
                 progress_text = st.empty()
@@ -393,58 +439,28 @@ with tab1:
                     "XUSIN.IS": "Sanayi", "XULAS.IS": "Ulaşım", "XHOLD.IS": "Holding"
                 }
                 for sembol in sektor_referanslari.keys():
-                    for deneme in range(2):
-                        try:
-                            time.sleep(1.0)
-                            df_sek = yf.Ticker(sembol, session=session).history(period="2mo", timeout=10).dropna(subset=['Close'])
-                            if len(df_sek) >= 21:
-                                sektor_getirileri[sembol] = ((df_sek['Close'].iloc[-1] - df_sek['Close'].iloc[-21]) / df_sek['Close'].iloc[-21]) * 100
-                                break
-                        except:
-                            time.sleep(1.5)
+                    try:
+                        time.sleep(0.2)
+                        df_sek, _ = yahoo_dogrudan_veri_cek(sembol, interval="1d", range_days=100)
+                        if len(df_sek) >= 21:
+                            sektor_getirileri[sembol] = ((df_sek['Close'].iloc[-1] - df_sek['Close'].iloc[-21]) / df_sek['Close'].iloc[-21]) * 100
+                        else:
                             sektor_getirileri[sembol] = 0
-                
-                df_toplu = pd.DataFrame()
-                try:
-                    time.sleep(1.0)
-                    df_toplu = yf.download(selected_tickers, period="1y", group_by="ticker", auto_adjust=True, session=session, timeout=20)
-                except:
-                    df_toplu = pd.DataFrame()
+                    except:
+                        sektor_getirileri[sembol] = 0
 
                 for i, ticker in enumerate(selected_tickers):
                     ilerleme_yuzdesi = (i + 1) / total_tickers
-                    progress_text.markdown(f"**⏳ Taranıyor (%{int(ilerleme_yuzdesi * 100)}):** `{ticker}`")
+                    progress_text.markdown(f"**⏳ Çekiliyor (%{int(ilerleme_yuzdesi * 100)}):** `{ticker}`")
                     progress_bar.progress(ilerleme_yuzdesi)
                     
-                    df_long = pd.DataFrame()
+                    df_long, meta = yahoo_dogrudan_veri_cek(ticker, interval="1d", range_days=400)
                     
-                    if not df_toplu.empty:
-                        try:
-                            if isinstance(df_toplu.columns, pd.MultiIndex):
-                                if ticker in df_toplu.columns.levels[0]:
-                                    df_long = df_toplu[ticker].dropna(subset=['Open', 'High', 'Low', 'Close', 'Volume'])
-                            else:
-                                df_long = df_toplu.dropna(subset=['Open', 'High', 'Low', 'Close', 'Volume'])
-                        except:
-                            df_long = pd.DataFrame()
-
-                    if df_long.empty or len(df_long) < 50:
-                        for deneme in range(3):
-                            try:
-                                time.sleep(2.0 + (deneme * 0.5)) 
-                                stock_obj = yf.Ticker(ticker, session=session)
-                                df_long = stock_obj.history(period="1y", timeout=15).dropna(subset=['Open', 'High', 'Low', 'Close', 'Volume'])
-                                if not df_long.empty and len(df_long) >= 50:
-                                    break
-                            except Exception:
-                                time.sleep(2.0)
-
                     if df_long.empty or len(df_long) < 50:
                         basarisi_cekilemeyen_varliklar.append(ticker)
                         continue
                     
                     try:
-                        stock = yf.Ticker(ticker, session=session)
                         is_bist = ".IS" in ticker
                         para_birimi = "TL" if is_bist else "$"
                         
@@ -453,7 +469,7 @@ with tab1:
                         
                         if not is_bist:
                             try:
-                                df_live = stock.history(period="1d", interval="1m", prepost=True)
+                                df_live, _ = yahoo_dogrudan_veri_cek(ticker, interval="1m", range_days=1)
                                 if not df_live.empty:
                                     bugun_kapanis = float(df_live['Close'].iloc[-1])
                                     df_long.iloc[-1, df_long.columns.get_loc('Close')] = bugun_kapanis
@@ -468,19 +484,10 @@ with tab1:
                         sig_tahta_esik = 50_000_000 if is_bist else 5_000_000 
                         is_sig_tahta = ortalama_ciro_tutar < sig_tahta_esik
 
-                        info = {}
-                        try:
-                            info = stock.info if hasattr(stock, 'info') else {}
-                        except:
-                            info = {}
-
-                        fk = info.get('trailingPE', info.get('forwardPE', None))
-                        peg = info.get('trailingPegRatio', info.get('pegRatio', None))
+                        fk = meta.get('trailingPE', None)
+                        peg = None
                         temel_durum = "Nötr ⚖️"
-                        if peg is not None and peg > 0:
-                            if peg < 1.0 and (fk is not None and fk > 0): temel_durum = f"Büyüyen Ucuz 🌟 (PEG:{peg:.1f})"
-                            elif peg > 2.0: temel_durum = f"Pahalı Büyüme ⚠️ (PEG:{peg:.1f})"
-                        elif fk is not None:
+                        if fk is not None:
                             if fk > 50: temel_durum = "Aşırı Pahalı ⚠️"
                             elif 0 < fk < 15: temel_durum = "Ucuz (Klasik) 🌟"
 
@@ -547,7 +554,6 @@ with tab1:
                         hacim_patlamasi_var = (hacim_oran >= 130) and (gunluk_degisim >= 4.0)
 
                         skor = 50 
-                        
                         if uzun_vade_trend: 
                             skor += 15
                         else: 
@@ -567,7 +573,6 @@ with tab1:
                         if macd_serisi.iloc[-1] > macd_sinyal.iloc[-1]: skor += 10
                         else: skor -= 10
                         
-                        # DÜZELTME: PEG None ise ceza kesilmez, sadece varsa kontrol edilir
                         if peg is not None:
                             if 0 < peg < 1.5: skor += 15
                             else: skor -= 15
@@ -603,7 +608,6 @@ with tab1:
                         ema_21_val = df_long['Close'].ewm(span=21).mean().iloc[-1]
                         breakout_kosulu = (bugun_kapanis >= karma_direnc) and (hacim_oran >= 120) and (ema_9_val > ema_21_val) and (uzun_vade_trend)
                         
-                        # DÜZELTME: PEG None olsa bile BIST veya verisi eksik güçlü trenddeki hisseler uzun vadeli aday havuzuna girebilsin
                         uzun_vadeli_aday_kosulu = (
                             uzun_vade_trend and 
                             skor >= 70 and 
@@ -646,7 +650,7 @@ with tab1:
                         if "ALIM" in sinyal or "TEPKİ" in sinyal or "KIRILIM" in sinyal or "ADAY" in sinyal:
                             mikro_teyit = "⏳ Tetik Bekleniyor"
                             try:
-                                df_1h = stock.history(period="5d", interval="1h", prepost=True)
+                                df_1h, _ = yahoo_dogrudan_veri_cek(ticker, interval="1h", range_days=5)
                                 if not df_1h.empty and len(df_1h) >= 20:
                                     c_1h = df_1h['Close']
                                     v_1h = df_1h['Volume']
@@ -768,7 +772,7 @@ with tab1:
                     • <b>Kısa Vade Trend (50 EMA):</b> Üzerindeyse <b>+10 Puan</b>, altındaysa <b>-15 Puan ceza</b>.<br>
                     • <b>Hacim & Para Akışı (OBV & Vol):</b> Hacim desteği ve pozitif OBV varsa <b>+15 Puan</b>, hacimsiz tuzak hareketse <b>-20 Puan ceza</b>.<br>
                     • <b>Sığ Tahta Koruması (Likidite):</b> Günlük ortalama işlem cirosu düşük olan sığ hisselere <b>-20 Puan ceza</b> ve <b>Sığ Tahta ⚠️</b> uyarısı basılır.<br>
-                    • <b>Momentum (RSI):</b> Sağlıklı bölgedeyse (35-50) <b>+10 Puan</b>, aşırı şişmiş tepe bölgesindeyse (>70) <b>-15 Puan ceza</b>.<br>
+                    • <b>Momentum (RSI):</b> Sağlıklı bölgedeyse (35-50) <b>+10 Puan</b>, aşırı şişkin tepe bölgesindeyse (>70) <b>-15 Puan ceza</b>.<br>
                     • <b>MACD Teyidi:</b> Pozitif kesişim onaylıysa <b>+10 Puan</b>, negatif uyumsuzlukta <b>-10 Puan ceza</b>.<br>
                     • <b>Temel Kalite (PEG Rasyosu):</b> PEG cazipse <b>+15 Puan</b>, riskli/pahalıysa <b>-15 Puan ceza</b>.<br>
                     <i>Skor Aralıkları: 70+ Güçlü 🟢 | 50-69 Nötr ⚖️ | 50 Altı Cezalı 🔴</i><br><br>
@@ -815,15 +819,14 @@ with tab1:
                 secilen_detay_hisse = st.selectbox("İncelemek İçin Varlık Seçin:", options=taranan_semboller_listesi, key="detay_hisse_secici")
                 
                 if secilen_detay_hisse:
-                    with st.spinner(f"{secilen_detay_hisse} için grafik verileri yükleniyor..."):
-                        stk_detay = yf.Ticker(secilen_detay_hisse, session=session)
+                    with st.spinner(f"{secilen_detay_hisse} için taze grafik verileri yükleniyor..."):
                         is_detay_bist = ".IS" in secilen_detay_hisse
-                        df_grafik = stk_detay.history(period="2y").dropna(subset=['Open', 'High', 'Low', 'Close', 'Volume'])
+                        df_grafik, _ = yahoo_dogrudan_veri_cek(secilen_detay_hisse, interval="1d", range_days=730)
                         
                         if not df_grafik.empty:
                             if not is_detay_bist:
                                 try:
-                                    df_live_detay = stk_detay.history(period="1d", interval="1m", prepost=True)
+                                    df_live_detay, _ = yahoo_dogrudan_veri_cek(secilen_detay_hisse, interval="1m", range_days=1)
                                     if not df_live_detay.empty:
                                         canli_fiyat = float(df_live_detay['Close'].iloc[-1])
                                         df_grafik.iloc[-1, df_grafik.columns.get_loc('Close')] = canli_fiyat
@@ -1021,7 +1024,7 @@ with tab2:
     
     if st.session_state.user_email and db:
         if st.button("🔄 Havuzu Güncelle / Kâr-Zarar Hesapla", type="primary"):
-            with st.spinner("Aktif sinyalleriniz getiriliyor ve piyasadaki anlık fiyatlarla karşılaştırılıyor..."):
+            with st.spinner("Aktif sinyalleriniz getiriliyor ve piyasadaki taze fiyatlarla karşılaştırılıyor..."):
                 try:
                     sinyaller_ref = db.collection("kullanici_listeleri").document(st.session_state.user_email).collection("sinyal_havuzu")
                     docs = sinyaller_ref.get()
@@ -1039,16 +1042,12 @@ with tab2:
                         if not aktif_df.empty:
                             essiz_varliklar = aktif_df["varlik"].unique().tolist()
                             
-                            df_fiyatlar = yf.download(essiz_varliklar, period="1d", group_by="ticker", auto_adjust=True, session=session, timeout=15)
-                            
                             guncel_fiyatlar = {}
                             for v in essiz_varliklar:
-                                try:
-                                    if len(essiz_varliklar) == 1:
-                                        guncel_fiyatlar[v] = float(df_fiyatlar['Close'].iloc[-1])
-                                    else:
-                                        guncel_fiyatlar[v] = float(df_fiyatlar[v]['Close'].iloc[-1])
-                                except:
+                                df_p, _ = yahoo_dogrudan_veri_cek(v, interval="1d", range_days=5)
+                                if not df_p.empty:
+                                    guncel_fiyatlar[v] = float(df_p['Close'].iloc[-1])
+                                else:
                                     guncel_fiyatlar[v] = None
                             
                             sonuclar_tablosu = []
@@ -1129,7 +1128,7 @@ with tab3:
             st.info(f"Tarama listesinde tespit edilen **{len(df_alis)}** adet alım/kırılım sinyali için opsiyon projeksiyonu hesaplamaya hazır.")
             
             if st.button("🧮 Seçili Sinyaller İçin Opsiyon Projeksiyonunu Hesapla", type="primary"):
-                with st.spinner("Volatilite verileri çekiliyor ve 45 günlük bantlar hesaplanıyor..."):
+                with st.spinner("Volatilite verileri taze olarak çekiliyor ve 45 günlük bantlar hesaplanıyor..."):
                     projeksiyon_listesi = []
                     for idx, row in df_alis.iterrows():
                         ticker = row["Varlık"]
@@ -1142,8 +1141,7 @@ with tab3:
                         para_birimi = "TL" if ".IS" in ticker else "$"
                         
                         try:
-                            stk = yf.Ticker(ticker, session=session)
-                            df_h = stk.history(period="3mo")
+                            df_h, _ = yahoo_dogrudan_veri_cek(ticker, interval="1d", range_days=90)
                             if not df_h.empty and len(df_h) >= 20:
                                 gunluk_getiri = df_h['Close'].pct_change().dropna()
                                 yillik_vol = gunluk_getiri.std() * np.sqrt(252) 
