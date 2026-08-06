@@ -2206,17 +2206,17 @@ with tab2:
                 "Durum": df_perf["durum"].replace({"ACIK": "🟢 Açık", "KAPALI": "⚪ Kapalı"}),
             }).sort_values("_tarih_siralama", ascending=False).drop(columns=["_tarih_siralama"])
 
-            def performans_satir_rengi(row):
-                val = row.get("Kâr / Zarar %")
+            # Streamlit'in açık/koyu temasında yazı kontrastı kaybolmasın diye
+            # tabloyu sabit metin rengi vermeden, yalnızca Kâr/Zarar hücresini
+            # hafif arka plan ve kalın yazıyla vurguluyoruz.
+            def performans_hucre_stili(val):
                 if pd.isna(val):
-                    return [""] * len(row)
+                    return ""
                 if val > 0:
-                    bg = "background-color: rgba(39,174,96,0.14); color: inherit"
-                elif val < 0:
-                    bg = "background-color: rgba(192,57,43,0.14); color: inherit"
-                else:
-                    bg = "background-color: rgba(149,165,166,0.08); color: inherit"
-                return [bg] * len(row)
+                    return "background-color: rgba(39,174,96,0.18); font-weight: 700;"
+                if val < 0:
+                    return "background-color: rgba(231,76,60,0.18); font-weight: 700;"
+                return "background-color: rgba(149,165,166,0.10); font-weight: 600;"
 
             stil = (
                 gorunum.style
@@ -2226,9 +2226,37 @@ with tab2:
                     "Kâr / Zarar %": "{:+.2f}%",
                     "Geçen Gün": "{:.0f}",
                 }, na_rep="-")
-                .apply(performans_satir_rengi, axis=1)
+                .map(performans_hucre_stili, subset=["Kâr / Zarar %"])
+                .set_properties(**{
+                    "font-size": "13px",
+                    "text-align": "left",
+                    "white-space": "nowrap",
+                })
+                .set_properties(subset=["Alım Fiyatı", "Güncel Fiyat", "Kâr / Zarar %", "Geçen Gün"], **{
+                    "text-align": "right",
+                    "font-variant-numeric": "tabular-nums",
+                })
+                .set_table_styles([
+                    {"selector": "th", "props": [("font-weight", "700"), ("text-align", "left"), ("white-space", "nowrap")]},
+                    {"selector": "td", "props": [("border-bottom", "1px solid rgba(128,128,128,0.18)")]},
+                ])
             )
-            st.dataframe(stil, use_container_width=True, height=440, hide_index=True)
+            st.dataframe(
+                stil,
+                use_container_width=True,
+                height=440,
+                hide_index=True,
+                column_config={
+                    "Alım Tarihi": st.column_config.TextColumn("📅 Alım Tarihi", width="medium"),
+                    "Varlık": st.column_config.TextColumn("📌 Varlık", width="small"),
+                    "Alım Sinyali": st.column_config.TextColumn("🎯 Alım Sinyali", width="large"),
+                    "Alım Fiyatı": st.column_config.NumberColumn("💵 Alım Fiyatı", format="%.2f", width="small"),
+                    "Güncel Fiyat": st.column_config.NumberColumn("📈 Güncel Fiyat", format="%.2f", width="small"),
+                    "Kâr / Zarar %": st.column_config.NumberColumn("💹 Kâr / Zarar", format="%+.2f%%", width="small"),
+                    "Geçen Gün": st.column_config.NumberColumn("⏱️ Gün", format="%d", width="small"),
+                    "Durum": st.column_config.TextColumn("📍 Durum", width="small"),
+                },
+            )
             st.caption(
                 "Kâr/zarar, güncel fiyatın alım sinyali verildiği fiyata göre yüzdesel değişimidir. "
                 "Komisyon, vergi, temettü ve gerçekleşen işlem fiyatı hesaba katılmaz."
@@ -2338,13 +2366,11 @@ with tab4:
         "Amaç, stratejiyi sade ve karşılaştırılabilir sayılarla değerlendirmektir."
     )
 
-    bt_c1, bt_c2, bt_c3 = st.columns([2, 1, 1])
+    bt_c1, bt_c2 = st.columns([2, 1])
     with bt_c1:
         bt_ticker = st.selectbox("Test edilecek varlık", options=tum_varliklar_havuzu, key="bt_ticker")
     with bt_c2:
         bt_period = st.selectbox("Geçmiş dönem", ["3y", "5y", "10y"], index=1, key="bt_period")
-    with bt_c3:
-        detay_adedi = st.selectbox("Gösterilecek kayıt", [50, 100, 300], index=1, key="bt_detay_adedi")
 
     if st.button("🧪 Backtest'i Çalıştır", type="primary", use_container_width=True):
         with st.spinner("Geçmiş alım sinyalleri hesaplanıyor..."):
@@ -2382,40 +2408,6 @@ with tab4:
                 "45G Ort. %": "{:+.2f}%",
             }, na_rep="-")
             st.dataframe(ozet_stil, use_container_width=True, hide_index=True)
-
-            st.markdown("### 🗓️ Geçmiş sinyal sonuçları")
-            bt_gorunum = bt.sort_values("Tarih", ascending=False).head(detay_adedi).copy()
-            bt_gorunum["Tarih"] = pd.to_datetime(bt_gorunum["Tarih"], errors="coerce").dt.strftime("%d.%m.%Y")
-            bt_gorunum = bt_gorunum.rename(columns={
-                "Giriş": "Sinyal Fiyatı",
-                "5G %": "5 Gün %",
-                "10G %": "10 Gün %",
-                "20G %": "20 Gün %",
-                "45G %": "45 Gün %",
-            })
-
-            getiri_kolonlari = ["5 Gün %", "10 Gün %", "20 Gün %", "45 Gün %"]
-            def backtest_renk(val):
-                if pd.isna(val):
-                    return ""
-                if val > 0:
-                    return "background-color: rgba(39,174,96,0.14); color: #dff7e8"
-                if val < 0:
-                    return "background-color: rgba(192,57,43,0.14); color: #ffe3df"
-                return ""
-
-            bt_stil = (
-                bt_gorunum.style
-                .format({
-                    "Sinyal Fiyatı": "{:.2f}",
-                    "5 Gün %": "{:+.2f}%",
-                    "10 Gün %": "{:+.2f}%",
-                    "20 Gün %": "{:+.2f}%",
-                    "45 Gün %": "{:+.2f}%",
-                }, na_rep="-")
-                .applymap(backtest_renk, subset=getiri_kolonlari)
-            )
-            st.dataframe(bt_stil, use_container_width=True, height=430, hide_index=True)
 
             with st.expander("ℹ️ Backtest sonuçları nasıl okunur?", expanded=False):
                 st.markdown("""
