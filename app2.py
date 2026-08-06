@@ -3,6 +3,7 @@ import pandas as pd
 import numpy as np
 from datetime import datetime, timedelta
 import time
+import math
 import requests
 import yfinance as yf
 import os
@@ -520,8 +521,193 @@ if "tarama_durumu" not in st.session_state: st.session_state.tarama_durumu = Fal
 if "sonuclar" not in st.session_state: st.session_state.sonuclar = []
 if "sozlu_analizler" not in st.session_state: st.session_state.sozlu_analizler = {}
 if "teknik_paneller" not in st.session_state: st.session_state.teknik_paneller = {}
+if "performans_kayitlari" not in st.session_state: st.session_state.performans_kayitlari = []
+if "performans_mesaji" not in st.session_state: st.session_state.performans_mesaji = ""
 if "custom_tickers" not in st.session_state: st.session_state.custom_tickers = VARSAYILAN_TICKERS.copy()
 if "basarisiz_taramalar" not in st.session_state: st.session_state.basarisiz_taramalar = []
+
+
+def sinyal_yonu_belirle(sinyal):
+    metin = str(sinyal).upper()
+    if any(x in metin for x in ["ALIM", "KIRILIM", "ADAY", "TEPKİ"]):
+        return "ALIM"
+    if any(x in metin for x in ["UZAK DUR", "KAR REALİZASYONU", "KÂR REALİZASYONU"]):
+        return "SATIŞ"
+    return "NÖTR"
+
+
+def sinyal_kayitlarini_firestore_yaz(sonuclar, teknik_paneller):
+    """Aynı kullanıcı/ticker/saat için tek kayıt tutar; tekrar taramada günceller."""
+    if not db or not st.session_state.user_email:
+        return
+    simdi = datetime.now()
+    saat_anahtari = simdi.strftime("%Y%m%d_%H")
+    email_anahtari = st.session_state.user_email.replace("@", "_").replace(".", "_")
+    for sonuc in sonuclar:
+        ticker = sonuc.get("Varlık")
+        panel = teknik_paneller.get(ticker, {})
+        sinyal = sonuc.get("Nihai Sinyal", "Nötr")
+        yon = sinyal_yonu_belirle(sinyal)
+        if yon == "NÖTR" or not panel:
+            continue
+        doc_id = f"{email_anahtari}_{ticker.replace('.', '_')}_{saat_anahtari}"
+        veri = {
+            "user_email": st.session_state.user_email,
+            "ticker": ticker,
+            "sinyal": sinyal,
+            "yon": yon,
+            "giris_fiyati": float(panel.get("fiyat", 0)),
+            "son_fiyat": float(panel.get("fiyat", 0)),
+            "stop": float(panel.get("stop", 0)),
+            "tp1": float(panel.get("tp1", 0)),
+            "tp2": float(panel.get("tp2", 0)),
+            "rsi": float(panel.get("rsi", 0)),
+            "veri_kaynagi": panel.get("veri_kaynagi", ""),
+            "olusturma_zamani": simdi.isoformat(),
+            "guncelleme_zamani": simdi.isoformat(),
+            "getiri_yuzde": 0.0,
+        }
+        db.collection("sinyal_arsivi").document(doc_id).set(veri, merge=True)
+
+
+def performans_kayitlarini_getir(limit=250):
+    if not db or not st.session_state.user_email:
+        return []
+    try:
+        sorgu = (db.collection("sinyal_arsivi")
+                 .where("user_email", "==", st.session_state.user_email)
+                 .limit(limit))
+        kayitlar = []
+        for doc in sorgu.stream():
+            veri = doc.to_dict() or {}
+            veri["doc_id"] = doc.id
+            kayitlar.append(veri)
+        kayitlar.sort(key=lambda x: x.get("olusturma_zamani", ""), reverse=True)
+        return kayitlar
+    except Exception as e:
+        st.warning(f"Performans kayıtları okunamadı: {e}")
+        return []
+
+
+def performans_fiyatlarini_guncelle(kayitlar):
+    if not db:
+        return kayitlar
+    guncellenen = []
+    fiyat_cache = {}
+    for kayit in kayitlar:
+        ticker = kayit.get("ticker")
+        if not ticker:
+            continue
+        if ticker not in fiyat_cache:
+            try:
+                q = finnhub_quote_cek(ticker)
+                fiyat = float(q.get("c", 0)) if q else 0.0
+                if fiyat <= 0:
+                    intraday = intraday_veri_cek(ticker, interval="5m", period="1d")
+                    if not intraday.empty:
+                        fiyat = float(intraday["Close"].dropna().iloc[-1])
+                fiyat_cache[ticker] = fiyat
+            except Exception:
+                fiyat_cache[ticker] = 0.0
+        son_fiyat = fiyat_cache[ticker]
+        giris = float(kayit.get("giris_fiyati", 0) or 0)
+        yon = kayit.get("yon", "ALIM")
+        if son_fiyat > 0 and giris > 0:
+            ham = ((son_fiyat - giris) / giris) * 100
+            getiri = ham if yon == "ALIM" else -ham
+            kayit["son_fiyat"] = son_fiyat
+            kayit["getiri_yuzde"] = getiri
+            kayit["guncelleme_zamani"] = datetime.now().isoformat()
+            try:
+                db.collection("sinyal_arsivi").document(kayit["doc_id"]).set({
+                    "son_fiyat": son_fiyat,
+                    "getiri_yuzde": getiri,
+                    "guncelleme_zamani": kayit["guncelleme_zamani"],
+                }, merge=True)
+            except Exception:
+                pass
+        guncellenen.append(kayit)
+    return guncellenen
+
+
+def opsiyon_projeksiyonu_hesapla(panel, gun=45):
+    """ATR + tarihsel volatilite tabanlı karma fiyat projeksiyonu.
+
+    Bu fonksiyon gerçek opsiyon zinciri veya implied volatility kullanmaz. ATR son
+    fiyat aralıklarını, HV ise günlük getirilerin dağılımını temsil eder.
+    """
+    fiyat = float(panel.get("fiyat", 0) or 0)
+    atr = float(panel.get("atr", 0) or 0)
+    hv20 = float(panel.get("hv20", 0) or 0)
+    hv60 = float(panel.get("hv60", hv20) or hv20)
+    if fiyat <= 0:
+        return None
+
+    # ATR modeli: günlük gerçek fiyat aralığını zamanın kareköküyle ölçekler.
+    atr_gunluk_oran = (atr / fiyat) if atr > 0 else 0.02
+    atr_gunluk_oran = min(max(atr_gunluk_oran, 0.003), 0.15)
+    atr_hareket = fiyat * atr_gunluk_oran * math.sqrt(gun)
+
+    # Tarihsel volatilite modeli: yıllıklandırılmış sigma -> seçilen gün sayısı.
+    if hv20 <= 0:
+        hv20 = atr_gunluk_oran * math.sqrt(252)
+    if hv60 <= 0:
+        hv60 = hv20
+    hv20 = min(max(hv20, 0.05), 2.50)
+    hv60 = min(max(hv60, 0.05), 2.50)
+    hv_karma = (0.65 * hv20) + (0.35 * hv60)
+    volatilite_hareket = fiyat * hv_karma * math.sqrt(gun / 252)
+
+    # Modeller birbirine yakınsa eşit ağırlık; ayrışma büyürse daha ihtiyatlı
+    # biçimde büyük tahmine biraz daha fazla ağırlık verilir.
+    kucuk = max(min(atr_hareket, volatilite_hareket), 1e-9)
+    uyum_orani = max(atr_hareket, volatilite_hareket) / kucuk
+    if uyum_orani <= 1.20:
+        atr_agirlik, vol_agirlik = 0.50, 0.50
+    elif atr_hareket > volatilite_hareket:
+        atr_agirlik, vol_agirlik = 0.60, 0.40
+    else:
+        atr_agirlik, vol_agirlik = 0.40, 0.60
+
+    karma_hareket = (atr_hareket * atr_agirlik) + (volatilite_hareket * vol_agirlik)
+
+    # Güven skoru bir olasılık değildir; veri tutarlılığı ve gösterge teyidini
+    # 0-100 arasında özetleyen karar destek puanıdır.
+    model_uyumu = max(0.0, 1.0 - abs(atr_hareket - volatilite_hareket) / max(karma_hareket, 1e-9))
+    veri_guveni = 1.0 if panel.get("veri_kaynagi") else 0.75
+    trend_teyidi = 0.0
+    fiyat_v = fiyat
+    ema21 = float(panel.get("ema21", fiyat_v) or fiyat_v)
+    ema50 = float(panel.get("ema50", fiyat_v) or fiyat_v)
+    sma200 = float(panel.get("sma200", fiyat_v) or fiyat_v)
+    macd = float(panel.get("macd", 0) or 0)
+    macd_signal = float(panel.get("macd_signal", 0) or 0)
+    rsi = float(panel.get("rsi", 50) or 50)
+    trend_teyidi += 0.25 if fiyat_v > ema21 else 0.0
+    trend_teyidi += 0.25 if ema21 > ema50 else 0.0
+    trend_teyidi += 0.25 if fiyat_v > sma200 else 0.0
+    trend_teyidi += 0.25 if macd > macd_signal and 40 <= rsi <= 70 else 0.0
+    guven_skoru = int(round(min(95, max(45, 45 + 30 * model_uyumu + 10 * veri_guveni + 10 * trend_teyidi))))
+
+    return {
+        "gun": gun,
+        "fiyat": fiyat,
+        "atr_hareket": atr_hareket,
+        "atr_yuzde": (atr_hareket / fiyat) * 100,
+        "volatilite_hareket": volatilite_hareket,
+        "volatilite_yuzde": (volatilite_hareket / fiyat) * 100,
+        "hv20": hv20,
+        "hv60": hv60,
+        "hv_karma": hv_karma,
+        "karma_hareket": karma_hareket,
+        "karma_yuzde": (karma_hareket / fiyat) * 100,
+        "guven_skoru": guven_skoru,
+        "model_uyumu": model_uyumu,
+        "alt_1s": max(0, fiyat - karma_hareket),
+        "ust_1s": fiyat + karma_hareket,
+        "alt_2s": max(0, fiyat - 2 * karma_hareket),
+        "ust_2s": fiyat + 2 * karma_hareket,
+    }
 
 def get_preset_options():
     return {"Kendi Listem": st.session_state.custom_tickers, "BIST 30": BIST_30, "BIST 100": BIST_100, "ABD Büyük Teknoloji": ABD_HİSSELERİ}
@@ -725,6 +911,15 @@ with tab1:
                         tr = pd.concat([df_long['High'] - df_long['Low'], (df_long['High'] - df_long['Close'].shift()).abs(), (df_long['Low'] - df_long['Close'].shift()).abs()], axis=1).max(axis=1)
                         atr = tr[-14:].mean() if len(tr) >= 14 else bugun_kapanis * 0.02
 
+                        # Tarihsel volatilite: günlük log getirilerin yıllıklandırılmış standart sapması.
+                        log_getiriler = np.log(df_long['Close'] / df_long['Close'].shift(1)).replace([np.inf, -np.inf], np.nan).dropna()
+                        hv20 = float(log_getiriler.tail(20).std(ddof=1) * np.sqrt(252)) if len(log_getiriler) >= 20 else 0.0
+                        hv60 = float(log_getiriler.tail(60).std(ddof=1) * np.sqrt(252)) if len(log_getiriler) >= 30 else hv20
+                        if not np.isfinite(hv20) or hv20 <= 0:
+                            hv20 = float((atr / bugun_kapanis) * np.sqrt(252)) if bugun_kapanis > 0 else 0.20
+                        if not np.isfinite(hv60) or hv60 <= 0:
+                            hv60 = hv20
+
                         karma_destek = max([d for d in [swing_low, ema_50_val, bugun_kapanis - (atr * 2)] if d < bugun_kapanis], default=bugun_kapanis - (atr * 1.5))
                         karma_direnc = min([dir_val for dir_val in [swing_high, bb_ust] if dir_val > bugun_kapanis], default=bugun_kapanis + (atr * 2.5))
 
@@ -778,7 +973,7 @@ with tab1:
                             "ticker": ticker, "fiyat": float(bugun_kapanis), "gunluk_degisim": float(gunluk_degisim),
                             "ema9": float(ema_9_val), "ema21": float(ema_21_val), "ema50": float(ema_50_val), "sma200": float(sma_200),
                             "rsi": float(rsi), "mfi": float(mfi_val), "macd": float(macd_serisi.iloc[-1]), "macd_signal": float(macd_sinyal.iloc[-1]),
-                            "atr": float(atr), "obv": float(obv[-1]), "obv_ema": float(obv_ema.iloc[-1]),
+                            "atr": float(atr), "hv20": float(hv20), "hv60": float(hv60), "obv": float(obv[-1]), "obv_ema": float(obv_ema.iloc[-1]),
                             "bb_alt": float(bb_alt), "bb_mid": float(bb_mid), "bb_ust": float(bb_ust),
                             "destek": float(karma_destek), "direnc": float(karma_direnc), "stop": float(trailing_stop),
                             "tp1": float(tp1), "tp2": float(tp2), "swing_low": float(swing_low), "swing_high": float(swing_high),
@@ -814,6 +1009,10 @@ with tab1:
                 st.session_state.boga_sayisi = boga_sayisi
                 st.session_state.alim_firsati = alim_firsati
                 st.session_state.tarama_durumu = True
+                try:
+                    sinyal_kayitlarini_firestore_yaz(gecici_sonuclar, gecici_teknik_paneller)
+                except Exception:
+                    pass
 
     if st.session_state.tarama_durumu:
         if st.session_state.basarisiz_taramalar:
@@ -860,22 +1059,155 @@ with tab1:
 
 with tab2:
     st.subheader("📊 Sinyal Performans Takibi")
-    st.markdown("Geçmiş sinyallerin kâr/zarar durumunu buradan takip edebilirsiniz.")
-    if st.session_state.user_email and db:
-        if st.button("🔄 Performans Tablosunu Güncelle"):
-            st.info("Sinyal arşiviniz taze fiyatlarla güncelleniyor.")
+    st.markdown("Üretilen alım/satım sinyallerinin giriş fiyatına göre güncel performansını takip eder.")
+
+    if not st.session_state.user_email or not db:
+        st.warning("Bu bölüm için Firebase bağlantısı ve kullanıcı oturumu gereklidir.")
     else:
-        st.warning("Veritabanı bağlantısı gerektirir.")
+        col_p1, col_p2 = st.columns([1, 3])
+        with col_p1:
+            guncelle_tiklandi = st.button("🔄 Fiyatları Güncelle", use_container_width=True)
+        with col_p2:
+            st.caption("Aynı varlık için aynı saat içinde yapılan taramalar tek kayıt olarak tutulur.")
+
+        kayitlar = performans_kayitlarini_getir()
+        if guncelle_tiklandi and kayitlar:
+            with st.spinner("Arşivdeki sinyaller güncel fiyatlarla karşılaştırılıyor..."):
+                kayitlar = performans_fiyatlarini_guncelle(kayitlar)
+            st.success("Performans tablosu güncellendi.")
+
+        if not kayitlar:
+            st.info("Henüz arşivlenmiş alım/satım sinyali yok. Derin taramayı çalıştırdığınızda sinyaller otomatik kaydedilir.")
+        else:
+            df_perf = pd.DataFrame(kayitlar)
+            for col in ["giris_fiyati", "son_fiyat", "stop", "tp1", "tp2", "getiri_yuzde"]:
+                if col in df_perf.columns:
+                    df_perf[col] = pd.to_numeric(df_perf[col], errors="coerce")
+
+            toplam = len(df_perf)
+            kazanan = int((df_perf.get("getiri_yuzde", pd.Series(dtype=float)) > 0).sum())
+            ort_getiri = float(df_perf.get("getiri_yuzde", pd.Series(dtype=float)).mean() or 0)
+            basari = (kazanan / toplam * 100) if toplam else 0
+            kp1, kp2, kp3, kp4 = st.columns(4)
+            kp1.metric("Toplam Sinyal", toplam)
+            kp2.metric("Pozitif Sinyal", kazanan)
+            kp3.metric("Başarı Oranı", f"%{basari:.1f}")
+            kp4.metric("Ort. Getiri", f"%{ort_getiri:.2f}")
+
+            gorunum = pd.DataFrame({
+                "Tarih": pd.to_datetime(df_perf.get("olusturma_zamani"), errors="coerce").dt.strftime("%d.%m.%Y %H:%M"),
+                "Varlık": df_perf.get("ticker"),
+                "Yön": df_perf.get("yon"),
+                "Sinyal": df_perf.get("sinyal"),
+                "Giriş": df_perf.get("giris_fiyati").round(2),
+                "Güncel": df_perf.get("son_fiyat").round(2),
+                "Getiri %": df_perf.get("getiri_yuzde").round(2),
+                "Stop": df_perf.get("stop").round(2),
+                "TP1": df_perf.get("tp1").round(2),
+                "TP2": df_perf.get("tp2").round(2),
+            })
+
+            def perf_renk(row):
+                val = row.get("Getiri %")
+                if pd.isna(val):
+                    return [""] * len(row)
+                bg = "background-color: rgba(39,174,96,0.16)" if val > 0 else ("background-color: rgba(192,57,43,0.16)" if val < 0 else "")
+                return [bg] * len(row)
+
+            st.dataframe(gorunum.style.apply(perf_renk, axis=1), use_container_width=True, height=430)
 
 with tab3:
-    st.subheader("🎯 Opsiyon Projeksiyonu")
-    st.markdown("45 günlük istatistiksel hareket bantları.")
-    if st.session_state.tarama_durumu and st.session_state.sonuclar:
-        df_res = pd.DataFrame(st.session_state.sonuclar)
-        df_alis = df_res[df_res["Nihai Sinyal"].str.contains("ALIM|KIRILIM|ADAY", na=False)]
-        if not df_alis.empty:
-            st.dataframe(df_alis[["Varlık", "Fiyat", "Nihai Sinyal"]], use_container_width=True)
-        else:
-            st.info("Aktif alım sinyali bulunamadı.")
+    st.subheader("🎯 Akıllı Projeksiyon Motoru")
+    st.markdown(
+        "ATR ile gerçekleşen fiyat aralığını, tarihsel volatilite ile getiri dağılımını "
+        "birleştirerek yaklaşık 45 günlük karma hareket bandı üretir."
+    )
+
+    if not st.session_state.tarama_durumu or not st.session_state.teknik_paneller:
+        st.warning("Önce Derin Tarama Merkezi'nde en az bir varlığı tarayın.")
     else:
-        st.warning("Önce derin tarama yapmalısınız.")
+        varliklar = list(st.session_state.teknik_paneller.keys())
+        secilen_opsiyon = st.selectbox("Projeksiyon yapılacak varlık", varliklar, key="opsiyon_varlik_secimi")
+        panel = st.session_state.teknik_paneller.get(secilen_opsiyon, {})
+        proj = opsiyon_projeksiyonu_hesapla(panel, gun=45)
+
+        if not proj:
+            st.error("Projeksiyon için yeterli fiyat verisi bulunamadı.")
+        else:
+            st.markdown("### 📐 Model karşılaştırması")
+            o1, o2, o3, o4 = st.columns(4)
+            o1.metric("Güncel Fiyat", f"{proj['fiyat']:.2f}")
+            o2.metric("ATR Modeli", f"±{proj['atr_hareket']:.2f}", f"%{proj['atr_yuzde']:.1f}")
+            o3.metric("Volatilite Modeli", f"±{proj['volatilite_hareket']:.2f}", f"%{proj['volatilite_yuzde']:.1f}")
+            o4.metric("Karma Model", f"±{proj['karma_hareket']:.2f}", f"%{proj['karma_yuzde']:.1f}")
+
+            b1, b2, b3 = st.columns(3)
+            b1.metric("45G Karma Bant", f"{proj['alt_1s']:.2f} / {proj['ust_1s']:.2f}")
+            b2.metric("Geniş Risk Bandı", f"{proj['alt_2s']:.2f} / {proj['ust_2s']:.2f}")
+            b3.metric("Model Güven Skoru", f"%{proj['guven_skoru']}", f"Uyum %{proj['model_uyumu']*100:.0f}")
+
+            st.progress(proj['guven_skoru'] / 100)
+            st.caption(
+                f"20 günlük yıllıklandırılmış volatilite: %{proj['hv20']*100:.1f} · "
+                f"60 günlük: %{proj['hv60']*100:.1f} · Karma: %{proj['hv_karma']*100:.1f}"
+            )
+
+            sinyal = panel.get("sinyal", "Nötr")
+            rsi_v = float(panel.get("rsi", 50))
+            macd_v = float(panel.get("macd", 0))
+            macd_s = float(panel.get("macd_signal", 0))
+            destek = float(panel.get("destek", proj['alt_1s']))
+            direnc = float(panel.get("direnc", proj['ust_1s']))
+            stop = float(panel.get("stop", proj['alt_1s']))
+            tp1 = float(panel.get("tp1", proj['ust_1s']))
+            tp2 = float(panel.get("tp2", proj['ust_2s']))
+
+            al_col, sat_col = st.columns(2)
+            with al_col:
+                st.markdown("### 🟢 Yükseliş / Alım Senaryosu")
+                st.markdown(f"""**Tetik:** Fiyatın **{direnc:.2f}** direnci üzerinde kalıcılık sağlaması, RSI'ın 50 üzerine çıkması ve MACD'nin sinyal çizgisini yukarı kesmesi.
+
+**Teknik hedefler:** {tp1:.2f} → {tp2:.2f}
+
+**Karma model üst bantları:** {proj['ust_1s']:.2f} → {proj['ust_2s']:.2f}
+
+**Risk iptali / stop bölgesi:** {stop:.2f}""")
+            with sat_col:
+                st.markdown("### 🔴 Düşüş / Satış Baskısı Senaryosu")
+                st.markdown(f"""**Tetik:** Fiyatın **{destek:.2f}** desteği altında kapanması, RSI'ın 40 altına gerilemesi veya MACD negatifliğinin güçlenmesi.
+
+**Karma model aşağı bantları:** {proj['alt_1s']:.2f} → {proj['alt_2s']:.2f}
+
+**Senaryo geçersizliği:** {direnc:.2f} üzeri kalıcılık""")
+
+            st.markdown("### 🧭 Algoritmik Yön Özeti")
+            yon = sinyal_yonu_belirle(sinyal)
+            model_farki = abs(proj['atr_yuzde'] - proj['volatilite_yuzde'])
+            if model_farki <= 3:
+                model_yorumu = "ATR ve volatilite modelleri birbirine yakın; hareket tahmini görece tutarlı."
+            elif proj['volatilite_yuzde'] > proj['atr_yuzde']:
+                model_yorumu = "Tarihsel volatilite, güncel ATR'den daha geniş hareket ihtimali gösteriyor; ani fiyat genişlemelerine karşı temkinli olunmalı."
+            else:
+                model_yorumu = "Güncel ATR, tarihsel volatiliteden daha yüksek; kısa vadede olağandışı hareketlilik yaşanıyor olabilir."
+
+            if yon == "ALIM":
+                st.success(
+                    f"Mevcut sistem sinyali: **{sinyal}**. Yükseliş senaryosu öncelikli. "
+                    f"{model_yorumu} Güven skoru %{proj['guven_skoru']}; teyit görülmeden pozisyon büyütülmemelidir."
+                )
+            elif yon == "SATIŞ":
+                st.error(
+                    f"Mevcut sistem sinyali: **{sinyal}**. Sermaye koruma ve aşağı yönlü risk öncelikli. "
+                    f"{model_yorumu} Güven skoru %{proj['guven_skoru']}."
+                )
+            else:
+                st.info(
+                    f"Mevcut sistem sinyali: **{sinyal}**. Fiyat {destek:.2f}–{direnc:.2f} karar aralığında. "
+                    f"{model_yorumu} Kırılım yönü beklenmelidir."
+                )
+
+            st.caption(
+                "Bu bölüm gerçek opsiyon zinciri veya implied volatility kullanmaz. ATR + tarihsel volatilite "
+                "tabanlı fiyat hareketi tahminidir; güven skoru istatistiksel olasılık değil, model uyum göstergesidir."
+            )
+
