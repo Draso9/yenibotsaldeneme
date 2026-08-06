@@ -1288,6 +1288,27 @@ def opsiyon_projeksiyonu_hesapla(panel, gun=45):
         "ust_2s": fiyat + 2 * karma_hareket,
     }
 
+# --- UYGULAMA OTURUM DURUMU VARSAYILANLARI ---
+# Streamlit her yeniden çalıştırmada bu alanları korur; ilk çalıştırmada ise
+# eksik anahtarların AttributeError üretmesini engeller.
+_SESSION_DEFAULTS = {
+    "tarama_durumu": False,
+    "sonuclar": [],
+    "sozlu_analizler": {},
+    "teknik_paneller": {},
+    "performans_kayitlari": [],
+    "performans_mesaji": "",
+    "custom_tickers": VARSAYILAN_TICKERS.copy(),
+    "basarisiz_taramalar": [],
+    "boga_sayisi": 0,
+    "alim_firsati": 0,
+    "aktif_profil": "Kendi Listem",
+    "secilen_varliklar": VARSAYILAN_TICKERS.copy(),
+}
+for _key, _default in _SESSION_DEFAULTS.items():
+    if _key not in st.session_state:
+        st.session_state[_key] = _default.copy() if hasattr(_default, "copy") else _default
+
 def get_preset_options():
     return {"Kendi Listem": st.session_state.custom_tickers, "BIST 30": BIST_30, "BIST 100": BIST_100, "ABD Büyük Teknoloji": ABD_HİSSELERİ}
 
