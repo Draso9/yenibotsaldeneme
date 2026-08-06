@@ -658,6 +658,15 @@ def aksiyon_rehberi_olustur(nihai_sinyal, teyit_5dk):
                       "koruma disiplini öncelikli; yeni pozisyon için trend ve hacim yapısının yeniden güçlenmesi beklenmelidir.")
         alt_not = '<div style="margin-top:15px;padding:11px;background:rgba(231,76,60,.10);border-left:4px solid #e74c3c;border-radius:5px;"><b>RİSK:</b> Düşen trendde yalnızca ucuz görünen fiyata dayanarak işlem açmayın.</div>'
 
+    elif "MOMENTUM AŞIRI ISINDI" in sinyal_metni:
+        renk = "#f1c40f"
+        baslik = "🟡 MOMENTUM AŞIRI ISINDI — TREND GÜÇLÜ, YENİ ALIMDA TEMKİN"
+        ana_metin = ("Ana trend ve kısa vadeli momentum güçlü kalırken fiyat üst banda ve yüksek RSI bölgesine taşınmıştır. "
+                      "Bu durum otomatik satış anlamına gelmez; ancak yeni pozisyonu kovalamak yerine kırılan seviyenin destek "
+                      "olarak korunması veya daha dengeli bir geri çekilme beklenmelidir. Mevcut pozisyonda kademeli kâr koruma "
+                      "ve stop yükseltme düşünülebilir.")
+        alt_not = '<div style="margin-top:15px;padding:11px;background:rgba(241,196,15,.10);border-left:4px solid #f1c40f;border-radius:5px;"><b>YÖNLENDİRME:</b> Trend devam ediyor olabilir; yeni alım için fiyatı kovalamayın, teyitli geri çekilme bekleyin.</div>'
+
     elif "KAR REALİZASYONU" in sinyal_metni or "KÂR REALİZASYONU" in sinyal_metni:
         renk = "#e67e22"
         baslik = "🟠 KÂR REALİZASYONU — AŞIRI ALIM / ÜST BANT RİSKİ"
@@ -683,10 +692,83 @@ def aksiyon_rehberi_olustur(nihai_sinyal, teyit_5dk):
         f'{alt_not}</div>'
     )
 
+
+def _seviye_yildizi(seviye, adaylar, atr):
+    """Yakın teknik referansların çakışmasını 1-5 yıldızla özetler."""
+    tolerans = max(float(atr) * 0.35, abs(float(seviye)) * 0.003)
+    uyum = sum(1 for x in adaylar if pd.notna(x) and abs(float(x) - float(seviye)) <= tolerans)
+    return min(5, max(1, uyum + 1))
+
+
+def teknik_seviyeler_hesapla(df, fiyat, atr, ema50, bb_alt, bb_mid, bb_ust, hv20):
+    """Geçmiş tepe/dipler, bantlar, ATR ve volatilite projeksiyonundan S/R ve TP üretir."""
+    fiyat, atr = float(fiyat), max(float(atr), fiyat * 0.005)
+    gecmis = df.iloc[:-1].copy() if len(df) > 2 else df.copy()
+    highs = [gecmis['High'].tail(n).max() for n in (20, 50, 100) if len(gecmis) >= min(n, 10)]
+    lows = [gecmis['Low'].tail(n).min() for n in (20, 50, 100) if len(gecmis) >= min(n, 10)]
+    swing_range = max((max(highs) - min(lows)) if highs and lows else atr * 4, atr * 2)
+    hv_45 = fiyat * max(float(hv20), 0.05) * np.sqrt(45 / 252)
+
+    direncler = highs + [bb_ust, fiyat + atr * 1.5, fiyat + atr * 3.0,
+                         fiyat + swing_range * 0.272, fiyat + swing_range * 0.618,
+                         fiyat + hv_45]
+    destekler = lows + [ema50, bb_mid, bb_alt, fiyat - atr, fiyat - atr * 2,
+                        fiyat - hv_45]
+
+    def sec(adaylar, ust=True):
+        vals = sorted({round(float(x), 6) for x in adaylar if pd.notna(x) and ((x > fiyat) if ust else (x < fiyat))}, reverse=not ust)
+        secilen=[]
+        for x in vals:
+            if not secilen or all(abs(x-y) >= atr*0.35 for y in secilen):
+                secilen.append(x)
+            if len(secilen)==3: break
+        while len(secilen)<3:
+            adim=(len(secilen)+1)*atr*(1.5 if ust else -1.0)
+            x=fiyat+adim
+            if all(abs(x-y)>=atr*0.25 for y in secilen): secilen.append(x)
+        return sorted(secilen) if ust else sorted(secilen, reverse=True)
+
+    r=sec(direncler, True); d=sec(destekler, False)
+    return {
+        's1': d[0], 's2': d[1], 's3': d[2],
+        'r1': r[0], 'r2': r[1], 'r3': r[2],
+        'tp1': r[0], 'tp2': r[1], 'tp3': r[2],
+        'tp1_yildiz': _seviye_yildizi(r[0], direncler, atr),
+        'tp2_yildiz': _seviye_yildizi(r[1], direncler, atr),
+        'tp3_yildiz': _seviye_yildizi(r[2], direncler, atr),
+    }
+
+
+def nihai_karar_motoru(on_sinyal, skor, tetik_puani, fiyat, ema9, ema21, ema50,
+                       sma200, rsi, macd, macd_sinyal, cmf, mfi, bb_ust, adx):
+    """Trend, momentum, risk ve 5 dk tetik çelişkilerini tek bir nihai kararda çözer."""
+    trend_guclu = fiyat > sma200 and fiyat > ema50 and ema9 > ema21
+    momentum_pozitif = macd > macd_sinyal and cmf >= 0
+    asiri_isinmis = rsi >= 68 and fiyat >= bb_ust * 0.995
+    momentum_bozuluyor = macd <= macd_sinyal or fiyat < ema9 or cmf < 0 or mfi < 45
+
+    if asiri_isinmis and trend_guclu and momentum_pozitif and tetik_puani >= 60:
+        return 'MOMENTUM AŞIRI ISINDI 🟡'
+    if rsi >= 70 and momentum_bozuluyor and tetik_puani < 60:
+        return 'KAR REALİZASYONU 🔴'
+    if tetik_puani >= 80 and trend_guclu and momentum_pozitif:
+        return 'GÜÇLÜ KIRILIM 🚀'
+    if tetik_puani >= 60 and 'KIRILIM' in str(on_sinyal):
+        return 'YÜKSELİŞ KIRILIMI 🚀'
+    if 'KUSURSUZ ALIM' in str(on_sinyal) and not momentum_bozuluyor:
+        return on_sinyal
+    if 'KADEMELİ ALIM' in str(on_sinyal):
+        return on_sinyal
+    if trend_guclu and skor >= 70 and not asiri_isinmis:
+        return 'UZUN VADELİ ADAY 🌟'
+    if not trend_guclu and skor < 45:
+        return 'UZAK DUR! 🛑'
+    return on_sinyal
+
 def sozlu_teknik_analiz_olustur(ticker, fiyat, gunluk_degisim, rsi, macd, macd_sinyal,
                                   ema9, ema21, ema50, sma200, bb_alt, bb_mid, bb_ust,
                                   hacim_oran, mfi, sektorel_fark, destek, direnc, stop,
-                                  tp1, tp2, sinyal, veri_kaynagi):
+                                  tp1, tp2, tp3, sinyal, veri_kaynagi):
     trend_uzun = "yukarı" if fiyat > sma200 else "aşağı"
     trend_orta = "pozitif" if fiyat > ema50 else "zayıf"
     trend_kisa = "boğa lehine" if ema9 > ema21 else "ayı lehine"
@@ -731,7 +813,7 @@ def sozlu_teknik_analiz_olustur(ticker, fiyat, gunluk_degisim, rsi, macd, macd_s
       <p><b>Hacim ve para akışı:</b> {hacim_yorum} {mfi_yorum}</p>
       <p><b>Göreceli güç:</b> {sektor_yorum}</p>
       <p><b>Volatilite ve konum:</b> {bant_yorum}</p>
-      <p><b>Kritik seviyeler:</b> Yakın destek <b>{destek:.2f}</b>, direnç <b>{direnc:.2f}</b>, süren stop <b>{stop:.2f}</b>. Olumlu senaryoda izlenebilecek hedefler <b>{tp1:.2f}</b> ve <b>{tp2:.2f}</b>.</p>
+      <p><b>Kritik seviyeler:</b> Yakın destek <b>{destek:.2f}</b>, direnç <b>{direnc:.2f}</b>, süren stop <b>{stop:.2f}</b>. Olumlu senaryoda izlenebilecek hedefler <b>{tp1:.2f}</b>, <b>{tp2:.2f}</b> ve trend devamında <b>{tp3:.2f}</b>.</p>
       <p><b>Sistem sonucu:</b> {sinyal}. Veri kaynağı: <b>{veri_kaynagi}</b>.</p>
       <div style="margin-top:12px;padding:10px 12px;border-left:4px solid #3498db;background:rgba(52,152,219,.10);border-radius:6px;">
         Bu bölüm otomatik teknik göstergelere dayanır; tek başına yatırım kararı yerine trend, hacim, destek/direnç ve risk yönetimi birlikte değerlendirilmelidir.
@@ -749,8 +831,11 @@ def gelismis_teknik_panel_olustur(d):
     atr, obv, obv_ema = d["atr"], d["obv"], d["obv_ema"]
     bb_alt, bb_mid, bb_ust = d["bb_alt"], d["bb_mid"], d["bb_ust"]
     destek, direnc, stop = d["destek"], d["direnc"], d["stop"]
-    tp1, tp2 = d["tp1"], d["tp2"]
+    tp1, tp2, tp3 = d["tp1"], d["tp2"], d.get("tp3", d["tp2"])
     swing_low = d["swing_low"]
+    s1, s2, s3 = d.get("s1", destek), d.get("s2", swing_low), d.get("s3", max(0.01, swing_low-atr))
+    r1, r2, r3 = d.get("r1", direnc), d.get("r2", tp2), d.get("r3", tp3)
+    tp1_y, tp2_y, tp3_y = d.get("tp1_yildiz",3), d.get("tp2_yildiz",2), d.get("tp3_yildiz",1)
     hacim, hacim_ort, hacim_oran = d["hacim"], d["hacim_ort"], d["hacim_oran"]
     sinyal, veri_kaynagi = d["sinyal"], d["veri_kaynagi"]
     gunluk_degisim, ticker = d["gunluk_degisim"], d["ticker"]
@@ -829,7 +914,7 @@ def gelismis_teknik_panel_olustur(d):
       <div class="tech-grid">{kartlar}</div>
       <div class="quad-grid">
         <div class="quad"><h4>VOLATİLİTE (BOLLINGER BANTLARI)</h4><div class="line"><span>Üst Bant</span><b>{bb_ust:.2f}</b></div><div class="line"><span>Orta Bant</span><b>{bb_mid:.2f}</b></div><div class="line"><span>Alt Bant</span><b>{bb_alt:.2f}</b></div><div class="line"><span>Fiyat Konumu</span><b class="yellow">{fiyat_konum}</b></div><div class="line"><span>ATR / Fiyat</span><b>{atr/fiyat*100:.2f}%</b></div></div>
-        <div class="quad"><h4>DESTEK & DİRENÇ SEVİYELERİ</h4><div class="line"><span>1. Direnç</span><b>{direnc:.2f}</b></div><div class="line"><span>2. Direnç / TP1</span><b>{tp1:.2f}</b></div><div class="line"><span>Ana Direnç / TP2</span><b class="red">{tp2:.2f}</b></div><div class="line"><span>1. Destek</span><b>{destek:.2f}</b></div><div class="line"><span>Ana Destek</span><b class="green">{swing_low:.2f}</b></div></div>
+        <div class="quad"><h4>TEKNİK DESTEKLER</h4><div class="line"><span>S1 — Yakın Destek</span><b>{s1:.2f}</b></div><div class="line"><span>S2 — Ana Destek</span><b>{s2:.2f}</b></div><div class="line"><span>S3 — Derin Risk Bölgesi</span><b class="red">{s3:.2f}</b></div><h4 style="margin-top:12px">TEKNİK DİRENÇLER</h4><div class="line"><span>R1</span><b>{r1:.2f}</b></div><div class="line"><span>R2</span><b>{r2:.2f}</b></div><div class="line"><span>R3</span><b>{r3:.2f}</b></div></div>
         <div class="quad"><h4>TREND & GÜÇ ANALİZİ</h4><div class="line"><span>Ana Trend (200 SMA)</span><b class="{'green' if ana_trend=='YUKARI' else 'red'}">{ana_trend}</b></div><div class="line"><span>Orta Trend (50 EMA)</span><b class="{'green' if orta_trend=='YUKARI' else 'red'}">{orta_trend}</b></div><div class="line"><span>Kısa Trend (EMA 9/21)</span><b class="{'green' if kisa_trend=='YUKARI' else 'red'}">{kisa_trend}</b></div><div class="line"><span>Momentum Gücü</span><b class="yellow">{momentum}</b></div><div class="line"><span>Göreceli Güç</span><b class="{'green' if goreceli=='GÜÇLÜ' else 'red'}">{goreceli}</b></div></div>
         <div class="quad"><h4>HACİM & AKIŞ ANALİZİ</h4><div class="line"><span>Günlük Hacim</span><b>{hacim:,.0f}</b></div><div class="line"><span>Ortalama Hacim (20)</span><b>{hacim_ort:,.0f}</b></div><div class="line"><span>Hacim Oranı</span><b class="{'green' if hacim_oran>=100 else 'yellow'}">%{hacim_oran:.1f}</b></div><div class="line"><span>Para Akışı (MFI)</span><b class="yellow">{mfi:.2f}</b></div><div class="line"><span>OBV Trendi</span><b class="{'green' if obv_trend=='YÜKSELEN' else 'red'}">{obv_trend}</b></div></div>
       </div>
@@ -837,7 +922,7 @@ def gelismis_teknik_panel_olustur(d):
       <div class="analysis"><h4>⚡ 5 DAKİKALIK TETİK PUANI NASIL OLUŞTU?</h4><p><b>Sonuç:</b> {teyit}</p><p>{"<br>".join(tetik_detay) if tetik_detay else "Alım yönlü sinyal olmadığı veya yeterli kapanmış veri bulunmadığı için tetik puanı üretilmedi."}</p><p style="color:#aaaaaa;font-size:12px;">Hesaplama yalnızca kapanmış 5 dakikalık mumları kullanır. Devam eden son mum dışarıda bırakılır.</p></div>
       <div class="actions">
         <div class="action general"><h4>🎯 GENEL DEĞERLENDİRME</h4><div class="big-signal">{genel}</div><p>Mevcut algoritmik sinyal: <b>{sinyal}</b>. Ana trend, momentum, hacim ve seviye teyitleri birlikte değerlendirilmelidir.</p></div>
-        <div class="action buy"><h4 style="color:#2ecc71">↗ UZUN (ALIM) SENARYOSU</h4><p>Fiyat <b>{alis_tetik:.2f}</b> üzerinde kalıcılık sağlar, RSI 50 üzerine çıkar ve hacim ortalamayı aşarsa alım yönlü iştah güçlenebilir.</p><p><b>Hedefler:</b> {tp1:.2f} / {tp2:.2f}<br><b>Stop:</b> {stop:.2f}<br><b>Risk/Ödül:</b> {rr_alis:.2f}</p></div>
+        <div class="action buy"><h4 style="color:#2ecc71">↗ UZUN (ALIM) SENARYOSU</h4><p>Fiyat <b>{alis_tetik:.2f}</b> üzerinde kalıcılık sağlar, RSI 50 üzerine çıkar ve hacim ortalamayı aşarsa alım yönlü iştah güçlenebilir.</p><p><b>TP1:</b> {tp1:.2f} {"★"*tp1_y}{"☆"*(5-tp1_y)}<br><b>TP2:</b> {tp2:.2f} {"★"*tp2_y}{"☆"*(5-tp2_y)}<br><b>TP3:</b> {tp3:.2f} {"★"*tp3_y}{"☆"*(5-tp3_y)}<br><b>Teknik İptal:</b> {stop:.2f}</p></div>
         <div class="action sell"><h4 style="color:#ff4d4f">↘ KISA / SATIŞ SENARYOSU</h4><p>Fiyat <b>{satis_tetik:.2f}</b> altında kapanır, MACD negatifliğini artırır ve OBV düşerse satış baskısı hızlanabilir.</p><p><b>Hedefler:</b> {short_hedef1:.2f} / {short_hedef2:.2f}<br><b>Geçersizlik:</b> {short_stop:.2f}<br><b>Risk/Ödül:</b> {rr_satis:.2f}</p></div>
         <div class="action risk"><h4 style="color:#9b51e0">🛡 POZİSYON YÖNETİMİ</h4><p>✓ Sermayeyi korumayı önceliklendir.<br>✓ Stop seviyesini işlem öncesinde belirle.<br>✓ Teyitsiz kırılımlarda pozisyon küçült.<br>✓ Haber akışını ve piyasa genelini izle.<br>✓ Tek bir göstergeye dayanma.</p></div>
       </div>
@@ -1287,8 +1372,7 @@ with st.expander("📘 Nasıl Kullanılır? — Tablo, skorlar, sinyaller ve ris
 | **5 Dk Teyit** | Kısa vadeli fiyat–hacim davranışının sinyali destekleyip desteklemediği | 0–100 tetik puanı; kapanmış mum, gerçek direnç kırılımı, hacim, EMA, MACD, RSI ve mum kalitesini birlikte değerlendirir. 80+ güçlü, 60–79 erken, 40–59 zayıf, 40 altı tetik yoktur. |
 | **Karma Destek / Direnç** | Tepe-dip, EMA50, Bollinger ve ATR’den türetilen karar seviyeleri | Destek altı kalıcılık riski; direnç üstü hacimli kapanış yükseliş senaryosunu güçlendirir. |
 | **Süren Stop** | ATR/Chandelier mantığıyla hesaplanan teknik iptal noktası | Gap ve sert haber hareketlerinde fiyat stop seviyesini atlayabilir. |
-| **TP1 / TP2** | Giriş–stop riskinin yaklaşık 1,5 ve 3 katı hedefler | Fiyat tahmini değil, risk/ödül planlama seviyeleridir. |
-| **Önerilen Lot** | Kasa × risk oranı ÷ birim başına risk | Likidite, komisyon ve toplam portföy yoğunluğu ayrıca kontrol edilmelidir. |
+| **TP1 / TP2 / TP3** | Giriş–stop riskinin gerçek teknik direnç ve volatilite seviyeleri | Fiyat tahmini değil, risk/ödül planlama seviyeleridir. |
 | **Veri Kaynağı** | Finnhub, Yahoo 5 dk veya fallback bilgisi | Kaynaklar arasında küçük fiyat ve zaman farkları oluşabilir. |
 """)
 
@@ -1323,7 +1407,8 @@ Gelişmiş bonus ve cezalar sınırlandırılır; böylece yeni katman eski skor
 - **🚀 Yükseliş Kırılımı:** Önceki direnç; hacim, EMA 9–21 ve trend desteğiyle aşılmıştır. Kırılan seviyenin destek olarak korunması kritiktir.
 - **🌟 Uzun Vadeli Teknik Aday:** SMA 200 üzerindeki güçlü teknik trend ve yüksek skor yapısını gösterir. **Temel analiz veya GARP sinyali değildir.**
 - **🟡 Hacimli Tepki:** Olağan dışı hacimli toparlanmadır; izleme sinyalidir, doğrudan alım sinyali değildir.
-- **🟠 Kâr Realizasyonu:** RSI ve Bollinger üst bant şişkinliği nedeniyle risk azaltma, kısmi kâr alma veya stop yükseltme uyarısıdır; trendin kesin bittiği anlamına gelmez.
+- **🟡 Momentum Aşırı Isındı:** Trend güçlüdür ancak fiyat kısa vadede üst bant/yüksek RSI bölgesindedir. Yeni alım yerine geri çekilme veya kırılan seviyenin destek olarak çalışması beklenir.
+- **🟠 Kâr Realizasyonu:** Yüksek RSI ile birlikte MACD, kısa EMA veya para akışında bozulma oluştuğunda risk azaltma ve kısmi kâr koruma uyarısıdır.
 - **🧗 Kurtuluş Çabası:** Ana trend zayıfken kısa vadeli toparlanmadır. SMA 200 ve güçlü hacim teyidi gelmeden dönüş tamamlanmış sayılmaz.
 - **🔴 Uzak Dur:** Trend, momentum, para akışı veya likidite yapısında yeni alımı desteklemeyen ağır riskler vardır.
 - **⚪ Nötr:** Sistem ortak yön bulamamıştır; işlem üretmek yerine teyit bekler.
@@ -1344,7 +1429,7 @@ Gelişmiş bonus ve cezalar sınırlandırılır; böylece yeni katman eski skor
     st.markdown("""
 - **Karma destek/direnç**, geçmiş tepe-dip, EMA50, Bollinger ve ATR bileşimidir.
 - **Süren stop**, fiyatın altında kalan en yakın geçerli teknik adaydan seçilir. Stop büyüdükçe önerilen lot azalır.
-- **TP1 / TP2**, yaklaşık **1,5R ve 3R** seviyeleridir; hedefe ulaşma garantisi değildir.
+- **TP1 / TP2 / TP3**, yaklaşık **1,5R ve 3R** seviyeleridir; hedefe ulaşma garantisi değildir.
 - İşlem riski yaklaşık **(Giriş − Stop) × Lot** şeklinde düşünülmelidir.
 - Aynı yönde yüksek korelasyonlu hisseler toplam portföy riskini büyütebilir.
 """)
@@ -1370,11 +1455,6 @@ if st.sidebar.button("🚪 Çıkış Yap"):
     time.sleep(0.5) 
     st.rerun()
 st.sidebar.markdown("---")
-
-with st.sidebar.expander("💰 Kasa ve Risk Parametreleri", expanded=True):
-    bist_kasa = st.number_input("BIST Kasa (TL)", value=100000, step=10000)
-    nasdaq_kasa = st.number_input("NASDAQ Kasa ($)", value=1000, step=1000)
-    risk_orani = st.slider("Risk Oranı (%)", 1.0, 5.0, 2.0, 0.5) / 100.0
 
 with st.sidebar.expander("📋 Varlık Seçimi", expanded=True):
     st.text_input("Varlık Ekle:", key="ek_hisse_input_field")
@@ -1621,19 +1701,19 @@ with tab1:
                         karma_destek = max([d for d in [swing_low, ema_50_val, bugun_kapanis - (atr * 2)] if pd.notna(d) and d < bugun_kapanis], default=bugun_kapanis - (atr * 1.5))
                         karma_direnc = min([dir_val for dir_val in [swing_high, bb_ust] if pd.notna(dir_val) and dir_val > bugun_kapanis], default=bugun_kapanis + (atr * 2.5))
 
-                        # Chandelier/ATR stop adaylarından fiyatın altındaki en yakın
-                        # koruyucu seviye seçilir. Eski min() kullanımı gereksiz geniş
-                        # stop ve uzak hedef üretebiliyordu.
+                        # Teknik iptal seviyesi: fiyatın altındaki en yakın koruyucu ATR/Chandelier desteği.
                         chandelier_stop = gecmis_df['High'].tail(22).max() - (atr * 3)
                         stop_adaylari = [x for x in [chandelier_stop, bugun_kapanis - (atr * 1.5), karma_destek - (atr * 0.25)] if pd.notna(x) and x < bugun_kapanis]
                         trailing_stop = max(stop_adaylari, default=bugun_kapanis - (atr * 1.5))
-                        alinan_risk = max(bugun_kapanis - trailing_stop, atr * 0.75)
-                        tp1, tp2 = bugun_kapanis + (alinan_risk * 1.5), bugun_kapanis + (alinan_risk * 3.0)
-                        risk_odul = (tp2 - bugun_kapanis) / max(bugun_kapanis - trailing_stop, 1e-9)
                         risk_yuzde = (bugun_kapanis - trailing_stop) / max(bugun_kapanis, 1e-9) * 100
                         risk_seviyesi = 'YÜKSEK' if risk_yuzde > 7 or adx < 18 else ('DÜŞÜK' if risk_yuzde < 3.5 and adx >= 25 else 'ORTA')
                         vol_rejimi = volatilite_rejimi(bugun_kapanis, atr, hv20)
-                        hibrit_tp = f"⚠️ Şişti: Kâr Al" if rsi >= 65 else f"TP1: {tp1:.2f} | TP2: {tp2:.2f}"
+
+                        seviyeler = teknik_seviyeler_hesapla(df_long, bugun_kapanis, atr, ema_50_val, bb_alt, bb_mid, bb_ust, hv20)
+                        tp1, tp2, tp3 = seviyeler['tp1'], seviyeler['tp2'], seviyeler['tp3']
+                        karma_destek, karma_direnc = seviyeler['s1'], seviyeler['r1']
+                        risk_odul = (tp2 - bugun_kapanis) / max(bugun_kapanis - trailing_stop, 1e-9)
+                        hibrit_tp = f"TP1: {tp1:.2f} | TP2: {tp2:.2f} | TP3: {tp3:.2f}"
 
                         ema_9_val = df_long['Close'].ewm(span=9, adjust=False).mean().iloc[-1]
                         ema_21_val = df_long['Close'].ewm(span=21, adjust=False).mean().iloc[-1]
@@ -1646,25 +1726,25 @@ with tab1:
                         # Sinyal önceliği: önce kırılım ve risk/şişkinlik, ardından
                         # dipten dönüş ve trend adaylığı. Böylece aşırı alım durumu
                         # "uzun vadeli aday" etiketi tarafından gölgelenmez.
-                        sinyal = "Nötr (İzle) ⚖️"
+                        on_sinyal = "Nötr (İzle) ⚖️"
                         if breakout_kosulu:
-                            sinyal = "YÜKSELİŞ KIRILIMI 🚀"
+                            on_sinyal = "YÜKSELİŞ KIRILIMI 🚀"
                             alim_firsati += 1
                         elif bugun_kapanis > bb_ust and rsi >= 68:
-                            sinyal = "KAR REALİZASYONU 🔴"
+                            on_sinyal = "MOMENTUM AŞIRI ISINDI 🟡"
                         elif bugun_kapanis <= bb_alt and rsi <= 35 and uzun_vade_trend and (mfi_val <= 40 or gunluk_degisim > 0):
-                            sinyal = "KUSURSUZ ALIM 🟢"
+                            on_sinyal = "KUSURSUZ ALIM 🟢"
                             alim_firsati += 1
                         elif rsi <= 40 and uzun_vade_trend and bugun_kapanis <= bb_mid and bugun_kapanis <= (karma_destek + atr):
-                            sinyal = "KADEMELİ ALIM 🔵"
+                            on_sinyal = "KADEMELİ ALIM 🔵"
                             alim_firsati += 1
                         elif uzun_vade_trend and skor >= 70:
-                            sinyal = "UZUN VADELİ ADAY 🌟"
+                            on_sinyal = "UZUN VADELİ ADAY 🌟"
                             alim_firsati += 1
                         elif hacim_patlamasi_var and rsi < 50:
-                            sinyal = "HACİMLİ TEPKİ 🟡"
+                            on_sinyal = "HACİMLİ TEPKİ 🟡"
                         elif not uzun_vade_trend:
-                            sinyal = "KURTULUŞ ÇABASI 🧗" if (bugun_kapanis > ema_50_val) else "UZAK DUR! 🛑"
+                            on_sinyal = "KURTULUŞ ÇABASI 🧗" if (bugun_kapanis > ema_50_val) else "UZAK DUR! 🛑"
                             
                         if uzun_vade_trend: boga_sayisi += 1
 
@@ -1675,7 +1755,7 @@ with tab1:
                             "rsi": None, "mum_kalitesi": 0.0, "sahte_kirilim": False,
                         }
                         mikro_teyit = tetik_sonucu["mesaj"]
-                        if "ALIM" in sinyal or "KIRILIM" in sinyal or "ADAY" in sinyal:
+                        if any(x in on_sinyal for x in ["ALIM", "KIRILIM", "ADAY", "ISINDI"]):
                             try:
                                 df_5dk = tekil_taze_veri_cek(ticker)
                                 tetik_sonucu = tetik_puani_hesapla(df_5dk, uzun_vade_trend)
@@ -1683,7 +1763,12 @@ with tab1:
                             except Exception as tetik_hatasi:
                                 mikro_teyit = "⏳ TETİK YOK: 5 dakikalık teyit hesaplanamadı"
 
-                        lot = int((bist_kasa if is_bist else nasdaq_kasa) * risk_orani / alinan_risk) if "ALIM" in sinyal or "KIRILIM" in sinyal or "ADAY" in sinyal else 0
+                        sinyal = nihai_karar_motoru(
+                            on_sinyal, skor, int(tetik_sonucu.get("puan", 0)), bugun_kapanis,
+                            ema_9_val, ema_21_val, ema_50_val, sma_200, rsi,
+                            float(macd_serisi.iloc[-1]), float(macd_sinyal.iloc[-1]),
+                            cmf, mfi_val, bb_ust, adx
+                        )
 
                         panel_ek = {
                             'fiyat': float(bugun_kapanis), 'adx': adx, 'plus_di': plus_di, 'minus_di': minus_di,
@@ -1700,7 +1785,10 @@ with tab1:
                             "atr": float(atr), "hv20": float(hv20), "hv60": float(hv60), "obv": float(obv[-1]), "obv_ema": float(obv_ema.iloc[-1]),
                             "bb_alt": float(bb_alt), "bb_mid": float(bb_mid), "bb_ust": float(bb_ust),
                             "destek": float(karma_destek), "direnc": float(karma_direnc), "stop": float(trailing_stop),
-                            "tp1": float(tp1), "tp2": float(tp2), "swing_low": float(swing_low), "swing_high": float(swing_high),
+                            "tp1": float(tp1), "tp2": float(tp2), "tp3": float(tp3), "swing_low": float(swing_low), "swing_high": float(swing_high),
+                            "s1": float(seviyeler["s1"]), "s2": float(seviyeler["s2"]), "s3": float(seviyeler["s3"]),
+                            "r1": float(seviyeler["r1"]), "r2": float(seviyeler["r2"]), "r3": float(seviyeler["r3"]),
+                            "tp1_yildiz": int(seviyeler["tp1_yildiz"]), "tp2_yildiz": int(seviyeler["tp2_yildiz"]), "tp3_yildiz": int(seviyeler["tp3_yildiz"]),
                             "hacim": float(bugun_hacim), "hacim_ort": float(hacim_sma20), "hacim_oran": float(hacim_oran),
                             "sektorel_fark": float(sektorel_fark), "sinyal": sinyal, "veri_kaynagi": veri_kaynagi, "teyit": mikro_teyit,
                             "tetik_puani": int(tetik_sonucu.get("puan", 0)), "tetik_seviyesi": tetik_sonucu.get("seviye", "⏳ TETİK YOK"),
@@ -1723,7 +1811,7 @@ with tab1:
                             bb_alt=float(bb_alt), bb_mid=float(bb_mid), bb_ust=float(bb_ust),
                             hacim_oran=float(hacim_oran), mfi=float(mfi_val), sektorel_fark=float(sektorel_fark),
                             destek=float(karma_destek), direnc=float(karma_direnc), stop=float(trailing_stop),
-                            tp1=float(tp1), tp2=float(tp2), sinyal=sinyal, veri_kaynagi=veri_kaynagi
+                            tp1=float(tp1), tp2=float(tp2), tp3=float(tp3), sinyal=sinyal, veri_kaynagi=veri_kaynagi
                         )
 
                         gecici_sonuclar.append({
@@ -1731,7 +1819,7 @@ with tab1:
                             "Gelişmiş Skor": skor_etiket, "Güven": f"%{guven_skoru}", "MTF Uyum": f"%{mtf_uyum}", "Risk": risk_seviyesi, "Para Akışı": para_durumu,
                             "Temel Veri": "Değerlendirildi", "Nihai Sinyal": sinyal, "↓ Zamanlama (5Dk Teyit)": mikro_teyit, "Veri Kaynağı": veri_kaynagi,
                             "Karma Destek": f"{karma_destek:.2f}", "Karma Direnç": f"{karma_direnc:.2f}",
-                            "Süren Stop": f"{trailing_stop:.2f}", "Hibrit Kâr Al (TP)": hibrit_tp, "Önerilen Lot": f"{lot} Adet" if lot > 0 else "0"
+                            "Süren Stop": f"{trailing_stop:.2f}", "Teknik Hedefler": hibrit_tp
                         })
                     except:
                         basarisi_cekilemeyen_varliklar.append(ticker)
