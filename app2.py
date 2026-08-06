@@ -8,17 +8,10 @@ from firebase_admin import credentials, firestore, auth
 import extra_streamlit_components as stx
 import time
 import requests
-import requests_cache
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 
-# --- 1. YOUTHFUL / YFINANCE ÖNBELLEĞİNİ KÖKTEN DEVRE DIŞI BIRAKMA ---
-try:
-    requests_cache.uninstall_cache()
-except:
-    pass
-
-# --- 2. SAYFA YAPILANDIRMASI ---
+# --- 1. SAYFA YAPILANDIRMASI ---
 st.set_page_config(
     page_title="Hibrit Portföy Komuta Merkezi",
     page_icon="📈",
@@ -113,7 +106,7 @@ def yahoo_dogrudan_veri_cek(ticker, interval="1d", range_days=400):
     try:
         session = requests.Session()
         session.headers.update({
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+            'User-Agent': f'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/124.{int(time.time())}',
             'Cache-Control': 'no-cache, no-store, must-revalidate',
             'Pragma': 'no-cache',
             'Expires': '0'
@@ -128,7 +121,7 @@ def yahoo_dogrudan_veri_cek(ticker, interval="1d", range_days=400):
             
         end_ts = int(time.time())
         start_ts = end_ts - (range_days * 86400)
-        cb = int(time.time() * 1000) # Saniyede bir değişen cache-buster
+        cb = int(time.time() * 1000) # Benzersiz cache-buster
         
         url = f"https://query1.finance.yahoo.com/v8/finance/chart/{ticker}?period1={start_ts}&period2={end_ts}&interval={interval}&crumb={crumb}&_cb={cb}"
         
@@ -307,7 +300,7 @@ with tab1:
         if not selected_tickers:
             st.warning("⚠️ Lütfen taranacak varlık seçin!")
         else:
-            with st.spinner("Önbellekler temizlendi, taze veriler doğrudan çekiliyor..."):
+            with st.spinner("Önbellekler atlatıldı, taze API verileri doğrudan çekiliyor..."):
                 st.session_state.opsiyon_sonuclar = None
                 gecici_sonuclar = []
                 basarisiz = []
@@ -377,7 +370,7 @@ with tab1:
                 fig.add_trace(go.Candlestick(x=df_g.index, open=df_g['Open'], high=df_g['High'], low=df_g['Low'], close=df_g['Close'], name='Fiyat'), row=1, col=1)
                 fig.add_trace(go.Scatter(x=df_g.index, y=df_g['EMA9'], line=dict(color='#00E676', width=1.5), name='9 EMA'), row=1, col=1)
                 fig.add_trace(go.Scatter(x=df_g.index, y=df_g['EMA21'], line=dict(color='#FF1744', width=1.5), name='21 EMA'), row=1, col=1)
-                fig.update_layout(template='plotly_dark', title=f"{secilen_hisse} - Taze Veri Grafiği", height=600, xaxis_rangeslider_visible=False)
+                fig.update_layout(template='plotly_dark', title=f"{secilen_hisse} - Taze Doğrudan API Grafiği", height=600, xaxis_rangeslider_visible=False)
                 st.plotly_chart(fig, use_container_width=True)
                 
                 satir = df_sonuc[df_sonuc["Varlık"] == secilen_hisse]
