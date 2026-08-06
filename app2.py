@@ -528,8 +528,14 @@ if "basarisiz_taramalar" not in st.session_state: st.session_state.basarisiz_tar
 
 
 def sinyal_yonu_belirle(sinyal):
+    """Sinyali karar yönüne çevirir.
+
+    Performans takibinde yalnızca gerçek pozisyon açma niyeti taşıyan ALIM,
+    KIRILIM ve ADAY sinyalleri alım kabul edilir. HACİMLİ TEPKİ izleme
+    sinyalidir; pozisyon önerisi olmadığı için performans arşivine girmez.
+    """
     metin = str(sinyal).upper()
-    if any(x in metin for x in ["ALIM", "KIRILIM", "ADAY", "TEPKİ"]):
+    if any(x in metin for x in ["ALIM", "KIRILIM", "ADAY"]):
         return "ALIM"
     if any(x in metin for x in ["UZAK DUR", "KAR REALİZASYONU", "KÂR REALİZASYONU"]):
         return "SATIŞ"
@@ -548,7 +554,9 @@ def sinyal_kayitlarini_firestore_yaz(sonuclar, teknik_paneller):
         panel = teknik_paneller.get(ticker, {})
         sinyal = sonuc.get("Nihai Sinyal", "Nötr")
         yon = sinyal_yonu_belirle(sinyal)
-        if yon == "NÖTR" or not panel:
+        # Performans takibi yalnızca sistemin pozisyon açmayı önerdiği alım
+        # sinyalleri için tutulur. Satış/uzak dur/izleme sinyalleri arşivlenmez.
+        if yon != "ALIM" or not panel:
             continue
         doc_id = f"{email_anahtari}_{ticker.replace('.', '_')}_{saat_anahtari}"
         veri = {
@@ -580,6 +588,11 @@ def performans_kayitlarini_getir(limit=250):
         kayitlar = []
         for doc in sorgu.stream():
             veri = doc.to_dict() or {}
+            # Eski sürümlerde kaydedilmiş satış/izleme kayıtlarını da ekranda
+            # göstermeyerek performans istatistiğini yalnızca alım sinyallerine
+            # göre hesaplarız.
+            if veri.get("yon") != "ALIM":
+                continue
             veri["doc_id"] = doc.id
             kayitlar.append(veri)
         kayitlar.sort(key=lambda x: x.get("olusturma_zamani", ""), reverse=True)
@@ -906,8 +919,12 @@ with tab1:
 
                         skor_etiket = f"{skor} Puan (Güçlü 🟢)" if skor >= 70 else (f"{skor} Puan (Nötr ⚖️)" if skor >= 50 else f"{skor} Puan (Cezalı 🔴)")
 
-                        swing_high = df_long['High'].tail(50).max()
-                        swing_low = df_long['Low'].tail(50).min()
+                        # Destek/direnç referanslarında mevcut mumu hariç tutmak,
+                        # henüz tamamlanmamış gün içi mumdan kaynaklanan ileriye bakış
+                        # (look-ahead) etkisini azaltır.
+                        gecmis_df = df_long.iloc[:-1] if len(df_long) > 1 else df_long
+                        swing_high = gecmis_df['High'].tail(50).max()
+                        swing_low = gecmis_df['Low'].tail(50).min()
                         tr = pd.concat([df_long['High'] - df_long['Low'], (df_long['High'] - df_long['Close'].shift()).abs(), (df_long['Low'] - df_long['Close'].shift()).abs()], axis=1).max(axis=1)
                         atr = tr[-14:].mean() if len(tr) >= 14 else bugun_kapanis * 0.02
 
@@ -920,32 +937,44 @@ with tab1:
                         if not np.isfinite(hv60) or hv60 <= 0:
                             hv60 = hv20
 
-                        karma_destek = max([d for d in [swing_low, ema_50_val, bugun_kapanis - (atr * 2)] if d < bugun_kapanis], default=bugun_kapanis - (atr * 1.5))
-                        karma_direnc = min([dir_val for dir_val in [swing_high, bb_ust] if dir_val > bugun_kapanis], default=bugun_kapanis + (atr * 2.5))
+                        karma_destek = max([d for d in [swing_low, ema_50_val, bugun_kapanis - (atr * 2)] if pd.notna(d) and d < bugun_kapanis], default=bugun_kapanis - (atr * 1.5))
+                        karma_direnc = min([dir_val for dir_val in [swing_high, bb_ust] if pd.notna(dir_val) and dir_val > bugun_kapanis], default=bugun_kapanis + (atr * 2.5))
 
-                        trailing_stop = min(df_long['High'].rolling(22).max().iloc[-1] - (atr * 3), bugun_kapanis - (atr * 1.5))
-                        alinan_risk = max(bugun_kapanis - trailing_stop, atr * 1.0)
+                        # Chandelier/ATR stop adaylarından fiyatın altındaki en yakın
+                        # koruyucu seviye seçilir. Eski min() kullanımı gereksiz geniş
+                        # stop ve uzak hedef üretebiliyordu.
+                        chandelier_stop = gecmis_df['High'].tail(22).max() - (atr * 3)
+                        stop_adaylari = [x for x in [chandelier_stop, bugun_kapanis - (atr * 1.5), karma_destek - (atr * 0.25)] if pd.notna(x) and x < bugun_kapanis]
+                        trailing_stop = max(stop_adaylari, default=bugun_kapanis - (atr * 1.5))
+                        alinan_risk = max(bugun_kapanis - trailing_stop, atr * 0.75)
                         tp1, tp2 = bugun_kapanis + (alinan_risk * 1.5), bugun_kapanis + (alinan_risk * 3.0)
                         hibrit_tp = f"⚠️ Şişti: Kâr Al" if rsi >= 65 else f"TP1: {tp1:.2f} | TP2: {tp2:.2f}"
 
-                        ema_9_val = df_long['Close'].ewm(span=9).mean().iloc[-1]
-                        ema_21_val = df_long['Close'].ewm(span=21).mean().iloc[-1]
-                        breakout_kosulu = (bugun_kapanis >= karma_direnc) and (hacim_oran >= 120) and (ema_9_val > ema_21_val) and (uzun_vade_trend)
-                        
+                        ema_9_val = df_long['Close'].ewm(span=9, adjust=False).mean().iloc[-1]
+                        ema_21_val = df_long['Close'].ewm(span=21, adjust=False).mean().iloc[-1]
+                        bb_ust_serisi = df_long['Close'].rolling(20).mean() + (df_long['Close'].rolling(20).std() * 2)
+                        onceki_bb_ust = bb_ust_serisi.shift(1).iloc[-1]
+                        kirilim_adaylari = [x for x in [swing_high, onceki_bb_ust] if pd.notna(x)]
+                        kirilim_referansi = min(kirilim_adaylari, default=bugun_kapanis + atr)
+                        breakout_kosulu = (bugun_kapanis >= kirilim_referansi) and (hacim_oran >= 120) and (ema_9_val > ema_21_val) and uzun_vade_trend
+
+                        # Sinyal önceliği: önce kırılım ve risk/şişkinlik, ardından
+                        # dipten dönüş ve trend adaylığı. Böylece aşırı alım durumu
+                        # "uzun vadeli aday" etiketi tarafından gölgelenmez.
                         sinyal = "Nötr (İzle) ⚖️"
                         if breakout_kosulu:
                             sinyal = "YÜKSELİŞ KIRILIMI 🚀"
                             alim_firsati += 1
-                        elif uzun_vade_trend and skor >= 70 and bugun_kapanis < karma_direnc:
-                            sinyal = "UZUN VADELİ ADAY 🌟"
-                            alim_firsati += 1
-                        elif bugun_kapanis > bb_ust and rsi >= 68: 
+                        elif bugun_kapanis > bb_ust and rsi >= 68:
                             sinyal = "KAR REALİZASYONU 🔴"
-                        elif bugun_kapanis <= bb_alt and rsi <= 35 and uzun_vade_trend: 
+                        elif bugun_kapanis <= bb_alt and rsi <= 35 and uzun_vade_trend and (mfi_val <= 40 or gunluk_degisim > 0):
                             sinyal = "KUSURSUZ ALIM 🟢"
                             alim_firsati += 1
-                        elif rsi <= 40 and uzun_vade_trend: 
+                        elif rsi <= 40 and uzun_vade_trend and bugun_kapanis <= bb_mid and bugun_kapanis <= (karma_destek + atr):
                             sinyal = "KADEMELİ ALIM 🔵"
+                            alim_firsati += 1
+                        elif uzun_vade_trend and skor >= 70:
+                            sinyal = "UZUN VADELİ ADAY 🌟"
                             alim_firsati += 1
                         elif hacim_patlamasi_var and rsi < 50:
                             sinyal = "HACİMLİ TEPKİ 🟡"
@@ -1059,7 +1088,7 @@ with tab1:
 
 with tab2:
     st.subheader("📊 Sinyal Performans Takibi")
-    st.markdown("Üretilen alım/satım sinyallerinin giriş fiyatına göre güncel performansını takip eder.")
+    st.markdown("Yalnızca pozisyon açma önerisi taşıyan alım, kırılım ve uzun vadeli aday sinyallerinin giriş fiyatına göre performansını takip eder.")
 
     if not st.session_state.user_email or not db:
         st.warning("Bu bölüm için Firebase bağlantısı ve kullanıcı oturumu gereklidir.")
@@ -1068,7 +1097,7 @@ with tab2:
         with col_p1:
             guncelle_tiklandi = st.button("🔄 Fiyatları Güncelle", use_container_width=True)
         with col_p2:
-            st.caption("Aynı varlık için aynı saat içinde yapılan taramalar tek kayıt olarak tutulur.")
+            st.caption("Satış, uzak dur ve izleme sinyalleri kaydedilmez. Aynı varlık için aynı saat içindeki alım sinyalleri tek kayıt tutulur.")
 
         kayitlar = performans_kayitlarini_getir()
         if guncelle_tiklandi and kayitlar:
@@ -1077,7 +1106,7 @@ with tab2:
             st.success("Performans tablosu güncellendi.")
 
         if not kayitlar:
-            st.info("Henüz arşivlenmiş alım/satım sinyali yok. Derin taramayı çalıştırdığınızda sinyaller otomatik kaydedilir.")
+            st.info("Henüz arşivlenmiş alım sinyali yok. Derin taramada ALIM, KIRILIM veya ADAY sinyali oluştuğunda otomatik kaydedilir.")
         else:
             df_perf = pd.DataFrame(kayitlar)
             for col in ["giris_fiyati", "son_fiyat", "stop", "tp1", "tp2", "getiri_yuzde"]:
@@ -1089,15 +1118,14 @@ with tab2:
             ort_getiri = float(df_perf.get("getiri_yuzde", pd.Series(dtype=float)).mean() or 0)
             basari = (kazanan / toplam * 100) if toplam else 0
             kp1, kp2, kp3, kp4 = st.columns(4)
-            kp1.metric("Toplam Sinyal", toplam)
-            kp2.metric("Pozitif Sinyal", kazanan)
+            kp1.metric("Toplam Alım Sinyali", toplam)
+            kp2.metric("Pozitif Alım", kazanan)
             kp3.metric("Başarı Oranı", f"%{basari:.1f}")
             kp4.metric("Ort. Getiri", f"%{ort_getiri:.2f}")
 
             gorunum = pd.DataFrame({
                 "Tarih": pd.to_datetime(df_perf.get("olusturma_zamani"), errors="coerce").dt.strftime("%d.%m.%Y %H:%M"),
                 "Varlık": df_perf.get("ticker"),
-                "Yön": df_perf.get("yon"),
                 "Sinyal": df_perf.get("sinyal"),
                 "Giriş": df_perf.get("giris_fiyati").round(2),
                 "Güncel": df_perf.get("son_fiyat").round(2),
