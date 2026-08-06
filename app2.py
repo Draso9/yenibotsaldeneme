@@ -254,6 +254,164 @@ def tekil_taze_veri_cek(ticker):
     return intraday_veri_cek(ticker, interval="5m", period="5d")
 
 
+def tetik_puani_hesapla(intraday, uzun_vade_trend):
+    """Kapanmış 5 dakikalık mumlarla 0-100 arası tetik kalitesi hesaplar.
+
+    Puan bileşenleri:
+    - Önceki 20 mum direncinin kırılması: 25
+    - Hacmin önceki 20 mum ortalamasının en az %130'u olması: 20
+    - EMA9 > EMA21: 15
+    - MACD > sinyal çizgisi: 15
+    - RSI 50-70 aralığı: 10
+    - Pozitif ve üst bölgede kapanan kaliteli mum: 10
+    - Günlük ana trendin yukarı olması: 5
+
+    En son 5 dakikalık mum oluşuyor olabileceği için hesaplamadan çıkarılır.
+    Böylece değişen, henüz kapanmamış mumun yanlış tetik üretmesi engellenir.
+    """
+    bos = {
+        "puan": 0,
+        "seviye": "⏳ TETİK YOK",
+        "mesaj": "⏳ TETİK YOK: Yeterli kapanmış 5 dakikalık veri bulunamadı",
+        "detay": [],
+        "direnc": None,
+        "hacim_orani": 0.0,
+        "rsi": None,
+        "mum_kalitesi": 0.0,
+        "sahte_kirilim": False,
+    }
+    if intraday is None or intraday.empty:
+        return bos
+
+    gerekli = {"Open", "High", "Low", "Close", "Volume"}
+    if not gerekli.issubset(intraday.columns):
+        return bos
+
+    df = intraday[list(gerekli)].copy().sort_index()
+    df = df.replace([np.inf, -np.inf], np.nan).dropna(subset=["Open", "High", "Low", "Close"])
+    if len(df) < 24:
+        return bos
+
+    # Son mum aktif/oluşuyor kabul edilerek dışarıda bırakılır.
+    kapali = df.iloc[:-1].copy()
+    if len(kapali) < 22:
+        return bos
+
+    sinyal_mumu = kapali.iloc[-1]
+    onceki = kapali.iloc[:-1]
+    onceki_20 = onceki.tail(20)
+
+    direnc = float(onceki_20["High"].max())
+    hacim_ort = float(onceki_20["Volume"].replace(0, np.nan).mean())
+    son_hacim = float(sinyal_mumu["Volume"] or 0)
+    hacim_orani = son_hacim / hacim_ort if np.isfinite(hacim_ort) and hacim_ort > 0 else 0.0
+
+    close = kapali["Close"].astype(float)
+    ema9 = close.ewm(span=9, adjust=False).mean()
+    ema21 = close.ewm(span=21, adjust=False).mean()
+    macd = close.ewm(span=12, adjust=False).mean() - close.ewm(span=26, adjust=False).mean()
+    macd_signal = macd.ewm(span=9, adjust=False).mean()
+    rsi_serisi = _rsi_serisi(close)
+
+    son_close = float(sinyal_mumu["Close"])
+    son_open = float(sinyal_mumu["Open"])
+    son_high = float(sinyal_mumu["High"])
+    son_low = float(sinyal_mumu["Low"])
+    rsi = float(rsi_serisi.iloc[-1]) if pd.notna(rsi_serisi.iloc[-1]) else 50.0
+
+    mum_araligi = max(son_high - son_low, 1e-9)
+    govde_orani = abs(son_close - son_open) / mum_araligi
+    kapanis_konumu = (son_close - son_low) / mum_araligi
+    ust_fitil_orani = (son_high - max(son_open, son_close)) / mum_araligi
+
+    kirilim = son_close > direnc
+    hacim_guclu = hacim_orani >= 1.30
+    ema_uyumu = bool(ema9.iloc[-1] > ema21.iloc[-1])
+    macd_uyumu = bool(macd.iloc[-1] > macd_signal.iloc[-1])
+    rsi_uyumu = 50 <= rsi <= 70
+    kaliteli_mum = son_close > son_open and kapanis_konumu >= 0.70 and govde_orani >= 0.45
+    sahte_kirilim = son_high > direnc and son_close <= direnc and ust_fitil_orani >= 0.30
+
+    puan = 0
+    detay = []
+
+    if kirilim:
+        puan += 25
+        detay.append("✅ Önceki 20 mum direnci kırıldı (+25)")
+    else:
+        detay.append("⚪ Önceki 20 mum direnci henüz kapanışla kırılmadı (+0)")
+
+    if hacim_guclu:
+        puan += 20
+        detay.append(f"✅ Hacim ortalamanın %{hacim_orani*100:.0f}'i (+20)")
+    elif hacim_orani >= 1.10:
+        puan += 10
+        detay.append(f"🟡 Hacim kısmen güçlü: %{hacim_orani*100:.0f} (+10)")
+    else:
+        detay.append(f"⚪ Hacim teyidi zayıf: %{hacim_orani*100:.0f} (+0)")
+
+    if ema_uyumu:
+        puan += 15
+        detay.append("✅ EMA9, EMA21 üzerinde (+15)")
+    else:
+        detay.append("⚪ EMA9/EMA21 kısa trend teyidi yok (+0)")
+
+    if macd_uyumu:
+        puan += 15
+        detay.append("✅ 5 dk MACD sinyal çizgisinin üzerinde (+15)")
+    else:
+        detay.append("⚪ 5 dk MACD teyidi yok (+0)")
+
+    if rsi_uyumu:
+        puan += 10
+        detay.append(f"✅ 5 dk RSI uygun bölgede: {rsi:.1f} (+10)")
+    elif 45 <= rsi < 50 or 70 < rsi <= 75:
+        puan += 5
+        detay.append(f"🟡 5 dk RSI sınır bölgede: {rsi:.1f} (+5)")
+    else:
+        detay.append(f"⚪ 5 dk RSI uygun değil: {rsi:.1f} (+0)")
+
+    if kaliteli_mum:
+        puan += 10
+        detay.append("✅ Mum pozitif ve üst bölgede güçlü kapandı (+10)")
+    else:
+        detay.append("⚪ Mum gövdesi/kapanış kalitesi yetersiz (+0)")
+
+    if uzun_vade_trend:
+        puan += 5
+        detay.append("✅ Günlük ana trend yukarı (+5)")
+    else:
+        detay.append("⚪ Günlük ana trend teyidi yok (+0)")
+
+    puan = int(max(0, min(100, puan)))
+    if puan >= 80:
+        seviye = "🔥 GÜÇLÜ TETİK"
+    elif puan >= 60:
+        seviye = "🟢 ERKEN TETİK"
+    elif puan >= 40:
+        seviye = "🟡 ZAYIF TETİK"
+    else:
+        seviye = "⏳ TETİK YOK"
+
+    if sahte_kirilim and puan < 80:
+        mesaj = f"❌ SAHTE KIRILIM RİSKİ · {seviye} ({puan}/100)"
+        detay.insert(0, "⚠️ Mum direnci test etti fakat altında kapandı ve üst fitil bıraktı")
+    else:
+        mesaj = f"{seviye} ({puan}/100)"
+
+    return {
+        "puan": puan,
+        "seviye": seviye,
+        "mesaj": mesaj,
+        "detay": detay,
+        "direnc": direnc,
+        "hacim_orani": hacim_orani,
+        "rsi": rsi,
+        "mum_kalitesi": kapanis_konumu,
+        "sahte_kirilim": sahte_kirilim,
+    }
+
+
 # --- GELİŞMİŞ TEKNİK / DOĞRULAMA MOTORU ---
 def _rsi_serisi(close, period=14):
     delta = close.diff()
@@ -597,6 +755,10 @@ def gelismis_teknik_panel_olustur(d):
     sinyal, veri_kaynagi = d["sinyal"], d["veri_kaynagi"]
     gunluk_degisim, ticker = d["gunluk_degisim"], d["ticker"]
     teyit = d.get("teyit", "")
+    tetik_puani = int(d.get("tetik_puani", 0) or 0)
+    tetik_seviyesi = d.get("tetik_seviyesi", "⏳ TETİK YOK")
+    tetik_detay = d.get("tetik_detay", []) or []
+    tetik_renk = "#2ecc71" if tetik_puani >= 80 else "#00d2d3" if tetik_puani >= 60 else "#f1c40f" if tetik_puani >= 40 else "#95a5a6"
 
     def kart(baslik, deger, alt, renk):
         return f'<div class="tech-card"><div class="tech-label">{baslik}</div><div class="tech-value" style="color:{renk}">{deger}</div><div class="tech-badge" style="border-color:{renk};color:{renk}">{alt}</div></div>'
@@ -615,6 +777,7 @@ def gelismis_teknik_panel_olustur(d):
         kart("MACD", f"{macd:.3f}", "Pozitif" if macd > 0 else "Negatif", "#2ecc71" if macd > 0 else "#ff4d4f"),
         kart("MACD SİNYAL", f"{macd_signal:.3f}", "Pozitif" if macd_signal > 0 else "Negatif", "#2ecc71" if macd_signal > 0 else "#ff4d4f"),
         kart("MACD HİSTOGRAM", f"{macd_hist:.3f}", "Güçleniyor" if macd_hist > 0 else "Zayıflıyor", "#2ecc71" if macd_hist > 0 else "#ff4d4f"),
+        kart("5 DK TETİK", f"{tetik_puani}/100", tetik_seviyesi, tetik_renk),
         kart("ATR (14)", f"{atr:.2f}", "Yüksek Volatilite" if atr/fiyat > .035 else "Ortalama Volatilite", "#2f80ed"),
         kart("OBV", f"{obv:,.0f}", "Yükselen" if obv > obv_ema else "Düşen", "#2ecc71" if obv > obv_ema else "#ff4d4f"),
     ])
@@ -671,6 +834,7 @@ def gelismis_teknik_panel_olustur(d):
         <div class="quad"><h4>HACİM & AKIŞ ANALİZİ</h4><div class="line"><span>Günlük Hacim</span><b>{hacim:,.0f}</b></div><div class="line"><span>Ortalama Hacim (20)</span><b>{hacim_ort:,.0f}</b></div><div class="line"><span>Hacim Oranı</span><b class="{'green' if hacim_oran>=100 else 'yellow'}">%{hacim_oran:.1f}</b></div><div class="line"><span>Para Akışı (MFI)</span><b class="yellow">{mfi:.2f}</b></div><div class="line"><span>OBV Trendi</span><b class="{'green' if obv_trend=='YÜKSELEN' else 'red'}">{obv_trend}</b></div></div>
       </div>
       <div class="analysis"><h4>ALGORİTMİK STRATEJİ VE GÖSTERGELERİN SÖZEL ANALİZİ</h4><p>📈 <b>Trend Analizi:</b> {trend_yorum}</p><p>🟣 <b>Momentum (RSI & MACD):</b> {momentum_yorum}</p><p>🟠 <b>Volatilite:</b> {volatilite_yorum}</p><p>🟢 <b>Hacim & Para Akışı:</b> {hacim_yorum}</p><p>🎯 <b>Destek & Direnç:</b> {destek:.2f} ilk güçlü destek, {direnc:.2f} ilk kritik dirençtir. 5 dakikalık teyit: {teyit}</p></div>
+      <div class="analysis"><h4>⚡ 5 DAKİKALIK TETİK PUANI NASIL OLUŞTU?</h4><p><b>Sonuç:</b> {teyit}</p><p>{"<br>".join(tetik_detay) if tetik_detay else "Alım yönlü sinyal olmadığı veya yeterli kapanmış veri bulunmadığı için tetik puanı üretilmedi."}</p><p style="color:#aaaaaa;font-size:12px;">Hesaplama yalnızca kapanmış 5 dakikalık mumları kullanır. Devam eden son mum dışarıda bırakılır.</p></div>
       <div class="actions">
         <div class="action general"><h4>🎯 GENEL DEĞERLENDİRME</h4><div class="big-signal">{genel}</div><p>Mevcut algoritmik sinyal: <b>{sinyal}</b>. Ana trend, momentum, hacim ve seviye teyitleri birlikte değerlendirilmelidir.</p></div>
         <div class="action buy"><h4 style="color:#2ecc71">↗ UZUN (ALIM) SENARYOSU</h4><p>Fiyat <b>{alis_tetik:.2f}</b> üzerinde kalıcılık sağlar, RSI 50 üzerine çıkar ve hacim ortalamayı aşarsa alım yönlü iştah güçlenebilir.</p><p><b>Hedefler:</b> {tp1:.2f} / {tp2:.2f}<br><b>Stop:</b> {stop:.2f}<br><b>Risk/Ödül:</b> {rr_alis:.2f}</p></div>
@@ -753,40 +917,160 @@ def sinyal_yonu_belirle(sinyal):
 
 
 def sinyal_kayitlarini_firestore_yaz(sonuclar, teknik_paneller):
-    """Aynı kullanıcı/ticker/saat için tek kayıt tutar; tekrar taramada günceller."""
+    """Sinyal değişim odaklı performans kaydı tutar.
+
+    - Aynı varlıkta aynı ALIM sinyali devam ediyorsa Firestore'a tekrar yazmaz.
+    - Açık pozisyon varken ALIM sinyal türü değişirse aynı performans kaydını günceller;
+      yeni bir işlem kaydı oluşturmaz.
+    - Sinyal ALIM dışına çıktığında açık pozisyonu kapatır.
+    - Yeni ALIM kaydı ancak önceki pozisyon kapandıktan sonra oluşturulur.
+
+    Bu yapı hem Firestore yazma kotasını korur hem de aynı fiyat hareketinin
+    performans istatistiğinde birden fazla bağımsız işlem gibi sayılmasını önler.
+    """
     if not db or not st.session_state.user_email:
         return
+
     simdi = datetime.now()
-    saat_anahtari = simdi.strftime("%Y%m%d_%H")
-    email_anahtari = st.session_state.user_email.replace("@", "_").replace(".", "_")
+    email = st.session_state.user_email
+    email_anahtari = email.replace("@", "_").replace(".", "_")
+
     for sonuc in sonuclar:
         ticker = sonuc.get("Varlık")
+        if not ticker:
+            continue
+
         panel = teknik_paneller.get(ticker, {})
         sinyal = sonuc.get("Nihai Sinyal", "Nötr")
         yon = sinyal_yonu_belirle(sinyal)
-        # Performans takibi yalnızca sistemin pozisyon açmayı önerdiği alım
-        # sinyalleri için tutulur. Satış/uzak dur/izleme sinyalleri arşivlenmez.
-        if yon != "ALIM" or not panel:
-            continue
-        doc_id = f"{email_anahtari}_{ticker.replace('.', '_')}_{saat_anahtari}"
-        veri = {
-            "user_email": st.session_state.user_email,
-            "ticker": ticker,
-            "sinyal": sinyal,
-            "yon": yon,
-            "giris_fiyati": float(panel.get("fiyat", 0)),
-            "son_fiyat": float(panel.get("fiyat", 0)),
-            "stop": float(panel.get("stop", 0)),
-            "tp1": float(panel.get("tp1", 0)),
-            "tp2": float(panel.get("tp2", 0)),
-            "rsi": float(panel.get("rsi", 0)),
-            "veri_kaynagi": panel.get("veri_kaynagi", ""),
-            "olusturma_zamani": simdi.isoformat(),
-            "guncelleme_zamani": simdi.isoformat(),
-            "getiri_yuzde": 0.0,
-        }
-        db.collection("sinyal_arsivi").document(doc_id).set(veri, merge=True)
+        aktif_doc_id = f"{email_anahtari}_{ticker.replace('.', '_')}"
+        aktif_ref = db.collection("aktif_sinyaller").document(aktif_doc_id)
 
+        try:
+            aktif_snap = aktif_ref.get()
+            aktif = aktif_snap.to_dict() if aktif_snap.exists else {}
+        except Exception:
+            # Aktif durum okunamazsa yanlışlıkla yeni tekrar kayıt üretmemek için
+            # bu varlığı o taramada atla.
+            continue
+
+        aktif_mi = aktif.get("durum") == "ACIK"
+        onceki_sinyal = str(aktif.get("sinyal", ""))
+        arsiv_doc_id = aktif.get("arsiv_doc_id")
+        fiyat = float(panel.get("fiyat", 0) or 0)
+
+        if yon == "ALIM" and panel and fiyat > 0:
+            # Aynı açık pozisyonda sinyal değişmediyse hiçbir yazma yapma.
+            if aktif_mi and onceki_sinyal == sinyal:
+                continue
+
+            ortak_guncel = {
+                "sinyal": sinyal,
+                "yon": "ALIM",
+                "son_fiyat": fiyat,
+                "stop": float(panel.get("stop", 0) or 0),
+                "tp1": float(panel.get("tp1", 0) or 0),
+                "tp2": float(panel.get("tp2", 0) or 0),
+                "rsi": float(panel.get("rsi", 0) or 0),
+                "tetik": panel.get("teyit", ""),
+                "tetik_puani": int(panel.get("tetik_puani", 0) or 0),
+                "hibrit_skor": int(panel.get("cezali_skor", panel.get("skor", 0)) or 0),
+                "veri_kaynagi": panel.get("veri_kaynagi", ""),
+                "guncelleme_zamani": simdi.isoformat(),
+            }
+
+            if aktif_mi and arsiv_doc_id:
+                # Pozisyon açık; sinyal seviyesi değişti. Aynı işlemi güncelle.
+                degisim_sayisi = int(aktif.get("sinyal_degisim_sayisi", 0) or 0) + 1
+                try:
+                    db.collection("sinyal_arsivi").document(arsiv_doc_id).set({
+                        **ortak_guncel,
+                        "onceki_sinyal": onceki_sinyal,
+                        "son_sinyal_degisim_zamani": simdi.isoformat(),
+                        "sinyal_degisim_sayisi": degisim_sayisi,
+                    }, merge=True)
+                    aktif_ref.set({
+                        "user_email": email,
+                        "ticker": ticker,
+                        "durum": "ACIK",
+                        "sinyal": sinyal,
+                        "arsiv_doc_id": arsiv_doc_id,
+                        "sinyal_degisim_sayisi": degisim_sayisi,
+                        "guncelleme_zamani": simdi.isoformat(),
+                    }, merge=True)
+                except Exception:
+                    pass
+                continue
+
+            # Açık pozisyon yok: tek bir yeni performans kaydı oluştur.
+            yeni_arsiv_id = f"{aktif_doc_id}_{simdi.strftime('%Y%m%d_%H%M%S_%f')}"
+            yeni_veri = {
+                "user_email": email,
+                "ticker": ticker,
+                "sinyal": sinyal,
+                "yon": "ALIM",
+                "durum": "ACIK",
+                "giris_fiyati": fiyat,
+                "son_fiyat": fiyat,
+                "stop": float(panel.get("stop", 0) or 0),
+                "tp1": float(panel.get("tp1", 0) or 0),
+                "tp2": float(panel.get("tp2", 0) or 0),
+                "rsi": float(panel.get("rsi", 0) or 0),
+                "tetik": panel.get("teyit", ""),
+                "tetik_puani": int(panel.get("tetik_puani", 0) or 0),
+                "hibrit_skor": int(panel.get("cezali_skor", panel.get("skor", 0)) or 0),
+                "veri_kaynagi": panel.get("veri_kaynagi", ""),
+                "olusturma_zamani": simdi.isoformat(),
+                "guncelleme_zamani": simdi.isoformat(),
+                "getiri_yuzde": 0.0,
+                "sinyal_degisim_sayisi": 0,
+            }
+            try:
+                db.collection("sinyal_arsivi").document(yeni_arsiv_id).set(yeni_veri)
+                aktif_ref.set({
+                    "user_email": email,
+                    "ticker": ticker,
+                    "durum": "ACIK",
+                    "sinyal": sinyal,
+                    "arsiv_doc_id": yeni_arsiv_id,
+                    "sinyal_degisim_sayisi": 0,
+                    "acilis_zamani": simdi.isoformat(),
+                    "giris_fiyati": fiyat,
+                    "guncelleme_zamani": simdi.isoformat(),
+                })
+            except Exception:
+                pass
+
+        elif aktif_mi and arsiv_doc_id:
+            # Aktif alım koşulu ortadan kalktı: pozisyon kaydını bir kez kapat.
+            giris = float(aktif.get("giris_fiyati", 0) or 0)
+            if giris <= 0:
+                try:
+                    arsiv_snap = db.collection("sinyal_arsivi").document(arsiv_doc_id).get()
+                    arsiv_veri = arsiv_snap.to_dict() if arsiv_snap.exists else {}
+                    giris = float(arsiv_veri.get("giris_fiyati", 0) or 0)
+                except Exception:
+                    giris = 0.0
+            kapanis_getiri = ((fiyat - giris) / giris * 100) if fiyat > 0 and giris > 0 else 0.0
+            try:
+                db.collection("sinyal_arsivi").document(arsiv_doc_id).set({
+                    "durum": "KAPALI",
+                    "kapanis_sinyali": sinyal,
+                    "kapanis_fiyati": fiyat,
+                    "son_fiyat": fiyat,
+                    "getiri_yuzde": kapanis_getiri,
+                    "kapanis_zamani": simdi.isoformat(),
+                    "guncelleme_zamani": simdi.isoformat(),
+                }, merge=True)
+                aktif_ref.set({
+                    "durum": "KAPALI",
+                    "sinyal": sinyal,
+                    "onceki_arsiv_doc_id": arsiv_doc_id,
+                    "arsiv_doc_id": None,
+                    "guncelleme_zamani": simdi.isoformat(),
+                }, merge=True)
+            except Exception:
+                pass
 
 def performans_kayitlarini_getir(limit=250):
     if not db or not st.session_state.user_email:
@@ -1000,7 +1284,7 @@ with st.expander("📘 Nasıl Kullanılır? — Tablo, skorlar, sinyaller ve ris
 | **Hibrit / Cezalı Skor** | Eski cezalı skor ile yeni teyit bonus ve cezalarının birleşimi | **70+ güçlü**, **50–69 nötr/karışık**, **50 altı cezalı** bölgedir; başarı olasılığı değildir. |
 | **Para Akışı** | MFI, OBV, CMF ve hacim davranışının özeti | Fiyat yükselirken para akışı zayıfsa hareketin kalıcılığı sorgulanmalıdır. |
 | **Nihai Sinyal** | Algoritmanın teknik koşullara verdiği sınıflandırma | Emir değildir; sinyal açıklaması ve risk planıyla birlikte kullanılmalıdır. |
-| **5 Dk Teyit** | Kısa vadeli fiyat–hacim davranışının sinyali destekleyip desteklemediği | “Tetik aktif” sinyali güçlendirir; teyit yokluğu acele giriş riskini artırır. |
+| **5 Dk Teyit** | Kısa vadeli fiyat–hacim davranışının sinyali destekleyip desteklemediği | 0–100 tetik puanı; kapanmış mum, gerçek direnç kırılımı, hacim, EMA, MACD, RSI ve mum kalitesini birlikte değerlendirir. 80+ güçlü, 60–79 erken, 40–59 zayıf, 40 altı tetik yoktur. |
 | **Karma Destek / Direnç** | Tepe-dip, EMA50, Bollinger ve ATR’den türetilen karar seviyeleri | Destek altı kalıcılık riski; direnç üstü hacimli kapanış yükseliş senaryosunu güçlendirir. |
 | **Süren Stop** | ATR/Chandelier mantığıyla hesaplanan teknik iptal noktası | Gap ve sert haber hareketlerinde fiyat stop seviyesini atlayabilir. |
 | **TP1 / TP2** | Giriş–stop riskinin yaklaşık 1,5 ve 3 katı hedefler | Fiyat tahmini değil, risk/ödül planlama seviyeleridir. |
@@ -1385,18 +1669,20 @@ with tab1:
                             
                         if uzun_vade_trend: boga_sayisi += 1
 
-                        mikro_teyit = "⏳ Aktif Teyit Bekleniyor"
+                        tetik_sonucu = {
+                            "puan": 0, "seviye": "⏳ TETİK YOK",
+                            "mesaj": "⏳ TETİK YOK: Alım yönlü sinyal bulunmuyor",
+                            "detay": [], "direnc": None, "hacim_orani": 0.0,
+                            "rsi": None, "mum_kalitesi": 0.0, "sahte_kirilim": False,
+                        }
+                        mikro_teyit = tetik_sonucu["mesaj"]
                         if "ALIM" in sinyal or "KIRILIM" in sinyal or "ADAY" in sinyal:
                             try:
-                                df_1h = tekil_taze_veri_cek(ticker)
-                                if not df_1h.empty and len(df_1h) >= 20:
-                                    c_1h = df_1h['Close']
-                                    v_1h = df_1h['Volume']
-                                    vol_sma_1h = v_1h.rolling(20).mean().iloc[-1]
-                                    if c_1h.iloc[-1] > c_1h.rolling(20).mean().iloc[-1] and v_1h.iloc[-1] > vol_sma_1h:
-                                        mikro_teyit = "🔥 TETİK AKTİF: Hacimli 5 Dakikalık Kırılım"
-                            except:
-                                pass
+                                df_5dk = tekil_taze_veri_cek(ticker)
+                                tetik_sonucu = tetik_puani_hesapla(df_5dk, uzun_vade_trend)
+                                mikro_teyit = tetik_sonucu["mesaj"]
+                            except Exception as tetik_hatasi:
+                                mikro_teyit = "⏳ TETİK YOK: 5 dakikalık teyit hesaplanamadı"
 
                         lot = int((bist_kasa if is_bist else nasdaq_kasa) * risk_orani / alinan_risk) if "ALIM" in sinyal or "KIRILIM" in sinyal or "ADAY" in sinyal else 0
 
@@ -1418,6 +1704,10 @@ with tab1:
                             "tp1": float(tp1), "tp2": float(tp2), "swing_low": float(swing_low), "swing_high": float(swing_high),
                             "hacim": float(bugun_hacim), "hacim_ort": float(hacim_sma20), "hacim_oran": float(hacim_oran),
                             "sektorel_fark": float(sektorel_fark), "sinyal": sinyal, "veri_kaynagi": veri_kaynagi, "teyit": mikro_teyit,
+                            "tetik_puani": int(tetik_sonucu.get("puan", 0)), "tetik_seviyesi": tetik_sonucu.get("seviye", "⏳ TETİK YOK"),
+                            "tetik_detay": tetik_sonucu.get("detay", []), "tetik_direnc": tetik_sonucu.get("direnc"),
+                            "tetik_hacim_orani": float(tetik_sonucu.get("hacim_orani", 0.0)), "tetik_rsi": tetik_sonucu.get("rsi"),
+                            "tetik_mum_kalitesi": float(tetik_sonucu.get("mum_kalitesi", 0.0)), "tetik_sahte_kirilim": bool(tetik_sonucu.get("sahte_kirilim", False)),
                             "adx": float(adx), "plus_di": float(plus_di), "minus_di": float(minus_di), "cmf": float(cmf), "ad_line": float(ad_line),
                             "supertrend": int(supertrend), "supertrend_line": float(supertrend_line), "vwap": float(vwap) if np.isfinite(vwap) else np.nan,
                             "mtf_detay": mtf_detay, "mtf_uyum": int(mtf_uyum), "guven_skoru": int(guven_skoru),
@@ -1558,7 +1848,7 @@ with tab2:
         with col_p1:
             guncelle_tiklandi = st.button("🔄 Fiyatları Güncelle", use_container_width=True)
         with col_p2:
-            st.caption("Satış, uzak dur ve izleme sinyalleri kaydedilmez. Aynı varlık için aynı saat içindeki alım sinyalleri tek kayıt tutulur.")
+            st.caption("Aynı açık pozisyon tekrar kaydedilmez. Firestore yalnızca yeni alım pozisyonu açıldığında, alım sinyali türü değiştiğinde veya pozisyon kapandığında yazılır.")
 
         kayitlar = performans_kayitlarini_getir()
         if guncelle_tiklandi and kayitlar:
@@ -1567,7 +1857,7 @@ with tab2:
             st.success("Performans tablosu güncellendi.")
 
         if not kayitlar:
-            st.info("Henüz arşivlenmiş alım sinyali yok. Derin taramada ALIM, KIRILIM veya ADAY sinyali oluştuğunda otomatik kaydedilir.")
+            st.info("Henüz arşivlenmiş alım pozisyonu yok. İlk ALIM, KIRILIM veya ADAY sinyali tek bir pozisyon kaydı açar; aynı sinyalin tekrarları yeni kayıt oluşturmaz.")
         else:
             df_perf = pd.DataFrame(kayitlar)
             for col in ["giris_fiyati", "son_fiyat", "stop", "tp1", "tp2", "getiri_yuzde"]:
@@ -1587,6 +1877,7 @@ with tab2:
             gorunum = pd.DataFrame({
                 "Tarih": pd.to_datetime(df_perf.get("olusturma_zamani"), errors="coerce").dt.strftime("%d.%m.%Y %H:%M"),
                 "Varlık": df_perf.get("ticker"),
+                "Durum": df_perf.get("durum", pd.Series(["ACIK"] * len(df_perf))),
                 "Sinyal": df_perf.get("sinyal"),
                 "Giriş": df_perf.get("giris_fiyati").round(2),
                 "Güncel": df_perf.get("son_fiyat").round(2),
