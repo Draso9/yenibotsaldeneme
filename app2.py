@@ -253,6 +253,185 @@ def canli_ohlcv_ile_guncelle(ticker, df_long):
 def tekil_taze_veri_cek(ticker):
     return intraday_veri_cek(ticker, interval="5m", period="5d")
 
+
+# --- GELİŞMİŞ TEKNİK / DOĞRULAMA MOTORU ---
+def _rsi_serisi(close, period=14):
+    delta = close.diff()
+    gain = delta.clip(lower=0).ewm(alpha=1/period, adjust=False).mean()
+    loss = (-delta.clip(upper=0)).ewm(alpha=1/period, adjust=False).mean()
+    return 100 - (100 / (1 + gain / (loss + 1e-9)))
+
+
+def adx_hesapla(df, period=14):
+    high, low, close = df['High'], df['Low'], df['Close']
+    plus_dm = high.diff().where((high.diff() > -low.diff()) & (high.diff() > 0), 0.0)
+    minus_dm = (-low.diff()).where((-low.diff() > high.diff()) & (-low.diff() > 0), 0.0)
+    tr = pd.concat([(high-low), (high-close.shift()).abs(), (low-close.shift()).abs()], axis=1).max(axis=1)
+    atr = tr.ewm(alpha=1/period, adjust=False).mean()
+    plus_di = 100 * plus_dm.ewm(alpha=1/period, adjust=False).mean() / (atr + 1e-9)
+    minus_di = 100 * minus_dm.ewm(alpha=1/period, adjust=False).mean() / (atr + 1e-9)
+    dx = 100 * (plus_di-minus_di).abs() / (plus_di+minus_di+1e-9)
+    adx = dx.ewm(alpha=1/period, adjust=False).mean()
+    return float(adx.iloc[-1]), float(plus_di.iloc[-1]), float(minus_di.iloc[-1])
+
+
+def cmf_hesapla(df, period=20):
+    denom = (df['High']-df['Low']).replace(0, np.nan)
+    mfm = ((df['Close']-df['Low'])-(df['High']-df['Close'])) / denom
+    mfv = mfm.fillna(0) * df['Volume'].fillna(0)
+    cmf = mfv.rolling(period).sum() / (df['Volume'].rolling(period).sum()+1e-9)
+    ad_line = mfv.cumsum()
+    return float(cmf.iloc[-1]) if pd.notna(cmf.iloc[-1]) else 0.0, float(ad_line.iloc[-1])
+
+
+def supertrend_hesapla(df, period=10, multiplier=3.0):
+    high, low, close = df['High'], df['Low'], df['Close']
+    tr = pd.concat([(high-low), (high-close.shift()).abs(), (low-close.shift()).abs()], axis=1).max(axis=1)
+    atr = tr.ewm(alpha=1/period, adjust=False).mean()
+    hl2 = (high+low)/2
+    upper = hl2 + multiplier*atr
+    lower = hl2 - multiplier*atr
+    final_upper, final_lower = upper.copy(), lower.copy()
+    trend = pd.Series(1, index=df.index, dtype=int)
+    for i in range(1, len(df)):
+        final_upper.iloc[i] = upper.iloc[i] if (upper.iloc[i] < final_upper.iloc[i-1] or close.iloc[i-1] > final_upper.iloc[i-1]) else final_upper.iloc[i-1]
+        final_lower.iloc[i] = lower.iloc[i] if (lower.iloc[i] > final_lower.iloc[i-1] or close.iloc[i-1] < final_lower.iloc[i-1]) else final_lower.iloc[i-1]
+        if close.iloc[i] > final_upper.iloc[i-1]: trend.iloc[i] = 1
+        elif close.iloc[i] < final_lower.iloc[i-1]: trend.iloc[i] = -1
+        else: trend.iloc[i] = trend.iloc[i-1]
+    line = final_lower if trend.iloc[-1] == 1 else final_upper
+    return int(trend.iloc[-1]), float(line.iloc[-1])
+
+
+def seans_vwap_hesapla(intraday):
+    if intraday is None or intraday.empty or not {'High','Low','Close','Volume'}.issubset(intraday.columns):
+        return np.nan
+    d = intraday.dropna(subset=['Close']).copy()
+    if d.empty: return np.nan
+    d = d[d.index.date == d.index[-1].date()]
+    tp = (d['High']+d['Low']+d['Close'])/3
+    vol = d['Volume'].fillna(0)
+    return float((tp*vol).sum()/(vol.sum()+1e-9))
+
+
+def _resample_ohlcv(df, rule):
+    if df is None or df.empty: return pd.DataFrame()
+    x = df.copy()
+    return x.resample(rule).agg({'Open':'first','High':'max','Low':'min','Close':'last','Volume':'sum'}).dropna(subset=['Close'])
+
+
+def _zaman_dilimi_karari(df):
+    if df is None or len(df) < 30: return {'yon':'VERİ YOK','puan':0}
+    c=df['Close']
+    ema9=c.ewm(span=9,adjust=False).mean().iloc[-1]
+    ema21=c.ewm(span=21,adjust=False).mean().iloc[-1]
+    rsi=float(_rsi_serisi(c).iloc[-1])
+    macd=c.ewm(span=12,adjust=False).mean()-c.ewm(span=26,adjust=False).mean()
+    ms=macd.ewm(span=9,adjust=False).mean()
+    puan=0
+    puan += 1 if c.iloc[-1]>ema21 else -1
+    puan += 1 if ema9>ema21 else -1
+    puan += 1 if macd.iloc[-1]>ms.iloc[-1] else -1
+    puan += 1 if 50<=rsi<=70 else (-1 if rsi<40 or rsi>75 else 0)
+    yon='AL' if puan>=2 else 'SAT' if puan<=-2 else 'NÖTR'
+    return {'yon':yon,'puan':puan,'rsi':rsi}
+
+
+def coklu_zaman_dilimi_analizi(intraday, daily):
+    sonuclar={}
+    if intraday is not None and not intraday.empty:
+        sonuclar['5Dk']=_zaman_dilimi_karari(intraday)
+        sonuclar['15Dk']=_zaman_dilimi_karari(_resample_ohlcv(intraday,'15min'))
+        sonuclar['1S']=_zaman_dilimi_karari(_resample_ohlcv(intraday,'60min'))
+        sonuclar['4S']=_zaman_dilimi_karari(_resample_ohlcv(intraday,'240min'))
+    sonuclar['Günlük']=_zaman_dilimi_karari(daily)
+    gecerli=[v for v in sonuclar.values() if v.get('yon')!='VERİ YOK']
+    net=sum(v.get('puan',0) for v in gecerli)
+    maxp=max(len(gecerli)*4,1)
+    uyum=round(50+50*net/maxp)
+    uyum=int(min(100,max(0,uyum)))
+    return sonuclar, uyum
+
+
+def volatilite_rejimi(fiyat, atr, hv20):
+    atrp=(atr/fiyat*100) if fiyat>0 else 0
+    if atrp>=5 or hv20>=0.75: return 'PANİK / ÇOK YÜKSEK'
+    if atrp>=3 or hv20>=0.45: return 'YÜKSEK'
+    if atrp>=1.5 or hv20>=0.25: return 'NORMAL'
+    return 'SAKİN'
+
+
+def sinyal_guven_skoru(panel, temel_skor):
+    puan=50.0
+    puan += min(12,max(-12,(temel_skor-50)*0.35))
+    puan += 8 if panel.get('adx',0)>=25 and panel.get('plus_di',0)>panel.get('minus_di',0) else (-5 if panel.get('adx',0)<18 else 0)
+    puan += 7 if panel.get('cmf',0)>0.05 else (-7 if panel.get('cmf',0)<-0.05 else 0)
+    puan += 6 if panel.get('supertrend',0)==1 else -6
+    puan += 5 if panel.get('fiyat',0)>panel.get('vwap',float('inf')) else (-3 if np.isfinite(panel.get('vwap',np.nan)) else 0)
+    puan += (panel.get('mtf_uyum',50)-50)*0.20
+    puan += 4 if panel.get('sektorel_fark',0)>0 else -3
+    puan += 3 if panel.get('risk_odul',0)>=2 else (-3 if panel.get('risk_odul',0)<1.2 else 0)
+    return int(round(min(95,max(20,puan))))
+
+
+def karar_motoru_ozeti(panel):
+    guven=int(panel.get('guven_skoru',50)); risk=panel.get('risk_seviyesi','ORTA')
+    olumlu=[]; olumsuz=[]
+    if panel.get('adx',0)>=25: olumlu.append('trend gücü yüksek')
+    else: olumsuz.append('trend gücü sınırlı')
+    if panel.get('cmf',0)>0: olumlu.append('CMF para girişini destekliyor')
+    else: olumsuz.append('CMF para akışı zayıf')
+    if panel.get('supertrend',0)==1: olumlu.append('SuperTrend yukarı')
+    else: olumsuz.append('SuperTrend aşağı')
+    if panel.get('mtf_uyum',50)>=65: olumlu.append('zaman dilimleri uyumlu')
+    elif panel.get('mtf_uyum',50)<=40: olumsuz.append('zaman dilimleri çatışıyor')
+    karar='GÜÇLÜ ALIM ADAYI' if guven>=80 and panel.get('sinyal_yonu')=='ALIM' else 'TEYİTLİ ALIM ADAYI' if guven>=65 and panel.get('sinyal_yonu')=='ALIM' else 'İZLE / TEYİT BEKLE' if guven>=45 else 'RİSKTEN KAÇIN'
+    return {'karar':karar,'guven':guven,'risk':risk,'olumlu':olumlu,'olumsuz':olumsuz}
+
+
+@st.cache_data(ttl=3600, show_spinner=False)
+def basit_backtest(ticker, period='5y'):
+    """Günlük veride ileriye bakmadan, alım sinyallerinin 5/10/20/45 gün sonrasını ölçer."""
+    try:
+        df=yf.download(ticker,period=period,progress=False,auto_adjust=False)
+        df=_normalize_yf_columns(df).dropna(subset=['Close','High','Low','Volume'])
+    except Exception:
+        return pd.DataFrame(), {}
+    if len(df)<260: return pd.DataFrame(), {}
+    c=df['Close']; v=df['Volume']
+    ema50=c.ewm(span=50,adjust=False).mean(); sma200=c.rolling(200).mean()
+    rsi=_rsi_serisi(c); macd=c.ewm(span=12,adjust=False).mean()-c.ewm(span=26,adjust=False).mean(); ms=macd.ewm(span=9,adjust=False).mean()
+    bbm=c.rolling(20).mean(); bbs=c.rolling(20).std(); bbl=bbm-2*bbs; bbu=bbm+2*bbs
+    volr=v/(v.rolling(20).mean()+1e-9)
+    prev_high=df['High'].shift(1).rolling(50).max()
+    kosul_break=(c>=prev_high)&(volr>=1.2)&(c>sma200)&(macd>ms)
+    kosul_kus=(c<=bbl)&(rsi<=35)&(c>sma200)
+    kosul_kad=(rsi<=40)&(c>sma200)&(c<=bbm)
+    kosul_aday=(c>sma200)&(c>ema50)&(macd>ms)&(rsi.between(40,68))
+    sinyal=np.select([kosul_break,kosul_kus,kosul_kad,kosul_aday],['YÜKSELİŞ KIRILIMI','KUSURSUZ ALIM','KADEMELİ ALIM','UZUN VADELİ ADAY'],'')
+    rows=[]
+    for i in np.where(sinyal!='')[0]:
+        if i+45>=len(df): continue
+        row={'Tarih':df.index[i],'Sinyal':sinyal[i],'Giriş':float(c.iloc[i])}
+        for h in [5,10,20,45]: row[f'{h}G %']=float((c.iloc[i+h]/c.iloc[i]-1)*100)
+        rows.append(row)
+    out=pd.DataFrame(rows)
+    if out.empty: return out, {}
+    stats={'sinyal':len(out),'kazanma20':float((out['20G %']>0).mean()*100),'ort20':float(out['20G %'].mean()),'medyan20':float(out['20G %'].median()),'kazanma45':float((out['45G %']>0).mean()*100),'ort45':float(out['45G %'].mean())}
+    return out,stats
+
+
+def ogrenme_profili_olustur(kayitlar):
+    if not kayitlar: return pd.DataFrame()
+    df=pd.DataFrame(kayitlar)
+    if df.empty or 'sinyal' not in df or 'getiri_yuzde' not in df: return pd.DataFrame()
+    df['getiri_yuzde']=pd.to_numeric(df['getiri_yuzde'],errors='coerce')
+    df['rsi']=pd.to_numeric(df.get('rsi'),errors='coerce')
+    df['RSI Dilimi']=pd.cut(df['rsi'],[0,30,35,40,50,60,70,100],include_lowest=True)
+    g=df.groupby(['sinyal','RSI Dilimi'],observed=True)['getiri_yuzde'].agg(['count','mean',lambda x:(x>0).mean()*100]).reset_index()
+    g.columns=['Sinyal','RSI Dilimi','Örnek','Ort. Getiri %','Başarı %']
+    return g[g['Örnek']>=3].sort_values(['Başarı %','Örnek'],ascending=False)
+
 # --- AKILLI AKSİYON REHBERİ ---
 def aksiyon_rehberi_olustur(nihai_sinyal, teyit_5dk):
     sinyal_metni = str(nihai_sinyal).upper()
@@ -792,7 +971,7 @@ with st.sidebar.expander("📋 Varlık Seçimi", expanded=True):
 
 tarama_tetiklendi = st.sidebar.button("🚀 Derin Taramayı Başlat", type="primary", use_container_width=True)
 
-tab1, tab2, tab3 = st.tabs(["🚀 Derin Tarama Merkezi", "📊 Sinyal Performans Takibi", "🎯 Opsiyon Projeksiyonu"])
+tab1, tab2, tab3, tab4 = st.tabs(["🚀 Derin Tarama Merkezi", "📊 Sinyal Performans Takibi", "🎯 Akıllı Projeksiyon", "🧪 Strateji Doğrulama"])
 
 with tab1:
     if tarama_tetiklendi:
@@ -889,7 +1068,14 @@ with tab1:
                         mfi_val = mfi.iloc[-1] if not pd.isna(mfi.iloc[-1]) else 50
                         
                         obv = np.where(df_long['Close'] > df_long['Close'].shift(1), df_long['Volume'], np.where(df_long['Close'] < df_long['Close'].shift(1), -df_long['Volume'], 0)).cumsum()
-                        obv_ema = pd.Series(obv).ewm(span=20).mean()
+                        obv_ema = pd.Series(obv, index=df_long.index).ewm(span=20, adjust=False).mean()
+
+                        # Gelişmiş teyitler: ADX, CMF, A/D, SuperTrend, VWAP ve çoklu zaman dilimi.
+                        adx, plus_di, minus_di = adx_hesapla(df_long)
+                        cmf, ad_line = cmf_hesapla(df_long)
+                        supertrend, supertrend_line = supertrend_hesapla(df_long)
+                        vwap = seans_vwap_hesapla(df_intraday)
+                        mtf_detay, mtf_uyum = coklu_zaman_dilimi_analizi(df_intraday, df_long)
                         
                         para_durumu = f"Yoğun Para Girişi 🐋 (MFI:{mfi_val:.0f})" if mfi_val >= 70 else (f"Yoğun Para Çıkışı 📉 (MFI:{mfi_val:.0f})" if mfi_val <= 30 else f"Dengeli Akış ⚖️ (MFI:{mfi_val:.0f})")
                         if is_sig_tahta: para_durumu += " | Sığ Tahta ⚠️"
@@ -916,6 +1102,15 @@ with tab1:
                         if bugun_kapanis <= bb_mid: skor += 10
                         elif bugun_kapanis >= bb_ust and rsi >= 65: skor -= 15
                         if is_sig_tahta: skor -= 20
+                        # Trend gücü, kurumsal para akışı, SuperTrend, VWAP ve MTF uyumu.
+                        if adx >= 25 and plus_di > minus_di: skor += 10
+                        elif adx < 18: skor -= 5
+                        if cmf > 0.05: skor += 8
+                        elif cmf < -0.05: skor -= 8
+                        skor += 5 if supertrend == 1 else -5
+                        if np.isfinite(vwap): skor += 5 if bugun_kapanis > vwap else -3
+                        skor += int(round((mtf_uyum - 50) * 0.16))
+                        skor = int(min(100, max(0, skor)))
 
                         skor_etiket = f"{skor} Puan (Güçlü 🟢)" if skor >= 70 else (f"{skor} Puan (Nötr ⚖️)" if skor >= 50 else f"{skor} Puan (Cezalı 🔴)")
 
@@ -948,6 +1143,10 @@ with tab1:
                         trailing_stop = max(stop_adaylari, default=bugun_kapanis - (atr * 1.5))
                         alinan_risk = max(bugun_kapanis - trailing_stop, atr * 0.75)
                         tp1, tp2 = bugun_kapanis + (alinan_risk * 1.5), bugun_kapanis + (alinan_risk * 3.0)
+                        risk_odul = (tp2 - bugun_kapanis) / max(bugun_kapanis - trailing_stop, 1e-9)
+                        risk_yuzde = (bugun_kapanis - trailing_stop) / max(bugun_kapanis, 1e-9) * 100
+                        risk_seviyesi = 'YÜKSEK' if risk_yuzde > 7 or adx < 18 else ('DÜŞÜK' if risk_yuzde < 3.5 and adx >= 25 else 'ORTA')
+                        vol_rejimi = volatilite_rejimi(bugun_kapanis, atr, hv20)
                         hibrit_tp = f"⚠️ Şişti: Kâr Al" if rsi >= 65 else f"TP1: {tp1:.2f} | TP2: {tp2:.2f}"
 
                         ema_9_val = df_long['Close'].ewm(span=9, adjust=False).mean().iloc[-1]
@@ -998,6 +1197,14 @@ with tab1:
 
                         lot = int((bist_kasa if is_bist else nasdaq_kasa) * risk_orani / alinan_risk) if "ALIM" in sinyal or "KIRILIM" in sinyal or "ADAY" in sinyal else 0
 
+                        panel_ek = {
+                            'fiyat': float(bugun_kapanis), 'adx': adx, 'plus_di': plus_di, 'minus_di': minus_di,
+                            'cmf': cmf, 'supertrend': supertrend, 'vwap': vwap, 'mtf_uyum': mtf_uyum,
+                            'sektorel_fark': float(sektorel_fark), 'risk_odul': float(risk_odul),
+                            'risk_seviyesi': risk_seviyesi, 'sinyal_yonu': sinyal_yonu_belirle(sinyal)
+                        }
+                        guven_skoru = sinyal_guven_skoru(panel_ek, skor)
+
                         gecici_teknik_paneller[ticker] = {
                             "ticker": ticker, "fiyat": float(bugun_kapanis), "gunluk_degisim": float(gunluk_degisim),
                             "ema9": float(ema_9_val), "ema21": float(ema_21_val), "ema50": float(ema_50_val), "sma200": float(sma_200),
@@ -1007,7 +1214,12 @@ with tab1:
                             "destek": float(karma_destek), "direnc": float(karma_direnc), "stop": float(trailing_stop),
                             "tp1": float(tp1), "tp2": float(tp2), "swing_low": float(swing_low), "swing_high": float(swing_high),
                             "hacim": float(bugun_hacim), "hacim_ort": float(hacim_sma20), "hacim_oran": float(hacim_oran),
-                            "sektorel_fark": float(sektorel_fark), "sinyal": sinyal, "veri_kaynagi": veri_kaynagi, "teyit": mikro_teyit
+                            "sektorel_fark": float(sektorel_fark), "sinyal": sinyal, "veri_kaynagi": veri_kaynagi, "teyit": mikro_teyit,
+                            "adx": float(adx), "plus_di": float(plus_di), "minus_di": float(minus_di), "cmf": float(cmf), "ad_line": float(ad_line),
+                            "supertrend": int(supertrend), "supertrend_line": float(supertrend_line), "vwap": float(vwap) if np.isfinite(vwap) else np.nan,
+                            "mtf_detay": mtf_detay, "mtf_uyum": int(mtf_uyum), "guven_skoru": int(guven_skoru),
+                            "risk_odul": float(risk_odul), "risk_yuzde": float(risk_yuzde), "risk_seviyesi": risk_seviyesi, "volatilite_rejimi": vol_rejimi,
+                            "sinyal_yonu": sinyal_yonu_belirle(sinyal), "cezali_skor": int(skor)
                         }
 
                         gecici_sozlu_analizler[ticker] = sozlu_teknik_analiz_olustur(
@@ -1022,7 +1234,7 @@ with tab1:
 
                         gecici_sonuclar.append({
                             "Varlık": ticker, "Fiyat": fiyat_str, "Görec. Güç (Sektör)": gorec_guc_str,
-                            "7'li Cezalı Skor": skor_etiket, "Para Akışı (OBV/MFI)": para_durumu,
+                            "Gelişmiş Skor": skor_etiket, "Güven": f"%{guven_skoru}", "MTF Uyum": f"%{mtf_uyum}", "Risk": risk_seviyesi, "Para Akışı": para_durumu,
                             "Temel Veri": "Değerlendirildi", "Nihai Sinyal": sinyal, "↓ Zamanlama (5Dk Teyit)": mikro_teyit, "Veri Kaynağı": veri_kaynagi,
                             "Karma Destek": f"{karma_destek:.2f}", "Karma Direnç": f"{karma_direnc:.2f}",
                             "Süren Stop": f"{trailing_stop:.2f}", "Hibrit Kâr Al (TP)": hibrit_tp, "Önerilen Lot": f"{lot} Adet" if lot > 0 else "0"
@@ -1079,6 +1291,17 @@ with tab1:
                     panel_verisi = st.session_state.teknik_paneller.get(secilen_detay_hisse)
                     if panel_verisi:
                         st.markdown(gelismis_teknik_panel_olustur(panel_verisi), unsafe_allow_html=True)
+                        karar = karar_motoru_ozeti(panel_verisi)
+                        st.markdown("### 🧠 Şeffaf Karar Motoru")
+                        k1,k2,k3,k4 = st.columns(4)
+                        k1.metric("Karar", karar['karar'])
+                        k2.metric("Algoritma Güveni", f"%{karar['guven']}")
+                        k3.metric("Risk", karar['risk'])
+                        k4.metric("MTF Uyum", f"%{panel_verisi.get('mtf_uyum',50)}")
+                        st.markdown(f"**Olumlu teyitler:** {', '.join(karar['olumlu']) or 'Yeterli teyit yok'}  \n**Riskler:** {', '.join(karar['olumsuz']) or 'Belirgin ek risk yok'}")
+                        mtf = panel_verisi.get('mtf_detay', {})
+                        if mtf:
+                            st.caption(" · ".join([f"{k}: {v.get('yon')}" for k,v in mtf.items()]))
                         hisse_satiri = df_sonuc[df_sonuc["Varlık"] == secilen_detay_hisse]
                         anlik_sinyal = hisse_satiri["Nihai Sinyal"].values[0] if not hisse_satiri.empty else "Nötr (İzle)"
                         anlik_teyit = hisse_satiri["↓ Zamanlama (5Dk Teyit)"].values[0] if not hisse_satiri.empty else ""
@@ -1143,6 +1366,13 @@ with tab2:
                 return [bg] * len(row)
 
             st.dataframe(gorunum.style.apply(perf_renk, axis=1), use_container_width=True, height=430)
+            profil = ogrenme_profili_olustur(kayitlar)
+            st.markdown("### 🧬 Öğrenen Performans Profili")
+            if profil.empty:
+                st.info("Uyarlanabilir eşik önerisi için aynı sinyal/RSI diliminde en az 3 tamamlanmış kayıt gerekir. Otomatik eşik değişikliği, örnek sayısı 30'a ulaşmadan yapılmaz.")
+            else:
+                st.dataframe(profil, use_container_width=True, hide_index=True)
+                st.caption("Bu tablo sistemin hangi sinyal ve RSI bölgelerinde daha iyi sonuç verdiğini gösterir; küçük örneklemde otomatik karar değiştirmez.")
 
 with tab3:
     st.subheader("🎯 Akıllı Projeksiyon Motoru")
@@ -1239,3 +1469,26 @@ with tab3:
                 "tabanlı fiyat hareketi tahminidir; güven skoru istatistiksel olasılık değil, model uyum göstergesidir."
             )
 
+
+
+with tab4:
+    st.subheader("🧪 Strateji Doğrulama ve Backtest")
+    st.markdown("Mevcut alım koşullarını geçmiş günlük veride ileriye bakmadan test eder. Sonuçlar yatırım garantisi değil, strateji geliştirme ölçümüdür.")
+    bt_ticker = st.selectbox("Backtest varlığı", options=tum_varliklar_havuzu, key="bt_ticker")
+    bt_period = st.selectbox("Geçmiş aralığı", ["3y","5y","10y"], index=1, key="bt_period")
+    if st.button("🧪 Backtest Çalıştır", type="primary"):
+        with st.spinner("Geçmiş sinyaller ve ileri dönem getirileri hesaplanıyor..."):
+            bt, stats = basit_backtest(bt_ticker, bt_period)
+        if bt.empty:
+            st.warning("Backtest için yeterli veri veya sinyal bulunamadı.")
+        else:
+            q1,q2,q3,q4 = st.columns(4)
+            q1.metric("Toplam Sinyal", stats['sinyal'])
+            q2.metric("20G Kazanma", f"%{stats['kazanma20']:.1f}")
+            q3.metric("20G Ort. Getiri", f"%{stats['ort20']:.2f}")
+            q4.metric("45G Kazanma", f"%{stats['kazanma45']:.1f}")
+            st.dataframe(bt.sort_values('Tarih',ascending=False).head(300), use_container_width=True, hide_index=True)
+            st.markdown("### Sinyal türüne göre sonuç")
+            ozet=bt.groupby('Sinyal').agg(Örnek=('Sinyal','size'), Kazanma_20G=('20G %',lambda x:(x>0).mean()*100), Ort_20G=('20G %','mean'), Ort_45G=('45G %','mean')).reset_index()
+            st.dataframe(ozet, use_container_width=True, hide_index=True)
+            st.caption("Komisyon, vergi, kayma ve gün içi stop/TP sıralaması bu hızlı doğrulamada modellenmez. Profesyonel değerlendirmede walk-forward ve out-of-sample test eklenmelidir.")
