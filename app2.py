@@ -440,6 +440,110 @@ def tetik_puani_hesapla(intraday, uzun_vade_trend):
     }
 
 
+def giris_motoru_hesapla(intraday_5dk, uzun_vade_trend):
+    """5 dk, 15 dk ve 1 saat verisini birleştirerek 0-100 Giriş Kalitesi üretir.
+
+    5 dakika kısa vadeli hareketin başladığını, 15 dakika hareketin genişleyip
+    genişlemediğini, 1 saat ise girişin daha büyük zaman dilimiyle uyumunu ölçer.
+    Kapanmamış mumlar her zaman diliminde tetik_puani_hesapla tarafından dışlanır.
+    """
+    uygulanmaz = {
+        "puan": 0, "seviye": "— UYGULANMAZ",
+        "mesaj": "— Giriş motoru değerlendirilmez: alım yönlü sinyal yok",
+        "detay": ["Giriş kalitesi yalnızca alım yönlü ön sinyallerde hesaplanır."],
+        "zaman_dilimleri": {}, "asama": "UYGULANMAZ",
+        "direnc": None, "hacim_orani": 0.0, "rsi": None,
+        "mum_kalitesi": 0.0, "sahte_kirilim": False,
+    }
+    if intraday_5dk is None or intraday_5dk.empty:
+        sonuc = uygulanmaz.copy()
+        sonuc.update({"seviye":"⏳ VERİ BEKLENİYOR", "mesaj":"⏳ Giriş motoru için gün içi veri bulunamadı", "asama":"VERİ YOK"})
+        return sonuc
+
+    zamanlar = {
+        "5 Dk": intraday_5dk,
+        "15 Dk": _resample_ohlcv(intraday_5dk, "15min"),
+        "1 Saat": _resample_ohlcv(intraday_5dk, "60min"),
+    }
+    agirliklar = {"5 Dk": 0.40, "15 Dk": 0.35, "1 Saat": 0.25}
+    sonuclar = {}
+    kullanilan_agirlik = 0.0
+    agirlikli_toplam = 0.0
+
+    for ad, veri in zamanlar.items():
+        sonuc = tetik_puani_hesapla(veri, uzun_vade_trend)
+        yeterli = veri is not None and not veri.empty and len(veri) >= 24 and sonuc.get("direnc") is not None
+        sonuc["yeterli_veri"] = bool(yeterli)
+        sonuclar[ad] = sonuc
+        if yeterli:
+            w = agirliklar[ad]
+            kullanilan_agirlik += w
+            agirlikli_toplam += float(sonuc.get("puan", 0)) * w
+
+    if kullanilan_agirlik <= 0:
+        sonuc = uygulanmaz.copy()
+        sonuc.update({"seviye":"⏳ VERİ BEKLENİYOR", "mesaj":"⏳ Giriş motoru için yeterli kapanmış mum yok", "zaman_dilimleri":sonuclar, "asama":"VERİ YOK"})
+        return sonuc
+
+    puan = int(round(agirlikli_toplam / kullanilan_agirlik))
+    p5 = int(sonuclar["5 Dk"].get("puan", 0))
+    p15 = int(sonuclar["15 Dk"].get("puan", 0))
+    p60 = int(sonuclar["1 Saat"].get("puan", 0))
+
+    # Üst zaman dilimleri kısa vadeli hareketi teyit ediyorsa küçük uyum bonusu.
+    if sonuclar["15 Dk"].get("yeterli_veri") and sonuclar["1 Saat"].get("yeterli_veri"):
+        if p15 >= 60 and p60 >= 60:
+            puan += 5
+        elif p5 >= 75 and p15 < 40 and p60 < 40:
+            puan -= 12
+
+    sahte = any(bool(v.get("sahte_kirilim", False)) for v in sonuclar.values())
+    if sahte:
+        puan -= 8
+    puan = int(max(0, min(100, puan)))
+
+    if puan >= 85 and p15 >= 70 and p60 >= 60:
+        seviye, asama = "🔵 TEYİT EDİLDİ", "TEYİT EDİLDİ"
+    elif puan >= 75:
+        seviye, asama = "🔥 GÜÇLÜ GİRİŞ", "GÜÇLÜ"
+    elif puan >= 55:
+        seviye, asama = "🟢 ERKEN GİRİŞ", "ERKEN"
+    elif puan >= 35:
+        seviye, asama = "🟡 HAZIRLANIYOR", "HAZIRLANIYOR"
+    else:
+        seviye, asama = "⏳ GİRİŞ UYGUN DEĞİL", "YOK"
+
+    if p5 >= 75 and p15 < 45 and p60 < 45:
+        seviye = "⚠️ KISA VADELİ TEPKİ RİSKİ"
+        asama = "UYUMSUZ"
+
+    detay = [
+        f"⏱️ 5 dk zamanlama puanı: {p5}/100",
+        f"🕒 15 dk teyit puanı: {p15}/100",
+        f"🧭 1 saat trend teyidi: {p60}/100",
+    ]
+    if p15 >= 60 and p60 >= 60:
+        detay.append("✅ Üst zaman dilimleri kısa vadeli hareketi destekliyor")
+    elif p5 >= 75 and p15 < 40 and p60 < 40:
+        detay.append("⚠️ 5 dk güçlü fakat 15 dk ve 1 saat uyumsuz; kısa tepki olabilir")
+    else:
+        detay.append("🟡 Zaman dilimleri arasında tam uyum henüz oluşmadı")
+    if sahte:
+        detay.append("⚠️ En az bir zaman diliminde sahte kırılım riski tespit edildi")
+
+    mesaj = f"{seviye} · Giriş Kalitesi {puan}/100 (5D:{p5} · 15D:{p15} · 1S:{p60})"
+    referans = sonuclar.get("5 Dk", {})
+    return {
+        "puan": puan, "seviye": seviye, "mesaj": mesaj, "detay": detay,
+        "zaman_dilimleri": sonuclar, "asama": asama,
+        "direnc": referans.get("direnc"),
+        "hacim_orani": float(referans.get("hacim_orani", 0.0) or 0.0),
+        "rsi": referans.get("rsi"),
+        "mum_kalitesi": float(referans.get("mum_kalitesi", 0.0) or 0.0),
+        "sahte_kirilim": sahte,
+    }
+
+
 # --- GELİŞMİŞ TEKNİK / DOĞRULAMA MOTORU ---
 def _rsi_serisi(close, period=14):
     delta = close.diff()
@@ -769,7 +873,7 @@ def teknik_seviyeler_hesapla(df, fiyat, atr, ema50, bb_alt, bb_mid, bb_ust, hv20
 
 def nihai_karar_motoru(on_sinyal, skor, tetik_puani, fiyat, ema9, ema21, ema50,
                        sma200, rsi, macd, macd_sinyal, cmf, mfi, bb_ust, adx):
-    """Trend, momentum, risk ve 5 dk tetik çelişkilerini tek bir nihai kararda çözer."""
+    """Trend, momentum, risk ve giriş kalitesi çelişkilerini tek bir nihai kararda çözer."""
     trend_guclu = fiyat > sma200 and fiyat > ema50 and ema9 > ema21
     momentum_pozitif = macd > macd_sinyal and cmf >= 0
     asiri_isinmis = rsi >= 68 and fiyat >= bb_ust * 0.995
@@ -866,9 +970,9 @@ def gelismis_teknik_panel_olustur(d):
     hacim, hacim_ort, hacim_oran = float(d["hacim"]), float(d["hacim_ort"]), float(d["hacim_oran"])
     sinyal, veri_kaynagi = str(d["sinyal"]), str(d["veri_kaynagi"])
     gunluk_degisim, ticker = float(d["gunluk_degisim"]), str(d["ticker"])
-    tetik_puani = int(d.get("tetik_puani", 0) or 0)
-    tetik_seviyesi = str(d.get("tetik_seviyesi", "⏳ TETİK YOK"))
-    tetik_detay = d.get("tetik_detay", []) or []
+    tetik_puani = int(d.get("giris_puani", d.get("tetik_puani", 0)) or 0)
+    tetik_seviyesi = str(d.get("giris_seviyesi", d.get("tetik_seviyesi", "⏳ GİRİŞ UYGUN DEĞİL")))
+    tetik_detay = d.get("giris_detay", d.get("tetik_detay", [])) or []
     skor = int(d.get("nihai_skor", d.get("skor", 0)) or 0)
     guven = int(d.get("guven_skoru", 0) or 0)
 
@@ -906,12 +1010,12 @@ def gelismis_teknik_panel_olustur(d):
         metric("🧭", "EMA 50 / SMA 200", f"{ema50:.2f} / {sma200:.2f}", trend_uzun, trend_uzun_cls),
         metric("⚡", "RSI (14)", f"{rsi:.2f}", rsi_txt, rsi_cls),
         metric("📊", "MACD Histogram", f"{macd_hist:.3f}", macd_txt, macd_cls),
-        metric("🔥", "5 Dk Tetik", f"{tetik_puani}/100", tetik_seviyesi, tetik_cls),
+        metric("🎯", "Giriş Kalitesi", f"{tetik_puani}/100", tetik_seviyesi, tetik_cls),
         metric("💧", "MFI / OBV", f"{mfi:.1f} / {obv:,.0f}", obv_txt, obv_cls),
         metric("🌊", "ATR (14)", f"{atr:.2f}", "Yüksek oynaklık" if atr/max(fiyat,1e-9) > .035 else "Normal oynaklık", "uyari" if atr/max(fiyat,1e-9) > .035 else "notr"),
     ])
 
-    tetik_list = "".join(f"<li>{x}</li>" for x in tetik_detay[:7]) or "<li>Henüz yeterli 5 dakikalık teyit bulunmuyor.</li>"
+    tetik_list = "".join(f"<li>{x}</li>" for x in tetik_detay[:7]) or "<li>Henüz yeterli çok zaman dilimli giriş teyidi bulunmuyor.</li>"
     karar_cls = "pozitif" if any(x in sinyal for x in ["ALIM", "KIRILIM", "ADAY"]) else "negatif" if any(x in sinyal for x in ["UZAK DUR", "KAR REALİZASYONU"]) else "uyari"
     yildiz = lambda n: "★"*max(1,min(5,n)) + "☆"*(5-max(1,min(5,n)))
     bollinger_konum = "Üst banda yakın" if fiyat >= bb_ust*.985 else "Alt banda yakın" if fiyat <= bb_alt*1.015 else "Bant içinde"
@@ -964,7 +1068,7 @@ def gelismis_teknik_panel_olustur(d):
           <div class="hp-row"><span>R1 — İlk direnç</span><b>{r1:.2f}</b></div><div class="hp-row"><span>R2 — İkinci direnç</span><b>{r2:.2f}</b></div><div class="hp-row"><span>R3 — Trend direnci</span><b>{r3:.2f}</b></div>
           <div class="hp-row"><span>Teknik stop</span><b class="hp-negative">{stop:.2f}</b></div>
         </div>
-        <div class="hp-section"><h4>🔥 5 dakikalık tetik ayrıntısı</h4><div class="hp-row"><span>Puan</span><b>{tetik_puani}/100</b></div><div class="hp-row"><span>Seviye</span><b>{tetik_seviyesi}</b></div><ul class="hp-trigger-list">{tetik_list}</ul></div>
+        <div class="hp-section"><h4>🎯 Çok zaman dilimli giriş motoru</h4><div class="hp-row"><span>Puan</span><b>{tetik_puani}/100</b></div><div class="hp-row"><span>Seviye</span><b>{tetik_seviyesi}</b></div><ul class="hp-trigger-list">{tetik_list}</ul></div>
       </div>
       <div class="hp-section" style="margin-top:10px"><h4>🎯 Teknik kâr hedefleri</h4><div class="hp-target">
         <div class="hp-target-card"><span>TP1 — Yakın hedef</span><strong>{tp1:.2f}</strong><div class="hp-stars">{yildiz(tp1_y)}</div></div>
@@ -972,7 +1076,7 @@ def gelismis_teknik_panel_olustur(d):
         <div class="hp-target-card"><span>TP3 — Agresif trend</span><strong>{tp3:.2f}</strong><div class="hp-stars">{yildiz(tp3_y)}</div></div>
       </div></div>
       <div class="hp-comment"><b>🧠 Algoritmik yorum:</b> Fiyat {ana_yorum}. Kısa vadede EMA 9 {kisa_yorum}, RSI {rsi:.1f} ve MACD histogramı {macd_hist:.3f}. Hacim 20 günlük ortalamanın %{hacim_oran:.0f} seviyesinde; fiyatın {s1:.2f}–{r1:.2f} karar aralığındaki davranışı yönün devamı açısından önemlidir.</div>
-      <div class="hp-decision"><div class="hp-decision-title">🧭 Nihai karar: <span class="hp-pill {karar_cls}">{sinyal}</span></div><div>Hibrit skor: <b>{skor}/100</b> · Algoritma güveni: <b>%{guven}</b> · 5 dk tetik: <b>{tetik_puani}/100</b></div><div class="hp-small" style="margin-top:6px">Bu panel teknik karar desteğidir; emir veya getiri garantisi değildir.</div></div>
+      <div class="hp-decision"><div class="hp-decision-title">🧭 Nihai karar: <span class="hp-pill {karar_cls}">{sinyal}</span></div><div>Hibrit skor: <b>{skor}/100</b> · Algoritma güveni: <b>%{guven}</b> · Giriş kalitesi: <b>{tetik_puani}/100</b></div><div class="hp-small" style="margin-top:6px">Bu panel teknik karar desteğidir; emir veya getiri garantisi değildir.</div></div>
     </div>
     """
 
@@ -1382,7 +1486,7 @@ with st.expander("📘 Nasıl Kullanılır? — Tablo, skorlar, sinyaller ve ris
     st.markdown("### 1) Önerilen kullanım sırası")
     st.markdown("""
 1. **Varlıkları seçin ve Derin Taramayı çalıştırın.** İlk tarama; trendi, skoru, para akışını ve sinyali aynı tabloda karşılaştırır.  
-2. **Sadece sinyal adına bakmayın.** Gelişmiş skor, risk seviyesi, MTF uyumu, veri kaynağı ve 5 dakikalık teyidi birlikte okuyun.  
+2. **Sadece sinyal adına bakmayın.** Gelişmiş skor, risk seviyesi, MTF uyumu, veri kaynağı ve çok zaman dilimli giriş kalitesini birlikte okuyun.  
 3. **Detay panelinde göstergelerin birbiriyle uyumunu kontrol edin.** RSI düşükken MACD ve para akışı hâlâ zayıfsa dönüş teyidi tamamlanmamış olabilir.  
 4. **Destek, stop ve hedefleri işlemden önce belirleyin.** Önerilen lot, seçtiğiniz kasa ve risk oranına göre hesaplanır; körü körüne uygulanmamalıdır.  
 5. **Sinyal performansı ve backtest sonuçlarını izleyin.** Stratejinin hangi piyasa ve RSI bölgelerinde daha iyi çalıştığını zaman içinde ölçün.
@@ -1397,7 +1501,7 @@ with st.expander("📘 Nasıl Kullanılır? — Tablo, skorlar, sinyaller ve ris
 | **Hibrit / Cezalı Skor** | Eski cezalı skor ile yeni teyit bonus ve cezalarının birleşimi | **70+ güçlü**, **50–69 nötr/karışık**, **50 altı cezalı** bölgedir; başarı olasılığı değildir. |
 | **Para Akışı** | MFI, OBV, CMF ve hacim davranışının özeti | Fiyat yükselirken para akışı zayıfsa hareketin kalıcılığı sorgulanmalıdır. |
 | **Nihai Sinyal** | Algoritmanın teknik koşullara verdiği sınıflandırma | Emir değildir; sinyal açıklaması ve risk planıyla birlikte kullanılmalıdır. |
-| **5 Dk Teyit** | Kısa vadeli fiyat–hacim davranışının sinyali destekleyip desteklemediği | 0–100 tetik puanı; kapanmış mum, gerçek direnç kırılımı, hacim, EMA, MACD, RSI ve mum kalitesini birlikte değerlendirir. 80+ güçlü, 60–79 erken, 40–59 zayıf, 40 altı tetik yoktur. |
+| **Giriş Kalitesi** | 5 dk, 15 dk ve 1 saat zamanlamasının alım ön sinyalini destekleyip desteklemediği | 5 dk hareketin başlangıcını, 15 dk devam teyidini, 1 saat ana yön uyumunu ölçer. 85+ ve üst zaman dilimi teyidi varsa “Teyit Edildi”; 75+ güçlü, 55+ erken, 35+ hazırlanıyor, altı uygun değil olarak sınıflanır. |
 | **Karma Destek / Direnç** | Tepe-dip, EMA50, Bollinger ve ATR’den türetilen karar seviyeleri | Destek altı kalıcılık riski; direnç üstü hacimli kapanış yükseliş senaryosunu güçlendirir. |
 | **Süren Stop** | ATR/Chandelier mantığıyla hesaplanan teknik iptal noktası | Gap ve sert haber hareketlerinde fiyat stop seviyesini atlayabilir. |
 | **TP1 / TP2 / TP3** | Giriş–stop riskinin gerçek teknik direnç ve volatilite seviyeleri | Fiyat tahmini değil, risk/ödül planlama seviyeleridir. |
@@ -1780,8 +1884,9 @@ with tab1:
                         alim_yonlu_on_sinyal = any(x in on_sinyal for x in ["ALIM", "KIRILIM", "ADAY"])
                         tetik_sonucu = {
                             "puan": 0, "seviye": "— UYGULANMAZ",
-                            "mesaj": "— Tetik değerlendirilmez: alım yönlü sinyal yok",
-                            "detay": ["5 dakikalık tetik yalnızca alım yönlü sinyaller için hesaplanır."],
+                            "mesaj": "— Giriş motoru değerlendirilmez: alım yönlü sinyal yok",
+                            "detay": ["Giriş kalitesi yalnızca alım yönlü ön sinyallerde hesaplanır."],
+                            "zaman_dilimleri": {}, "asama": "UYGULANMAZ",
                             "direnc": None, "hacim_orani": 0.0,
                             "rsi": None, "mum_kalitesi": 0.0, "sahte_kirilim": False,
                         }
@@ -1789,10 +1894,10 @@ with tab1:
                         if alim_yonlu_on_sinyal:
                             try:
                                 df_5dk = tekil_taze_veri_cek(ticker)
-                                tetik_sonucu = tetik_puani_hesapla(df_5dk, uzun_vade_trend)
+                                tetik_sonucu = giris_motoru_hesapla(df_5dk, uzun_vade_trend)
                                 mikro_teyit = tetik_sonucu["mesaj"]
                             except Exception:
-                                mikro_teyit = "⚠️ Teyit verisi alınamadı"
+                                mikro_teyit = "⚠️ Giriş motoru verisi alınamadı"
 
                         sinyal = nihai_karar_motoru(
                             on_sinyal, skor, int(tetik_sonucu.get("puan", 0)), bugun_kapanis,
@@ -1826,6 +1931,9 @@ with tab1:
                             "tetik_detay": tetik_sonucu.get("detay", []), "tetik_direnc": tetik_sonucu.get("direnc"),
                             "tetik_hacim_orani": float(tetik_sonucu.get("hacim_orani", 0.0)), "tetik_rsi": tetik_sonucu.get("rsi"),
                             "tetik_mum_kalitesi": float(tetik_sonucu.get("mum_kalitesi", 0.0)), "tetik_sahte_kirilim": bool(tetik_sonucu.get("sahte_kirilim", False)),
+                            "giris_puani": int(tetik_sonucu.get("puan", 0)), "giris_seviyesi": tetik_sonucu.get("seviye", "⏳ GİRİŞ UYGUN DEĞİL"),
+                            "giris_asamasi": tetik_sonucu.get("asama", "YOK"), "giris_zaman_dilimleri": tetik_sonucu.get("zaman_dilimleri", {}),
+                            "giris_detay": tetik_sonucu.get("detay", []),
                             "adx": float(adx), "plus_di": float(plus_di), "minus_di": float(minus_di), "cmf": float(cmf), "ad_line": float(ad_line),
                             "supertrend": int(supertrend), "supertrend_line": float(supertrend_line), "vwap": float(vwap) if np.isfinite(vwap) else np.nan,
                             "mtf_detay": mtf_detay, "mtf_uyum": int(mtf_uyum), "guven_skoru": int(guven_skoru),
@@ -1848,7 +1956,7 @@ with tab1:
                         gecici_sonuclar.append({
                             "Varlık": ticker, "Fiyat": fiyat_str, "Görec. Güç (Sektör)": gorec_guc_str,
                             "Gelişmiş Skor": skor_etiket, "Güven": f"%{guven_skoru}", "MTF Uyum": f"%{mtf_uyum}", "Risk": risk_seviyesi, "Para Akışı": para_durumu,
-                            "Temel Veri": "Değerlendirildi", "Nihai Sinyal": sinyal, "↓ Zamanlama (5Dk Teyit)": mikro_teyit, "Veri Kaynağı": veri_kaynagi,
+                            "Temel Veri": "Değerlendirildi", "Nihai Sinyal": sinyal, "🎯 Giriş Kalitesi": mikro_teyit, "Veri Kaynağı": veri_kaynagi,
                             "Karma Destek": f"{karma_destek:.2f}", "Karma Direnç": f"{karma_direnc:.2f}",
                             "Süren Stop": f"{trailing_stop:.2f}", "Teknik Hedefler": hibrit_tp
                         })
@@ -1950,7 +2058,7 @@ with tab1:
                             st.caption(" · ".join([f"{k}: {v.get('yon')}" for k,v in mtf.items()]))
                         hisse_satiri = df_sonuc[df_sonuc["Varlık"] == secilen_detay_hisse]
                         anlik_sinyal = hisse_satiri["Nihai Sinyal"].values[0] if not hisse_satiri.empty else "Nötr (İzle)"
-                        anlik_teyit = hisse_satiri["↓ Zamanlama (5Dk Teyit)"].values[0] if not hisse_satiri.empty else ""
+                        anlik_teyit = hisse_satiri["🎯 Giriş Kalitesi"].values[0] if not hisse_satiri.empty else ""
                         st.markdown(aksiyon_rehberi_olustur(anlik_sinyal, anlik_teyit), unsafe_allow_html=True)
                     else:
                         st.info("Bu varlık için teknik panel verisi bulunamadı. Derin taramayı yeniden çalıştırın.")
