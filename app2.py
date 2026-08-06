@@ -221,7 +221,7 @@ def canli_ohlcv_ile_guncelle(ticker, df_long):
     mumlarının toplamından alınır.
     """
     df = df_long.copy().sort_index()
-    kaynak = "Yahoo günlük"
+    kaynak = "Yahoo günlük (fallback)"
     quote = finnhub_quote_cek(ticker)
     intraday = intraday_veri_cek(ticker, interval="5m", period="5d")
 
@@ -237,7 +237,10 @@ def canli_ohlcv_ile_guncelle(ticker, df_long):
             l = float(seans_rows["Low"].min())
             c = float(seans_rows["Close"].dropna().iloc[-1])
             v = float(seans_rows["Volume"].fillna(0).sum())
-            kaynak = "Yahoo 5dk"
+            if ticker.endswith(".IS"):
+                kaynak = "Yahoo 5 dk (BIST)"
+            else:
+                kaynak = "Yahoo 5 dk (Finnhub kullanılamadı)"
 
             if quote and quote.get("close", 0) > 0:
                 c = quote["close"]
@@ -247,7 +250,7 @@ def canli_ohlcv_ile_guncelle(ticker, df_long):
                     h = max(h, quote["high"])
                 if quote.get("low", 0) > 0:
                     l = min(l, quote["low"])
-                kaynak = "Finnhub + Yahoo 5dk"
+                kaynak = "Finnhub fiyat + Yahoo 5 dk OHLCV"
 
             last_daily_date = pd.Timestamp(df.index[-1]).date()
             if last_daily_date == seans_tarihi:
@@ -271,7 +274,7 @@ def canli_ohlcv_ile_guncelle(ticker, df_long):
         for col, key in [("Open", "open"), ("High", "high"), ("Low", "low"), ("Close", "close")]:
             if col in df.columns and quote.get(key, 0) > 0:
                 df.loc[target_idx, col] = quote[key]
-        kaynak = "Finnhub quote"
+        kaynak = "Finnhub quote (hacim yok)"
 
     return df, intraday, kaynak
 
@@ -1304,10 +1307,27 @@ _SESSION_DEFAULTS = {
     "alim_firsati": 0,
     "aktif_profil": "Kendi Listem",
     "secilen_varliklar": VARSAYILAN_TICKERS.copy(),
+    "kullanici_listesi_yuklendi": False,
 }
 for _key, _default in _SESSION_DEFAULTS.items():
     if _key not in st.session_state:
         st.session_state[_key] = _default.copy() if hasattr(_default, "copy") else _default
+
+# Kullanıcının Firebase'de kayıtlı özel listesini her oturumda yalnızca bir kez yükle.
+# Deploy/yeniden başlatma sonrasında session_state sıfırlansa bile kişisel liste geri gelir.
+if st.session_state.user_email and db and not st.session_state.kullanici_listesi_yuklendi:
+    try:
+        _liste_doc = db.collection("kullanici_listeleri").document(st.session_state.user_email).get()
+        if _liste_doc.exists:
+            _kayitli_tickerlar = (_liste_doc.to_dict() or {}).get("tickers", [])
+            if isinstance(_kayitli_tickerlar, list) and _kayitli_tickerlar:
+                st.session_state.custom_tickers = [str(x).upper() for x in _kayitli_tickerlar]
+                if st.session_state.aktif_profil == "Kendi Listem":
+                    st.session_state.secilen_varliklar = st.session_state.custom_tickers.copy()
+        st.session_state.kullanici_listesi_yuklendi = True
+    except Exception as _liste_hatasi:
+        # Geçici Firebase hatasında varsayılan listeyi kalıcı olarak yazma; sonraki rerunda tekrar dene.
+        st.sidebar.warning(f"Kayıtlı listeniz şu anda yüklenemedi: {_liste_hatasi}")
 
 def get_preset_options():
     return {"Kendi Listem": st.session_state.custom_tickers, "BIST 30": BIST_30, "BIST 100": BIST_100, "ABD Büyük Teknoloji": ABD_HİSSELERİ}
@@ -1459,6 +1479,7 @@ if not FINNHUB_API_KEY:
 if st.sidebar.button("🚪 Çıkış Yap"):
     cookie_manager.delete("user_email") 
     st.session_state.user_email = None
+    st.session_state.kullanici_listesi_yuklendi = False
     st.session_state.logout_triggered = True 
     time.sleep(0.5) 
     st.rerun()
@@ -1756,20 +1777,22 @@ with tab1:
                             
                         if uzun_vade_trend: boga_sayisi += 1
 
+                        alim_yonlu_on_sinyal = any(x in on_sinyal for x in ["ALIM", "KIRILIM", "ADAY"])
                         tetik_sonucu = {
-                            "puan": 0, "seviye": "⏳ TETİK YOK",
-                            "mesaj": "⏳ TETİK YOK: Alım yönlü sinyal bulunmuyor",
-                            "detay": [], "direnc": None, "hacim_orani": 0.0,
+                            "puan": 0, "seviye": "— UYGULANMAZ",
+                            "mesaj": "— Tetik değerlendirilmez: alım yönlü sinyal yok",
+                            "detay": ["5 dakikalık tetik yalnızca alım yönlü sinyaller için hesaplanır."],
+                            "direnc": None, "hacim_orani": 0.0,
                             "rsi": None, "mum_kalitesi": 0.0, "sahte_kirilim": False,
                         }
                         mikro_teyit = tetik_sonucu["mesaj"]
-                        if any(x in on_sinyal for x in ["ALIM", "KIRILIM", "ADAY", "ISINDI"]):
+                        if alim_yonlu_on_sinyal:
                             try:
                                 df_5dk = tekil_taze_veri_cek(ticker)
                                 tetik_sonucu = tetik_puani_hesapla(df_5dk, uzun_vade_trend)
                                 mikro_teyit = tetik_sonucu["mesaj"]
-                            except Exception as tetik_hatasi:
-                                mikro_teyit = "⏳ TETİK YOK: 5 dakikalık teyit hesaplanamadı"
+                            except Exception:
+                                mikro_teyit = "⚠️ Teyit verisi alınamadı"
 
                         sinyal = nihai_karar_motoru(
                             on_sinyal, skor, int(tetik_sonucu.get("puan", 0)), bugun_kapanis,
