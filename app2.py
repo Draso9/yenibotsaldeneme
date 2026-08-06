@@ -1030,7 +1030,7 @@ def gelismis_teknik_panel_olustur(d):
     tetik_puani = int(d.get("giris_puani", d.get("tetik_puani", 0)) or 0)
     tetik_seviyesi = str(d.get("giris_seviyesi", d.get("tetik_seviyesi", "⏳ GİRİŞ UYGUN DEĞİL")))
     tetik_detay = d.get("giris_detay", d.get("tetik_detay", [])) or []
-    skor = int(d.get("nihai_skor", d.get("skor", 0)) or 0)
+    skor = int(d.get("nihai_skor", d.get("cezali_skor", d.get("skor", 0))) or 0)
     guven = int(d.get("guven_skoru", 0) or 0)
 
     def durum(deger, olumlu, olumsuz):
@@ -2064,7 +2064,7 @@ with tab1:
                             "supertrend": int(supertrend), "supertrend_line": float(supertrend_line), "vwap": float(vwap) if np.isfinite(vwap) else np.nan,
                             "mtf_detay": mtf_detay, "mtf_uyum": int(mtf_uyum), "guven_skoru": int(guven_skoru),
                             "risk_odul": float(risk_odul), "risk_yuzde": float(risk_yuzde), "risk_seviyesi": risk_seviyesi, "volatilite_rejimi": vol_rejimi,
-                            "sinyal_yonu": sinyal_yonu_belirle(sinyal), "cezali_skor": int(skor),
+                            "sinyal_yonu": sinyal_yonu_belirle(sinyal), "cezali_skor": int(skor), "nihai_skor": int(skor),
                             "eski_cezali_skor": int(eski_skor), "skor_bonus": int(gelismis_bonus),
                             "skor_ceza": int(gelismis_ceza), "skor_aciklama": skor_aciklama
                         }
