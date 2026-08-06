@@ -370,6 +370,105 @@ def sozlu_teknik_analiz_olustur(ticker, fiyat, gunluk_degisim, rsi, macd, macd_s
     </div>
     """
 
+def gelismis_teknik_panel_olustur(d):
+    """Grafik yerine kapsamlı teknik gösterge ve senaryo paneli üretir."""
+    fiyat = d["fiyat"]
+    ema9, ema21, ema50, sma200 = d["ema9"], d["ema21"], d["ema50"], d["sma200"]
+    rsi, mfi = d["rsi"], d["mfi"]
+    macd, macd_signal = d["macd"], d["macd_signal"]
+    macd_hist = macd - macd_signal
+    atr, obv, obv_ema = d["atr"], d["obv"], d["obv_ema"]
+    bb_alt, bb_mid, bb_ust = d["bb_alt"], d["bb_mid"], d["bb_ust"]
+    destek, direnc, stop = d["destek"], d["direnc"], d["stop"]
+    tp1, tp2 = d["tp1"], d["tp2"]
+    swing_low = d["swing_low"]
+    hacim, hacim_ort, hacim_oran = d["hacim"], d["hacim_ort"], d["hacim_oran"]
+    sinyal, veri_kaynagi = d["sinyal"], d["veri_kaynagi"]
+    gunluk_degisim, ticker = d["gunluk_degisim"], d["ticker"]
+    teyit = d.get("teyit", "")
+
+    def kart(baslik, deger, alt, renk):
+        return f'<div class="tech-card"><div class="tech-label">{baslik}</div><div class="tech-value" style="color:{renk}">{deger}</div><div class="tech-badge" style="border-color:{renk};color:{renk}">{alt}</div></div>'
+
+    fiyat_renk = "#2ecc71" if gunluk_degisim >= 0 else "#ff4d4f"
+    rsi_renk = "#ff4d4f" if rsi >= 70 else "#2ecc71" if rsi <= 30 else "#f1c40f"
+    rsi_alt = "Aşırı Alım" if rsi >= 70 else "Aşırı Satım" if rsi <= 30 else "Güçlü" if rsi >= 55 else "Nötr (Zayıf)" if rsi < 45 else "Nötr"
+    kartlar = "".join([
+        kart("FİYAT (SON)", f"{fiyat:.2f}", f"%{gunluk_degisim:+.2f}", fiyat_renk),
+        kart("9 EMA (KISA VADE)", f"{ema9:.2f}", "Fiyat Üzerinde" if fiyat > ema9 else "Fiyat Altında", "#2f80ed" if fiyat > ema9 else "#ff4d4f"),
+        kart("21 EMA (ORTA VADE)", f"{ema21:.2f}", "Fiyat Üzerinde" if fiyat > ema21 else "Fiyat Altında", "#2f80ed" if fiyat > ema21 else "#ff4d4f"),
+        kart("50 EMA (TREND)", f"{ema50:.2f}", "Fiyat Üzerinde" if fiyat > ema50 else "Fiyat Altında", "#ff8c00" if fiyat > ema50 else "#ff4d4f"),
+        kart("200 SMA (ANA YÖN)", f"{sma200:.2f}", "Fiyat Üzerinde" if fiyat > sma200 else "Fiyat Altında", "#9b51e0" if fiyat > sma200 else "#ff4d4f"),
+        kart("RSI (14)", f"{rsi:.2f}", rsi_alt, rsi_renk),
+        kart("MFI (14)", f"{mfi:.2f}", "Para Girişi" if mfi >= 70 else "Para Çıkışı" if mfi <= 30 else "Nötr", "#9b51e0"),
+        kart("MACD", f"{macd:.3f}", "Pozitif" if macd > 0 else "Negatif", "#2ecc71" if macd > 0 else "#ff4d4f"),
+        kart("MACD SİNYAL", f"{macd_signal:.3f}", "Pozitif" if macd_signal > 0 else "Negatif", "#2ecc71" if macd_signal > 0 else "#ff4d4f"),
+        kart("MACD HİSTOGRAM", f"{macd_hist:.3f}", "Güçleniyor" if macd_hist > 0 else "Zayıflıyor", "#2ecc71" if macd_hist > 0 else "#ff4d4f"),
+        kart("ATR (14)", f"{atr:.2f}", "Yüksek Volatilite" if atr/fiyat > .035 else "Ortalama Volatilite", "#2f80ed"),
+        kart("OBV", f"{obv:,.0f}", "Yükselen" if obv > obv_ema else "Düşen", "#2ecc71" if obv > obv_ema else "#ff4d4f"),
+    ])
+
+    fiyat_konum = "Üst Banda Yakın" if fiyat >= bb_ust * .985 else "Alt Banda Yakın" if fiyat <= bb_alt * 1.015 else "Orta Bölgede"
+    ana_trend = "YUKARI" if fiyat > sma200 else "AŞAĞI"
+    orta_trend = "YUKARI" if fiyat > ema50 else "AŞAĞI"
+    kisa_trend = "YUKARI" if ema9 > ema21 else "AŞAĞI"
+    momentum = "GÜÇLÜ" if rsi >= 55 and macd_hist > 0 else "ZAYIF" if rsi < 45 and macd_hist < 0 else "NÖTR"
+    goreceli = "GÜÇLÜ" if d["sektorel_fark"] >= 0 else "ZAYIF"
+    obv_trend = "YÜKSELEN" if obv > obv_ema else "DÜŞEN"
+
+    trend_yorum = f"Fiyat {'200 SMA üzerinde; ana trend yukarı' if fiyat > sma200 else '200 SMA altında; ana trend aşağı'}. EMA 9 {'EMA 21 üzerinde' if ema9 > ema21 else 'EMA 21 altında'} ve fiyat {'50 EMA üzerinde' if fiyat > ema50 else '50 EMA altında'} seyrediyor."
+    momentum_yorum = f"RSI {rsi:.2f} ile {rsi_alt.lower()}. MACD histogramı {macd_hist:.3f} ve {'pozitif' if macd_hist > 0 else 'negatif'} bölgede."
+    volatilite_yorum = f"Fiyat Bollinger bantlarında {fiyat_konum.lower()}; alt {bb_alt:.2f}, orta {bb_mid:.2f}, üst {bb_ust:.2f}, ATR {atr:.2f}."
+    hacim_yorum = f"Günlük hacim {hacim:,.0f}, 20 günlük ortalama {hacim_ort:,.0f}, hacim oranı %{hacim_oran:.1f}; OBV {obv_trend.lower()}, MFI {mfi:.2f}."
+
+    alis_tetik = max(direnc, ema21)
+    satis_tetik = destek
+    rr_alis = (tp2 - fiyat) / max(fiyat - stop, 1e-9)
+    short_hedef1 = max(swing_low, fiyat - atr*1.5)
+    short_hedef2 = max(0.01, fiyat - atr*3)
+    short_stop = max(direnc, fiyat + atr*1.2)
+    rr_satis = (fiyat - short_hedef2) / max(short_stop - fiyat, 1e-9)
+
+    if any(x in sinyal for x in ["ALIM", "KIRILIM", "ADAY"]):
+        genel, genel_renk = "ALIM YÖNLÜ / TEYİTLİ", "#2ecc71"
+    elif any(x in sinyal for x in ["UZAK DUR", "KAR REALİZASYONU"]):
+        genel, genel_renk = "SATIŞ / RİSK AZALT", "#ff4d4f"
+    else:
+        genel, genel_renk = "NÖTR / TEMKİNLİ", "#f1c40f"
+
+    return f"""
+    <style>
+      .tech-wrap{{background:linear-gradient(145deg,#07111d,#0a1726);border:1px solid #29435d;border-radius:14px;padding:18px;margin-top:14px;color:#f2f5f8;font-family:Arial,sans-serif}}
+      .tech-head{{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:14px}}
+      .tech-title{{font-size:24px;font-weight:800}} .tech-meta{{font-size:12px;color:#aebdca}} .tech-source{{padding:5px 10px;border:1px solid #1269a8;border-radius:6px;color:#42a5f5;background:#08213a}}
+      .tech-grid{{display:grid;grid-template-columns:repeat(6,minmax(145px,1fr));gap:10px}} .tech-card{{background:#07131f;border:1px solid #31485e;border-radius:8px;padding:13px;text-align:center;min-height:104px}}
+      .tech-label{{font-size:12px;font-weight:700;color:#e8eef4}} .tech-value{{font-size:25px;font-weight:800;margin:8px 0}} .tech-badge{{display:inline-block;padding:4px 9px;border:1px solid;border-radius:5px;font-size:11px;background:rgba(255,255,255,.04)}}
+      .quad-grid{{display:grid;grid-template-columns:repeat(4,1fr);border:1px solid #31506b;border-radius:9px;margin-top:14px;overflow:hidden}} .quad{{padding:15px;border-right:1px solid #29435d;background:#07131f}} .quad:last-child{{border-right:none}}
+      .quad h4,.analysis h4,.action h4{{color:#42a5f5;margin:0 0 10px;font-size:14px}} .line{{display:flex;justify-content:space-between;gap:10px;padding:5px 0;font-size:13px}} .green{{color:#2ecc71;font-weight:800}} .red{{color:#ff4d4f;font-weight:800}} .yellow{{color:#f1c40f;font-weight:800}}
+      .analysis{{margin-top:14px;padding:16px;border:1px solid #31506b;border-radius:9px;background:#07131f;line-height:1.55;font-size:13px}} .analysis p{{margin:7px 0}}
+      .actions{{display:grid;grid-template-columns:1.05fr 1fr 1fr 1fr;gap:12px;margin-top:14px}} .action{{padding:15px;border:1px solid #31506b;border-radius:9px;background:#07131f;line-height:1.5;font-size:13px}}
+      .action.general{{border-color:{genel_renk}}} .action.buy{{border-color:#1d6b43}} .action.sell{{border-color:#7a302d}} .action.risk{{border-color:#55357c}} .big-signal{{display:inline-block;padding:8px 13px;border-radius:6px;color:{genel_renk};border:1px solid {genel_renk};font-weight:900;margin-bottom:8px}} .tiny{{font-size:11px;color:#9aa8b5;margin-top:12px}}
+      @media(max-width:1100px){{.tech-grid{{grid-template-columns:repeat(3,1fr)}}.quad-grid{{grid-template-columns:repeat(2,1fr)}}.actions{{grid-template-columns:repeat(2,1fr)}}}} @media(max-width:650px){{.tech-grid,.quad-grid,.actions{{grid-template-columns:1fr}}.quad{{border-right:none;border-bottom:1px solid #29435d}}}}
+    </style>
+    <div class="tech-wrap">
+      <div class="tech-head"><div class="tech-title">📋 {ticker} - Anlık Teknik Göstergeler ve Algoritmik Yorum</div><div class="tech-meta">Son güncelleme: {datetime.now().strftime('%d.%m.%Y %H:%M:%S')} &nbsp; <span class="tech-source">Veri Kaynağı: {veri_kaynagi}</span></div></div>
+      <div class="tech-grid">{kartlar}</div>
+      <div class="quad-grid">
+        <div class="quad"><h4>VOLATİLİTE (BOLLINGER BANTLARI)</h4><div class="line"><span>Üst Bant</span><b>{bb_ust:.2f}</b></div><div class="line"><span>Orta Bant</span><b>{bb_mid:.2f}</b></div><div class="line"><span>Alt Bant</span><b>{bb_alt:.2f}</b></div><div class="line"><span>Fiyat Konumu</span><b class="yellow">{fiyat_konum}</b></div><div class="line"><span>ATR / Fiyat</span><b>{atr/fiyat*100:.2f}%</b></div></div>
+        <div class="quad"><h4>DESTEK & DİRENÇ SEVİYELERİ</h4><div class="line"><span>1. Direnç</span><b>{direnc:.2f}</b></div><div class="line"><span>2. Direnç / TP1</span><b>{tp1:.2f}</b></div><div class="line"><span>Ana Direnç / TP2</span><b class="red">{tp2:.2f}</b></div><div class="line"><span>1. Destek</span><b>{destek:.2f}</b></div><div class="line"><span>Ana Destek</span><b class="green">{swing_low:.2f}</b></div></div>
+        <div class="quad"><h4>TREND & GÜÇ ANALİZİ</h4><div class="line"><span>Ana Trend (200 SMA)</span><b class="{'green' if ana_trend=='YUKARI' else 'red'}">{ana_trend}</b></div><div class="line"><span>Orta Trend (50 EMA)</span><b class="{'green' if orta_trend=='YUKARI' else 'red'}">{orta_trend}</b></div><div class="line"><span>Kısa Trend (EMA 9/21)</span><b class="{'green' if kisa_trend=='YUKARI' else 'red'}">{kisa_trend}</b></div><div class="line"><span>Momentum Gücü</span><b class="yellow">{momentum}</b></div><div class="line"><span>Göreceli Güç</span><b class="{'green' if goreceli=='GÜÇLÜ' else 'red'}">{goreceli}</b></div></div>
+        <div class="quad"><h4>HACİM & AKIŞ ANALİZİ</h4><div class="line"><span>Günlük Hacim</span><b>{hacim:,.0f}</b></div><div class="line"><span>Ortalama Hacim (20)</span><b>{hacim_ort:,.0f}</b></div><div class="line"><span>Hacim Oranı</span><b class="{'green' if hacim_oran>=100 else 'yellow'}">%{hacim_oran:.1f}</b></div><div class="line"><span>Para Akışı (MFI)</span><b class="yellow">{mfi:.2f}</b></div><div class="line"><span>OBV Trendi</span><b class="{'green' if obv_trend=='YÜKSELEN' else 'red'}">{obv_trend}</b></div></div>
+      </div>
+      <div class="analysis"><h4>ALGORİTMİK STRATEJİ VE GÖSTERGELERİN SÖZEL ANALİZİ</h4><p>📈 <b>Trend Analizi:</b> {trend_yorum}</p><p>🟣 <b>Momentum (RSI & MACD):</b> {momentum_yorum}</p><p>🟠 <b>Volatilite:</b> {volatilite_yorum}</p><p>🟢 <b>Hacim & Para Akışı:</b> {hacim_yorum}</p><p>🎯 <b>Destek & Direnç:</b> {destek:.2f} ilk güçlü destek, {direnc:.2f} ilk kritik dirençtir. 5 dakikalık teyit: {teyit}</p></div>
+      <div class="actions">
+        <div class="action general"><h4>🎯 GENEL DEĞERLENDİRME</h4><div class="big-signal">{genel}</div><p>Mevcut algoritmik sinyal: <b>{sinyal}</b>. Ana trend, momentum, hacim ve seviye teyitleri birlikte değerlendirilmelidir.</p></div>
+        <div class="action buy"><h4 style="color:#2ecc71">↗ UZUN (ALIM) SENARYOSU</h4><p>Fiyat <b>{alis_tetik:.2f}</b> üzerinde kalıcılık sağlar, RSI 50 üzerine çıkar ve hacim ortalamayı aşarsa alım yönlü iştah güçlenebilir.</p><p><b>Hedefler:</b> {tp1:.2f} / {tp2:.2f}<br><b>Stop:</b> {stop:.2f}<br><b>Risk/Ödül:</b> {rr_alis:.2f}</p></div>
+        <div class="action sell"><h4 style="color:#ff4d4f">↘ KISA / SATIŞ SENARYOSU</h4><p>Fiyat <b>{satis_tetik:.2f}</b> altında kapanır, MACD negatifliğini artırır ve OBV düşerse satış baskısı hızlanabilir.</p><p><b>Hedefler:</b> {short_hedef1:.2f} / {short_hedef2:.2f}<br><b>Geçersizlik:</b> {short_stop:.2f}<br><b>Risk/Ödül:</b> {rr_satis:.2f}</p></div>
+        <div class="action risk"><h4 style="color:#9b51e0">🛡 POZİSYON YÖNETİMİ</h4><p>✓ Sermayeyi korumayı önceliklendir.<br>✓ Stop seviyesini işlem öncesinde belirle.<br>✓ Teyitsiz kırılımlarda pozisyon küçült.<br>✓ Haber akışını ve piyasa genelini izle.<br>✓ Tek bir göstergeye dayanma.</p></div>
+      </div>
+      <div class="tiny">ⓘ Bu analiz algoritmik göstergelere dayanır; yatırım tavsiyesi değildir. Kendi risk yönetiminizi uygulayın.</div>
+    </div>"""
+
 # --- HİSSE LİSTELERİ ---
 BIST_30 = ["AKBNK.IS", "ALARK.IS", "ASELS.IS", "ASTOR.IS", "BIMAS.IS", "BRISA.IS", "CCOLA.IS", "ENKAI.IS", "EREGL.IS", "FROTO.IS", "GARAN.IS", "GUBRF.IS", "HEKTS.IS", "ISCTR.IS", "KCHOL.IS", "KONTR.IS", "KOZAA.IS", "KOZAL.IS", "KRDMD.IS", "OYAKC.IS", "PETKM.IS", "PGSUS.IS", "SAHOL.IS", "SASA.IS", "SISE.IS", "TCELL.IS", "THYAO.IS", "TOASO.IS", "TUPRS.IS", "YKBNK.IS"]
 BIST_100 = list(set(BIST_30 + ["AGHOL.IS", "AHGAZ.IS", "AKCNS.IS", "AKFGY.IS", "AKSA.IS", "AKSEN.IS", "ALBRK.IS", "ALFAS.IS", "ARCLK.IS", "ASUZU.IS", "BAGFS.IS", "BIOEN.IS", "BOBET.IS", "BRYAT.IS", "BUCIM.IS", "CANTE.IS", "CIMSA.IS", "CWENE.IS", "DOAS.IS", "DOHOL.IS", "ECZYT.IS", "EGEEN.IS", "EKGYO.IS", "ENERY.IS", "EUPWR.IS", "ENJSA.IS", "FORMT.IS", "GESAN.IS", "GLYHO.IS", "GWIND.IS", "HALKB.IS", "IPEKE.IS", "ISDMR.IS", "ISGYO.IS", "KAYSE.IS", "KMPUR.IS", "KONTR.IS", "KONYA.IS", "KOTON.IS", "KZBGY.IS", "MAVI.IS", "MGROS.IS", "ODAS.IS", "ONCSM.IS", "OTKAR.IS", "OYAKC.IS", "PENTA.IS", "PSGYO.IS", "REEDR.IS", "SMRTG.IS", "SOKM.IS", "TAVHL.IS", "TKFEN.IS", "TMSN.IS", "TSKB.IS", "TTKOM.IS", "TTRAK.IS", "ULKER.IS", "VAKBN.IS", "VESBE.IS", "VESTL.IS", "YEOTK.IS", "ZOREN.IS"]))
@@ -420,6 +519,7 @@ if st.session_state.user_email is None:
 if "tarama_durumu" not in st.session_state: st.session_state.tarama_durumu = False
 if "sonuclar" not in st.session_state: st.session_state.sonuclar = []
 if "sozlu_analizler" not in st.session_state: st.session_state.sozlu_analizler = {}
+if "teknik_paneller" not in st.session_state: st.session_state.teknik_paneller = {}
 if "custom_tickers" not in st.session_state: st.session_state.custom_tickers = VARSAYILAN_TICKERS.copy()
 if "basarisiz_taramalar" not in st.session_state: st.session_state.basarisiz_taramalar = []
 
@@ -507,6 +607,7 @@ with tab1:
                 
                 gecici_sonuclar = []
                 gecici_sozlu_analizler = {}
+                gecici_teknik_paneller = {}
                 basarisi_cekilemeyen_varliklar = []
                 boga_sayisi = alim_firsati = 0
                 
@@ -673,6 +774,18 @@ with tab1:
 
                         lot = int((bist_kasa if is_bist else nasdaq_kasa) * risk_orani / alinan_risk) if "ALIM" in sinyal or "KIRILIM" in sinyal or "ADAY" in sinyal else 0
 
+                        gecici_teknik_paneller[ticker] = {
+                            "ticker": ticker, "fiyat": float(bugun_kapanis), "gunluk_degisim": float(gunluk_degisim),
+                            "ema9": float(ema_9_val), "ema21": float(ema_21_val), "ema50": float(ema_50_val), "sma200": float(sma_200),
+                            "rsi": float(rsi), "mfi": float(mfi_val), "macd": float(macd_serisi.iloc[-1]), "macd_signal": float(macd_sinyal.iloc[-1]),
+                            "atr": float(atr), "obv": float(obv[-1]), "obv_ema": float(obv_ema.iloc[-1]),
+                            "bb_alt": float(bb_alt), "bb_mid": float(bb_mid), "bb_ust": float(bb_ust),
+                            "destek": float(karma_destek), "direnc": float(karma_direnc), "stop": float(trailing_stop),
+                            "tp1": float(tp1), "tp2": float(tp2), "swing_low": float(swing_low), "swing_high": float(swing_high),
+                            "hacim": float(bugun_hacim), "hacim_ort": float(hacim_sma20), "hacim_oran": float(hacim_oran),
+                            "sektorel_fark": float(sektorel_fark), "sinyal": sinyal, "veri_kaynagi": veri_kaynagi, "teyit": mikro_teyit
+                        }
+
                         gecici_sozlu_analizler[ticker] = sozlu_teknik_analiz_olustur(
                             ticker=ticker, fiyat=bugun_kapanis, gunluk_degisim=gunluk_degisim,
                             rsi=float(rsi), macd=float(macd_serisi.iloc[-1]), macd_sinyal=float(macd_sinyal.iloc[-1]),
@@ -696,6 +809,7 @@ with tab1:
 
                 st.session_state.sonuclar = gecici_sonuclar
                 st.session_state.sozlu_analizler = gecici_sozlu_analizler
+                st.session_state.teknik_paneller = gecici_teknik_paneller
                 st.session_state.basarisiz_taramalar = basarisi_cekilemeyen_varliklar
                 st.session_state.boga_sayisi = boga_sayisi
                 st.session_state.alim_firsati = alim_firsati
@@ -734,36 +848,15 @@ with tab1:
                 secilen_detay_hisse = st.selectbox("İncelemek İçin Varlık Seçin:", options=df_sonuc["Varlık"].tolist(), key="detay_hisse_secici")
                 
                 if secilen_detay_hisse:
-                    df_grafik = yf.download(secilen_detay_hisse, period="730d", progress=False, auto_adjust=False)
-                    if isinstance(df_grafik.columns, pd.MultiIndex): df_grafik.columns = df_grafik.columns.get_level_values(0)
-                    if not df_grafik.empty:
-                        df_grafik, _, _ = canli_ohlcv_ile_guncelle(secilen_detay_hisse, df_grafik)
-                        df_grafik['EMA9'] = df_grafik['Close'].ewm(span=9).mean()
-                        df_grafik['EMA21'] = df_grafik['Close'].ewm(span=21).mean()
-                        df_grafik['EMA50'] = df_grafik['Close'].ewm(span=50).mean()
-                        df_grafik['SMA200'] = df_grafik['Close'].rolling(200).mean()
-                        
-                        fig = make_subplots(rows=2, cols=1, shared_xaxes=True, vertical_spacing=0.05, row_heights=[0.7, 0.3])
-                        fig.add_trace(go.Candlestick(x=df_grafik.index, open=df_grafik['Open'], high=df_grafik['High'], low=df_grafik['Low'], close=df_grafik['Close'], name='Fiyat'), row=1, col=1)
-                        fig.add_trace(go.Scatter(x=df_grafik.index, y=df_grafik['EMA50'], line=dict(color='orange', width=1.5), name='50 EMA'), row=1, col=1)
-                        fig.add_trace(go.Scatter(x=df_grafik.index, y=df_grafik['SMA200'], line=dict(color='blue', width=2), name='200 SMA'), row=1, col=1)
-                        
-                        delta_g = df_grafik['Close'].diff()
-                        rs_g = delta_g.where(delta_g>0, 0.0).ewm(alpha=1/14).mean() / (-delta_g.where(delta_g<0, 0.0).ewm(alpha=1/14).mean() + 1e-5)
-                        rsi = 100 - (100 / (1 + rs_g))
-                        fig.add_trace(go.Scatter(x=df_grafik.index, y=rsi, line=dict(color='#00ffcc', width=1.5), name='RSI'), row=2, col=1)
-                        
-                        fig.update_layout(template='plotly_dark', title=f"{secilen_detay_hisse} - Teknik Grafik", height=600, xaxis_rangeslider_visible=False)
-                        st.plotly_chart(fig, use_container_width=True)
-
-                        sozlu_analiz_html = st.session_state.sozlu_analizler.get(secilen_detay_hisse)
-                        if sozlu_analiz_html:
-                            st.markdown(sozlu_analiz_html, unsafe_allow_html=True)
-                        
+                    panel_verisi = st.session_state.teknik_paneller.get(secilen_detay_hisse)
+                    if panel_verisi:
+                        st.markdown(gelismis_teknik_panel_olustur(panel_verisi), unsafe_allow_html=True)
                         hisse_satiri = df_sonuc[df_sonuc["Varlık"] == secilen_detay_hisse]
                         anlik_sinyal = hisse_satiri["Nihai Sinyal"].values[0] if not hisse_satiri.empty else "Nötr (İzle)"
                         anlik_teyit = hisse_satiri["↓ Zamanlama (5Dk Teyit)"].values[0] if not hisse_satiri.empty else ""
                         st.markdown(aksiyon_rehberi_olustur(anlik_sinyal, anlik_teyit), unsafe_allow_html=True)
+                    else:
+                        st.info("Bu varlık için teknik panel verisi bulunamadı. Derin taramayı yeniden çalıştırın.")
 
 with tab2:
     st.subheader("📊 Sinyal Performans Takibi")
