@@ -4,7 +4,6 @@ import numpy as np
 from datetime import datetime, timedelta
 import time
 import requests
-import requests_cache
 import yfinance as yf
 import firebase_admin
 from firebase_admin import credentials, firestore, auth
@@ -53,17 +52,13 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# --- YFINANCE ARKA PLAN ÖNBELLEĞİNİ (CACHE) TAMAMEN DEVRE DIŞI BIRAKMA ---
-try:
-    requests_cache.clear()
-except:
-    pass
-
+# --- ÖNBELLEKSİZ ÖZEL HTTP OTURUMU ---
 session = requests.Session()
 session.headers.update({
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-    "Cache-Control": "no-cache",
-    "Pragma": "no-cache"
+    "Cache-Control": "no-cache, no-store, must-revalidate",
+    "Pragma": "no-cache",
+    "Expires": "0"
 })
 
 # --- ÇEREZ YÖNETİCİSİ (COOKIE MANAGER) ---
@@ -281,7 +276,7 @@ def hisse_sil_callback():
         st.session_state.sil_hisse_input_field = ""
 
 st.title("📈 Hibrit Portföy Komuta Merkezi")
-st.markdown("**Mod:** Requests-Session & Önbelleksiz %100 Canlı Fiyat Motoru")
+st.markdown("**Mod:** Standart Requests-Session & Önbelleksiz %100 Canlı Fiyat Motoru")
 st.markdown("---")
 
 st.sidebar.header("⚙️ Kontrol Paneli")
@@ -318,7 +313,6 @@ with tab1:
             with st.spinner("Piyasa verileri ve anlık canlı fiyatlar çekiliyor..."):
                 st.session_state.opsiyon_sonuclar = None
                 
-                # Toplu indirmeye session parametresi eklendi
                 toplu_df = taze_veri_indir(tuple(selected_tickers))
                 
                 gecici_sonuclar = []
@@ -358,7 +352,7 @@ with tab1:
                         is_bist = ".IS" in ticker
                         para_birimi = "TL" if is_bist else "$"
                         
-                        # --- CANLI / ANLIK FİYAT ZORLAMASI (SESSION İLE) ---
+                        # --- ANLIK VE CANLI FİYAT ZORLAMASI (SESSION İLE) ---
                         t_obj = yf.Ticker(ticker, session=session)
                         canli_fiyat = None
                         try:
