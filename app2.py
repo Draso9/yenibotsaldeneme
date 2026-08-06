@@ -5,6 +5,8 @@ from datetime import datetime, timedelta
 import time
 import requests
 import yfinance as yf
+import os
+from concurrent.futures import ThreadPoolExecutor, as_completed
 import firebase_admin
 from firebase_admin import credentials, firestore, auth
 import extra_streamlit_components as stx
@@ -107,27 +109,130 @@ if st.session_state.user_email is None and saved_email is not None and not st.se
             st.session_state.custom_tickers = VARSAYILAN_TICKERS.copy()
     st.rerun()
 
-# --- VERİ ÇEKME MOTORU ---
+# --- HİBRİT VERİ ÇEKME MOTORU (YFINANCE + FINNHUB) ---
+FINNHUB_API_KEY = st.secrets.get("FINNHUB_API_KEY", os.getenv("FINNHUB_API_KEY", ""))
+FINNHUB_BASE_URL = "https://finnhub.io/api/v1"
+
+def _normalize_yf_columns(df):
+    if isinstance(df, pd.DataFrame) and isinstance(df.columns, pd.MultiIndex):
+        df = df.copy()
+        df.columns = df.columns.get_level_values(0)
+    return df
+
+def _finnhub_symbol(ticker):
+    # Finnhub ücretsiz planda ABD hisseleri güvenilir biçimde desteklenir.
+    # BIST sembollerinde kapsama sınırlı olabildiği için Yahoo fallback kullanılır.
+    return ticker.replace(".IS", "") if ticker.endswith(".IS") else ticker
+
+def _finnhub_get(endpoint, params, timeout=8):
+    if not FINNHUB_API_KEY:
+        return None
+    try:
+        r = session.get(
+            f"{FINNHUB_BASE_URL}/{endpoint}",
+            params={**params, "token": FINNHUB_API_KEY},
+            timeout=timeout,
+        )
+        r.raise_for_status()
+        data = r.json()
+        return data if isinstance(data, dict) else None
+    except Exception:
+        return None
+
+@st.cache_data(ttl=900, show_spinner=False)
 def taze_veri_indir(tickers_tuple):
     try:
-        data = yf.download(list(tickers_tuple), period="400d", group_by='ticker', progress=False, threads=True, session=session)
+        data = yf.download(
+            list(tickers_tuple),
+            period="400d",
+            group_by="ticker",
+            progress=False,
+            threads=True,
+            auto_adjust=False,
+        )
         return data
     except Exception:
         return pd.DataFrame()
 
-def tekil_taze_veri_cek(ticker):
+@st.cache_data(ttl=20, show_spinner=False)
+def finnhub_quote_cek(ticker):
+    if ticker.endswith(".IS"):
+        return None
+    data = _finnhub_get("quote", {"symbol": _finnhub_symbol(ticker)})
+    if not data or not data.get("c"):
+        return None
+    return {
+        "open": float(data.get("o") or 0),
+        "high": float(data.get("h") or 0),
+        "low": float(data.get("l") or 0),
+        "close": float(data.get("c") or 0),
+        "previous_close": float(data.get("pc") or 0),
+        "timestamp": int(data.get("t") or 0),
+        "source": "Finnhub",
+    }
+
+@st.cache_data(ttl=20, show_spinner=False)
+def intraday_veri_cek(ticker, interval="5m", period="5d"):
     try:
-        df = yf.download(ticker, period="60d", interval="1h", progress=False, session=session)
-        if isinstance(df.columns, pd.MultiIndex):
-            df.columns = df.columns.get_level_values(0)
-        return df
-    except:
+        df = yf.download(
+            ticker,
+            period=period,
+            interval=interval,
+            progress=False,
+            prepost=True,
+            auto_adjust=False,
+        )
+        return _normalize_yf_columns(df)
+    except Exception:
         return pd.DataFrame()
 
+def canli_ohlcv_ile_guncelle(ticker, df_long):
+    df = df_long.copy()
+    kaynak = "Yahoo"
+    quote = finnhub_quote_cek(ticker)
+    intraday = intraday_veri_cek(ticker, interval="5m", period="5d")
+
+    if not intraday.empty:
+        intraday = intraday.dropna(subset=["Close"])
+
+    # Günlük son mumu gün içi OHLCV ile gerçek zamanlıya yakın güncelle.
+    if not intraday.empty:
+        last_day = intraday.index[-1].date()
+        today_rows = intraday[intraday.index.date == last_day]
+        if not today_rows.empty:
+            o = float(today_rows["Open"].dropna().iloc[0])
+            h = float(today_rows["High"].max())
+            l = float(today_rows["Low"].min())
+            c = float(today_rows["Close"].dropna().iloc[-1])
+            v = float(today_rows["Volume"].fillna(0).sum())
+            kaynak = "Yahoo 5D/5dk"
+            if quote and quote.get("close", 0) > 0:
+                c = quote["close"]
+                if quote.get("open", 0) > 0: o = quote["open"]
+                if quote.get("high", 0) > 0: h = max(h, quote["high"])
+                if quote.get("low", 0) > 0: l = min(l, quote["low"])
+                kaynak = "Finnhub + Yahoo 5dk"
+
+            target_idx = df.index[-1]
+            for col, val in {"Open": o, "High": h, "Low": l, "Close": c, "Volume": v}.items():
+                if col in df.columns and pd.notna(val):
+                    df.loc[target_idx, col] = val
+    elif quote and quote.get("close", 0) > 0:
+        target_idx = df.index[-1]
+        for col, key in [("Open", "open"), ("High", "high"), ("Low", "low"), ("Close", "close")]:
+            if col in df.columns and quote.get(key, 0) > 0:
+                df.loc[target_idx, col] = quote[key]
+        kaynak = "Finnhub"
+
+    return df, intraday, kaynak
+
+def tekil_taze_veri_cek(ticker):
+    return intraday_veri_cek(ticker, interval="5m", period="5d")
+
 # --- AKILLI AKSİYON REHBERİ ---
-def aksiyon_rehberi_olustur(nihai_sinyal, teyit_1h):
+def aksiyon_rehberi_olustur(nihai_sinyal, teyit_5dk):
     sinyal_metni = str(nihai_sinyal).upper()
-    teyit_metni = str(teyit_1h)
+    teyit_metni = str(teyit_5dk)
     
     if "YÜKSELİŞ KIRILIMI" in sinyal_metni:
         renk = "#00d2d3"
@@ -276,10 +381,14 @@ def hisse_sil_callback():
         st.session_state.sil_hisse_input_field = ""
 
 st.title("📈 Hibrit Portföy Komuta Merkezi")
-st.markdown("**Mod:** Gerçek Zamanlı Intraday Canlı Fiyat Garantili Motor")
+st.markdown("**Mod:** Finnhub + Yahoo Hibrit Canlı OHLCV Motoru")
 st.markdown("---")
 
 st.sidebar.header("⚙️ Kontrol Paneli")
+
+if not FINNHUB_API_KEY:
+    st.sidebar.warning("Finnhub anahtarı bulunamadı. Yahoo fallback ile çalışılıyor.")
+
 if st.sidebar.button("🚪 Çıkış Yap"):
     cookie_manager.delete("user_email") 
     st.session_state.user_email = None
@@ -352,19 +461,9 @@ with tab1:
                         is_bist = ".IS" in ticker
                         para_birimi = "TL" if is_bist else "$"
                         
-                        # --- KESİN CANLI SEANS FİYATI (INTRADAY 5M İLE GÜNCELLENİR) ---
+                        # --- CANLI OHLCV: FINNHUB + YAHOO 5 DAKİKALIK FALLBACK ---
+                        df_long, df_intraday, veri_kaynagi = canli_ohlcv_ile_guncelle(ticker, df_long)
                         bugun_kapanis = float(df_long['Close'].iloc[-1])
-                        try:
-                            df_intraday = yf.download(ticker, period="1d", interval="5m", progress=False, session=session)
-                            if isinstance(df_intraday.columns, pd.MultiIndex):
-                                df_intraday.columns = df_intraday.columns.get_level_values(0)
-                            if not df_intraday.empty and 'Close' in df_intraday.columns:
-                                canli_val = float(df_intraday['Close'].dropna().iloc[-1])
-                                if not pd.isna(canli_val):
-                                    bugun_kapanis = canli_val
-                                    df_long.loc[df_long.index[-1], 'Close'] = bugun_kapanis
-                        except:
-                            pass
 
                         onceki_kapanis = float(df_long['Close'].iloc[-2]) if len(df_long) >= 2 else bugun_kapanis
                         gunluk_degisim = ((bugun_kapanis - onceki_kapanis) / onceki_kapanis) * 100 if onceki_kapanis > 0 else 0.0
@@ -481,12 +580,12 @@ with tab1:
                         if "ALIM" in sinyal or "KIRILIM" in sinyal or "ADAY" in sinyal:
                             try:
                                 df_1h = tekil_taze_veri_cek(ticker)
-                                if not df_1h.empty and len(df_1h) >= 15:
+                                if not df_1h.empty and len(df_1h) >= 20:
                                     c_1h = df_1h['Close']
                                     v_1h = df_1h['Volume']
                                     vol_sma_1h = v_1h.rolling(20).mean().iloc[-1]
                                     if c_1h.iloc[-1] > c_1h.rolling(20).mean().iloc[-1] and v_1h.iloc[-1] > vol_sma_1h:
-                                        mikro_teyit = "🔥 TETİK AKTİF: Hacimli Saatlik Kırılım"
+                                        mikro_teyit = "🔥 TETİK AKTİF: Hacimli 5 Dakikalık Kırılım"
                             except:
                                 pass
 
@@ -495,7 +594,7 @@ with tab1:
                         gecici_sonuclar.append({
                             "Varlık": ticker, "Fiyat": fiyat_str, "Görec. Güç (Sektör)": gorec_guc_str,
                             "7'li Cezalı Skor": skor_etiket, "Para Akışı (OBV/MFI)": para_durumu,
-                            "Temel Veri": "Değerlendirildi", "Nihai Sinyal": sinyal, "↓ Zamanlama (1H Teyit)": mikro_teyit,
+                            "Temel Veri": "Değerlendirildi", "Nihai Sinyal": sinyal, "↓ Zamanlama (5Dk Teyit)": mikro_teyit, "Veri Kaynağı": veri_kaynagi,
                             "Karma Destek": f"{karma_destek:.2f}", "Karma Direnç": f"{karma_direnc:.2f}",
                             "Süren Stop": f"{trailing_stop:.2f}", "Hibrit Kâr Al (TP)": hibrit_tp, "Önerilen Lot": f"{lot} Adet" if lot > 0 else "0"
                         })
@@ -542,10 +641,10 @@ with tab1:
                 secilen_detay_hisse = st.selectbox("İncelemek İçin Varlık Seçin:", options=df_sonuc["Varlık"].tolist(), key="detay_hisse_secici")
                 
                 if secilen_detay_hisse:
-                    df_grafik = yf.download(secilen_detay_hisse, period="730d", progress=False, session=session)
+                    df_grafik = yf.download(secilen_detay_hisse, period="730d", progress=False, auto_adjust=False)
                     if isinstance(df_grafik.columns, pd.MultiIndex): df_grafik.columns = df_grafik.columns.get_level_values(0)
-                    
                     if not df_grafik.empty:
+                        df_grafik, _, _ = canli_ohlcv_ile_guncelle(secilen_detay_hisse, df_grafik)
                         df_grafik['EMA9'] = df_grafik['Close'].ewm(span=9).mean()
                         df_grafik['EMA21'] = df_grafik['Close'].ewm(span=21).mean()
                         df_grafik['EMA50'] = df_grafik['Close'].ewm(span=50).mean()
@@ -566,7 +665,7 @@ with tab1:
                         
                         hisse_satiri = df_sonuc[df_sonuc["Varlık"] == secilen_detay_hisse]
                         anlik_sinyal = hisse_satiri["Nihai Sinyal"].values[0] if not hisse_satiri.empty else "Nötr (İzle)"
-                        anlik_teyit = hisse_satiri["↓ Zamanlama (1H Teyit)"].values[0] if not hisse_satiri.empty else ""
+                        anlik_teyit = hisse_satiri["↓ Zamanlama (5Dk Teyit)"].values[0] if not hisse_satiri.empty else ""
                         st.markdown(aksiyon_rehberi_olustur(anlik_sinyal, anlik_teyit), unsafe_allow_html=True)
 
 with tab2:
