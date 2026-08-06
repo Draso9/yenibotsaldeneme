@@ -187,42 +187,65 @@ def intraday_veri_cek(ticker, interval="5m", period="5d"):
         return pd.DataFrame()
 
 def canli_ohlcv_ile_guncelle(ticker, df_long):
-    df = df_long.copy()
-    kaynak = "Yahoo"
+    """Günlük seriyi son 5 dakikalık seans verisiyle günceller.
+
+    Günlük veri bugünün satırını henüz içermiyorsa yeni satır ekler; böylece
+    önceki kapanışın yanlışlıkla ezilmesi önlenir. Finnhub fiyatı ABD
+    hisselerinde son Close için önceliklidir, hacim ise 5 dakikalık Yahoo
+    mumlarının toplamından alınır.
+    """
+    df = df_long.copy().sort_index()
+    kaynak = "Yahoo günlük"
     quote = finnhub_quote_cek(ticker)
     intraday = intraday_veri_cek(ticker, interval="5m", period="5d")
 
     if not intraday.empty:
-        intraday = intraday.dropna(subset=["Close"])
+        intraday = intraday.dropna(subset=["Close"]).sort_index()
 
-    # Günlük son mumu gün içi OHLCV ile gerçek zamanlıya yakın güncelle.
     if not intraday.empty:
-        last_day = intraday.index[-1].date()
-        today_rows = intraday[intraday.index.date == last_day]
-        if not today_rows.empty:
-            o = float(today_rows["Open"].dropna().iloc[0])
-            h = float(today_rows["High"].max())
-            l = float(today_rows["Low"].min())
-            c = float(today_rows["Close"].dropna().iloc[-1])
-            v = float(today_rows["Volume"].fillna(0).sum())
-            kaynak = "Yahoo 5D/5dk"
+        seans_tarihi = intraday.index[-1].date()
+        seans_rows = intraday[intraday.index.date == seans_tarihi]
+        if not seans_rows.empty:
+            o = float(seans_rows["Open"].dropna().iloc[0])
+            h = float(seans_rows["High"].max())
+            l = float(seans_rows["Low"].min())
+            c = float(seans_rows["Close"].dropna().iloc[-1])
+            v = float(seans_rows["Volume"].fillna(0).sum())
+            kaynak = "Yahoo 5dk"
+
             if quote and quote.get("close", 0) > 0:
                 c = quote["close"]
-                if quote.get("open", 0) > 0: o = quote["open"]
-                if quote.get("high", 0) > 0: h = max(h, quote["high"])
-                if quote.get("low", 0) > 0: l = min(l, quote["low"])
+                if quote.get("open", 0) > 0:
+                    o = quote["open"]
+                if quote.get("high", 0) > 0:
+                    h = max(h, quote["high"])
+                if quote.get("low", 0) > 0:
+                    l = min(l, quote["low"])
                 kaynak = "Finnhub + Yahoo 5dk"
 
-            target_idx = df.index[-1]
-            for col, val in {"Open": o, "High": h, "Low": l, "Close": c, "Volume": v}.items():
+            last_daily_date = pd.Timestamp(df.index[-1]).date()
+            if last_daily_date == seans_tarihi:
+                target_idx = df.index[-1]
+            else:
+                # Günlük indeksin timezone biçimini korumaya çalış.
+                target_idx = pd.Timestamp(seans_tarihi)
+                if getattr(df.index, "tz", None) is not None:
+                    target_idx = target_idx.tz_localize(df.index.tz)
+
+            row = {"Open": o, "High": h, "Low": l, "Close": c, "Volume": v}
+            for col, val in row.items():
                 if col in df.columns and pd.notna(val):
                     df.loc[target_idx, col] = val
+            df = df.sort_index()
+
     elif quote and quote.get("close", 0) > 0:
+        # Mum verisi yoksa yalnızca mevcut son günlük satırın fiyat alanlarını
+        # Finnhub quote ile güncelle; hacmi uydurma.
         target_idx = df.index[-1]
         for col, key in [("Open", "open"), ("High", "high"), ("Low", "low"), ("Close", "close")]:
             if col in df.columns and quote.get(key, 0) > 0:
                 df.loc[target_idx, col] = quote[key]
-        kaynak = "Finnhub"
+        kaynak = "Finnhub quote"
 
     return df, intraday, kaynak
 
@@ -433,7 +456,7 @@ with tab1:
                 
                 for sembol in sektor_referanslari.keys():
                     try:
-                        df_sek = yf.download(sembol, period="40d", progress=False, session=session)
+                        df_sek = yf.download(sembol, period="40d", progress=False, auto_adjust=False)
                         if isinstance(df_sek.columns, pd.MultiIndex): df_sek.columns = df_sek.columns.get_level_values(0)
                         if len(df_sek) >= 21:
                             sektor_getirileri[sembol] = ((df_sek['Close'].iloc[-1] - df_sek['Close'].iloc[-21]) / df_sek['Close'].iloc[-21]) * 100
