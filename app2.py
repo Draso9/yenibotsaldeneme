@@ -97,10 +97,9 @@ if st.session_state.user_email is None and saved_email is not None and not st.se
             st.session_state.custom_tickers = VARSAYILAN_TICKERS.copy()
     st.rerun()
 
-# --- %100 TAZE VERİ ÇEKME MOTORU (ÖNBELLEK YOK - HER SEFERİNDE CANLI ÇEKER) ---
+# --- ANLIK CANLI VERİ ÇEKME MOTORU ---
 def taze_veri_indir(tickers_tuple):
     try:
-        # Önbellek kullanılmaz, doğrudan anlık veri çekilir
         data = yf.download(list(tickers_tuple), period="400d", group_by='ticker', progress=False, threads=True)
         return data
     except Exception:
@@ -115,7 +114,7 @@ def tekil_taze_veri_cek(ticker):
     except:
         return pd.DataFrame()
 
-# --- AKILLI AKSİYON REHBERİ FONKSİYONU ---
+# --- AKILLI AKSİYON REHBERİ ---
 def aksiyon_rehberi_olustur(nihai_sinyal, teyit_1h):
     sinyal_metni = str(nihai_sinyal).upper()
     teyit_metni = str(teyit_1h)
@@ -267,7 +266,7 @@ def hisse_sil_callback():
         st.session_state.sil_hisse_input_field = ""
 
 st.title("📈 Hibrit Portföy Komuta Merkezi")
-st.markdown("**Mod:** %100 Taze Veri Garantili Derin Analiz (Önbelleksiz Anlık Akış)")
+st.markdown("**Mod:** Canlı & Anlık Fiyat Garantili Derin Analiz (Fast-Info Entegrasyonlu)")
 st.markdown("---")
 
 st.sidebar.header("⚙️ Kontrol Paneli")
@@ -301,10 +300,9 @@ with tab1:
         if not selected_tickers:
             st.sidebar.warning("⚠️ Lütfen taranacak en az bir varlık seçin!")
         else:
-            with st.spinner("Önbelleksiz doğrudan taze veriler çekiliyor..."):
+            with st.spinner("Piyasa verileri ve canlı fiyatlar çekiliyor..."):
                 st.session_state.opsiyon_sonuclar = None
                 
-                # Her basışta sıfırdan %100 güncel veri çekilir (Cache yok)
                 toplu_df = taze_veri_indir(tuple(selected_tickers))
                 
                 gecici_sonuclar = []
@@ -344,7 +342,28 @@ with tab1:
                         is_bist = ".IS" in ticker
                         para_birimi = "TL" if is_bist else "$"
                         
-                        bugun_kapanis = float(df_long['Close'].iloc[-1])
+                        # --- CANLI / ANLIK FİYAT GÜVENCESİ (FAST-INFO) ---
+                        t_obj = yf.Ticker(ticker)
+                        canli_fiyat = None
+                        try:
+                            canli_fiyat = t_obj.fast_info.get('last_price', None)
+                        except:
+                            pass
+                        
+                        if not canli_fiyat or pd.isna(canli_fiyat):
+                            try:
+                                h_1d = t_obj.history(period="1d")
+                                if not h_1d.empty:
+                                    canli_fiyat = float(h_1d['Close'].iloc[-1])
+                            except:
+                                pass
+
+                        if canli_fiyat and not pd.isna(canli_fiyat):
+                            bugun_kapanis = float(canli_fiyat)
+                            df_long.iloc[-1, df_long.columns.get_loc('Close')] = bugun_kapanis
+                        else:
+                            bugun_kapanis = float(df_long['Close'].iloc[-1])
+
                         onceki_kapanis = float(df_long['Close'].iloc[-2]) if len(df_long) >= 2 else bugun_kapanis
                         gunluk_degisim = ((bugun_kapanis - onceki_kapanis) / onceki_kapanis) * 100 if onceki_kapanis > 0 else 0.0
                         fiyat_str = f"{bugun_kapanis:.2f} {para_birimi} ({'+' if gunluk_degisim > 0 else ''}{gunluk_degisim:.2f}%)"
