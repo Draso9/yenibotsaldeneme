@@ -107,7 +107,7 @@ if st.session_state.user_email is None and saved_email is not None and not st.se
             st.session_state.custom_tickers = VARSAYILAN_TICKERS.copy()
     st.rerun()
 
-# --- %100 TAZE VE ÖNBELLEKSİZ VERİ MOTORU (SESSION İLE) ---
+# --- VERİ ÇEKME MOTORU ---
 def taze_veri_indir(tickers_tuple):
     try:
         data = yf.download(list(tickers_tuple), period="400d", group_by='ticker', progress=False, threads=True, session=session)
@@ -181,7 +181,7 @@ def aksiyon_rehberi_olustur(nihai_sinyal, teyit_1h):
         renk = "#95a5a6"
         baslik = "⚪ NÖTR / İZLEMEDE KAL"
         ana_metin = "Sinyaller şu an belirgin bir yön veya baskı göstermiyor. Sabırla piyasanın yön seçmesi beklenmelidir."
-        alt_not = '<div style="margin-top: 15px; padding: 10px; background-color: rgba(149, 165, 166, 0.1); border-left: 4px solid #95a5a6; border-radius: 4px;"><b>⚖️ BEKLE-GÖR:</b> Net trend bekleniyor.</div>'
+        alt_not = '<div style="margin-top: 15px; padding: 10px; background-color: rgba(149, 165, 166, 0.1); border-left: 4px solid #e67e22; border-radius: 4px;"><b>⚖️ BEKLE-GÖR:</b> Net trend bekleniyor.</div>'
 
     return f'<div style="background-color: #1e1e1e; padding: 20px; border-radius: 10px; border-left: 5px solid {renk}; margin-top: 20px; color: #ffffff; font-family: sans-serif; box-shadow: 0 4px 8px rgba(0,0,0,0.2);"><h3 style="color: {renk}; margin-top: 0; font-size: 18px;">{baslik}</h3><p style="font-size: 15px; line-height: 1.6; color: #e0e0e0; margin-bottom: 12px;">{ana_metin}</p>{alt_not}</div>'
 
@@ -276,7 +276,7 @@ def hisse_sil_callback():
         st.session_state.sil_hisse_input_field = ""
 
 st.title("📈 Hibrit Portföy Komuta Merkezi")
-st.markdown("**Mod:** Standart Requests-Session & Önbelleksiz %100 Canlı Fiyat Motoru")
+st.markdown("**Mod:** Gerçek Zamanlı Intraday Canlı Fiyat Garantili Motor")
 st.markdown("---")
 
 st.sidebar.header("⚙️ Kontrol Paneli")
@@ -310,7 +310,7 @@ with tab1:
         if not selected_tickers:
             st.sidebar.warning("⚠️ Lütfen taranacak en az bir varlık seçin!")
         else:
-            with st.spinner("Piyasa verileri ve anlık canlı fiyatlar çekiliyor..."):
+            with st.spinner("Piyasa geçmişi ve güncel seans canlı fiyatları çekiliyor..."):
                 st.session_state.opsiyon_sonuclar = None
                 
                 toplu_df = taze_veri_indir(tuple(selected_tickers))
@@ -352,27 +352,19 @@ with tab1:
                         is_bist = ".IS" in ticker
                         para_birimi = "TL" if is_bist else "$"
                         
-                        # --- ANLIK VE CANLI FİYAT ZORLAMASI (SESSION İLE) ---
-                        t_obj = yf.Ticker(ticker, session=session)
-                        canli_fiyat = None
+                        # --- KESİN CANLI SEANS FİYATI (INTRADAY 5M İLE GÜNCELLENİR) ---
+                        bugun_kapanis = float(df_long['Close'].iloc[-1])
                         try:
-                            h_recent = t_obj.history(period="2d")
-                            if not h_recent.empty:
-                                canli_fiyat = float(h_recent['Close'].iloc[-1])
+                            df_intraday = yf.download(ticker, period="1d", interval="5m", progress=False, session=session)
+                            if isinstance(df_intraday.columns, pd.MultiIndex):
+                                df_intraday.columns = df_intraday.columns.get_level_values(0)
+                            if not df_intraday.empty and 'Close' in df_intraday.columns:
+                                canli_val = float(df_intraday['Close'].dropna().iloc[-1])
+                                if not pd.isna(canli_val):
+                                    bugun_kapanis = canli_val
+                                    df_long.loc[df_long.index[-1], 'Close'] = bugun_kapanis
                         except:
                             pass
-                        
-                        if not canli_fiyat or pd.isna(canli_fiyat):
-                            try:
-                                canli_fiyat = t_obj.fast_info.get('last_price', None)
-                            except:
-                                pass
-
-                        if canli_fiyat and not pd.isna(canli_fiyat):
-                            bugun_kapanis = float(canli_fiyat)
-                            df_long.loc[df_long.index[-1], 'Close'] = bugun_kapanis
-                        else:
-                            bugun_kapanis = float(df_long['Close'].iloc[-1])
 
                         onceki_kapanis = float(df_long['Close'].iloc[-2]) if len(df_long) >= 2 else bugun_kapanis
                         gunluk_degisim = ((bugun_kapanis - onceki_kapanis) / onceki_kapanis) * 100 if onceki_kapanis > 0 else 0.0
