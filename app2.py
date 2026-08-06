@@ -943,6 +943,37 @@ st.title("📈 Hibrit Portföy Komuta Merkezi")
 st.markdown("**Mod:** Finnhub + Yahoo Hibrit Canlı OHLCV Motoru")
 st.markdown("---")
 
+with st.expander("📘 Nasıl Kullanılır? Tablo, skorlar ve sinyaller nasıl okunur?", expanded=False):
+    st.markdown("""
+### 1. Tarama tablosu
+- **Fiyat:** Son erişilebilen güncel fiyat ve önceki kapanışa göre günlük değişimdir.
+- **Gelişmiş Skor:** Eski cezalı skorun, ADX–CMF–SuperTrend–VWAP ve çoklu zaman dilimi teyitleriyle kontrollü biçimde birleştirilmiş halidir.
+- **Güven:** Göstergelerin aynı yönde ne ölçüde birleştiğini gösteren algoritmik uyum puanıdır; başarı olasılığı değildir.
+- **MTF Uyum:** 5 dakika, 15 dakika, 1 saat, 4 saat ve günlük görünümün yön uyumudur.
+- **Risk:** Stop mesafesi, ATR ve trend gücüne göre düşük/orta/yüksek sınıflandırmadır.
+- **Para Akışı:** MFI, OBV ve hacim davranışının kısa özetidir.
+
+### 2. Sinyaller
+- **Kusursuz Alım:** Ana trend yukarıyken aşırı satış bölgesine yaklaşan güçlü geri çekilme adayıdır.
+- **Kademeli Alım:** Ana trend korunurken fiyatın destek/orta bant bölgesine çekildiği durumdur; tek sefer yerine kademeli yaklaşım içindir.
+- **Yükseliş Kırılımı:** Önceki direnç yüksek hacim ve kısa vadeli EMA teyidiyle geçilmiştir.
+- **Uzun Vadeli Aday:** SMA200 üzeri, güçlü teknik skor taşıyan trend adayıdır; gerçek bilanço değerlemesi değildir.
+- **Kâr Realizasyonu:** Aşırı alım ve üst bant şişkinliği nedeniyle risk azaltma uyarısıdır.
+- **Hacimli Tepki:** İzleme sinyalidir; doğrudan alım emri değildir.
+
+### 3. Destek, direnç, stop ve hedefler
+- **Karma Destek/Direnç:** Geçmiş tepe-dip, EMA50, Bollinger ve ATR bileşiminden hesaplanır.
+- **Süren Stop:** Fiyatın altında kalan en yakın geçerli Chandelier/ATR destek adayından seçilir.
+- **TP1 / TP2:** Giriş–stop arasındaki riske göre yaklaşık 1,5R ve 3R hedefleridir.
+- Seviyeler kesin sonuç değil, karar destek referansıdır; piyasa boşlukları ve ani haberler bu seviyeleri aşabilir.
+
+### 4. Skorun mantığı
+**Eski cezalı skor** sistemin ana gövdesidir: SMA200, EMA50, hacim+OBV, RSI, MACD, Bollinger ve likidite değerlendirilir.  
+**Gelişmiş katman** yalnızca sınırlı bonus/ceza ekler: ADX, CMF, SuperTrend, VWAP, sektör gücü ve çoklu zaman dilimi uyumu. Böylece eski sistemin karakteri korunur, fakat daha güçlü teyitlerle desteklenir.
+
+> Bu uygulama algoritmik karar desteğidir; yatırım tavsiyesi veya kesin getiri garantisi değildir.
+""")
+
 st.sidebar.header("⚙️ Kontrol Paneli")
 
 if not FINNHUB_API_KEY:
@@ -1082,35 +1113,106 @@ with tab1:
 
                         hacim_patlamasi_var = (hacim_oran >= 130) and (gunluk_degisim >= 4.0)
 
-                        skor = 50 
-                        if uzun_vade_trend: skor += 15
-                        else: skor -= (5 if hacim_patlamasi_var else 25)
-                        
-                        ema_50_val = df_long['Close'].ewm(span=50).mean().iloc[-1]
-                        if bugun_kapanis > ema_50_val: skor += 10
-                        else: skor -= 15
-                        
-                        if hacim_oran >= 100 and obv[-1] > obv_ema.iloc[-1]: skor += 15
-                        else: skor -= 20
-                        
-                        if 35 <= rsi <= 55: skor += 10
-                        elif rsi > 70: skor -= 15
-                        
-                        if macd_serisi.iloc[-1] > macd_sinyal.iloc[-1]: skor += 10
-                        else: skor -= 10
-                        
-                        if bugun_kapanis <= bb_mid: skor += 10
-                        elif bugun_kapanis >= bb_ust and rsi >= 65: skor -= 15
-                        if is_sig_tahta: skor -= 20
-                        # Trend gücü, kurumsal para akışı, SuperTrend, VWAP ve MTF uyumu.
-                        if adx >= 25 and plus_di > minus_di: skor += 10
-                        elif adx < 18: skor -= 5
-                        if cmf > 0.05: skor += 8
-                        elif cmf < -0.05: skor -= 8
-                        skor += 5 if supertrend == 1 else -5
-                        if np.isfinite(vwap): skor += 5 if bugun_kapanis > vwap else -3
-                        skor += int(round((mtf_uyum - 50) * 0.16))
-                        skor = int(min(100, max(0, skor)))
+                        # --- HİBRİT SKOR: ESKİ CEZALI SKOR + GELİŞMİŞ TEYİT KATMANI ---
+                        # Eski sistemin davranışı korunur: 50 puandan başlar; ana trend,
+                        # EMA50, hacim/OBV, RSI, MACD ve Bollinger konumuna göre artar/azalır.
+                        eski_skor = 50
+                        skor_kalemleri = []
+
+                        if uzun_vade_trend:
+                            eski_skor += 15; skor_kalemleri.append(("Ana trend (SMA200)", 15))
+                        else:
+                            ceza = -5 if hacim_patlamasi_var else -25
+                            eski_skor += ceza; skor_kalemleri.append(("Ana trend (SMA200)", ceza))
+
+                        ema_50_val = df_long['Close'].ewm(span=50, adjust=False).mean().iloc[-1]
+                        if bugun_kapanis > ema_50_val:
+                            eski_skor += 10; skor_kalemleri.append(("EMA50 konumu", 10))
+                        else:
+                            eski_skor -= 15; skor_kalemleri.append(("EMA50 konumu", -15))
+
+                        if hacim_oran >= 100 and obv[-1] > obv_ema.iloc[-1]:
+                            eski_skor += 15; skor_kalemleri.append(("Hacim + OBV", 15))
+                        else:
+                            eski_skor -= 20; skor_kalemleri.append(("Hacim + OBV", -20))
+
+                        if 35 <= rsi <= 55:
+                            eski_skor += 10; skor_kalemleri.append(("RSI dengesi", 10))
+                        elif rsi > 70:
+                            eski_skor -= 15; skor_kalemleri.append(("RSI aşırı alım", -15))
+                        else:
+                            skor_kalemleri.append(("RSI dengesi", 0))
+
+                        if macd_serisi.iloc[-1] > macd_sinyal.iloc[-1]:
+                            eski_skor += 10; skor_kalemleri.append(("MACD teyidi", 10))
+                        else:
+                            eski_skor -= 10; skor_kalemleri.append(("MACD teyidi", -10))
+
+                        if bugun_kapanis <= bb_mid:
+                            eski_skor += 10; skor_kalemleri.append(("Bollinger konumu", 10))
+                        elif bugun_kapanis >= bb_ust and rsi >= 65:
+                            eski_skor -= 15; skor_kalemleri.append(("Bollinger şişkinliği", -15))
+                        else:
+                            skor_kalemleri.append(("Bollinger konumu", 0))
+
+                        if is_sig_tahta:
+                            eski_skor -= 20; skor_kalemleri.append(("Likidite / sığ tahta", -20))
+
+                        eski_skor = int(min(100, max(0, eski_skor)))
+
+                        # Yeni doğrulama katmanı: eski skoru değiştirmek yerine kontrollü
+                        # bonus/ceza uygular. Böylece sevilen eski davranış korunur.
+                        gelismis_bonus = 0
+                        gelismis_ceza = 0
+                        bonus_kalemleri = []
+                        ceza_kalemleri = []
+
+                        if adx >= 25 and plus_di > minus_di:
+                            gelismis_bonus += 6; bonus_kalemleri.append(("ADX güçlü boğa trendi", 6))
+                        elif adx < 18:
+                            gelismis_ceza += 4; ceza_kalemleri.append(("ADX trend zayıf", -4))
+
+                        if cmf > 0.05:
+                            gelismis_bonus += 5; bonus_kalemleri.append(("CMF para girişi", 5))
+                        elif cmf < -0.05:
+                            gelismis_ceza += 5; ceza_kalemleri.append(("CMF para çıkışı", -5))
+
+                        if supertrend == 1:
+                            gelismis_bonus += 4; bonus_kalemleri.append(("SuperTrend yukarı", 4))
+                        else:
+                            gelismis_ceza += 4; ceza_kalemleri.append(("SuperTrend aşağı", -4))
+
+                        if np.isfinite(vwap):
+                            if bugun_kapanis > vwap:
+                                gelismis_bonus += 3; bonus_kalemleri.append(("Fiyat VWAP üzerinde", 3))
+                            else:
+                                gelismis_ceza += 2; ceza_kalemleri.append(("Fiyat VWAP altında", -2))
+
+                        mtf_etki = int(round((mtf_uyum - 50) * 0.10))
+                        if mtf_etki > 0:
+                            gelismis_bonus += mtf_etki; bonus_kalemleri.append(("Çoklu zaman dilimi uyumu", mtf_etki))
+                        elif mtf_etki < 0:
+                            gelismis_ceza += abs(mtf_etki); ceza_kalemleri.append(("Zaman dilimi çatışması", mtf_etki))
+
+                        if sektorel_fark > 0:
+                            gelismis_bonus += 2; bonus_kalemleri.append(("Sektöre göre güçlü", 2))
+                        else:
+                            gelismis_ceza += 2; ceza_kalemleri.append(("Sektöre göre zayıf", -2))
+
+                        # Gelişmiş katmanın etkisini sınırlayarak eski skoru baskın tutuyoruz.
+                        gelismis_bonus = min(gelismis_bonus, 15)
+                        gelismis_ceza = min(gelismis_ceza, 15)
+                        skor = int(min(100, max(0, eski_skor + gelismis_bonus - gelismis_ceza)))
+
+                        skor_aciklama = {
+                            "eski_skor": eski_skor,
+                            "bonus": gelismis_bonus,
+                            "ceza": gelismis_ceza,
+                            "nihai_skor": skor,
+                            "eski_kalemler": skor_kalemleri,
+                            "bonus_kalemler": bonus_kalemleri,
+                            "ceza_kalemler": ceza_kalemleri,
+                        }
 
                         skor_etiket = f"{skor} Puan (Güçlü 🟢)" if skor >= 70 else (f"{skor} Puan (Nötr ⚖️)" if skor >= 50 else f"{skor} Puan (Cezalı 🔴)")
 
@@ -1219,7 +1321,9 @@ with tab1:
                             "supertrend": int(supertrend), "supertrend_line": float(supertrend_line), "vwap": float(vwap) if np.isfinite(vwap) else np.nan,
                             "mtf_detay": mtf_detay, "mtf_uyum": int(mtf_uyum), "guven_skoru": int(guven_skoru),
                             "risk_odul": float(risk_odul), "risk_yuzde": float(risk_yuzde), "risk_seviyesi": risk_seviyesi, "volatilite_rejimi": vol_rejimi,
-                            "sinyal_yonu": sinyal_yonu_belirle(sinyal), "cezali_skor": int(skor)
+                            "sinyal_yonu": sinyal_yonu_belirle(sinyal), "cezali_skor": int(skor),
+                            "eski_cezali_skor": int(eski_skor), "skor_bonus": int(gelismis_bonus),
+                            "skor_ceza": int(gelismis_ceza), "skor_aciklama": skor_aciklama
                         }
 
                         gecici_sozlu_analizler[ticker] = sozlu_teknik_analiz_olustur(
@@ -1291,6 +1395,39 @@ with tab1:
                     panel_verisi = st.session_state.teknik_paneller.get(secilen_detay_hisse)
                     if panel_verisi:
                         st.markdown(gelismis_teknik_panel_olustur(panel_verisi), unsafe_allow_html=True)
+
+                        with st.expander("🧮 Skor nasıl oluştu?", expanded=False):
+                            eski_v = int(panel_verisi.get("eski_cezali_skor", panel_verisi.get("cezali_skor", 50)))
+                            bonus_v = int(panel_verisi.get("skor_bonus", 0))
+                            ceza_v = int(panel_verisi.get("skor_ceza", 0))
+                            nihai_v = int(panel_verisi.get("cezali_skor", eski_v + bonus_v - ceza_v))
+                            s1, s2, s3, s4 = st.columns(4)
+                            s1.metric("Eski Cezalı Skor", eski_v)
+                            s2.metric("Gelişmiş Bonus", f"+{bonus_v}")
+                            s3.metric("Gelişmiş Ceza", f"-{ceza_v}")
+                            s4.metric("Nihai Skor", nihai_v)
+
+                            aciklama = panel_verisi.get("skor_aciklama", {})
+                            sol, sag = st.columns(2)
+                            with sol:
+                                st.markdown("**Eski sistem kalemleri**")
+                                for ad, deger in aciklama.get("eski_kalemler", []):
+                                    st.write(f"{ad}: {deger:+d}")
+                                st.markdown("**Bonuslar**")
+                                if aciklama.get("bonus_kalemler"):
+                                    for ad, deger in aciklama.get("bonus_kalemler", []):
+                                        st.write(f"{ad}: +{deger}")
+                                else:
+                                    st.caption("Ek bonus oluşmadı.")
+                            with sag:
+                                st.markdown("**Cezalar**")
+                                if aciklama.get("ceza_kalemler"):
+                                    for ad, deger in aciklama.get("ceza_kalemler", []):
+                                        st.write(f"{ad}: {deger}")
+                                else:
+                                    st.caption("Ek ceza oluşmadı.")
+                                st.info("Nihai skor = eski cezalı skor + sınırlı gelişmiş bonus − sınırlı gelişmiş ceza")
+
                         karar = karar_motoru_ozeti(panel_verisi)
                         st.markdown("### 🧠 Şeffaf Karar Motoru")
                         k1,k2,k3,k4 = st.columns(4)
