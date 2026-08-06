@@ -122,7 +122,7 @@ def aksiyon_rehberi_olustur(nihai_sinyal, teyit_1h):
     elif "UZUN VADELİ ADAY" in sinyal_metni:
         renk = "#8e44ad"
         baslik = "🌟 UZUN VADELİ PORTFÖY ADAYI (GARP - DEĞER & TREND)"
-        ana_metin = "Mükemmel Temel ve Makro Uyum! Varlık güçlü boğa trendinde (200 SMA üstü) yer alıyor, cezalı skor barajını aşıyor ve son derece cazip bir PEG oranına (büyüyen ucuz) sahip. Fiyat şu an anlık bir kırılım veya aşırı dip bölgesinde değil; orta bantta sağlıklı bir konsolidasyon (dinlenme) sürdürüyor."
+        ana_metin = "Mükemmel Temel ve Makro Uyum! Varlık güçlü boğa trendinde (200 SMA üstü) yer alıyor, cezalı skor barajını aşıyor ve son derece cazip bir PEG oranına (veya desteklenen trend yapısına) sahip. Fiyat şu an anlık bir kırılım veya aşırı dip bölgesinde değil; orta bantta sağlıklı bir konsolidasyon (dinlenme) sürdürüyor."
         alt_not = '<div style="margin-top: 15px; padding: 10px; background-color: rgba(142, 68, 173, 0.1); border-left: 4px solid #8e44ad; border-radius: 4px;"><b>💡 STRATEJİK DEĞERLENDİRME:</b> Anlık tetik (hacimli kırılım) henüz gelmediği için tüm sermayeyle tek seferde girmek yerine, kademeli toplama havuzu veya uzun vadeli sepet için ideal birincil adaydır.</div>'
 
     elif "KADEMELİ ALIM" in sinyal_metni:
@@ -567,8 +567,10 @@ with tab1:
                         if macd_serisi.iloc[-1] > macd_sinyal.iloc[-1]: skor += 10
                         else: skor -= 10
                         
-                        if (peg is not None and 0 < peg < 1.5): skor += 15
-                        else: skor -= 15
+                        # DÜZELTME: PEG None ise ceza kesilmez, sadece varsa kontrol edilir
+                        if peg is not None:
+                            if 0 < peg < 1.5: skor += 15
+                            else: skor -= 15
                         
                         if bugun_kapanis <= bb_mid: skor += 10
                         elif bugun_kapanis >= bb_ust and rsi >= 65: skor -= 15
@@ -601,10 +603,14 @@ with tab1:
                         ema_21_val = df_long['Close'].ewm(span=21).mean().iloc[-1]
                         breakout_kosulu = (bugun_kapanis >= karma_direnc) and (hacim_oran >= 120) and (ema_9_val > ema_21_val) and (uzun_vade_trend)
                         
+                        # DÜZELTME: PEG None olsa bile BIST veya verisi eksik güçlü trenddeki hisseler uzun vadeli aday havuzuna girebilsin
                         uzun_vadeli_aday_kosulu = (
                             uzun_vade_trend and 
                             skor >= 70 and 
-                            peg is not None and 0 < peg < 1.0 and 
+                            (
+                                (peg is not None and 0 < peg < 1.0) or 
+                                (peg is None)
+                            ) and 
                             (bugun_kapanis < karma_direnc)
                         )
 
@@ -1109,7 +1115,7 @@ with tab2:
     else:
         st.warning("Bu özelliği kullanmak için sisteme giriş yapmış olmalı ve Firebase bağlantısına sahip olmalısınız.")
 
-# --- 3. SEKME: OPSİYON PROJEKSİYONU (YENİ EKLENEN VE OPTİMİZE EDİLEN) ---
+# --- 3. SEKME: OPSİYON PROJEKSİYONU ---
 with tab3:
     st.subheader("🎯 Opsiyon Projeksiyonu & Beklenen Hareket (Expected Move)")
     st.markdown("Bu sekme, Derin Tarama sonucunda **Alım Fırsatı, Kırılım veya Uzun Vadeli Aday** sinyali üreten varlıkların tarihsel volatilitesini (HV) baz alarak, önümüzdeki **45 günlük vade (1.5 ay)** için istatistiksel fiyat bandını (1 Standart Sapma / %68 Olasılık) hesaplar. Bu sayede opsiyon (Call) kontratı seçerken gerçekçi kullanım fiyatlarını (Strike Price) belirleyebilirsiniz.")
@@ -1122,7 +1128,6 @@ with tab3:
         if not df_alis.empty:
             st.info(f"Tarama listesinde tespit edilen **{len(df_alis)}** adet alım/kırılım sinyali için opsiyon projeksiyonu hesaplamaya hazır.")
             
-            # Hesaplama butonu eklendi (Donmayı önler)
             if st.button("🧮 Seçili Sinyaller İçin Opsiyon Projeksiyonunu Hesapla", type="primary"):
                 with st.spinner("Volatilite verileri çekiliyor ve 45 günlük bantlar hesaplanıyor..."):
                     projeksiyon_listesi = []
@@ -1137,18 +1142,16 @@ with tab3:
                         para_birimi = "TL" if ".IS" in ticker else "$"
                         
                         try:
-                            # Tarihsel Volatilite için 3 aylık veri çekimi
                             stk = yf.Ticker(ticker, session=session)
                             df_h = stk.history(period="3mo")
                             if not df_h.empty and len(df_h) >= 20:
                                 gunluk_getiri = df_h['Close'].pct_change().dropna()
-                                yillik_vol = gunluk_getiri.std() * np.sqrt(252) # Yıllıklaştırılmış Volatilite (IV Proksisi)
+                                yillik_vol = gunluk_getiri.std() * np.sqrt(252) 
                             else:
                                 yillik_vol = 0.30
                         except:
                             yillik_vol = 0.30
                             
-                        # 45 Günlük Beklenen Hareket Formülü: Fiyat * Vol * sqrt(45 / 365)
                         dte = 45
                         beklenen_hareket_orani = yillik_vol * np.sqrt(dte / 365.0)
                         beklenen_marj_tutar = fiyat_val * beklenen_hareket_orani
@@ -1169,7 +1172,6 @@ with tab3:
                     st.session_state.opsiyon_sonuclar = pd.DataFrame(projeksiyon_listesi)
                     st.success("Hesaplama tamamlandı!")
 
-            # Hafızadaki sonuçları ekrana basma
             if st.session_state.opsiyon_sonuclar is not None:
                 st.dataframe(st.session_state.opsiyon_sonuclar, use_container_width=True)
                 
