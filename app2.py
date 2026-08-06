@@ -89,6 +89,9 @@ if "user_email" not in st.session_state:
 if "logout_triggered" not in st.session_state:
     st.session_state.logout_triggered = False
 
+if "opsiyon_sonuclar" not in st.session_state:
+    st.session_state.opsiyon_sonuclar = None
+
 if st.session_state.user_email is None and saved_email is not None and not st.session_state.logout_triggered:
     st.session_state.user_email = saved_email
     if db:
@@ -363,8 +366,8 @@ with st.sidebar.expander("📋 Varlık Seçimi", expanded=True):
 
 tarama_tetiklendi = st.sidebar.button("🚀 Derin Taramayı Başlat", type="primary", use_container_width=True)
 
-# --- SEKME (TAB) YAPISI EKLENDİ ---
-tab1, tab2 = st.tabs(["🚀 Derin Tarama Merkezi", "📊 Sinyal Performans Takibi"])
+# --- 3 SEKMELİ MİMARİ (DERİN TARAMA, PERFORMANS, OPSİYON PROJEKSİYONU) ---
+tab1, tab2, tab3 = st.tabs(["🚀 Derin Tarama Merkezi", "📊 Sinyal Performans Takibi", "🎯 Opsiyon Projeksiyonu"])
 
 with tab1:
     if tarama_tetiklendi:
@@ -372,6 +375,9 @@ with tab1:
             st.sidebar.warning("⚠️ Lütfen taranacak en az bir varlık seçin!")
         else:
             with st.spinner("Hedge-Fund Katmanları & Hibrit Kararlı Veri Akışı İşleniyor..."):
+                
+                # Yeni taramada eski opsiyon hesaplamalarını sıfırla
+                st.session_state.opsiyon_sonuclar = None
                 
                 progress_text = st.empty()
                 progress_bar = st.progress(0.0)
@@ -685,7 +691,7 @@ with tab1:
 
                         lot = int((bist_kasa if is_bist else nasdaq_kasa) * risk_orani / alinan_risk) if ("ALIM" in sinyal or "TEPKİ" in sinyal or "KIRILIM" in sinyal or "ADAY" in sinyal) else 0
 
-                        # --- YENİ EKLENTİ: FİRESTORE SİNYAL KAYIT MOTORU ---
+                        # --- FİRESTORE SİNYAL KAYIT MOTORU ---
                         if db and st.session_state.user_email and ("KIRILIM" in sinyal or "ALIM" in sinyal or "ADAY" in sinyal):
                             try:
                                 sinyaller_ref = db.collection("kullanici_listeleri").document(st.session_state.user_email).collection("sinyal_havuzu")
@@ -703,8 +709,7 @@ with tab1:
                                         "durum": "Aktif"
                                     })
                             except Exception:
-                                pass # Bağlantı/Yetki hatası taramayı bölmesin diye sessizce geçilir
-                        # ---------------------------------------------------
+                                pass
 
                         gecici_sonuclar.append({
                             "Varlık": ticker,
@@ -1002,7 +1007,7 @@ with tab1:
             else:
                 st.info("Seçilen kriterlere uyan varlık bulunamadı.")
 
-# --- YENİ EKLENTİ: 2. SEKME (PERFORMANS TAKİBİ) ---
+# --- 2. SEKME: PERFORMANS TAKİBİ ---
 with tab2:
     st.subheader("📊 Sinyal Performans Takibi (Kâğıt Üzerinde Taksim)")
     st.markdown("Bu sekme; ana modülün ürettiği alım fırsatlarını otomatik olarak arka planda kaydeder ve siz *'Güncelle'* butonuna bastığınızda, sinyalin üretildiği günkü fiyat ile bugünkü anlık piyasa fiyatını karşılaştırıp sisteminizin başarı istatistiklerini hesaplar.")
@@ -1028,7 +1033,6 @@ with tab2:
                         if not aktif_df.empty:
                             essiz_varliklar = aktif_df["varlik"].unique().tolist()
                             
-                            # Yahoo Finance'ten sadece güncel fiyatı çekme
                             df_fiyatlar = yf.download(essiz_varliklar, period="1d", group_by="ticker", auto_adjust=True, session=session, timeout=15)
                             
                             guncel_fiyatlar = {}
@@ -1104,3 +1108,80 @@ with tab2:
                     st.error(f"Kayıtlı veriler çekilirken bir hata oluştu: {e}")
     else:
         st.warning("Bu özelliği kullanmak için sisteme giriş yapmış olmalı ve Firebase bağlantısına sahip olmalısınız.")
+
+# --- 3. SEKME: OPSİYON PROJEKSİYONU (YENİ EKLENEN VE OPTİMİZE EDİLEN) ---
+with tab3:
+    st.subheader("🎯 Opsiyon Projeksiyonu & Beklenen Hareket (Expected Move)")
+    st.markdown("Bu sekme, Derin Tarama sonucunda **Alım Fırsatı, Kırılım veya Uzun Vadeli Aday** sinyali üreten varlıkların tarihsel volatilitesini (HV) baz alarak, önümüzdeki **45 günlük vade (1.5 ay)** için istatistiksel fiyat bandını (1 Standart Sapma / %68 Olasılık) hesaplar. Bu sayede opsiyon (Call) kontratı seçerken gerçekçi kullanım fiyatlarını (Strike Price) belirleyebilirsiniz.")
+    st.markdown("---")
+    
+    if st.session_state.tarama_durumu and st.session_state.sonuclar:
+        df_res = pd.DataFrame(st.session_state.sonuclar)
+        df_alis = df_res[df_res["Nihai Sinyal"].str.contains("ALIM|KIRILIM|ADAY", na=False)]
+        
+        if not df_alis.empty:
+            st.info(f"Tarama listesinde tespit edilen **{len(df_alis)}** adet alım/kırılım sinyali için opsiyon projeksiyonu hesaplamaya hazır.")
+            
+            # Hesaplama butonu eklendi (Donmayı önler)
+            if st.button("🧮 Seçili Sinyaller İçin Opsiyon Projeksiyonunu Hesapla", type="primary"):
+                with st.spinner("Volatilite verileri çekiliyor ve 45 günlük bantlar hesaplanıyor..."):
+                    projeksiyon_listesi = []
+                    for idx, row in df_alis.iterrows():
+                        ticker = row["Varlık"]
+                        fiyat_str = row["Fiyat"]
+                        try:
+                            fiyat_val = float(fiyat_str.split()[0])
+                        except:
+                            fiyat_val = 0.0
+                            
+                        para_birimi = "TL" if ".IS" in ticker else "$"
+                        
+                        try:
+                            # Tarihsel Volatilite için 3 aylık veri çekimi
+                            stk = yf.Ticker(ticker, session=session)
+                            df_h = stk.history(period="3mo")
+                            if not df_h.empty and len(df_h) >= 20:
+                                gunluk_getiri = df_h['Close'].pct_change().dropna()
+                                yillik_vol = gunluk_getiri.std() * np.sqrt(252) # Yıllıklaştırılmış Volatilite (IV Proksisi)
+                            else:
+                                yillik_vol = 0.30
+                        except:
+                            yillik_vol = 0.30
+                            
+                        # 45 Günlük Beklenen Hareket Formülü: Fiyat * Vol * sqrt(45 / 365)
+                        dte = 45
+                        beklenen_hareket_orani = yillik_vol * np.sqrt(dte / 365.0)
+                        beklenen_marj_tutar = fiyat_val * beklenen_hareket_orani
+                        
+                        alt_bant = fiyat_val - beklenen_marj_tutar
+                        ust_bant = fiyat_val + beklenen_marj_tutar
+                        
+                        projeksiyon_listesi.append({
+                            "Varlık": ticker,
+                            "Sinyal Türü": row["Nihai Sinyal"],
+                            "Anlık Fiyat": f"{fiyat_val:.2f} {para_birimi}",
+                            "Tarihsel Volatilite (IV Proksisi)": f"%{yillik_vol*100:.1f}",
+                            "45G Alt Bant (-1σ)": f"{alt_bant:.2f} {para_birimi}",
+                            "45G Üst Bant (+1σ)": f"{ust_bant:.2f} {para_birimi}",
+                            "Önerilen Strike (Call)": f"{fiyat_val:.2f} - {ust_bant:.2f} Aralığı"
+                        })
+                    
+                    st.session_state.opsiyon_sonuclar = pd.DataFrame(projeksiyon_listesi)
+                    st.success("Hesaplama tamamlandı!")
+
+            # Hafızadaki sonuçları ekrana basma
+            if st.session_state.opsiyon_sonuclar is not None:
+                st.dataframe(st.session_state.opsiyon_sonuclar, use_container_width=True)
+                
+                st.markdown("""
+                <div class="info-box">
+                    <b>💡 Opsiyon Stratejisi İpuçları:</b><br>
+                    • <b>Beklenen Hareket Bandı:</b> Piyasanın %68 olasılıkla bu sınırlar içinde kalacağını öngörür. Üst bandın çok üzerinde bir 'Strike Price' (Kullanım Fiyatı) seçmek, kontratı ucuz gösterse de vade sonu 'değersiz' (OTM) kapanma riskini çok yükseltir.<br>
+                    • <b>Vade Seçimi:</b> 30-45 günlük vadeler, kısa vadeli patlama ve breakout (kırılım) sinyalleri için idealdir. Zaman erozyonuna (Theta) karşı kontratı vade sonuna çok yaklaştırmadan satmak stratejiktir.<br>
+                    • <b>Kasa Disiplini:</b> Opsiyon işlemlerine ayrılan bütçe (toplam kasanın maksimum %10'u) kademeli kullanılmalı, tek kontrata tüm bütçe bağlanmamalıdır.
+                </div>
+                """, unsafe_allow_html=True)
+        else:
+            st.warning("Aktif taramada 'Alım', 'Kırılım' veya 'Aday' sinyali üreten varlık bulunamadı. Önce Derin Tarama sekmesinden tarama başlatmalısınız.")
+    else:
+        st.warning("Henüz bir tarama gerçekleştirilmedi. Lütfen sol menüden **'Derin Taramayı Başlat'** butonuna basarak piyasayı tarayın.")
