@@ -407,7 +407,19 @@ with tab1:
                 df_toplu = pd.DataFrame()
                 try:
                     time.sleep(1.0)
-                    df_toplu = yf.download(selected_tickers, period="1y", group_by="ticker", auto_adjust=True, session=session, timeout=20)
+                    # Yahoo'nun sunucu önbelleğini (cache) bypass etmek için rastgele bir param ekliyoruz
+                    session.headers['Cache-Control'] = 'no-cache'
+                    session.headers['Pragma'] = 'no-cache'
+                    
+                    df_toplu = yf.download(
+                        selected_tickers, 
+                        period="1y", 
+                        group_by="ticker", 
+                        auto_adjust=True, 
+                        session=session, 
+                        timeout=20,
+                        threads=True
+                    )
                 except:
                     df_toplu = pd.DataFrame()
 
