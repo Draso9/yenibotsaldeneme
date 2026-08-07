@@ -774,7 +774,9 @@ def sinyal_guven_skoru(panel, temel_skor):
     puan += 6 if panel.get('supertrend',0)==1 else -6
     puan += 5 if panel.get('fiyat',0)>panel.get('vwap',float('inf')) else (-3 if np.isfinite(panel.get('vwap',np.nan)) else 0)
     puan += (panel.get('mtf_uyum',50)-50)*0.20
-    puan += 4 if panel.get('sektorel_fark',0)>0 else -3
+    sektorel_fark_v = panel.get('sektorel_fark', np.nan)
+    if pd.notna(sektorel_fark_v) and np.isfinite(float(sektorel_fark_v)):
+        puan += 4 if float(sektorel_fark_v) > 0 else -3
     puan += 3 if panel.get('risk_odul',0)>=2 else (-3 if panel.get('risk_odul',0)<1.2 else 0)
     return int(round(min(95,max(20,puan))))
 
@@ -1042,10 +1044,12 @@ def sozlu_teknik_analiz_olustur(ticker, fiyat, gunluk_degisim, rsi, macd, macd_s
         "MFI para çıkışının baskın olduğuna işaret ediyor." if mfi <= 30 else
         "MFI dengeli para akışına işaret ediyor."
     )
-    sektor_yorum = (
-        f"Varlık son bir ayda referansına göre %{sektorel_fark:.1f} daha güçlü performans gösteriyor." if sektorel_fark >= 0 else
-        f"Varlık son bir ayda referansının %{abs(sektorel_fark):.1f} gerisinde kalıyor."
-    )
+    if pd.isna(sektorel_fark) or not np.isfinite(float(sektorel_fark)):
+        sektor_yorum = "Göreceli güç için yeterli ve temiz referans verisi bulunamadı; bu alan skorlamada nötr bırakıldı."
+    elif sektorel_fark >= 0:
+        sektor_yorum = f"Varlık son bir ayda referansına göre %{sektorel_fark:.1f} daha güçlü performans gösteriyor."
+    else:
+        sektor_yorum = f"Varlık son bir ayda referansının %{abs(sektorel_fark):.1f} gerisinde kalıyor."
     bant_yorum = (
         "Fiyat üst Bollinger bandına yakın; kısa vadede şişkinlik ve kâr satışı riski artmış durumda." if fiyat >= bb_ust * 0.995 else
         "Fiyat alt Bollinger bandına yakın; tepki olasılığı artsa da zayıflık devam ediyor." if fiyat <= bb_alt * 1.005 else
@@ -1806,12 +1810,16 @@ with tab1:
                 for sembol in sektor_referanslari.keys():
                     try:
                         df_sek = toplu_veriden_ticker_ayir(sektor_toplu, sembol, len(sektor_referanslari))
-                        if len(df_sek) >= 21 and 'Close' in df_sek:
-                            sektor_getirileri[sembol] = ((df_sek['Close'].iloc[-1] - df_sek['Close'].iloc[-21]) / df_sek['Close'].iloc[-21]) * 100
+                        if 'Close' in df_sek:
+                            sek_close = pd.to_numeric(df_sek['Close'], errors='coerce').replace([np.inf, -np.inf], np.nan).dropna()
+                            if len(sek_close) >= 21 and float(sek_close.iloc[-21]) != 0:
+                                sektor_getirileri[sembol] = ((float(sek_close.iloc[-1]) - float(sek_close.iloc[-21])) / float(sek_close.iloc[-21])) * 100
+                            else:
+                                sektor_getirileri[sembol] = np.nan
                         else:
-                            sektor_getirileri[sembol] = 0
+                            sektor_getirileri[sembol] = np.nan
                     except Exception:
-                        sektor_getirileri[sembol] = 0
+                        sektor_getirileri[sembol] = np.nan
 
                 ilerleme = st.progress(0, text="Tarama hazırlanıyor...")
                 toplam_ticker = max(len(selected_tickers), 1)
@@ -1850,17 +1858,26 @@ with tab1:
                         ortalama_ciro_tutar = ortalama_hacim_20 * bugun_kapanis if not pd.isna(ortalama_hacim_20) else 0
                         is_sig_tahta = ortalama_ciro_tutar < (50_000_000 if is_bist else 5_000_000)
 
-                        son_1_ay_df = df_long.tail(21)
-                        hisse_1m_getiri = ((son_1_ay_df['Close'].iloc[-1] - son_1_ay_df['Close'].iloc[0]) / son_1_ay_df['Close'].iloc[0]) * 100 if len(son_1_ay_df) > 0 else 0
-                        
-                        sek_sembol = "XU100.IS" if is_bist else "^IXIC"
-                        sektor_get = sektor_getirileri.get(sek_sembol, 0)
-                        sektorel_fark = hisse_1m_getiri - sektor_get
+                        # Göreceli güç hesabında yalnızca geçerli kapanışları kullan.
+                        # Yahoo bazı sembollerde ilk/son satırı NaN döndürebildiği için
+                        # ham iloc kullanmak `%nan` üretebiliyordu.
+                        close_1m = pd.to_numeric(df_long['Close'], errors='coerce').replace([np.inf, -np.inf], np.nan).dropna().tail(21)
+                        hisse_1m_getiri = np.nan
+                        if len(close_1m) >= 2 and float(close_1m.iloc[0]) != 0:
+                            hisse_1m_getiri = ((float(close_1m.iloc[-1]) - float(close_1m.iloc[0])) / float(close_1m.iloc[0])) * 100
 
-                        bugun_hacim = df_long['Volume'].iloc[-1]
-                        hacim_sma20 = df_long['Volume'].rolling(20).mean().iloc[-1]
-                        hacim_oran = (bugun_hacim / hacim_sma20) * 100 if hacim_sma20 > 0 else 100
-                        gorec_guc_str = f"{'+' if sektorel_fark>0 else ''}{sektorel_fark:.1f}% | Vol: %{hacim_oran:.0f}"
+                        sek_sembol = "XU100.IS" if is_bist else "^IXIC"
+                        sektor_get = sektor_getirileri.get(sek_sembol, np.nan)
+                        sektor_get = float(sektor_get) if pd.notna(sektor_get) and np.isfinite(float(sektor_get)) else np.nan
+                        sektorel_fark = (hisse_1m_getiri - sektor_get) if np.isfinite(hisse_1m_getiri) and np.isfinite(sektor_get) else np.nan
+
+                        bugun_hacim = pd.to_numeric(pd.Series([df_long['Volume'].iloc[-1]]), errors='coerce').iloc[0]
+                        hacim_sma20 = pd.to_numeric(df_long['Volume'], errors='coerce').replace([np.inf, -np.inf], np.nan).rolling(20, min_periods=5).mean().iloc[-1]
+                        hacim_oran = (float(bugun_hacim) / float(hacim_sma20)) * 100 if pd.notna(bugun_hacim) and pd.notna(hacim_sma20) and float(hacim_sma20) > 0 else 100.0
+                        if pd.notna(sektorel_fark) and np.isfinite(float(sektorel_fark)):
+                            gorec_guc_str = f"{'+' if sektorel_fark > 0 else ''}{sektorel_fark:.1f}% | Vol: %{hacim_oran:.0f}"
+                        else:
+                            gorec_guc_str = f"— Veri yok | Vol: %{hacim_oran:.0f}"
 
                         delta = df_long['Close'].diff()
                         rs = delta.where(delta>0, 0.0).ewm(alpha=1/14, adjust=False).mean() / (-delta.where(delta<0, 0.0).ewm(alpha=1/14, adjust=False).mean() + 1e-5)
@@ -1979,10 +1996,12 @@ with tab1:
                         elif mtf_etki < 0:
                             gelismis_ceza += abs(mtf_etki); ceza_kalemleri.append(("Zaman dilimi çatışması", mtf_etki))
 
-                        if sektorel_fark > 0:
-                            gelismis_bonus += 2; bonus_kalemleri.append(("Sektöre göre güçlü", 2))
-                        else:
-                            gelismis_ceza += 2; ceza_kalemleri.append(("Sektöre göre zayıf", -2))
+                        if pd.notna(sektorel_fark) and np.isfinite(float(sektorel_fark)):
+                            if sektorel_fark > 0:
+                                gelismis_bonus += 2; bonus_kalemleri.append(("Sektöre göre güçlü", 2))
+                            else:
+                                gelismis_ceza += 2; ceza_kalemleri.append(("Sektöre göre zayıf", -2))
+                        # Referans verisi yoksa göreceli güç puanlamaya dahil edilmez.
 
                         # Gelişmiş katmanın etkisini sınırlayarak eski skoru baskın tutuyoruz.
                         gelismis_bonus = min(gelismis_bonus, 15)
