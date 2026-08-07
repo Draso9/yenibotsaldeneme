@@ -150,6 +150,64 @@ def _finnhub_symbol(ticker):
     # BIST sembollerinde kapsama sınırlı olabildiği için Yahoo fallback kullanılır.
     return ticker.replace(".IS", "") if ticker.endswith(".IS") else ticker
 
+@st.cache_data(ttl=21600, show_spinner=False)
+def peg_degeri_cek(ticker):
+    """Yahoo Finance temel verisinden standart/trailing PEG değerini okur.
+
+    PEG teknik skora dahil edilmez; yalnızca temel değerleme etiketi olarak kullanılır.
+    Geçersiz, negatif veya ulaşılamayan değerlerde None döner.
+    """
+    try:
+        info = yf.Ticker(ticker).get_info() or {}
+        # Yahoo/yfinance sürümüne göre anahtar adı değişebildiği için iki yaygın
+        # trailing/standart PEG alanını kontrollü biçimde deniyoruz.
+        raw = info.get("trailingPegRatio")
+        if raw is None:
+            raw = info.get("pegRatio")
+        if raw is None:
+            return None
+        peg = float(raw)
+        if not np.isfinite(peg) or peg <= 0:
+            return None
+        return peg
+    except Exception:
+        return None
+
+
+def peg_yorumu(peg):
+    """PEG'i skorlamadan, yalnızca açıklayıcı değerleme etiketi üretir."""
+    if peg is None or not np.isfinite(peg) or peg <= 0:
+        return "—", "⚪ PEG değerlendirilemedi"
+    if peg < 0.75:
+        etiket = "💎 Çok Ucuz Büyüme"
+    elif peg < 1.00:
+        etiket = "🟢 Ucuz Büyüme"
+    elif peg < 1.50:
+        etiket = "✅ Makul Büyüme Değerlemesi"
+    elif peg < 2.00:
+        etiket = "🟡 Büyüme Primi Var"
+    else:
+        etiket = "🟠 Yüksek Büyüme Primi"
+    return f"{peg:.2f}", etiket
+
+
+def peg_verilerini_paralel_cek(tickers, max_workers=6):
+    """PEG sorgularını taramanın geri kalanını mümkün olduğunca yavaşlatmadan paralel çeker."""
+    tickers = list(dict.fromkeys(tickers or []))
+    if not tickers:
+        return {}
+    sonuc = {}
+    with ThreadPoolExecutor(max_workers=min(max_workers, len(tickers))) as executor:
+        futures = {executor.submit(peg_degeri_cek, t): t for t in tickers}
+        for future in as_completed(futures):
+            ticker = futures[future]
+            try:
+                sonuc[ticker] = future.result()
+            except Exception:
+                sonuc[ticker] = None
+    return sonuc
+
+
 def _finnhub_get(endpoint, params, timeout=3):
     if not FINNHUB_API_KEY:
         return None
@@ -1610,6 +1668,7 @@ with st.expander("📘 Nasıl Kullanılır? — Tablo, skorlar, sinyaller ve ris
 | **Görec. Güç (Sektör)** | Yaklaşık 1 aylık performansın referans endekse göre farkı ve hacim oranı | Pozitif fark göreceli gücü; yüksek hacim oranı daha geniş katılımı gösterir. |
 | **Hibrit / Cezalı Skor** | Eski cezalı skor ile yeni teyit bonus ve cezalarının birleşimi | **70+ güçlü**, **50–69 nötr/karışık**, **50 altı cezalı** bölgedir; başarı olasılığı değildir. |
 | **Para Akışı** | MFI, OBV, CMF ve hacim davranışının özeti | Fiyat yükselirken para akışı zayıfsa hareketin kalıcılığı sorgulanmalıdır. |
+| **PEG / Değerleme** | Şirketin büyümesine göre değerleme oranını ve kısa etiketi gösterir | Teknik skora dahil edilmez. Düşük pozitif PEG büyümeye göre daha makul değerlemeye, yüksek PEG daha yüksek büyüme primine işaret edebilir. |
 | **Nihai Sinyal** | Algoritmanın teknik koşullara verdiği sınıflandırma | Emir değildir; sinyal açıklaması ve risk planıyla birlikte kullanılmalıdır. |
 | **Giriş Kalitesi** | 5 dk, 15 dk ve 1 saat zamanlamasının alım ön sinyalini destekleyip desteklemediği | 5 dk hareketin başlangıcını, 15 dk devam teyidini, 1 saat ana yön uyumunu ölçer. 85+ ve üst zaman dilimi teyidi varsa “Teyit Edildi”; 75+ güçlü, 55+ erken, 35+ hazırlanıyor, altı uygun değil olarak sınıflanır. |
 | **Karma Destek / Direnç** | Tepe-dip, EMA50, Bollinger ve ATR’den türetilen karar seviyeleri | Destek altı kalıcılık riski; direnç üstü hacimli kapanış yükseliş senaryosunu güçlendirir. |
@@ -1724,6 +1783,9 @@ with tab1:
                 toplu_df = taze_veri_indir(tuple(selected_tickers))
                 toplu_intraday = toplu_intraday_veri_cek(tuple(selected_tickers), interval="5m", period="5d")
                 quote_haritasi = finnhub_quotelari_paralel_cek(list(selected_tickers))
+                # PEG, teknik skordan tamamen bağımsız bir temel değerleme katmanıdır.
+                # 6 saat önbelleğe alınır ve hisseler paralel sorgulanır.
+                peg_haritasi = peg_verilerini_paralel_cek(list(selected_tickers))
                 
                 gecici_sonuclar = []
                 gecici_sozlu_analizler = {}
@@ -2079,10 +2141,16 @@ with tab1:
                             tp1=float(tp1), tp2=float(tp2), tp3=float(tp3), sinyal=sinyal, veri_kaynagi=veri_kaynagi
                         )
 
+                        peg_degeri = peg_haritasi.get(ticker)
+                        peg_sayi, peg_etiket = peg_yorumu(peg_degeri)
+                        peg_gosterim = f"{peg_sayi} · {peg_etiket}" if peg_degeri is not None else peg_etiket
+                        gecici_teknik_paneller[ticker]["peg"] = float(peg_degeri) if peg_degeri is not None else None
+                        gecici_teknik_paneller[ticker]["peg_etiket"] = peg_etiket
+
                         gecici_sonuclar.append({
                             "Varlık": ticker, "Fiyat": fiyat_str, "Görec. Güç (Sektör)": gorec_guc_str,
                             "Gelişmiş Skor": skor_etiket, "Güven": f"%{guven_skoru}", "MTF Uyum": f"%{mtf_uyum}", "Risk": risk_seviyesi, "Para Akışı": para_durumu,
-                            "Temel Veri": "Değerlendirildi", "Nihai Sinyal": sinyal, "🎯 Giriş Kalitesi": mikro_teyit, "Veri Kaynağı": veri_kaynagi,
+                            "PEG / Değerleme": peg_gosterim, "Nihai Sinyal": sinyal, "🎯 Giriş Kalitesi": mikro_teyit, "Veri Kaynağı": veri_kaynagi,
                             "Karma Destek": f"{karma_destek:.2f}", "Karma Direnç": f"{karma_direnc:.2f}",
                             "Süren Stop": f"{trailing_stop:.2f}", "Teknik Hedefler": hibrit_tp
                         })
@@ -2131,6 +2199,19 @@ with tab1:
 
             if not df_sonuc.empty:
                 st.dataframe(df_sonuc.style.apply(color_df, axis=1), use_container_width=True, height=350)
+
+                peg_degerlendirilemeyenler = [
+                    str(v) for v in df_sonuc.loc[
+                        df_sonuc.get("PEG / Değerleme", pd.Series(index=df_sonuc.index, dtype=str)).astype(str).str.contains("değerlendirilemedi", case=False, na=False),
+                        "Varlık"
+                    ].tolist()
+                ] if "PEG / Değerleme" in df_sonuc.columns else []
+                if peg_degerlendirilemeyenler:
+                    st.caption(
+                        "ℹ️ PEG değeri alınamayan veya anlamlı olmayan varlıklar: "
+                        + ", ".join(peg_degerlendirilemeyenler)
+                        + ". Bu durum teknik analiz ve skorlamayı etkilemez; PEG yalnızca ayrı bir temel değerleme göstergesidir."
+                    )
                 
                 st.markdown("### 📊 Detaylı Teknik Analiz & Gösterge Paneli")
                 secilen_detay_hisse = st.selectbox("İncelemek İçin Varlık Seçin:", options=df_sonuc["Varlık"].tolist(), key="detay_hisse_secici")
