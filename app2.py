@@ -191,6 +191,57 @@ def peg_yorumu(peg):
     return f"{peg:.2f}", etiket
 
 
+def fiyatlanma_uyarisi_hesapla(df_long, fiyat, ema21, atr, rsi):
+    """Trend bozulmadan yeni girişin geç kalıp kalmadığını değerlendirir.
+
+    Bu katman hibrit skoru değiştirmez. Son 5 günlük koşuyu ve fiyatın
+    EMA21'den ATR cinsinden uzaklığını ölçerek "güçlü trend" ile "iyi yeni
+    giriş" kavramlarını ayırır. Yetersiz veride nötr sonuç döndürür.
+    """
+    try:
+        kapanislar = pd.to_numeric(df_long["Close"], errors="coerce").dropna()
+        if len(kapanislar) < 6 or not all(np.isfinite(x) for x in [fiyat, ema21, atr, rsi]):
+            return {
+                "seviye": "NORMAL", "mesaj": "✅ Fiyatlanma normal",
+                "bes_gun_getiri": np.nan, "ema21_uzaklik_yuzde": np.nan,
+                "ema21_atr_uzaklik": np.nan,
+            }
+
+        bes_gun_once = float(kapanislar.iloc[-6])
+        bes_gun_getiri = ((float(fiyat) / bes_gun_once) - 1.0) * 100 if bes_gun_once > 0 else 0.0
+        ema21_uzaklik_yuzde = ((float(fiyat) / float(ema21)) - 1.0) * 100 if ema21 > 0 else 0.0
+        ema21_atr_uzaklik = (float(fiyat) - float(ema21)) / float(atr) if atr > 0 else 0.0
+
+        # Tek bir göstergeyle karar vermek yerine hız ve trendden uzaklaşmayı
+        # birlikte kullanıyoruz. Böylece normal güçlü trendler gereksiz yere
+        # cezalandırılmıyor.
+        if (bes_gun_getiri >= 10.0 or ema21_atr_uzaklik >= 2.5 or
+                (bes_gun_getiri >= 8.0 and rsi >= 65)):
+            seviye = "GERI_CEKILME"
+            mesaj = "🟡 Sinyal çalıştı — geri çekilme bekle"
+        elif (bes_gun_getiri >= 6.0 or ema21_atr_uzaklik >= 1.8 or
+              ema21_uzaklik_yuzde >= 8.0):
+            seviye = "SECICI"
+            mesaj = "🟡 Trend güçlü — yeni girişte seçici"
+        else:
+            seviye = "NORMAL"
+            mesaj = "✅ Fiyatlanma normal"
+
+        return {
+            "seviye": seviye,
+            "mesaj": mesaj,
+            "bes_gun_getiri": float(bes_gun_getiri),
+            "ema21_uzaklik_yuzde": float(ema21_uzaklik_yuzde),
+            "ema21_atr_uzaklik": float(ema21_atr_uzaklik),
+        }
+    except Exception:
+        return {
+            "seviye": "NORMAL", "mesaj": "✅ Fiyatlanma normal",
+            "bes_gun_getiri": np.nan, "ema21_uzaklik_yuzde": np.nan,
+            "ema21_atr_uzaklik": np.nan,
+        }
+
+
 def peg_verilerini_paralel_cek(tickers, max_workers=6):
     """PEG sorgularını taramanın geri kalanını mümkün olduğunca yavaşlatmadan paralel çeker."""
     tickers = list(dict.fromkeys(tickers or []))
@@ -989,7 +1040,8 @@ def teknik_seviyeler_hesapla(df, fiyat, atr, ema50, bb_alt, bb_mid, bb_ust, hv20
 
 
 def nihai_karar_motoru(on_sinyal, skor, tetik_puani, fiyat, ema9, ema21, ema50,
-                       sma200, rsi, macd, macd_sinyal, cmf, mfi, bb_ust, adx):
+                       sma200, rsi, macd, macd_sinyal, cmf, mfi, bb_ust, adx,
+                       fiyatlanma_seviyesi="NORMAL"):
     """Trend, momentum, risk ve giriş kalitesi çelişkilerini tek bir nihai kararda çözer."""
     trend_guclu = fiyat > sma200 and fiyat > ema50 and ema9 > ema21
     momentum_pozitif = macd > macd_sinyal and cmf >= 0
@@ -1000,6 +1052,12 @@ def nihai_karar_motoru(on_sinyal, skor, tetik_puani, fiyat, ema9, ema21, ema50,
         return 'MOMENTUM AŞIRI ISINDI 🟡'
     if rsi >= 70 and momentum_bozuluyor and tetik_puani < 60:
         return 'KAR REALİZASYONU 🔴'
+    # Trend kaliteli kalsa bile kısa sürede fazla fiyatlanmışsa bunu yeni bir
+    # alım sinyali gibi göstermiyoruz. Bu uyarılar hibrit skoru değiştirmez.
+    if fiyatlanma_seviyesi == "GERI_CEKILME" and trend_guclu:
+        return 'SİNYAL ÇALIŞTI — GERİ ÇEKİLME BEKLE 🟡'
+    if fiyatlanma_seviyesi == "SECICI" and trend_guclu:
+        return 'TREND GÜÇLÜ — YENİ GİRİŞTE SEÇİCİ 🟡'
     if tetik_puani >= 80 and trend_guclu and momentum_pozitif:
         return 'GÜÇLÜ KIRILIM 🚀'
     if tetik_puani >= 60 and 'KIRILIM' in str(on_sinyal):
@@ -1094,6 +1152,9 @@ def gelismis_teknik_panel_olustur(d):
     tetik_detay = d.get("giris_detay", d.get("tetik_detay", [])) or []
     skor = int(d.get("nihai_skor", d.get("cezali_skor", d.get("skor", 0))) or 0)
     guven = int(d.get("guven_skoru", 0) or 0)
+    fiyatlanma_mesaji = str(d.get("fiyatlanma_mesaji", "✅ Fiyatlanma normal"))
+    bes_gun_getiri = float(d.get("bes_gun_getiri", np.nan))
+    ema21_atr_uzaklik = float(d.get("ema21_atr_uzaklik", np.nan))
 
     def durum(deger, olumlu, olumsuz):
         return ("pozitif", olumlu) if deger else ("negatif", olumsuz)
@@ -1103,6 +1164,8 @@ def gelismis_teknik_panel_olustur(d):
     trend_kisa_cls, trend_kisa = durum(ema9 > ema21, "Kısa trend yukarı", "Kısa trend aşağı")
     macd_cls, macd_txt = durum(macd > macd_signal, "Momentum güçleniyor", "Momentum zayıflıyor")
     obv_cls, obv_txt = durum(obv > obv_ema, "OBV yükseliyor", "OBV düşüyor")
+    fiyatlanma_cls = "uyari" if "🟡" in fiyatlanma_mesaji else "pozitif"
+    fiyatlanma_deger = f"%{bes_gun_getiri:+.1f} / {ema21_atr_uzaklik:.1f} ATR" if np.isfinite(bes_gun_getiri) and np.isfinite(ema21_atr_uzaklik) else "—"
 
     if rsi >= 70:
         rsi_cls, rsi_txt = "uyari", "Aşırı alım"
@@ -1132,6 +1195,7 @@ def gelismis_teknik_panel_olustur(d):
         metric("🎯", "Giriş Kalitesi", f"{tetik_puani}/100", tetik_seviyesi, tetik_cls),
         metric("💧", "MFI / OBV", f"{mfi:.1f} / {obv:,.0f}", obv_txt, obv_cls),
         metric("🌊", "ATR (14)", f"{atr:.2f}", "Yüksek oynaklık" if atr/max(fiyat,1e-9) > .035 else "Normal oynaklık", "uyari" if atr/max(fiyat,1e-9) > .035 else "notr"),
+        metric("⏱️", "5G Koşu / EMA21", fiyatlanma_deger, fiyatlanma_mesaji, fiyatlanma_cls),
     ])
 
     tetik_list = "".join(f"<li>{x}</li>" for x in tetik_detay[:7]) or "<li>Henüz yeterli çok zaman dilimli giriş teyidi bulunmuyor.</li>"
@@ -1194,7 +1258,7 @@ def gelismis_teknik_panel_olustur(d):
         <div class="hp-target-card"><span>TP2 — Orta hedef</span><strong>{tp2:.2f}</strong><div class="hp-stars">{yildiz(tp2_y)}</div></div>
         <div class="hp-target-card"><span>TP3 — Agresif trend</span><strong>{tp3:.2f}</strong><div class="hp-stars">{yildiz(tp3_y)}</div></div>
       </div></div>
-      <div class="hp-comment"><b>🧠 Algoritmik yorum:</b> Fiyat {ana_yorum}. Kısa vadede EMA 9 {kisa_yorum}, RSI {rsi:.1f} ve MACD histogramı {macd_hist:.3f}. Hacim 20 günlük ortalamanın %{hacim_oran:.0f} seviyesinde; fiyatın {s1:.2f}–{r1:.2f} karar aralığındaki davranışı yönün devamı açısından önemlidir.</div>
+      <div class="hp-comment"><b>🧠 Algoritmik yorum:</b> Fiyat {ana_yorum}. Kısa vadede EMA 9 {kisa_yorum}, RSI {rsi:.1f} ve MACD histogramı {macd_hist:.3f}. Hacim 20 günlük ortalamanın %{hacim_oran:.0f} seviyesinde. <b>Fiyatlanma:</b> {fiyatlanma_mesaji}; fiyatın {s1:.2f}–{r1:.2f} karar aralığındaki davranışı yönün devamı açısından önemlidir.</div>
       <div class="hp-decision"><div class="hp-decision-title">🧭 Nihai karar: <span class="hp-pill {karar_cls}">{sinyal}</span></div><div>Hibrit skor: <b>{skor}/100</b> · Algoritma güveni: <b>%{guven}</b> · Giriş kalitesi: <b>{tetik_puani}/100</b></div><div class="hp-small" style="margin-top:6px">Bu panel teknik karar desteğidir; emir veya getiri garantisi değildir.</div></div>
     </div>
     """
@@ -1674,6 +1738,7 @@ with st.expander("📘 Nasıl Kullanılır? — Tablo, skorlar, sinyaller ve ris
 | **Para Akışı** | MFI, OBV, CMF ve hacim davranışının özeti | Fiyat yükselirken para akışı zayıfsa hareketin kalıcılığı sorgulanmalıdır. |
 | **PEG / Değerleme** | Şirketin büyümesine göre değerleme oranını ve kısa etiketi gösterir | Teknik skora dahil edilmez. Düşük pozitif PEG büyümeye göre daha makul değerlemeye, yüksek PEG daha yüksek büyüme primine işaret edebilir. |
 | **Nihai Sinyal** | Algoritmanın teknik koşullara verdiği sınıflandırma | Emir değildir; sinyal açıklaması ve risk planıyla birlikte kullanılmalıdır. |
+| **Fiyatlanma / Koşu** | Son 5 günlük getiriyi ve fiyatın EMA21'den ATR bazında uzaklığını ölçer | Güçlü trend ile iyi yeni giriş noktasını ayırır. “Sinyal çalıştı” uyarısında trend bozulmamış olsa bile geri çekilme beklenir. |
 | **Giriş Kalitesi** | 5 dk, 15 dk ve 1 saat zamanlamasının alım ön sinyalini destekleyip desteklemediği | 5 dk hareketin başlangıcını, 15 dk devam teyidini, 1 saat ana yön uyumunu ölçer. 85+ ve üst zaman dilimi teyidi varsa “Teyit Edildi”; 75+ güçlü, 55+ erken, 35+ hazırlanıyor, altı uygun değil olarak sınıflanır. |
 | **Karma Destek / Direnç** | Tepe-dip, EMA50, Bollinger ve ATR’den türetilen karar seviyeleri | Destek altı kalıcılık riski; direnç üstü hacimli kapanış yükseliş senaryosunu güçlendirir. |
 | **Süren Stop** | ATR/Chandelier mantığıyla hesaplanan teknik iptal noktası | Gap ve sert haber hareketlerinde fiyat stop seviyesini atlayabilir. |
@@ -2057,6 +2122,9 @@ with tab1:
 
                         ema_9_val = df_long['Close'].ewm(span=9, adjust=False).mean().iloc[-1]
                         ema_21_val = df_long['Close'].ewm(span=21, adjust=False).mean().iloc[-1]
+                        fiyatlanma = fiyatlanma_uyarisi_hesapla(
+                            df_long, bugun_kapanis, ema_21_val, atr, rsi
+                        )
                         bb_ust_serisi = df_long['Close'].rolling(20).mean() + (df_long['Close'].rolling(20).std() * 2)
                         onceki_bb_ust = bb_ust_serisi.shift(1).iloc[-1]
                         kirilim_adaylari = [x for x in [swing_high, onceki_bb_ust] if pd.notna(x)]
@@ -2110,7 +2178,8 @@ with tab1:
                             on_sinyal, skor, int(tetik_sonucu.get("puan", 0)), bugun_kapanis,
                             ema_9_val, ema_21_val, ema_50_val, sma_200, rsi,
                             float(macd_serisi.iloc[-1]), float(macd_sinyal.iloc[-1]),
-                            cmf, mfi_val, bb_ust, adx
+                            cmf, mfi_val, bb_ust, adx,
+                            fiyatlanma.get("seviye", "NORMAL")
                         )
 
                         panel_ek = {
@@ -2145,6 +2214,11 @@ with tab1:
                             "supertrend": int(supertrend), "supertrend_line": float(supertrend_line), "vwap": float(vwap) if np.isfinite(vwap) else np.nan,
                             "mtf_detay": mtf_detay, "mtf_uyum": int(mtf_uyum), "guven_skoru": int(guven_skoru),
                             "risk_odul": float(risk_odul), "risk_yuzde": float(risk_yuzde), "risk_seviyesi": risk_seviyesi, "volatilite_rejimi": vol_rejimi,
+                            "fiyatlanma_seviyesi": fiyatlanma.get("seviye", "NORMAL"),
+                            "fiyatlanma_mesaji": fiyatlanma.get("mesaj", "✅ Fiyatlanma normal"),
+                            "bes_gun_getiri": float(fiyatlanma.get("bes_gun_getiri", np.nan)),
+                            "ema21_uzaklik_yuzde": float(fiyatlanma.get("ema21_uzaklik_yuzde", np.nan)),
+                            "ema21_atr_uzaklik": float(fiyatlanma.get("ema21_atr_uzaklik", np.nan)),
                             "sinyal_yonu": sinyal_yonu_belirle(sinyal), "cezali_skor": int(skor), "nihai_skor": int(skor),
                             "eski_cezali_skor": int(eski_skor), "skor_bonus": int(gelismis_bonus),
                             "skor_ceza": int(gelismis_ceza), "skor_aciklama": skor_aciklama
@@ -2170,6 +2244,7 @@ with tab1:
                             "Varlık": ticker, "Fiyat": fiyat_str, "Görec. Güç (Sektör)": gorec_guc_str,
                             "Gelişmiş Skor": skor_etiket, "Güven": f"%{guven_skoru}", "MTF Uyum": f"%{mtf_uyum}", "Risk": risk_seviyesi, "Para Akışı": para_durumu,
                             "PEG / Değerleme": peg_gosterim, "Nihai Sinyal": sinyal, "🎯 Giriş Kalitesi": mikro_teyit, "Veri Kaynağı": veri_kaynagi,
+                            "Fiyatlanma / Koşu": fiyatlanma.get("mesaj", "✅ Fiyatlanma normal"),
                             "Karma Destek": f"{karma_destek:.2f}", "Karma Direnç": f"{karma_direnc:.2f}",
                             "Süren Stop": f"{trailing_stop:.2f}", "Teknik Hedefler": hibrit_tp
                         })
