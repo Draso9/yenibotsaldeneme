@@ -10,11 +10,10 @@ import os
 import logging
 from zoneinfo import ZoneInfo
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from threading import Lock
 import firebase_admin
 from firebase_admin import credentials, firestore, auth
 import extra_streamlit_components as stx
-import plotly.graph_objects as go
-from plotly.subplots import make_subplots
 
 # --- 1. SAYFA YAPILANDIRMASI ---
 st.set_page_config(
@@ -94,14 +93,21 @@ except Exception:
 VARSAYILAN_TICKERS = ["AAPL", "MSFT", "TSLA", "NVDA", "AMD", "INTC", "THYAO.IS", "FROTO.IS", "TOASO.IS"]
 
 # --- IZFIN STRATEJİ SÜRÜMÜ ---
-STRATEJI_SURUMU = "IZFIN-v1.1"
+STRATEJI_SURUMU = "IZFIN-v1.2"
 PERFORMANS_UFUKLARI = (1, 5, 10, 20, 45)
 
 # --- IZFIN UYGULAMA SÜRÜMÜ / LOG ---
-IZFIN_APP_SURUMU = "v1.3 Stable"
+IZFIN_APP_SURUMU = "v1.4 Data & Backtest Stable"
 logger = logging.getLogger("IZFIN")
 if not logger.handlers:
     logging.basicConfig(level=logging.INFO)
+
+# Finnhub isteklerini süreç içinde ortak hız sınırına tabi tut.
+# Plan bazlı dakika limitleri değişebildiği için 429 yanıtlarında ayrıca backoff uygulanır.
+_FINNHUB_RATE_LOCK = Lock()
+_FINNHUB_LAST_CALL = 0.0
+_FINNHUB_MIN_INTERVAL = 0.10  # yaklaşık 10 istek/sn; 30/sn üst sınırının oldukça altında
+
 
 def izfin_hata_logla(baglam, hata, ticker=None):
     """Kullanıcıya traceback göstermeden Streamlit Cloud loglarına teknik hata yazar."""
@@ -238,9 +244,51 @@ def peg_verilerini_paralel_cek(tickers, max_workers=6):
     return sonuc
 
 
-def _finnhub_get(endpoint, params, timeout=3):
+def _finnhub_get(endpoint, params, timeout=3, max_retry=2):
     if not FINNHUB_API_KEY:
         return None
+
+    global _FINNHUB_LAST_CALL
+
+    for deneme in range(max_retry + 1):
+        try:
+            # ThreadPool olsa bile istek başlangıçlarını süreç içinde aralıklı gönder.
+            with _FINNHUB_RATE_LOCK:
+                simdi = time.monotonic()
+                bekle = _FINNHUB_MIN_INTERVAL - (simdi - _FINNHUB_LAST_CALL)
+                if bekle > 0:
+                    time.sleep(bekle)
+                _FINNHUB_LAST_CALL = time.monotonic()
+
+            r = session.get(
+                f"{FINNHUB_BASE_URL}/{endpoint}",
+                params={**params, "token": FINNHUB_API_KEY},
+                timeout=timeout,
+            )
+
+            if r.status_code == 429:
+                # Retry-After varsa onu kullan, yoksa kontrollü artan bekleme.
+                try:
+                    retry_after = float(r.headers.get("Retry-After", 0) or 0)
+                except Exception:
+                    retry_after = 0.0
+                if deneme < max_retry:
+                    time.sleep(max(retry_after, 1.0 + deneme * 1.5))
+                    continue
+                return None
+
+            r.raise_for_status()
+            data = r.json()
+            return data if isinstance(data, dict) else None
+
+        except Exception as e:
+            if deneme < max_retry:
+                time.sleep(0.5 * (deneme + 1))
+                continue
+            izfin_hata_logla("finnhub_get", e)
+            return None
+
+    return None
     try:
         r = session.get(
             f"{FINNHUB_BASE_URL}/{endpoint}",
@@ -262,7 +310,8 @@ def taze_veri_indir(tickers_tuple):
             group_by="ticker",
             progress=False,
             threads=True,
-            auto_adjust=False,
+            auto_adjust=True,
+            repair=True,
             timeout=10,
         )
         return data
@@ -374,7 +423,8 @@ def intraday_veri_cek(ticker, interval="5m", period="5d"):
             interval=interval,
             progress=False,
             prepost=True,
-            auto_adjust=False,
+            auto_adjust=True,
+            repair=True,
         )
         return _normalize_yf_columns(df)
     except Exception:
@@ -395,7 +445,8 @@ def toplu_intraday_veri_cek(tickers_tuple, interval="5m", period="5d"):
             progress=False,
             prepost=True,
             threads=True,
-            auto_adjust=False,
+            auto_adjust=True,
+            repair=True,
             timeout=8,
         )
     except Exception:
@@ -887,35 +938,207 @@ def karar_motoru_ozeti(panel):
 
 @st.cache_data(ttl=3600, show_spinner=False)
 def basit_backtest(ticker, period='5y'):
-    """Günlük veride ileriye bakmadan, alım sinyallerinin 5/10/20/45 gün sonrasını ölçer."""
-    try:
-        df=yf.download(ticker,period=period,progress=False,auto_adjust=False)
-        df=_normalize_yf_columns(df).dropna(subset=['Close','High','Low','Volume'])
-    except Exception:
-        return pd.DataFrame(), {}
-    if len(df)<260: return pd.DataFrame(), {}
-    c=df['Close']; v=df['Volume']
-    ema50=c.ewm(span=50,adjust=False).mean(); sma200=c.rolling(200).mean()
-    rsi=_rsi_serisi(c); macd=c.ewm(span=12,adjust=False).mean()-c.ewm(span=26,adjust=False).mean(); ms=macd.ewm(span=9,adjust=False).mean()
-    bbm=c.rolling(20).mean(); bbs=c.rolling(20).std(); bbl=bbm-2*bbs; bbu=bbm+2*bbs
-    volr=v/(v.rolling(20).mean()+1e-9)
-    prev_high=df['High'].shift(1).rolling(50).max()
-    kosul_break=(c>=prev_high)&(volr>=1.2)&(c>sma200)&(macd>ms)
-    kosul_kus=(c<=bbl)&(rsi<=35)&(c>sma200)
-    kosul_kad=(rsi<=40)&(c>sma200)&(c<=bbm)
-    kosul_aday=(c>sma200)&(c>ema50)&(macd>ms)&(rsi.between(40,68))
-    sinyal=np.select([kosul_break,kosul_kus,kosul_kad,kosul_aday],['YÜKSELİŞ KIRILIMI','KUSURSUZ ALIM','KADEMELİ ALIM','UZUN VADELİ ADAY'],'')
-    rows=[]
-    for i in np.where(sinyal!='')[0]:
-        if i+45>=len(df): continue
-        row={'Tarih':df.index[i],'Sinyal':sinyal[i],'Giriş':float(c.iloc[i])}
-        for h in [5,10,20,45]: row[f'{h}G %']=float((c.iloc[i+h]/c.iloc[i]-1)*100)
-        rows.append(row)
-    out=pd.DataFrame(rows)
-    if out.empty: return out, {}
-    stats={'sinyal':len(out),'kazanma20':float((out['20G %']>0).mean()*100),'ort20':float(out['20G %'].mean()),'medyan20':float(out['20G %'].median()),'kazanma45':float((out['45G %']>0).mean()*100),'ort45':float(out['45G %'].mean())}
-    return out,stats
+    """Günlük veride iki farklı şeyi birlikte ölçer.
 
+    1) Sinyal kalitesi: girişten 5/10/20/45 işlem günü sonraki sabit ufuk getirileri.
+    2) Basitleştirilmiş işlem sonucu: sinyal anında dondurulan ilk Stop ve TP1'den
+       hangisinin sonraki 45 işlem günü içinde önce görüldüğü.
+
+    Sinyal üretiminde gelecek veri kullanılmaz. Aynı gün hem Stop hem TP1 görülürse
+    günlük OHLC sıralamayı gösteremediği için muhafazakâr biçimde Stop önce kabul edilir.
+    """
+    try:
+        df = yf.download(
+            ticker,
+            period=period,
+            progress=False,
+            auto_adjust=True,
+            repair=True,
+            threads=False,
+            timeout=10,
+        )
+        df = _normalize_yf_columns(df).dropna(subset=['Close','High','Low','Volume'])
+    except Exception as e:
+        izfin_hata_logla("backtest_veri", e, ticker)
+        return pd.DataFrame(), {}
+
+    if len(df) < 260:
+        return pd.DataFrame(), {}
+
+    c = pd.to_numeric(df['Close'], errors='coerce')
+    h = pd.to_numeric(df['High'], errors='coerce')
+    l = pd.to_numeric(df['Low'], errors='coerce')
+    v = pd.to_numeric(df['Volume'], errors='coerce')
+
+    ema50 = c.ewm(span=50, adjust=False).mean()
+    sma200 = c.rolling(200).mean()
+    rsi = _rsi_serisi(c)
+    macd = c.ewm(span=12, adjust=False).mean() - c.ewm(span=26, adjust=False).mean()
+    ms = macd.ewm(span=9, adjust=False).mean()
+    bbm = c.rolling(20).mean()
+    bbs = c.rolling(20).std()
+    bbl = bbm - 2 * bbs
+    bbu = bbm + 2 * bbs
+    volr = v / (v.rolling(20).mean() + 1e-9)
+    prev_high = h.shift(1).rolling(50).max()
+
+    # ATR ve HV yalnızca o gün ve geçmiş veriden.
+    prev_close = c.shift(1)
+    tr = pd.concat([
+        (h - l).abs(),
+        (h - prev_close).abs(),
+        (l - prev_close).abs(),
+    ], axis=1).max(axis=1)
+    atr14 = tr.rolling(14).mean()
+    log_ret = np.log(c / c.shift(1)).replace([np.inf, -np.inf], np.nan)
+    hv20_seri = log_ret.rolling(20).std(ddof=1) * np.sqrt(252)
+
+    kosul_break = (c >= prev_high) & (volr >= 1.2) & (c > sma200) & (macd > ms)
+    kosul_kus = (c <= bbl) & (rsi <= 35) & (c > sma200)
+    kosul_kad = (rsi <= 40) & (c > sma200) & (c <= bbm)
+    kosul_aday = (c > sma200) & (c > ema50) & (macd > ms) & (rsi.between(40, 68))
+    sinyal = np.select(
+        [kosul_break, kosul_kus, kosul_kad, kosul_aday],
+        ['YÜKSELİŞ KIRILIMI', 'KUSURSUZ ALIM', 'KADEMELİ ALIM', 'UZUN VADELİ ADAY'],
+        ''
+    )
+
+    rows = []
+    sonraki_yeni_giris = 200  # göstergelerin olgunlaşması için
+    sinyal_idx = np.where(sinyal != '')[0]
+
+    for i in sinyal_idx:
+        if i < sonraki_yeni_giris:
+            continue
+        if i + 5 >= len(df):
+            continue
+
+        giris = float(c.iloc[i])
+        atr = float(atr14.iloc[i]) if pd.notna(atr14.iloc[i]) else np.nan
+        if not np.isfinite(atr) or atr <= 0 or giris <= 0:
+            continue
+
+        ema50_i = float(ema50.iloc[i])
+        bb_alt_i = float(bbl.iloc[i])
+        bb_mid_i = float(bbm.iloc[i])
+        bb_ust_i = float(bbu.iloc[i])
+        hv20_i = float(hv20_seri.iloc[i]) if pd.notna(hv20_seri.iloc[i]) else float((atr / giris) * np.sqrt(252))
+
+        # Seviye fonksiyonuna yalnızca i gününe kadar olan geçmiş veriyi ver.
+        hist = df.iloc[:i + 1].copy()
+        seviyeler = teknik_seviyeler_hesapla(
+            hist, giris, atr, ema50_i, bb_alt_i, bb_mid_i, bb_ust_i, hv20_i
+        )
+        tp1 = float(seviyeler['tp1'])
+        tp2 = float(seviyeler['tp2'])
+        tp3 = float(seviyeler['tp3'])
+
+        gecmis_df = df.iloc[:i + 1]
+        karma_destek = float(seviyeler['s1'])
+        chandelier_stop = float(gecmis_df['High'].tail(22).max()) - (atr * 3)
+        stop_adaylari = [
+            x for x in [
+                chandelier_stop,
+                giris - (atr * 1.5),
+                karma_destek - (atr * 0.25),
+            ]
+            if pd.notna(x) and float(x) < giris
+        ]
+        stop = max(stop_adaylari, default=giris - (atr * 1.5))
+
+        row = {
+            'Tarih': df.index[i],
+            'Sinyal': sinyal[i],
+            'Giriş': giris,
+            'İlk Stop': float(stop),
+            'İlk TP1': tp1,
+            'İlk TP2': tp2,
+            'İlk TP3': tp3,
+        }
+
+        # Sabit ufuklar: sinyal seçme kalitesini bağımsız ölçmeye devam eder.
+        for ufuk in [5, 10, 20, 45]:
+            if i + ufuk < len(df):
+                row[f'{ufuk}G %'] = float((c.iloc[i + ufuk] / giris - 1) * 100)
+            else:
+                row[f'{ufuk}G %'] = np.nan
+
+        son_i = min(i + 45, len(df) - 1)
+        ilk_olay = '45G SÜRE SONU'
+        cikis_i = son_i
+        cikis_fiyati = float(c.iloc[son_i])
+        tp1_gordu = tp2_gordu = tp3_gordu = stop_gordu = False
+        belirsiz_ayni_gun = False
+
+        for j in range(i + 1, son_i + 1):
+            gun_low = float(l.iloc[j])
+            gun_high = float(h.iloc[j])
+
+            stop_hit = gun_low <= stop
+            tp1_hit = gun_high >= tp1
+            tp2_gordu = tp2_gordu or (gun_high >= tp2)
+            tp3_gordu = tp3_gordu or (gun_high >= tp3)
+            stop_gordu = stop_gordu or stop_hit
+            tp1_gordu = tp1_gordu or tp1_hit
+
+            if stop_hit and tp1_hit:
+                # Günlük mum sıralama vermez; iyimserlikten kaçın.
+                belirsiz_ayni_gun = True
+                ilk_olay = 'STOP (AYNI GÜN TP1 DE GÖRÜLDÜ)'
+                cikis_i = j
+                cikis_fiyati = stop
+                break
+            elif stop_hit:
+                ilk_olay = 'STOP'
+                cikis_i = j
+                cikis_fiyati = stop
+                break
+            elif tp1_hit:
+                ilk_olay = 'TP1'
+                cikis_i = j
+                cikis_fiyati = tp1
+                break
+
+        row.update({
+            'İlk Olay': ilk_olay,
+            'Çıkış Tarihi': df.index[cikis_i],
+            'İşlem Sonucu %': float((cikis_fiyati / giris - 1) * 100),
+            'Pozisyonda İşlem Günü': int(cikis_i - i),
+            'TP1 Gördü': bool(tp1_gordu),
+            'TP2 Gördü': bool(tp2_gordu),
+            'TP3 Gördü': bool(tp3_gordu),
+            'Stop Gördü': bool(stop_gordu),
+            'Aynı Gün Belirsiz': bool(belirsiz_ayni_gun),
+        })
+        rows.append(row)
+
+        # Aynı sinyal koşulunun peş peşe her gününü bağımsız işlem sayma.
+        # Yeni test işlemi, mevcut test işlemi kapandıktan sonraki ilk günden başlayabilir.
+        sonraki_yeni_giris = cikis_i + 1
+
+    out = pd.DataFrame(rows)
+    if out.empty:
+        return out, {}
+
+    for col in ['20G %', '45G %', 'İşlem Sonucu %']:
+        if col in out:
+            out[col] = pd.to_numeric(out[col], errors='coerce')
+
+    trade_sonuclari = out['İşlem Sonucu %'].dropna()
+    stats = {
+        'sinyal': len(out),
+        'kazanma20': float((out['20G %'].dropna() > 0).mean() * 100) if out['20G %'].notna().any() else 0.0,
+        'ort20': float(out['20G %'].mean()),
+        'medyan20': float(out['20G %'].median()),
+        'kazanma45': float((out['45G %'].dropna() > 0).mean() * 100) if out['45G %'].notna().any() else 0.0,
+        'ort45': float(out['45G %'].mean()),
+        'islem_basarisi': float((trade_sonuclari > 0).mean() * 100) if len(trade_sonuclari) else 0.0,
+        'islem_ort': float(trade_sonuclari.mean()) if len(trade_sonuclari) else 0.0,
+        'tp1_oran': float((out['İlk Olay'] == 'TP1').mean() * 100),
+        'stop_oran': float(out['İlk Olay'].astype(str).str.startswith('STOP').mean() * 100),
+        'belirsiz': int(out['Aynı Gün Belirsiz'].sum()),
+    }
+    return out, stats
 
 def ogrenme_profili_olustur(kayitlar):
     if not kayitlar: return pd.DataFrame()
@@ -1312,7 +1535,7 @@ def _donem_ohlc_cek(ticker, baslangic_iso, bitis_iso):
         bit = pd.to_datetime(bitis_iso, errors="coerce")
         if pd.isna(bas) or pd.isna(bit):
             return pd.DataFrame()
-        df = yf.download(ticker, start=(bas-pd.Timedelta(days=2)).date().isoformat(), end=(bit+pd.Timedelta(days=2)).date().isoformat(), interval="1d", progress=False, auto_adjust=False, threads=False, timeout=8)
+        df = yf.download(ticker, start=(bas-pd.Timedelta(days=2)).date().isoformat(), end=(bit+pd.Timedelta(days=2)).date().isoformat(), interval="1d", progress=False, auto_adjust=True, repair=True, threads=False, timeout=8)
         return _normalize_yf_columns(df)
     except Exception as e:
         izfin_hata_logla("kapanan_donem_ohlc", e, ticker)
@@ -1611,19 +1834,24 @@ def legacy_mukerrer_kayitlari_temizle():
             except Exception as e: izfin_hata_logla("legacy_temizlik_aktif_bag",e,ticker)
     return {"silinen":silinen,"yedeklenen":yedeklenen,"grup":grup_sayisi}
 
-def performans_kayitlarini_getir(limit=250):
-    if not db or not st.session_state.user_email:
+@st.cache_data(ttl=300, show_spinner=False)
+def _performans_kayitlarini_getir_cached(email, limit=250, cache_epoch=0):
+    """Firestore performans okumalarını 5 dakika önbelleğe alır.
+
+    cache_epoch yalnızca yazma/temizlik sonrası aynı kullanıcı için önbelleği
+    mantıksal olarak geçersiz kılmak amacıyla kullanılır.
+    """
+    if not db or not email:
         return []
     try:
-        sorgu = (db.collection("sinyal_arsivi")
-                 .where("user_email", "==", st.session_state.user_email)
-                 .limit(limit))
+        sorgu = (
+            db.collection("sinyal_arsivi")
+            .where("user_email", "==", email)
+            .limit(limit)
+        )
         kayitlar = []
         for doc in sorgu.stream():
             veri = doc.to_dict() or {}
-            # Eski sürümlerde kaydedilmiş satış/izleme kayıtlarını da ekranda
-            # göstermeyerek performans istatistiğini yalnızca alım sinyallerine
-            # göre hesaplarız.
             if veri.get("yon") != "ALIM":
                 continue
             veri["doc_id"] = doc.id
@@ -1631,10 +1859,30 @@ def performans_kayitlarini_getir(limit=250):
         kayitlar.sort(key=lambda x: x.get("olusturma_zamani", ""), reverse=True)
         return kayitlar
     except Exception as e:
-        st.warning(f"Performans kayıtları okunamadı: {e}")
+        izfin_hata_logla("performans_firestore_okuma", e)
         return []
 
 
+def performans_kayitlarini_getir(limit=250):
+    if not db or not st.session_state.user_email:
+        return []
+    kayitlar = _performans_kayitlarini_getir_cached(
+        st.session_state.user_email,
+        limit=limit,
+        cache_epoch=int(st.session_state.get("performans_cache_epoch", 0)),
+    )
+    return list(kayitlar)
+
+
+
+
+def performans_cache_gecersiz_kil():
+    try:
+        st.session_state.performans_cache_epoch = int(
+            st.session_state.get("performans_cache_epoch", 0)
+        ) + 1
+    except Exception:
+        pass
 
 
 def _guvenli_dict(deger):
@@ -1829,7 +2077,7 @@ def _gunluk_kapanis_serisi(ticker, period="1y"):
     try:
         df = yf.download(
             ticker, period=period, interval="1d", progress=False,
-            auto_adjust=False, threads=False, timeout=8
+            auto_adjust=True, repair=True, threads=False, timeout=8
         )
         if df is None or df.empty:
             return pd.Series(dtype=float)
@@ -2100,6 +2348,7 @@ _SESSION_DEFAULTS = {
     "secilen_varliklar": VARSAYILAN_TICKERS.copy(),
     "kullanici_listesi_yuklendi": False,
     "taramada_hatalar": [],
+    "performans_cache_epoch": 0,
 }
 for _key, _default in _SESSION_DEFAULTS.items():
     if _key not in st.session_state:
@@ -2264,7 +2513,7 @@ Gelişmiş bonus ve cezalar sınırlandırılır; böylece yeni katman eski skor
     st.markdown("""
 - **Sinyal Performans Takibi:** Yalnızca gerçek alım yönlü sinyallerin giriş fiyatına göre canlı performansını izler; tam backtest değildir.
 - **Akıllı Projeksiyon:** ATR ile tarihsel volatiliteyi birleştirerek yaklaşık 45 günlük hareket bandı üretir; gerçek implied volatility kullanmaz.
-- **Strateji Doğrulama / Backtest:** Geçmiş günlük veride 5, 10, 20 ve 45 gün sonraki sonuçları ölçer. Komisyon, kayma ve gün içi stop–hedef sırası tam modellenmez.
+- **Strateji Doğrulama / Backtest:** Bölünme/temettü etkisine göre düzeltilmiş günlük OHLC kullanır; sabit 5/10/20/45 günlük sinyal kalitesini ve ilk Stop/TP1 olayını ayrı ayrı ölçer. Günlük mumda Stop ve TP1 aynı gün görülürse sıralama bilinmediğinden Stop önce varsayılır.
 - **Beta güvenliği:** Mevcut sürüm kişisel/kapalı beta oturumu içindir. Herkese açık ticari sürümden önce Firebase Auth ID token/session-cookie tabanlı gerçek kimlik doğrulama katmanına geçilmelidir.
 """)
 
@@ -2328,7 +2577,7 @@ with tab1:
                 try:
                     sektor_toplu = yf.download(
                         list(sektor_referanslari.keys()), period="40d", group_by="ticker",
-                        progress=False, threads=True, auto_adjust=False, timeout=8
+                        progress=False, threads=True, auto_adjust=True, repair=True, timeout=8
                     )
                 except Exception:
                     sektor_toplu = pd.DataFrame()
@@ -2719,6 +2968,7 @@ with tab1:
                 st.session_state.tarama_durumu = True
                 try:
                     sinyal_kayitlarini_firestore_yaz(gecici_sonuclar, gecici_teknik_paneller)
+                    performans_cache_gecersiz_kil()
                 except Exception as e:
                     izfin_hata_logla("sinyal_firestore_yaz", e)
 
@@ -2853,6 +3103,7 @@ with tab2:
             if st.button("🧹 Mükerrerleri Yedekle ve Temizle", disabled=not temizlik_onay):
                 with st.spinner("Legacy kayıtlar kontrol ediliyor..."):
                     temiz_ozet = legacy_mukerrer_kayitlari_temizle()
+                    performans_cache_gecersiz_kil()
                 st.success(f"Temizlik tamamlandı: {temiz_ozet['grup']} mükerrer grup · {temiz_ozet['yedeklenen']} yedek · {temiz_ozet['silinen']} silinen belge.")
 
         kayitlar = performans_kayitlarini_getir()
@@ -2864,6 +3115,7 @@ with tab2:
         if guncelle_tiklandi and kayitlar:
             with st.spinner("Açık alım kayıtları güncel fiyatlarla karşılaştırılıyor..."):
                 kayitlar = performans_fiyatlarini_guncelle(kayitlar)
+                performans_cache_gecersiz_kil()
                 kayitlar = performans_kayitlarini_tekillestir(kayitlar)
             st.success("Güncel fiyatlar yenilendi.")
 
@@ -2986,7 +3238,7 @@ with tab2:
                 aktif_gorunum = pd.DataFrame({
                     "İlk Alım Tarihi": acik_df["_tarih"].dt.strftime("%d.%m.%Y %H:%M"),
                     "Varlık": acik_df.get("ticker"),
-                    "İlk Sinyal": acik_df.get("ilk_sinyal", acik_df.get("sinyal")),
+                    "İlk Sinyal": acik_df.get("ilk_sinyal").fillna("— Eski kayıt") if "ilk_sinyal" in acik_df.columns else pd.Series(["— Eski kayıt"] * len(acik_df)),
                     "Güncel Sinyal": acik_df.get("sinyal"),
                     "İlk Alım Fiyatı": acik_df.get("giris_fiyati"),
                     "Güncel Fiyat": acik_df.get("son_fiyat"),
@@ -3298,8 +3550,9 @@ with tab3:
 with tab4:
     st.subheader("🧪 Strateji Doğrulama ve Backtest")
     st.markdown(
-        "Alım sinyallerinin geçmişte 5, 10, 20 ve 45 işlem günü sonra nasıl sonuçlandığını gösterir. "
-        "Amaç, stratejiyi sade ve karşılaştırılabilir sayılarla değerlendirmektir."
+        "İki ayrı ölçüm yapar: **sinyal kalitesi** için 5/10/20/45 işlem günü sonraki sabit getiriler; "
+        "**işlem simülasyonu** için ise sinyal anında dondurulan ilk Stop ve TP1 seviyesinden hangisinin önce görüldüğü. "
+        "Aynı sinyal koşulunun peş peşe her günü bağımsız işlem sayılmaz."
     )
 
     bt_c1, bt_c2 = st.columns([2, 1])
@@ -3316,10 +3569,22 @@ with tab4:
             st.warning("Seçilen dönem için yeterli veri veya alım sinyali bulunamadı.")
         else:
             q1, q2, q3, q4 = st.columns(4)
-            q1.metric("Toplam Alım Sinyali", f"{int(stats['sinyal'])}")
-            q2.metric("20 Gün Sonra Kârda", f"%{stats['kazanma20']:.1f}")
-            q3.metric("20 Gün Ort. Getiri", f"%{stats['ort20']:+.1f}")
-            q4.metric("45 Gün Sonra Kârda", f"%{stats['kazanma45']:.1f}")
+            q1.metric("Bağımsız Test İşlemi", f"{int(stats['sinyal'])}")
+            q2.metric("İşlem Başarı Oranı", f"%{stats['islem_basarisi']:.1f}")
+            q3.metric("Ort. İşlem Sonucu", f"%{stats['islem_ort']:+.2f}")
+            q4.metric("TP1 / Stop", f"%{stats['tp1_oran']:.1f} / %{stats['stop_oran']:.1f}")
+
+            s1, s2, s3, s4 = st.columns(4)
+            s1.metric("20G Kârda", f"%{stats['kazanma20']:.1f}")
+            s2.metric("20G Ort.", f"%{stats['ort20']:+.2f}")
+            s3.metric("45G Kârda", f"%{stats['kazanma45']:.1f}")
+            s4.metric("45G Ort.", f"%{stats['ort45']:+.2f}")
+
+            if stats.get("belirsiz", 0):
+                st.caption(
+                    f"ℹ️ {stats['belirsiz']} örnekte aynı günlük mum içinde hem Stop hem TP1 görüldü. "
+                    "Günlük veri sıralamayı göstermediği için muhafazakâr biçimde Stop önce kabul edildi."
+                )
 
             st.markdown("### 📌 Sinyal türlerine göre özet")
             ozet = (
@@ -3327,6 +3592,10 @@ with tab4:
                 .agg(
                     Örnek=("Sinyal", "size"),
                     **{
+                        "İşlem Başarı %": ("İşlem Sonucu %", lambda x: (x > 0).mean() * 100),
+                        "Ort. İşlem %": ("İşlem Sonucu %", "mean"),
+                        "TP1 İlk %": ("İlk Olay", lambda x: (x == "TP1").mean() * 100),
+                        "Stop İlk %": ("İlk Olay", lambda x: x.astype(str).str.startswith("STOP").mean() * 100),
                         "20G Kârda %": ("20G %", lambda x: (x > 0).mean() * 100),
                         "20G Ort. %": ("20G %", "mean"),
                         "45G Kârda %": ("45G %", lambda x: (x > 0).mean() * 100),
@@ -3334,10 +3603,14 @@ with tab4:
                     },
                 )
                 .reset_index()
-                .sort_values(["45G Kârda %", "Örnek"], ascending=False)
+                .sort_values(["İşlem Başarı %", "Örnek"], ascending=False)
             )
             ozet_stil = ozet.style.format({
                 "Örnek": "{:.0f}",
+                "İşlem Başarı %": "{:.1f}%",
+                "Ort. İşlem %": "{:+.2f}%",
+                "TP1 İlk %": "{:.1f}%",
+                "Stop İlk %": "{:.1f}%",
                 "20G Kârda %": "{:.1f}%",
                 "20G Ort. %": "{:+.2f}%",
                 "45G Kârda %": "{:.1f}%",
@@ -3347,8 +3620,9 @@ with tab4:
 
             with st.expander("ℹ️ Backtest sonuçları nasıl okunur?", expanded=False):
                 st.markdown("""
-- **Kârda %**, sinyalden sonra ilgili gün sayısında fiyatı giriş fiyatının üzerinde olan örneklerin oranıdır.
-- **Ortalama getiri**, tüm sinyallerin aynı dönemdeki ortalama yüzdesel sonucudur.
-- Yüksek kazanma oranı tek başına yeterli değildir; ortalama getiri ve örnek sayısı birlikte değerlendirilmelidir.
-- Bu hızlı test komisyon, vergi, fiyat kayması ve gün içindeki stop/TP sıralamasını modellemez.
+- **İşlem Başarı %**, ilk TP1'in ilk Stop'tan önce görülmesi veya 45 günlük süre sonunda pozitif kapanan test işlemlerinin oranıdır.
+- **20G / 45G sonuçları**, çıkıştan bağımsız sabit ufuk ölçümüdür; hissenin sinyal sonrası yön seçme kalitesini gösterir.
+- İlk Stop ve TP1, yalnızca sinyal gününe kadar bilinen verilerle hesaplanıp dondurulur.
+- Aynı gün hem Stop hem TP1 görülürse günlük OHLC hangi seviyenin önce geldiğini söylemez; test muhafazakâr biçimde Stop'u önce kabul eder.
+- Komisyon, vergi, spread ve gerçek emir kayması henüz modellenmez. Bu nedenle sonuçlar gerçek işlem getirisi garantisi değildir.
 """)
