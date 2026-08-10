@@ -7,6 +7,8 @@ import math
 import requests
 import yfinance as yf
 import os
+import logging
+from zoneinfo import ZoneInfo
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import firebase_admin
 from firebase_admin import credentials, firestore, auth
@@ -45,12 +47,12 @@ st.markdown("""
         z-index: 99999 !important;
     }
     
-    .kpi-card { background-color: #1E1E1E; padding: 20px; border-radius: 10px; text-align: center; border: 1px solid #333; box-shadow: 2px 2px 10px rgba(0,0,0,0.5); }
-    .kpi-title { font-size: 13px; color: #AAAAAA; text-transform: uppercase; letter-spacing: 1px; }
-    .kpi-value { font-size: 26px; font-weight: bold; color: #FFFFFF; margin-top: 5px; }
+    .kpi-card { background-color: var(--secondary-background-color); padding: 20px; border-radius: 10px; text-align: center; border: 1px solid rgba(128,128,128,.25); box-shadow: 0 2px 8px rgba(0,0,0,.10); color: var(--text-color); }
+    .kpi-title { font-size: 13px; color: var(--text-color); opacity:.68; text-transform: uppercase; letter-spacing: 1px; }
+    .kpi-value { font-size: 26px; font-weight: bold; color: var(--text-color); margin-top: 5px; }
     .kpi-highlight-green { color: #00FF88; }
     .kpi-highlight-fire { color: #FF5555; }
-    .info-box { background-color: #1E1E1E; padding: 15px; border-radius: 8px; border-left: 5px solid #3498db; margin-bottom: 15px; font-size: 13px; color: #CCCCCC; line-height: 1.6; }
+    .info-box { background-color: var(--secondary-background-color); padding: 15px; border-radius: 8px; border-left: 5px solid #3498db; margin-bottom: 15px; font-size: 13px; color: var(--text-color); line-height: 1.6; }
     .dataframe { font-size: 12px !important; }
 </style>
 """, unsafe_allow_html=True)
@@ -67,6 +69,10 @@ session.headers.update({
 # --- ÇEREZ YÖNETİCİSİ (COOKIE MANAGER) ---
 cookie_manager = stx.CookieManager(key="cookie_manager")
 saved_email = cookie_manager.get(cookie="user_email")
+if saved_email is not None:
+    saved_email = str(saved_email).strip().lower()
+    if ("@" not in saved_email) or len(saved_email) > 254 or any(ch in saved_email for ch in ["\n", "\r", "/", "\\"]):
+        saved_email = None
 
 # --- FIREBASE BAŞLATMA ---
 if not firebase_admin._apps:
@@ -82,14 +88,33 @@ if not firebase_admin._apps:
 
 try:
     db = firestore.client()
-except:
+except Exception:
     db = None
 
 VARSAYILAN_TICKERS = ["AAPL", "MSFT", "TSLA", "NVDA", "AMD", "INTC", "THYAO.IS", "FROTO.IS", "TOASO.IS"]
 
 # --- IZFIN STRATEJİ SÜRÜMÜ ---
-STRATEJI_SURUMU = "IZFIN-v1.0"
+STRATEJI_SURUMU = "IZFIN-v1.1"
 PERFORMANS_UFUKLARI = (1, 5, 10, 20, 45)
+
+# --- IZFIN UYGULAMA SÜRÜMÜ / LOG ---
+IZFIN_APP_SURUMU = "v1.3 Stable"
+logger = logging.getLogger("IZFIN")
+if not logger.handlers:
+    logging.basicConfig(level=logging.INFO)
+
+def izfin_hata_logla(baglam, hata, ticker=None):
+    """Kullanıcıya traceback göstermeden Streamlit Cloud loglarına teknik hata yazar."""
+    etiket = f"{baglam} | {ticker}" if ticker else baglam
+    logger.exception("IZFIN hata [%s]: %s", etiket, hata)
+    try:
+        if "taramada_hatalar" not in st.session_state:
+            st.session_state.taramada_hatalar = []
+        st.session_state.taramada_hatalar.append({
+            "baglam": baglam, "ticker": ticker, "tip": type(hata).__name__
+        })
+    except Exception:
+        pass
 
 # --- HAZIR VARLIK LİSTELERİ ---
 BIST_30 = [
@@ -135,7 +160,8 @@ if st.session_state.user_email is None and saved_email is not None and not st.se
                 st.session_state.custom_tickers = doc.to_dict().get("tickers", VARSAYILAN_TICKERS.copy())
             else:
                 st.session_state.custom_tickers = VARSAYILAN_TICKERS.copy()
-        except:
+        except Exception as e:
+            izfin_hata_logla("kayitli_liste_ilk_yukleme", e)
             st.session_state.custom_tickers = VARSAYILAN_TICKERS.copy()
     st.rerun()
 
@@ -260,6 +286,85 @@ def finnhub_quote_cek(ticker):
         "source": "Finnhub",
     }
 
+def _intraday_local_index(ticker, df):
+    if df is None or df.empty:
+        return pd.DataFrame()
+    x = df.copy().sort_index()
+    try:
+        idx = pd.to_datetime(x.index)
+        tz = "Europe/Istanbul" if str(ticker).endswith(".IS") else "America/New_York"
+        if getattr(idx, "tz", None) is None:
+            idx = idx.tz_localize(tz)
+        else:
+            idx = idx.tz_convert(tz)
+        x.index = idx
+    except Exception:
+        pass
+    return x
+
+
+def regular_seans_intraday(ticker, df):
+    """Teknik hesaplarda yalnızca normal seans mumlarını kullanır."""
+    x = _intraday_local_index(ticker, df)
+    if x.empty:
+        return x
+    try:
+        if str(ticker).endswith(".IS"):
+            return x.between_time("10:00", "18:10", inclusive="both")
+        return x.between_time("09:30", "16:00", inclusive="both")
+    except Exception:
+        return x
+
+
+def abd_quote_regular_seans_mi(quote):
+    if not quote:
+        return False
+    try:
+        ts = int(quote.get("timestamp") or 0)
+        if ts <= 0:
+            return False
+        dt = datetime.fromtimestamp(ts, tz=ZoneInfo("America/New_York"))
+        dakika = dt.hour * 60 + dt.minute
+        return dt.weekday() < 5 and (9 * 60 + 30) <= dakika <= (16 * 60)
+    except Exception:
+        return False
+
+
+def seans_disi_ozet(ticker, ham_intraday, quote=None):
+    """ABD premarket/after-hours fiyatını yalnızca ek bilgi olarak verir."""
+    if str(ticker).endswith(".IS"):
+        return "—", None
+    x = _intraday_local_index(ticker, ham_intraday)
+    if x.empty or "Close" not in x.columns:
+        if quote and quote.get("close", 0) > 0 and not abd_quote_regular_seans_mi(quote):
+            try:
+                px = float(quote["close"])
+                return f"🌙 Seans dışı {px:.2f}", px
+            except Exception:
+                pass
+        return "—", None
+    try:
+        x = x.dropna(subset=["Close"]).sort_index()
+        if x.empty:
+            return "—", None
+        son_ts = x.index[-1]
+        son_dakika = son_ts.hour * 60 + son_ts.minute
+        if (9 * 60 + 30) <= son_dakika <= (16 * 60):
+            return "—", None
+        son_fiyat = float(x["Close"].iloc[-1])
+        tur = "PM" if son_dakika < (9 * 60 + 30) else "AH"
+        regular = regular_seans_intraday(ticker, x)
+        onceki_regular = regular[regular.index < son_ts] if not regular.empty else regular
+        if not onceki_regular.empty:
+            ref = float(onceki_regular["Close"].dropna().iloc[-1])
+            if ref > 0:
+                deg = ((son_fiyat / ref) - 1.0) * 100.0
+                return f"🌙 {tur} {son_fiyat:.2f} ({deg:+.2f}%)", son_fiyat
+        return f"🌙 {tur} {son_fiyat:.2f}", son_fiyat
+    except Exception:
+        return "—", None
+
+
 @st.cache_data(ttl=20, show_spinner=False)
 def intraday_veri_cek(ticker, interval="5m", period="5d"):
     try:
@@ -332,21 +437,17 @@ def finnhub_quotelari_paralel_cek(tickers, max_workers=6):
     return sonuc
 
 def canli_ohlcv_ile_guncelle(ticker, df_long, intraday_hazir=None, quote_hazir=None):
-    """Günlük seriyi son 5 dakikalık seans verisiyle günceller.
-
-    Günlük veri bugünün satırını henüz içermiyorsa yeni satır ekler; böylece
-    önceki kapanışın yanlışlıkla ezilmesi önlenir. Finnhub fiyatı ABD
-    hisselerinde son Close için önceliklidir, hacim ise 5 dakikalık Yahoo
-    mumlarının toplamından alınır.
-    """
+    """Günlük seriyi yalnızca NORMAL SEANS verisiyle günceller."""
     df = df_long.copy().sort_index()
     kaynak = "Yahoo günlük (fallback)"
     quote = quote_hazir if quote_hazir is not None else finnhub_quote_cek(ticker)
-    intraday = intraday_hazir.copy() if isinstance(intraday_hazir, pd.DataFrame) else intraday_veri_cek(ticker, interval="5m", period="5d")
-
-    if not intraday.empty:
+    ham_intraday = intraday_hazir.copy() if isinstance(intraday_hazir, pd.DataFrame) else pd.DataFrame()
+    if ham_intraday.empty:
+        ham_intraday = intraday_veri_cek(ticker, interval="5m", period="5d")
+    ham_intraday = _normalize_yf_columns(ham_intraday)
+    intraday = regular_seans_intraday(ticker, ham_intraday)
+    if not intraday.empty and "Close" in intraday.columns:
         intraday = intraday.dropna(subset=["Close"]).sort_index()
-
     if not intraday.empty:
         seans_tarihi = intraday.index[-1].date()
         seans_rows = intraday[intraday.index.date == seans_tarihi]
@@ -355,50 +456,34 @@ def canli_ohlcv_ile_guncelle(ticker, df_long, intraday_hazir=None, quote_hazir=N
             h = float(seans_rows["High"].max())
             l = float(seans_rows["Low"].min())
             c = float(seans_rows["Close"].dropna().iloc[-1])
-            v = float(seans_rows["Volume"].fillna(0).sum())
-            if ticker.endswith(".IS"):
-                kaynak = "Yahoo 5 dk (BIST)"
-            else:
-                kaynak = "Yahoo 5 dk (Finnhub kullanılamadı)"
-
-            if quote and quote.get("close", 0) > 0:
-                c = quote["close"]
-                if quote.get("open", 0) > 0:
-                    o = quote["open"]
-                if quote.get("high", 0) > 0:
-                    h = max(h, quote["high"])
-                if quote.get("low", 0) > 0:
-                    l = min(l, quote["low"])
-                kaynak = "Finnhub fiyat + Yahoo 5 dk OHLCV"
-
+            v = float(seans_rows["Volume"].fillna(0).sum()) if "Volume" in seans_rows else 0.0
+            kaynak = "Yahoo 5 dk (BIST normal seans)" if ticker.endswith(".IS") else "Yahoo 5 dk (ABD normal seans)"
+            if (not ticker.endswith(".IS")) and quote and quote.get("close", 0) > 0 and abd_quote_regular_seans_mi(quote):
+                c = float(quote["close"])
+                if quote.get("open", 0) > 0: o = float(quote["open"])
+                if quote.get("high", 0) > 0: h = max(h, float(quote["high"]))
+                if quote.get("low", 0) > 0: l = min(l, float(quote["low"]))
+                kaynak = "Finnhub fiyat + Yahoo 5 dk (normal seans)"
             last_daily_date = pd.Timestamp(df.index[-1]).date()
             if last_daily_date == seans_tarihi:
                 target_idx = df.index[-1]
             else:
-                # Günlük indeksin timezone biçimini korumaya çalış.
                 target_idx = pd.Timestamp(seans_tarihi)
                 if getattr(df.index, "tz", None) is not None:
                     target_idx = target_idx.tz_localize(df.index.tz)
-
             row = {"Open": o, "High": h, "Low": l, "Close": c, "Volume": v}
             for col, val in row.items():
                 if col in df.columns and pd.notna(val):
                     df.loc[target_idx, col] = val
             df = df.sort_index()
-
     elif quote and quote.get("close", 0) > 0:
-        # Mum verisi yoksa yalnızca mevcut son günlük satırın fiyat alanlarını
-        # Finnhub quote ile güncelle; hacmi uydurma.
-        target_idx = df.index[-1]
-        for col, key in [("Open", "open"), ("High", "high"), ("Low", "low"), ("Close", "close")]:
-            if col in df.columns and quote.get(key, 0) > 0:
-                df.loc[target_idx, col] = quote[key]
-        kaynak = "Finnhub quote (hacim yok)"
-
-    return df, intraday, kaynak
+        # Quote-only fallback geçmiş günlük mumu bozmaz.
+        kaynak = "Yahoo günlük · Finnhub quote yalnızca ek fiyat"
+    return df, intraday, kaynak, ham_intraday
 
 def tekil_taze_veri_cek(ticker):
-    return intraday_veri_cek(ticker, interval="5m", period="5d")
+    """Yalnızca toplu intraday başarısızlığında normal-seans fallback."""
+    return regular_seans_intraday(ticker, intraday_veri_cek(ticker, interval="5m", period="5d"))
 
 
 def tetik_puani_hesapla(intraday, uzun_vade_trend):
@@ -938,10 +1023,10 @@ def aksiyon_rehberi_olustur(nihai_sinyal, teyit_5dk):
         alt_not = '<div style="margin-top:15px;padding:11px;background:rgba(149,165,166,.10);border-left:4px solid #95a5a6;border-radius:5px;"><b>YAKLAŞIM:</b> İşlem üretmek yerine sabırlı kalıp teyit bekleyin.</div>'
 
     return (
-        f'<div style="background:#1e1e1e;padding:22px;border-radius:12px;border-left:5px solid {renk};'
-        f'margin-top:20px;color:#fff;font-family:sans-serif;box-shadow:0 4px 12px rgba(0,0,0,.25);">'
+        f'<div style="background:rgba(128,128,128,.08);padding:22px;border-radius:12px;border-left:5px solid {renk};'
+        f'margin-top:20px;color:inherit;font-family:sans-serif;box-shadow:0 4px 12px rgba(0,0,0,.25);">'
         f'<h3 style="color:{renk};margin:0 0 12px 0;font-size:18px;">{baslik}</h3>'
-        f'<p style="font-size:14px;line-height:1.75;color:#e4e4e4;margin:0 0 12px 0;">{ana_metin}</p>'
+        f'<p style="font-size:14px;line-height:1.75;color:inherit;margin:0 0 12px 0;">{ana_metin}</p>'
         f'{alt_not}</div>'
     )
 
@@ -1061,7 +1146,7 @@ def sozlu_teknik_analiz_olustur(ticker, fiyat, gunluk_degisim, rsi, macd, macd_s
     )
 
     return f"""
-    <div style="background:#161616;border:1px solid #333;border-radius:12px;padding:20px;margin-top:18px;color:#e8e8e8;line-height:1.65;">
+    <div style="background:rgba(128,128,128,.08);border:1px solid rgba(128,128,128,.25);border-radius:12px;padding:20px;margin-top:18px;color:inherit;line-height:1.65;">
       <h3 style="margin:0 0 12px 0;color:#ffffff;">🧠 {ticker} Sözel Teknik Analizi</h3>
       <p><b>Genel görünüm:</b> Fiyat {fiyat:.2f} seviyesinde ve günlük değişim %{gunluk_degisim:+.2f}. Uzun vadeli ana trend <b>{trend_uzun}</b>, orta vadeli yapı <b>{trend_orta}</b>, EMA 9/21 ilişkisi ise <b>{trend_kisa}</b>.</p>
       <p><b>Momentum:</b> {rsi_yorum} {macd_yorum}</p>
@@ -1092,6 +1177,8 @@ def gelismis_teknik_panel_olustur(d):
     tp1_y, tp2_y, tp3_y = int(d.get("tp1_yildiz",3)), int(d.get("tp2_yildiz",2)), int(d.get("tp3_yildiz",1))
     hacim, hacim_ort, hacim_oran = float(d["hacim"]), float(d["hacim_ort"]), float(d["hacim_oran"])
     sinyal, veri_kaynagi = str(d["sinyal"]), str(d["veri_kaynagi"])
+    seans_disi = str(d.get("seans_disi", "—"))
+    seans_notu = f" · {seans_disi} (ek bilgi; skora dahil değil)" if seans_disi and seans_disi != "—" else ""
     gunluk_degisim, ticker = float(d["gunluk_degisim"]), str(d["ticker"])
     tetik_puani = int(d.get("giris_puani", d.get("tetik_puani", 0)) or 0)
     tetik_seviyesi = str(d.get("giris_seviyesi", d.get("tetik_seviyesi", "⏳ GİRİŞ UYGUN DEĞİL")))
@@ -1176,7 +1263,7 @@ def gelismis_teknik_panel_olustur(d):
       @media(max-width:600px){{.hp-grid{{grid-template-columns:1fr}}.hp-target{{grid-template-columns:1fr}}}}
     </style>
     <div class="hp-wrap">
-      <div class="hp-head"><div><div class="hp-title">📋 {ticker} — Detaylı Teknik Analiz</div><div class="hp-sub">Göstergeler, seviyeler ve nihai karar tek görünümde</div></div><div class="hp-source">🔌 {veri_kaynagi}</div></div>
+      <div class="hp-head"><div><div class="hp-title">📋 {ticker} — Detaylı Teknik Analiz</div><div class="hp-sub">Göstergeler, seviyeler ve nihai karar tek görünümde{seans_notu}</div></div><div class="hp-source">🔌 {veri_kaynagi}</div></div>
       <div class="hp-grid">{cards}</div>
       <div class="hp-sections">
         <div class="hp-section"><h4>🧭 Trend ve momentum özeti</h4>
@@ -1217,6 +1304,57 @@ def sinyal_yonu_belirle(sinyal):
         return "SATIŞ"
     return "NÖTR"
 
+
+@st.cache_data(ttl=1800, show_spinner=False)
+def _donem_ohlc_cek(ticker, baslangic_iso, bitis_iso):
+    try:
+        bas = pd.to_datetime(baslangic_iso, errors="coerce")
+        bit = pd.to_datetime(bitis_iso, errors="coerce")
+        if pd.isna(bas) or pd.isna(bit):
+            return pd.DataFrame()
+        df = yf.download(ticker, start=(bas-pd.Timedelta(days=2)).date().isoformat(), end=(bit+pd.Timedelta(days=2)).date().isoformat(), interval="1d", progress=False, auto_adjust=False, threads=False, timeout=8)
+        return _normalize_yf_columns(df)
+    except Exception as e:
+        izfin_hata_logla("kapanan_donem_ohlc", e, ticker)
+        return pd.DataFrame()
+
+
+def kapanan_donem_istatistikleri(ticker, giris, acilis_zamani, kapanis_zamani, ilk_stop=None, ilk_tp1=None, ilk_tp2=None, ilk_tp3=None):
+    sonuc={"donem_max_kar":None,"donem_max_dusus":None,"ilk_tp1_gordu":None,"ilk_tp2_gordu":None,"ilk_tp3_gordu":None,"ilk_stop_gordu":None}
+    try:
+        giris=float(giris)
+        if not np.isfinite(giris) or giris<=0: return sonuc
+        bas=pd.to_datetime(acilis_zamani,errors="coerce"); bit=pd.to_datetime(kapanis_zamani,errors="coerce")
+        if pd.isna(bas) or pd.isna(bit): return sonuc
+        df=_donem_ohlc_cek(ticker,str(acilis_zamani),str(kapanis_zamani))
+        if df is None or df.empty or "High" not in df.columns or "Low" not in df.columns: return sonuc
+        idx=pd.to_datetime(df.index)
+        try:
+            if getattr(idx,"tz",None) is not None: idx=idx.tz_localize(None)
+        except Exception: pass
+        dfx=df.copy(); dfx.index=idx
+        bas_n=pd.Timestamp(bas); bit_n=pd.Timestamp(bit)
+        try:
+            if bas_n.tzinfo is not None: bas_n=bas_n.tz_localize(None)
+            if bit_n.tzinfo is not None: bit_n=bit_n.tz_localize(None)
+        except Exception: pass
+        dfx=dfx[(dfx.index.normalize()>=bas_n.normalize()) & (dfx.index.normalize()<=bit_n.normalize())]
+        if dfx.empty: return sonuc
+        max_high=float(pd.to_numeric(dfx["High"],errors="coerce").max()); min_low=float(pd.to_numeric(dfx["Low"],errors="coerce").min())
+        if np.isfinite(max_high): sonuc["donem_max_kar"]=((max_high/giris)-1)*100
+        if np.isfinite(min_low): sonuc["donem_max_dusus"]=((min_low/giris)-1)*100
+        def up(v):
+            try:
+                v=float(v); return bool(np.isfinite(v) and v>0 and np.isfinite(max_high) and max_high>=v)
+            except Exception: return None
+        def down(v):
+            try:
+                v=float(v); return bool(np.isfinite(v) and v>0 and np.isfinite(min_low) and min_low<=v)
+            except Exception: return None
+        sonuc["ilk_tp1_gordu"]=up(ilk_tp1); sonuc["ilk_tp2_gordu"]=up(ilk_tp2); sonuc["ilk_tp3_gordu"]=up(ilk_tp3); sonuc["ilk_stop_gordu"]=down(ilk_stop)
+        return sonuc
+    except Exception as e:
+        izfin_hata_logla("kapanan_donem_istatistik", e, ticker); return sonuc
 
 def sinyal_kayitlarini_firestore_yaz(sonuclar, teknik_paneller):
     """İlk alım fiyatını koruyan, tekrar kayıt üretmeyen pozisyon takibi.
@@ -1381,6 +1519,10 @@ def sinyal_kayitlarini_firestore_yaz(sonuclar, teknik_paneller):
                 # Bu alanlar sonraki taramalarda değiştirilmez.
                 "strategy_version": STRATEJI_SURUMU,
                 "ilk_sinyal": sinyal,
+                "ilk_stop": float(panel.get("stop", 0) or 0),
+                "ilk_tp1": float(panel.get("tp1", 0) or 0),
+                "ilk_tp2": float(panel.get("tp2", 0) or 0),
+                "ilk_tp3": float(panel.get("tp3", 0) or 0),
                 "ilk_hibrit_skor": int(panel.get("cezali_skor", panel.get("skor", 0)) or 0),
                 "ilk_giris_kalitesi": int(panel.get("giris_puani", panel.get("tetik_puani", 0)) or 0),
                 "ilk_algoritma_guveni": int(panel.get("guven_skoru", 0) or 0),
@@ -1407,36 +1549,67 @@ def sinyal_kayitlarini_firestore_yaz(sonuclar, teknik_paneller):
                 pass
 
         elif aktif_mi and arsiv_doc_id:
-            # Alım yönü kaybolduğunda ilk giriş fiyatına göre kapanış performansı sabitlenir.
-            giris = float(aktif.get("giris_fiyati", 0) or 0)
-            if giris <= 0:
-                try:
-                    arsiv_snap = db.collection("sinyal_arsivi").document(arsiv_doc_id).get()
-                    arsiv_veri = arsiv_snap.to_dict() if arsiv_snap.exists else {}
-                    giris = float(arsiv_veri.get("giris_fiyati", 0) or 0)
-                except Exception:
-                    giris = 0.0
-            kapanis_getiri = ((fiyat - giris) / giris * 100) if fiyat > 0 and giris > 0 else 0.0
+            arsiv_veri = {}
             try:
-                db.collection("sinyal_arsivi").document(arsiv_doc_id).set({
-                    "durum": "KAPALI",
-                    "kapanis_sinyali": sinyal,
-                    "kapanis_fiyati": fiyat,
-                    "son_fiyat": fiyat,
-                    "getiri_yuzde": kapanis_getiri,
-                    "kapanis_zamani": simdi.isoformat(),
-                    "guncelleme_zamani": simdi.isoformat(),
-                }, merge=True)
-                aktif_ref.set({
-                    "durum": "KAPALI",
-                    "sinyal": sinyal,
-                    "onceki_arsiv_doc_id": arsiv_doc_id,
-                    "arsiv_doc_id": None,
-                    "guncelleme_zamani": simdi.isoformat(),
-                }, merge=True)
+                arsiv_snap = db.collection("sinyal_arsivi").document(arsiv_doc_id).get()
+                arsiv_veri = arsiv_snap.to_dict() if arsiv_snap.exists else {}
+            except Exception as e:
+                izfin_hata_logla("kapanis_arsiv_okuma", e, ticker)
+            giris = float(aktif.get("giris_fiyati", 0) or arsiv_veri.get("giris_fiyati", 0) or 0)
+            kapanis_getiri = ((fiyat - giris) / giris * 100) if fiyat > 0 and giris > 0 else 0.0
+            acilis_zamani = aktif.get("acilis_zamani") or arsiv_veri.get("olusturma_zamani") or simdi.isoformat()
+            donem_istat = kapanan_donem_istatistikleri(ticker, giris, acilis_zamani, simdi.isoformat(), arsiv_veri.get("ilk_stop"), arsiv_veri.get("ilk_tp1"), arsiv_veri.get("ilk_tp2"), arsiv_veri.get("ilk_tp3"))
+            try:
+                db.collection("sinyal_arsivi").document(arsiv_doc_id).set({"durum":"KAPALI","kapanis_sinyali":sinyal,"kapanis_fiyati":fiyat,"son_fiyat":fiyat,"getiri_yuzde":kapanis_getiri,"kapanis_zamani":simdi.isoformat(),"guncelleme_zamani":simdi.isoformat(),**donem_istat}, merge=True)
+                aktif_ref.set({"durum":"KAPALI","sinyal":sinyal,"onceki_arsiv_doc_id":arsiv_doc_id,"arsiv_doc_id":None,"guncelleme_zamani":simdi.isoformat()}, merge=True)
                 eski_acik_haritasi.pop(ticker, None)
-            except Exception:
-                pass
+            except Exception as e:
+                izfin_hata_logla("pozisyon_kapatma", e, ticker)
+
+def legacy_mukerrer_kayitlari_temizle():
+    """Mükerrerleri önce yedek koleksiyona kopyalar, sonra siler. Otomatik çalışmaz."""
+    if not db or not st.session_state.user_email:
+        return {"silinen":0,"yedeklenen":0,"grup":0}
+    email=st.session_state.user_email; docs=[]
+    try:
+        q=db.collection("sinyal_arsivi").where("user_email","==",email).limit(1000)
+        for doc in q.stream():
+            v=doc.to_dict() or {}
+            if v.get("yon")=="ALIM": docs.append((doc.id,v))
+    except Exception as e:
+        izfin_hata_logla("legacy_temizlik_okuma",e); return {"silinen":0,"yedeklenen":0,"grup":0}
+    gruplar={}
+    for doc_id,v in docs:
+        ticker=str(v.get("ticker","")).strip().upper(); durum=str(v.get("durum","ACIK") or "ACIK").upper()
+        if not ticker: continue
+        if durum=="ACIK": key=("ACIK",ticker)
+        else:
+            t=pd.to_datetime(v.get("olusturma_zamani"),errors="coerce"); k=pd.to_datetime(v.get("kapanis_zamani"),errors="coerce")
+            try: g=round(float(v.get("giris_fiyati",0) or 0),4)
+            except Exception: g=0.0
+            key=("KAPALI",ticker,t.floor("min").isoformat() if not pd.isna(t) else str(v.get("olusturma_zamani","")),k.floor("min").isoformat() if not pd.isna(k) else str(v.get("kapanis_zamani","")),g)
+        gruplar.setdefault(key,[]).append((doc_id,v))
+    silinen=yedeklenen=grup_sayisi=0; email_key=email.replace("@","_").replace(".","_")
+    for key,grup in gruplar.items():
+        if len(grup)<=1: continue
+        grup_sayisi+=1; ticker=key[1]; keep_id=None
+        if key[0]=="ACIK":
+            # İlk alım tarihi/fiyatı kaybolmasın: açık grubun daima en eski belgesi korunur.
+            keep_id=sorted(grup,key=lambda x:str(x[1].get("olusturma_zamani","")))[0][0]
+        else:
+            keep_id=sorted(grup,key=lambda x:sum(v is not None for v in x[1].values()),reverse=True)[0][0]
+        for doc_id,v in grup:
+            if doc_id==keep_id: continue
+            try:
+                backup_id=f"{doc_id}_{datetime.now().strftime('%Y%m%d%H%M%S%f')}"
+                db.collection("sinyal_arsivi_temizlik_yedegi").document(backup_id).set({**v,"orijinal_doc_id":doc_id,"temizlik_zamani":datetime.now().isoformat(),"temizlik_nedeni":"legacy_mukerrer","korunan_doc_id":keep_id})
+                yedeklenen+=1; db.collection("sinyal_arsivi").document(doc_id).delete(); silinen+=1
+            except Exception as e: izfin_hata_logla("legacy_temizlik_silme",e,ticker)
+        if key[0]=="ACIK":
+            try:
+                aktif_id=f"{email_key}_{ticker.replace('.', '_')}"; db.collection("aktif_sinyaller").document(aktif_id).set({"arsiv_doc_id":keep_id,"durum":"ACIK"},merge=True)
+            except Exception as e: izfin_hata_logla("legacy_temizlik_aktif_bag",e,ticker)
+    return {"silinen":silinen,"yedeklenen":yedeklenen,"grup":grup_sayisi}
 
 def performans_kayitlarini_getir(limit=250):
     if not db or not st.session_state.user_email:
@@ -1538,6 +1711,7 @@ def performans_kayitlarini_tekillestir(kayitlar):
             "ilk_sinyal", "strategy_version",
             "ilk_hibrit_skor", "ilk_giris_kalitesi",
             "ilk_algoritma_guveni", "ilk_peg", "ilk_sektorel_fark",
+            "ilk_stop", "ilk_tp1", "ilk_tp2", "ilk_tp3",
             "benchmark_ticker"
         ]:
             if alan in ilk:
@@ -1925,6 +2099,7 @@ _SESSION_DEFAULTS = {
     "aktif_profil": "Kendi Listem",
     "secilen_varliklar": VARSAYILAN_TICKERS.copy(),
     "kullanici_listesi_yuklendi": False,
+    "taramada_hatalar": [],
 }
 for _key, _default in _SESSION_DEFAULTS.items():
     if _key not in st.session_state:
@@ -1966,8 +2141,10 @@ def hisse_ekle_callback():
         for h in [x.strip().upper() for x in input_val.replace(",", " ").split() if x.strip()]:
             if h not in st.session_state.custom_tickers: st.session_state.custom_tickers.append(h)
         if db and st.session_state.user_email:
-            try: db.collection("kullanici_listeleri").document(st.session_state.user_email).set({"tickers": st.session_state.custom_tickers})
-            except: pass
+            try:
+                db.collection("kullanici_listeleri").document(st.session_state.user_email).set({"tickers": st.session_state.custom_tickers})
+            except Exception as e:
+                izfin_hata_logla("kullanici_listesi_yaz", e)
         st.session_state.aktif_profil = "Kendi Listem"
         st.session_state.secilen_varliklar = st.session_state.custom_tickers.copy()
         st.session_state.ek_hisse_input_field = ""
@@ -1978,14 +2155,16 @@ def hisse_sil_callback():
         for h in [x.strip().upper() for x in input_val.replace(",", " ").split() if x.strip()]:
             if h in st.session_state.custom_tickers: st.session_state.custom_tickers.remove(h)
         if db and st.session_state.user_email:
-            try: db.collection("kullanici_listeleri").document(st.session_state.user_email).set({"tickers": st.session_state.custom_tickers})
-            except: pass
+            try:
+                db.collection("kullanici_listeleri").document(st.session_state.user_email).set({"tickers": st.session_state.custom_tickers})
+            except Exception as e:
+                izfin_hata_logla("kullanici_listesi_yaz", e)
         st.session_state.aktif_profil = "Kendi Listem"
         st.session_state.secilen_varliklar = st.session_state.custom_tickers.copy()
         st.session_state.sil_hisse_input_field = ""
 
 st.title("📈 IZFIN")
-st.markdown("**Fırsatın izini sür...**")
+st.markdown("**Fırsatın izini sür.**")
 st.markdown("---")
 
 with st.expander("📘 Nasıl Kullanılır? — Tablo, skorlar, sinyaller ve risk yönetimi", expanded=False):
@@ -2015,11 +2194,12 @@ with st.expander("📘 Nasıl Kullanılır? — Tablo, skorlar, sinyaller ve ris
 | **Para Akışı** | MFI, OBV, CMF ve hacim davranışının özeti | Fiyat yükselirken para akışı zayıfsa hareketin kalıcılığı sorgulanmalıdır. |
 | **PEG / Değerleme** | Şirketin büyümesine göre değerleme oranını ve kısa etiketi gösterir | Teknik skora dahil edilmez. Düşük pozitif PEG büyümeye göre daha makul değerlemeye, yüksek PEG daha yüksek büyüme primine işaret edebilir. |
 | **Nihai Sinyal** | Algoritmanın teknik koşullara verdiği sınıflandırma | Emir değildir; sinyal açıklaması ve risk planıyla birlikte kullanılmalıdır. |
-| **Giriş Kalitesi** | 5 dk, 15 dk ve 1 saat zamanlamasının alım ön sinyalini destekleyip desteklemediği | 5 dk hareketin başlangıcını, 15 dk devam teyidini, 1 saat ana yön uyumunu ölçer. 85+ ve üst zaman dilimi teyidi varsa “Teyit Edildi”; 75+ güçlü, 55+ erken, 35+ hazırlanıyor, altı uygun değil olarak sınıflanır. |
+| **Giriş Kalitesi** | Normal seanstaki 5 dk, 15 dk ve 1 saat zamanlamasının alım ön sinyalini destekleyip desteklemediği | Premarket/after-hours mumları puana girmez. 85+ ve üst zaman dilimi teyidi varsa “Teyit Edildi”; 75+ güçlü, 55+ erken, 35+ hazırlanıyor, altı uygun değil olarak sınıflanır. |
 | **Karma Destek / Direnç** | Tepe-dip, EMA50, Bollinger ve ATR’den türetilen karar seviyeleri | Destek altı kalıcılık riski; direnç üstü hacimli kapanış yükseliş senaryosunu güçlendirir. |
 | **Süren Stop** | ATR/Chandelier mantığıyla hesaplanan teknik iptal noktası | Gap ve sert haber hareketlerinde fiyat stop seviyesini atlayabilir. |
 | **TP1 / TP2 / TP3** | Giriş–stop riskinin gerçek teknik direnç ve volatilite seviyeleri | Fiyat tahmini değil, risk/ödül planlama seviyeleridir. |
-| **Veri Kaynağı** | Finnhub, Yahoo 5 dk veya fallback bilgisi | Kaynaklar arasında küçük fiyat ve zaman farkları oluşabilir. |
+| **Seans Dışı** | ABD hisselerinde varsa premarket/after-hours son fiyatı | Yalnızca ek bilgidir; skora, RSI/MACD/ATR’ye ve Giriş Kalitesine dahil edilmez. |
+| **Veri Kaynağı** | Finnhub, Yahoo 5 dk veya fallback bilgisi | Teknik motor normal seans verisini kullanır; kaynaklar arasında küçük fiyat ve zaman farkları oluşabilir. |
 """)
 
     st.markdown("### 3) Hibrit skor nasıl oluşur?")
@@ -2067,16 +2247,16 @@ Gelişmiş bonus ve cezalar sınırlandırılır; böylece yeni katman eski skor
 - **ADX / DI:** ADX trend gücünü ölçer. +DI > −DI yükseliş, −DI > +DI düşüş yönünü destekler.
 - **MFI / OBV / CMF:** Fiyat hareketine para ve hacim katılımını ölçer. Ayrışma varsa sinyal güveni düşer.
 - **VWAP:** Gün içi ortalama işlem maliyetidir. Fiyatın üzerinde kalması kısa vadeli alıcı avantajını destekleyebilir.
-- **ATR:** Yön değil, hareket genişliği ve risk ölçüsüdür. ATR yükseldikçe stop ve lot daha dikkatli ayarlanmalıdır.
+- **ATR:** Yön değil, hareket genişliği ve risk ölçüsüdür. ATR yükseldikçe teknik stop ve hedef aralıkları genişleyebilir.
 - **MTF uyumu:** Zaman dilimlerinin aynı yönde olması teyidi artırır; çatışma varsa daha küçük pozisyon veya bekleme uygundur.
 """)
 
-    st.markdown("### 6) Destek, stop, hedef ve pozisyon büyüklüğü")
+    st.markdown("### 6) Destek, stop ve teknik hedefler")
     st.markdown("""
 - **Karma destek/direnç**, geçmiş tepe-dip, EMA50, Bollinger ve ATR bileşimidir.
-- **Süren stop**, fiyatın altında kalan en yakın geçerli teknik adaydan seçilir. Stop büyüdükçe önerilen lot azalır.
-- **TP1 / TP2 / TP3**, yaklaşık **1,5R ve 3R** seviyeleridir; hedefe ulaşma garantisi değildir.
-- İşlem riski yaklaşık **(Giriş − Stop) × Lot** şeklinde düşünülmelidir.
+- **Süren stop**, ATR/Chandelier ve geçerli teknik destek yapısına göre dinamik biçimde güncellenir.
+- **TP1 / TP2 / TP3**, önceki 20/50/100 günlük tepeler, Bollinger üst bant, ATR uzantıları, swing seviyeleri ve tarihsel volatilite projeksiyonunun kümelenmesinden üretilen teknik hedeflerdir.
+- Yeni taramalarda güncel stop ve hedefler değişebilir. **Sinyal Performans Takibi** ise ilk alım anındaki stop ve TP1/TP2/TP3 değerlerini ayrıca dondurur ve geçmiş başarısını bu ilk plana göre ölçer.
 - Aynı yönde yüksek korelasyonlu hisseler toplam portföy riskini büyütebilir.
 """)
 
@@ -2085,6 +2265,7 @@ Gelişmiş bonus ve cezalar sınırlandırılır; böylece yeni katman eski skor
 - **Sinyal Performans Takibi:** Yalnızca gerçek alım yönlü sinyallerin giriş fiyatına göre canlı performansını izler; tam backtest değildir.
 - **Akıllı Projeksiyon:** ATR ile tarihsel volatiliteyi birleştirerek yaklaşık 45 günlük hareket bandı üretir; gerçek implied volatility kullanmaz.
 - **Strateji Doğrulama / Backtest:** Geçmiş günlük veride 5, 10, 20 ve 45 gün sonraki sonuçları ölçer. Komisyon, kayma ve gün içi stop–hedef sırası tam modellenmez.
+- **Beta güvenliği:** Mevcut sürüm kişisel/kapalı beta oturumu içindir. Herkese açık ticari sürümden önce Firebase Auth ID token/session-cookie tabanlı gerçek kimlik doğrulama katmanına geçilmelidir.
 """)
 
     st.warning("Bu uygulama algoritmik teknik analiz ve karar desteği sağlar; yatırım tavsiyesi, kesin getiri veya zarar etmeme garantisi değildir. Haber, bilanço, makro gelişme, likidite ve piyasa boşlukları teknik seviyeleri geçersiz kılabilir.")
@@ -2124,6 +2305,7 @@ with tab1:
         else:
             with st.spinner("Piyasa geçmişi ve güncel seans canlı fiyatları çekiliyor..."):
                 st.session_state.opsiyon_sonuclar = None
+                st.session_state.taramada_hatalar = []
                 
                 # Günlük ve gün içi veriler toplu indirilir; her hisse için ayrı Yahoo
                 # isteği açılmadığı için büyük listelerde tarama belirgin biçimde hızlanır.
@@ -2188,9 +2370,10 @@ with tab1:
                         
                         # --- CANLI OHLCV: FINNHUB + YAHOO 5 DAKİKALIK FALLBACK ---
                         intraday_ticker = toplu_veriden_ticker_ayir(toplu_intraday, ticker, len(selected_tickers))
-                        df_long, df_intraday, veri_kaynagi = canli_ohlcv_ile_guncelle(
+                        df_long, df_intraday, veri_kaynagi, ham_intraday = canli_ohlcv_ile_guncelle(
                             ticker, df_long, intraday_hazir=intraday_ticker, quote_hazir=quote_haritasi.get(ticker)
                         )
+                        seans_disi_metin, seans_disi_fiyat = seans_disi_ozet(ticker, ham_intraday, quote_haritasi.get(ticker))
                         bugun_kapanis = float(df_long['Close'].iloc[-1])
 
                         onceki_kapanis = float(df_long['Close'].iloc[-2]) if len(df_long) >= 2 else bugun_kapanis
@@ -2443,10 +2626,13 @@ with tab1:
                         mikro_teyit = tetik_sonucu["mesaj"]
                         if alim_yonlu_on_sinyal:
                             try:
-                                df_5dk = tekil_taze_veri_cek(ticker)
+                                df_5dk = df_intraday
+                                if df_5dk is None or df_5dk.empty:
+                                    df_5dk = tekil_taze_veri_cek(ticker)
                                 tetik_sonucu = giris_motoru_hesapla(df_5dk, uzun_vade_trend)
                                 mikro_teyit = tetik_sonucu["mesaj"]
-                            except Exception:
+                            except Exception as e:
+                                izfin_hata_logla("giris_motoru", e, ticker)
                                 mikro_teyit = "⚠️ Giriş motoru verisi alınamadı"
 
                         sinyal = nihai_karar_motoru(
@@ -2490,7 +2676,8 @@ with tab1:
                             "risk_odul": float(risk_odul), "risk_yuzde": float(risk_yuzde), "risk_seviyesi": risk_seviyesi, "volatilite_rejimi": vol_rejimi,
                             "sinyal_yonu": sinyal_yonu_belirle(sinyal), "cezali_skor": int(skor), "nihai_skor": int(skor),
                             "eski_cezali_skor": int(eski_skor), "skor_bonus": int(gelismis_bonus),
-                            "skor_ceza": int(gelismis_ceza), "skor_aciklama": skor_aciklama
+                            "skor_ceza": int(gelismis_ceza), "skor_aciklama": skor_aciklama,
+                            "seans_disi": seans_disi_metin, "seans_disi_fiyat": seans_disi_fiyat
                         }
 
                         gecici_sozlu_analizler[ticker] = sozlu_teknik_analiz_olustur(
@@ -2512,11 +2699,13 @@ with tab1:
                         gecici_sonuclar.append({
                             "Varlık": ticker, "Fiyat": fiyat_str, "Görec. Güç (Sektör)": gorec_guc_str,
                             "Gelişmiş Skor": skor_etiket, "Güven": f"%{guven_skoru}", "MTF Uyum": f"%{mtf_uyum}", "Risk": risk_seviyesi, "Para Akışı": para_durumu,
-                            "PEG / Değerleme": peg_gosterim, "Nihai Sinyal": sinyal, "🎯 Giriş Kalitesi": mikro_teyit, "Veri Kaynağı": veri_kaynagi,
+                            "PEG / Değerleme": peg_gosterim, "Nihai Sinyal": sinyal, "🎯 Giriş Kalitesi": mikro_teyit,
+                            "Seans Dışı": seans_disi_metin, "Veri Kaynağı": veri_kaynagi,
                             "Karma Destek": f"{karma_destek:.2f}", "Karma Direnç": f"{karma_direnc:.2f}",
                             "Süren Stop": f"{trailing_stop:.2f}", "Teknik Hedefler": hibrit_tp
                         })
-                    except:
+                    except Exception as e:
+                        izfin_hata_logla("ana_tarama", e, ticker)
                         basarisi_cekilemeyen_varliklar.append(ticker)
                         continue
 
@@ -2530,12 +2719,18 @@ with tab1:
                 st.session_state.tarama_durumu = True
                 try:
                     sinyal_kayitlarini_firestore_yaz(gecici_sonuclar, gecici_teknik_paneller)
-                except Exception:
-                    pass
+                except Exception as e:
+                    izfin_hata_logla("sinyal_firestore_yaz", e)
 
     if st.session_state.tarama_durumu:
         if st.session_state.basarisiz_taramalar:
-            st.warning(f"⚠️ Bağlantı hatası nedeniyle es geçilen varlıklar: **{', '.join(st.session_state.basarisiz_taramalar)}**")
+            st.warning(f"⚠️ Veri/hesaplama sorunu nedeniyle es geçilen varlıklar: **{', '.join(st.session_state.basarisiz_taramalar)}**")
+        if st.session_state.get("taramada_hatalar"):
+            tipler = {}
+            for h in st.session_state.taramada_hatalar:
+                tip = h.get("tip", "Hata")
+                tipler[tip] = tipler.get(tip, 0) + 1
+            st.caption("Teknik hata özeti (ayrıntılar Streamlit Cloud loglarında): " + " · ".join(f"{k}: {v}" for k, v in sorted(tipler.items())))
             
         if not st.session_state.sonuclar:
             st.error("❌ Veriler çekilemedi. Lütfen sol menüden farklı bir hisse grubu seçip tekrar deneyin.")
@@ -2652,6 +2847,14 @@ with tab2:
                 "Sinyal kaybolursa pozisyon kapanır. Aynı hissede daha sonra yeniden alım oluşursa yeni dönem başlatılır."
             )
 
+        with st.expander("🧹 Legacy kayıt bakımı", expanded=False):
+            st.caption("Eski sürümlerin oluşturduğu gerçek mükerrer Firestore belgelerini temizler. Silmeden önce her belge sinyal_arsivi_temizlik_yedegi koleksiyonuna kopyalanır.")
+            temizlik_onay = st.checkbox("Yedek alındıktan sonra mükerrer kayıtların silinmesini onaylıyorum.", key="legacy_temizlik_onay")
+            if st.button("🧹 Mükerrerleri Yedekle ve Temizle", disabled=not temizlik_onay):
+                with st.spinner("Legacy kayıtlar kontrol ediliyor..."):
+                    temiz_ozet = legacy_mukerrer_kayitlari_temizle()
+                st.success(f"Temizlik tamamlandı: {temiz_ozet['grup']} mükerrer grup · {temiz_ozet['yedeklenen']} yedek · {temiz_ozet['silinen']} silinen belge.")
+
         kayitlar = performans_kayitlarini_getir()
         # Tüm performans ekranı aynı temiz kayıt setini kullanır.
         # Böylece aktif tablo, kapanmış geçmiş ve IZFIN Karnesi aynı hisseyi
@@ -2756,8 +2959,9 @@ with tab2:
                         "İlk Alım Fiyatı": "{:.2f}",
                         "Güncel Fiyat": "{:.2f}",
                         "Kapanış Fiyatı": "{:.2f}",
-                        "Kâr / Zarar %": "{:+.2f}%",
-                        "Geçen Gün": "{:.0f}",
+                        "İlk Stop": "{:.2f}", "İlk TP1": "{:.2f}", "İlk TP2": "{:.2f}", "İlk TP3": "{:.2f}",
+                        "Kâr / Zarar %": "{:+.2f}%", "Maks. Kâr %": "{:+.2f}%", "Maks. Düşüş %": "{:+.2f}%",
+                        "Pozisyonda Gün": "{:.1f}", "Geçen Gün": "{:.0f}",
                     }, na_rep="-")
                     .map(performans_hucre_stili, subset=["Kâr / Zarar %"])
                     .set_properties(**{
@@ -2782,7 +2986,8 @@ with tab2:
                 aktif_gorunum = pd.DataFrame({
                     "İlk Alım Tarihi": acik_df["_tarih"].dt.strftime("%d.%m.%Y %H:%M"),
                     "Varlık": acik_df.get("ticker"),
-                    "İlk Sinyal / Güncel Sinyal": acik_df.get("sinyal"),
+                    "İlk Sinyal": acik_df.get("ilk_sinyal", acik_df.get("sinyal")),
+                    "Güncel Sinyal": acik_df.get("sinyal"),
                     "İlk Alım Fiyatı": acik_df.get("giris_fiyati"),
                     "Güncel Fiyat": acik_df.get("son_fiyat"),
                     "Kâr / Zarar %": acik_df.get("getiri_yuzde"),
@@ -2856,42 +3061,28 @@ with tab2:
                         return max(vals) if tip == "max" else min(vals)
 
                     def _hedef_gordu(row, hedef_no):
+                        kayitli = row.get(f"ilk_tp{hedef_no}_gordu")
+                        if isinstance(kayitli, (bool, np.bool_)):
+                            return "✅" if bool(kayitli) else "❌"
                         try:
-                            giris = float(row.get("giris_fiyati"))
+                            giris=float(row.get("giris_fiyati")); hedef=float(row.get(f"ilk_tp{hedef_no}"))
                         except Exception:
                             return "—"
-                        if not np.isfinite(giris) or giris <= 0:
-                            return "—"
+                        if not np.isfinite(giris) or giris<=0 or not np.isfinite(hedef) or hedef<=0: return "—"
+                        gorulen=_ufuk_extreme(row,"max")
+                        if not np.isfinite(gorulen): return "—"
+                        return "✅" if gorulen >= ((hedef/giris)-1)*100 else "❌"
 
-                        hedef = None
-                        for anahtar in (
-                            f"tp{hedef_no}", f"TP{hedef_no}",
-                            f"ilk_tp{hedef_no}", f"hedef{hedef_no}"
-                        ):
-                            try:
-                                aday = float(row.get(anahtar))
-                                if np.isfinite(aday):
-                                    hedef = aday
-                                    break
-                            except Exception:
-                                pass
-
-                        if hedef is None:
-                            return "—"
-
-                        gorulen = _ufuk_extreme(row, "max")
-                        if not np.isfinite(gorulen):
-                            return "—"
-
-                        gerekli_getiri = (hedef / giris - 1.0) * 100.0
-                        return "✅" if gorulen >= gerekli_getiri else "❌"
-
-                    max_kar = kapali_df.apply(
-                        lambda r: _ufuk_extreme(r, "max"), axis=1
+                    max_kar = pd.to_numeric(
+                        kapali_df.get("donem_max_kar", pd.Series(np.nan, index=kapali_df.index)), errors="coerce"
                     )
-                    max_dusus = kapali_df.apply(
-                        lambda r: _ufuk_extreme(r, "min"), axis=1
+                    max_dusus = pd.to_numeric(
+                        kapali_df.get("donem_max_dusus", pd.Series(np.nan, index=kapali_df.index)), errors="coerce"
                     )
+                    legacy_max = kapali_df.apply(lambda r: _ufuk_extreme(r, "max"), axis=1)
+                    legacy_min = kapali_df.apply(lambda r: _ufuk_extreme(r, "min"), axis=1)
+                    max_kar = max_kar.where(max_kar.notna(), legacy_max)
+                    max_dusus = max_dusus.where(max_dusus.notna(), legacy_min)
 
                     kapanmis_gorunum = pd.DataFrame({
                         "İlk Alım Tarihi": kapali_df["_tarih"].dt.strftime("%d.%m.%Y %H:%M"),
@@ -2905,9 +3096,14 @@ with tab2:
                         "Pozisyonda Gün": pozisyonda_gun.round(1),
                         "Maks. Kâr %": max_kar,
                         "Maks. Düşüş %": max_dusus,
+                        "İlk Stop": pd.to_numeric(kapali_df.get("ilk_stop", pd.Series(np.nan, index=kapali_df.index)), errors="coerce"),
+                        "İlk TP1": pd.to_numeric(kapali_df.get("ilk_tp1", pd.Series(np.nan, index=kapali_df.index)), errors="coerce"),
+                        "İlk TP2": pd.to_numeric(kapali_df.get("ilk_tp2", pd.Series(np.nan, index=kapali_df.index)), errors="coerce"),
+                        "İlk TP3": pd.to_numeric(kapali_df.get("ilk_tp3", pd.Series(np.nan, index=kapali_df.index)), errors="coerce"),
                         "TP1": kapali_df.apply(lambda r: _hedef_gordu(r, 1), axis=1),
                         "TP2": kapali_df.apply(lambda r: _hedef_gordu(r, 2), axis=1),
                         "TP3": kapali_df.apply(lambda r: _hedef_gordu(r, 3), axis=1),
+                        "Stop": kapali_df.apply(lambda r: ("✅" if bool(r.get("ilk_stop_gordu")) else "❌") if isinstance(r.get("ilk_stop_gordu"), (bool, np.bool_)) else "—", axis=1),
                         "Durum": "⚪ Kapalı",
                     })
                     st.dataframe(
@@ -2919,14 +3115,15 @@ with tab2:
                     st.caption(
                         "Aynı hissede alım sinyali sona erip daha sonra yeniden oluşursa yeni dönem aktif tabloda açılır; "
                         "önceki dönem burada saklanır. Maksimum kâr/düşüş ve TP sütunları, ilgili alım dönemi için "
-                        "yeterli karne/hedef verisi varsa gösterilir. Eski legacy kayıtlarda veri yoksa '—' normaldir."
+                        "yeterli karne/hedef verisi varsa gösterilir. Yeni kayıtlarda maksimum kâr/düşüş ve hedef hitleri yalnızca pozisyonun açık kaldığı dönemden hesaplanır. "
+                        "Aynı günlük mum içinde hem stop hem hedef görülmüşse gün içi gerçekleşme sırası bu günlük ölçümden belirlenemez. Eski legacy kayıtlarda '—' normaldir."
                     )
 
 
             st.markdown("---")
             st.markdown("### 🏆 IZFIN Performans Karnesi")
             st.caption(
-                "Yeni sinyaller IZFIN-v1.0 sürümüyle dondurulur. 1/5/10/20/45 işlem günü "
+                "Yeni sinyaller güncel IZFIN strateji sürümüyle dondurulur. 1/5/10/20/45 işlem günü "
                 "sonuçları sonradan değiştirilmez; ABD hisseleri NASDAQ, BIST hisseleri BIST100 ile karşılaştırılır."
             )
 
@@ -2950,7 +3147,7 @@ with tab2:
             if karne_df.empty:
                 st.info(
                     f"Henüz +{ufuk_secimi} işlem günü tamamlamış ölçülebilir sinyal yok. "
-                    "Yeni IZFIN-v1.0 sinyalleri biriktikçe bu bölüm otomatik anlam kazanacak."
+                    "Yeni IZFIN sinyalleri biriktikçe bu bölüm otomatik anlam kazanacak."
                 )
             else:
                 pozitif_oran = float((karne_df["getiri"] > 0).mean() * 100)
