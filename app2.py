@@ -87,6 +87,10 @@ except:
 
 VARSAYILAN_TICKERS = ["AAPL", "MSFT", "TSLA", "NVDA", "AMD", "INTC", "THYAO.IS", "FROTO.IS", "TOASO.IS"]
 
+# --- IZFIN STRATEJİ SÜRÜMÜ ---
+STRATEJI_SURUMU = "IZFIN-v1.0"
+PERFORMANS_UFUKLARI = (1, 5, 10, 20, 45)
+
 # --- HAZIR VARLIK LİSTELERİ ---
 BIST_30 = [
     "AKBNK.IS", "ALARK.IS", "ASELS.IS", "ASTOR.IS", "BIMAS.IS", "BRISA.IS",
@@ -189,57 +193,6 @@ def peg_yorumu(peg):
     else:
         etiket = "🟠 Yüksek Büyüme Primi"
     return f"{peg:.2f}", etiket
-
-
-def fiyatlanma_uyarisi_hesapla(df_long, fiyat, ema21, atr, rsi):
-    """Trend bozulmadan yeni girişin geç kalıp kalmadığını değerlendirir.
-
-    Bu katman hibrit skoru değiştirmez. Son 5 günlük koşuyu ve fiyatın
-    EMA21'den ATR cinsinden uzaklığını ölçerek "güçlü trend" ile "iyi yeni
-    giriş" kavramlarını ayırır. Yetersiz veride nötr sonuç döndürür.
-    """
-    try:
-        kapanislar = pd.to_numeric(df_long["Close"], errors="coerce").dropna()
-        if len(kapanislar) < 6 or not all(np.isfinite(x) for x in [fiyat, ema21, atr, rsi]):
-            return {
-                "seviye": "NORMAL", "mesaj": "✅ Fiyatlanma normal",
-                "bes_gun_getiri": np.nan, "ema21_uzaklik_yuzde": np.nan,
-                "ema21_atr_uzaklik": np.nan,
-            }
-
-        bes_gun_once = float(kapanislar.iloc[-6])
-        bes_gun_getiri = ((float(fiyat) / bes_gun_once) - 1.0) * 100 if bes_gun_once > 0 else 0.0
-        ema21_uzaklik_yuzde = ((float(fiyat) / float(ema21)) - 1.0) * 100 if ema21 > 0 else 0.0
-        ema21_atr_uzaklik = (float(fiyat) - float(ema21)) / float(atr) if atr > 0 else 0.0
-
-        # Tek bir göstergeyle karar vermek yerine hız ve trendden uzaklaşmayı
-        # birlikte kullanıyoruz. Böylece normal güçlü trendler gereksiz yere
-        # cezalandırılmıyor.
-        if (bes_gun_getiri >= 10.0 or ema21_atr_uzaklik >= 2.5 or
-                (bes_gun_getiri >= 8.0 and rsi >= 65)):
-            seviye = "GERI_CEKILME"
-            mesaj = "🟡 Sinyal çalıştı — geri çekilme bekle"
-        elif (bes_gun_getiri >= 6.0 or ema21_atr_uzaklik >= 1.8 or
-              ema21_uzaklik_yuzde >= 8.0):
-            seviye = "SECICI"
-            mesaj = "🟡 Trend güçlü — yeni girişte seçici"
-        else:
-            seviye = "NORMAL"
-            mesaj = "✅ Fiyatlanma normal"
-
-        return {
-            "seviye": seviye,
-            "mesaj": mesaj,
-            "bes_gun_getiri": float(bes_gun_getiri),
-            "ema21_uzaklik_yuzde": float(ema21_uzaklik_yuzde),
-            "ema21_atr_uzaklik": float(ema21_atr_uzaklik),
-        }
-    except Exception:
-        return {
-            "seviye": "NORMAL", "mesaj": "✅ Fiyatlanma normal",
-            "bes_gun_getiri": np.nan, "ema21_uzaklik_yuzde": np.nan,
-            "ema21_atr_uzaklik": np.nan,
-        }
 
 
 def peg_verilerini_paralel_cek(tickers, max_workers=6):
@@ -1040,8 +993,7 @@ def teknik_seviyeler_hesapla(df, fiyat, atr, ema50, bb_alt, bb_mid, bb_ust, hv20
 
 
 def nihai_karar_motoru(on_sinyal, skor, tetik_puani, fiyat, ema9, ema21, ema50,
-                       sma200, rsi, macd, macd_sinyal, cmf, mfi, bb_ust, adx,
-                       fiyatlanma_seviyesi="NORMAL"):
+                       sma200, rsi, macd, macd_sinyal, cmf, mfi, bb_ust, adx):
     """Trend, momentum, risk ve giriş kalitesi çelişkilerini tek bir nihai kararda çözer."""
     trend_guclu = fiyat > sma200 and fiyat > ema50 and ema9 > ema21
     momentum_pozitif = macd > macd_sinyal and cmf >= 0
@@ -1052,12 +1004,6 @@ def nihai_karar_motoru(on_sinyal, skor, tetik_puani, fiyat, ema9, ema21, ema50,
         return 'MOMENTUM AŞIRI ISINDI 🟡'
     if rsi >= 70 and momentum_bozuluyor and tetik_puani < 60:
         return 'KAR REALİZASYONU 🔴'
-    # Trend kaliteli kalsa bile kısa sürede fazla fiyatlanmışsa bunu yeni bir
-    # alım sinyali gibi göstermiyoruz. Bu uyarılar hibrit skoru değiştirmez.
-    if fiyatlanma_seviyesi == "GERI_CEKILME" and trend_guclu:
-        return 'SİNYAL ÇALIŞTI — GERİ ÇEKİLME BEKLE 🟡'
-    if fiyatlanma_seviyesi == "SECICI" and trend_guclu:
-        return 'TREND GÜÇLÜ — YENİ GİRİŞTE SEÇİCİ 🟡'
     if tetik_puani >= 80 and trend_guclu and momentum_pozitif:
         return 'GÜÇLÜ KIRILIM 🚀'
     if tetik_puani >= 60 and 'KIRILIM' in str(on_sinyal):
@@ -1152,9 +1098,6 @@ def gelismis_teknik_panel_olustur(d):
     tetik_detay = d.get("giris_detay", d.get("tetik_detay", [])) or []
     skor = int(d.get("nihai_skor", d.get("cezali_skor", d.get("skor", 0))) or 0)
     guven = int(d.get("guven_skoru", 0) or 0)
-    fiyatlanma_mesaji = str(d.get("fiyatlanma_mesaji", "✅ Fiyatlanma normal"))
-    bes_gun_getiri = float(d.get("bes_gun_getiri", np.nan))
-    ema21_atr_uzaklik = float(d.get("ema21_atr_uzaklik", np.nan))
 
     def durum(deger, olumlu, olumsuz):
         return ("pozitif", olumlu) if deger else ("negatif", olumsuz)
@@ -1164,8 +1107,6 @@ def gelismis_teknik_panel_olustur(d):
     trend_kisa_cls, trend_kisa = durum(ema9 > ema21, "Kısa trend yukarı", "Kısa trend aşağı")
     macd_cls, macd_txt = durum(macd > macd_signal, "Momentum güçleniyor", "Momentum zayıflıyor")
     obv_cls, obv_txt = durum(obv > obv_ema, "OBV yükseliyor", "OBV düşüyor")
-    fiyatlanma_cls = "uyari" if "🟡" in fiyatlanma_mesaji else "pozitif"
-    fiyatlanma_deger = f"%{bes_gun_getiri:+.1f} / {ema21_atr_uzaklik:.1f} ATR" if np.isfinite(bes_gun_getiri) and np.isfinite(ema21_atr_uzaklik) else "—"
 
     if rsi >= 70:
         rsi_cls, rsi_txt = "uyari", "Aşırı alım"
@@ -1195,7 +1136,6 @@ def gelismis_teknik_panel_olustur(d):
         metric("🎯", "Giriş Kalitesi", f"{tetik_puani}/100", tetik_seviyesi, tetik_cls),
         metric("💧", "MFI / OBV", f"{mfi:.1f} / {obv:,.0f}", obv_txt, obv_cls),
         metric("🌊", "ATR (14)", f"{atr:.2f}", "Yüksek oynaklık" if atr/max(fiyat,1e-9) > .035 else "Normal oynaklık", "uyari" if atr/max(fiyat,1e-9) > .035 else "notr"),
-        metric("⏱️", "5G Koşu / EMA21", fiyatlanma_deger, fiyatlanma_mesaji, fiyatlanma_cls),
     ])
 
     tetik_list = "".join(f"<li>{x}</li>" for x in tetik_detay[:7]) or "<li>Henüz yeterli çok zaman dilimli giriş teyidi bulunmuyor.</li>"
@@ -1258,7 +1198,7 @@ def gelismis_teknik_panel_olustur(d):
         <div class="hp-target-card"><span>TP2 — Orta hedef</span><strong>{tp2:.2f}</strong><div class="hp-stars">{yildiz(tp2_y)}</div></div>
         <div class="hp-target-card"><span>TP3 — Agresif trend</span><strong>{tp3:.2f}</strong><div class="hp-stars">{yildiz(tp3_y)}</div></div>
       </div></div>
-      <div class="hp-comment"><b>🧠 Algoritmik yorum:</b> Fiyat {ana_yorum}. Kısa vadede EMA 9 {kisa_yorum}, RSI {rsi:.1f} ve MACD histogramı {macd_hist:.3f}. Hacim 20 günlük ortalamanın %{hacim_oran:.0f} seviyesinde. <b>Fiyatlanma:</b> {fiyatlanma_mesaji}; fiyatın {s1:.2f}–{r1:.2f} karar aralığındaki davranışı yönün devamı açısından önemlidir.</div>
+      <div class="hp-comment"><b>🧠 Algoritmik yorum:</b> Fiyat {ana_yorum}. Kısa vadede EMA 9 {kisa_yorum}, RSI {rsi:.1f} ve MACD histogramı {macd_hist:.3f}. Hacim 20 günlük ortalamanın %{hacim_oran:.0f} seviyesinde; fiyatın {s1:.2f}–{r1:.2f} karar aralığındaki davranışı yönün devamı açısından önemlidir.</div>
       <div class="hp-decision"><div class="hp-decision-title">🧭 Nihai karar: <span class="hp-pill {karar_cls}">{sinyal}</span></div><div>Hibrit skor: <b>{skor}/100</b> · Algoritma güveni: <b>%{guven}</b> · Giriş kalitesi: <b>{tetik_puani}/100</b></div><div class="hp-small" style="margin-top:6px">Bu panel teknik karar desteğidir; emir veya getiri garantisi değildir.</div></div>
     </div>
     """
@@ -1437,6 +1377,17 @@ def sinyal_kayitlarini_firestore_yaz(sonuclar, teknik_paneller):
                 "guncelleme_zamani": simdi.isoformat(),
                 "getiri_yuzde": 0.0,
                 "sinyal_degisim_sayisi": 0,
+                # Performans karnesi için sinyal anındaki koşullar dondurulur.
+                # Bu alanlar sonraki taramalarda değiştirilmez.
+                "strategy_version": STRATEJI_SURUMU,
+                "ilk_sinyal": sinyal,
+                "ilk_hibrit_skor": int(panel.get("cezali_skor", panel.get("skor", 0)) or 0),
+                "ilk_giris_kalitesi": int(panel.get("giris_puani", panel.get("tetik_puani", 0)) or 0),
+                "ilk_algoritma_guveni": int(panel.get("guven_skoru", 0) or 0),
+                "ilk_peg": float(panel.get("peg")) if panel.get("peg") is not None and np.isfinite(panel.get("peg")) else None,
+                "ilk_sektorel_fark": float(panel.get("sektorel_fark")) if panel.get("sektorel_fark") is not None and np.isfinite(panel.get("sektorel_fark")) else None,
+                "benchmark_ticker": "XU100.IS" if ticker.endswith(".IS") else "^IXIC",
+                "performans_ufuklari": {},
             }
             try:
                 db.collection("sinyal_arsivi").document(yeni_arsiv_id).set(yeni_veri)
@@ -1551,6 +1502,161 @@ def performans_fiyatlarini_guncelle(kayitlar):
         guncellenen.append(kayit)
     return guncellenen
 
+
+
+def _gunluk_kapanis_serisi(ticker, period="1y"):
+    """Performans karnesi için temiz günlük kapanış serisi döndürür."""
+    try:
+        df = yf.download(
+            ticker, period=period, interval="1d", progress=False,
+            auto_adjust=False, threads=False, timeout=8
+        )
+        if df is None or df.empty:
+            return pd.Series(dtype=float)
+        if isinstance(df.columns, pd.MultiIndex):
+            if "Close" in df.columns.get_level_values(0):
+                close = df["Close"]
+                if isinstance(close, pd.DataFrame):
+                    close = close.iloc[:, 0]
+            else:
+                return pd.Series(dtype=float)
+        else:
+            if "Close" not in df.columns:
+                return pd.Series(dtype=float)
+            close = df["Close"]
+        close = pd.to_numeric(close, errors="coerce").replace([np.inf, -np.inf], np.nan).dropna()
+        try:
+            close.index = pd.to_datetime(close.index).tz_localize(None)
+        except Exception:
+            close.index = pd.to_datetime(close.index)
+        return close.sort_index()
+    except Exception:
+        return pd.Series(dtype=float)
+
+
+def performans_karnelerini_guncelle(kayitlar):
+    """1/5/10/20/45 işlem günü sonuçlarını ve benchmark farkını kalıcılaştırır.
+
+    İlk sinyal fiyatı/snapshot alanları değiştirilmez. Yeterli işlem günü oluşan
+    ufuklar yalnızca bir kez yazılır; böylece geçmiş performans sonradan kaymaz.
+    """
+    if not db or not kayitlar:
+        return kayitlar
+
+    fiyat_seri_cache = {}
+    simdi_iso = datetime.now().isoformat()
+
+    for kayit in kayitlar:
+        doc_id = kayit.get("doc_id")
+        ticker = kayit.get("ticker")
+        giris = float(kayit.get("giris_fiyati", 0) or 0)
+        tarih = pd.to_datetime(kayit.get("olusturma_zamani"), errors="coerce")
+        if not doc_id or not ticker or giris <= 0 or pd.isna(tarih):
+            continue
+        try:
+            if getattr(tarih, "tzinfo", None) is not None:
+                tarih = tarih.tz_localize(None)
+        except Exception:
+            pass
+
+        benchmark = kayit.get("benchmark_ticker") or ("XU100.IS" if ticker.endswith(".IS") else "^IXIC")
+        if ticker not in fiyat_seri_cache:
+            fiyat_seri_cache[ticker] = _gunluk_kapanis_serisi(ticker)
+        if benchmark not in fiyat_seri_cache:
+            fiyat_seri_cache[benchmark] = _gunluk_kapanis_serisi(benchmark)
+
+        seri = fiyat_seri_cache[ticker]
+        bseri = fiyat_seri_cache[benchmark]
+        if seri.empty:
+            continue
+
+        sonrasi = seri[seri.index.normalize() >= tarih.normalize()]
+        if sonrasi.empty:
+            continue
+
+        # Sinyal gününden sonraki tamamlanmış işlem günlerini esas al.
+        mevcut_ufuklar = dict(kayit.get("performans_ufuklari") or {})
+        guncel_ufuklar = dict(mevcut_ufuklar)
+
+        # İlk 45 işlem günündeki maksimum olumlu/olumsuz hareket (entry fiyatına göre).
+        pencere = sonrasi.iloc[:46]
+        if not pencere.empty:
+            getiriler = (pencere / giris - 1.0) * 100.0
+            kayit["max_yukselis_45g"] = float(getiriler.max())
+            kayit["max_dusus_45g"] = float(getiriler.min())
+
+        # Benchmark başlangıcı: sinyal tarihi veya sonraki ilk işlem günü.
+        b_sonrasi = bseri[bseri.index.normalize() >= tarih.normalize()] if not bseri.empty else pd.Series(dtype=float)
+        b_baslangic = float(b_sonrasi.iloc[0]) if not b_sonrasi.empty else None
+
+        for gun in PERFORMANS_UFUKLARI:
+            key = str(gun)
+            if key in mevcut_ufuklar:
+                continue
+            # 0 = sinyal günü/ilk uygun günlük bar; +N işlem günü için N. ileri bar.
+            if len(sonrasi) <= gun:
+                continue
+            hedef_fiyat = float(sonrasi.iloc[gun])
+            hisse_getiri = (hedef_fiyat / giris - 1.0) * 100.0
+
+            benchmark_getiri = None
+            alfa = None
+            if b_baslangic and b_baslangic > 0 and len(b_sonrasi) > gun:
+                b_hedef = float(b_sonrasi.iloc[gun])
+                benchmark_getiri = (b_hedef / b_baslangic - 1.0) * 100.0
+                alfa = hisse_getiri - benchmark_getiri
+
+            guncel_ufuklar[key] = {
+                "fiyat": round(hedef_fiyat, 6),
+                "getiri": round(float(hisse_getiri), 4),
+                "benchmark_getiri": round(float(benchmark_getiri), 4) if benchmark_getiri is not None else None,
+                "alfa": round(float(alfa), 4) if alfa is not None else None,
+                "olcum_tarihi": sonrasi.index[gun].isoformat(),
+            }
+
+        update = {
+            "performans_ufuklari": guncel_ufuklar,
+            "benchmark_ticker": benchmark,
+            "karnenin_son_guncellemesi": simdi_iso,
+        }
+        if "max_yukselis_45g" in kayit:
+            update["max_yukselis_45g"] = kayit["max_yukselis_45g"]
+            update["max_dusus_45g"] = kayit["max_dusus_45g"]
+
+        # Eski kayıtlara sürüm uydurmayız; geçmiş metodolojiyi dürüstçe legacy tutarız.
+        if not kayit.get("strategy_version"):
+            update["strategy_version"] = "legacy"
+
+        try:
+            db.collection("sinyal_arsivi").document(doc_id).set(update, merge=True)
+            kayit.update(update)
+        except Exception:
+            pass
+
+    return kayitlar
+
+
+def performans_karnesi_ozeti(kayitlar, gun=20):
+    """Seçilen işlem günü ufku için toplu IZFIN karnesini hesaplar."""
+    satirlar = []
+    key = str(gun)
+    for k in kayitlar:
+        ufuk = (k.get("performans_ufuklari") or {}).get(key)
+        if not ufuk or ufuk.get("getiri") is None:
+            continue
+        satirlar.append({
+            "ticker": k.get("ticker"),
+            "sinyal": k.get("ilk_sinyal", k.get("sinyal", "-")),
+            "strategy_version": k.get("strategy_version", "legacy"),
+            "hibrit_skor": k.get("ilk_hibrit_skor"),
+            "giris_kalitesi": k.get("ilk_giris_kalitesi"),
+            "peg": k.get("ilk_peg"),
+            "getiri": float(ufuk.get("getiri")),
+            "benchmark_getiri": ufuk.get("benchmark_getiri"),
+            "alfa": ufuk.get("alfa"),
+            "max_dusus": k.get("max_dusus_45g"),
+        })
+    return pd.DataFrame(satirlar)
 
 def opsiyon_projeksiyonu_hesapla(panel, gun=45):
     """ATR + tarihsel volatilite tabanlı karma fiyat projeksiyonu.
@@ -1738,7 +1844,6 @@ with st.expander("📘 Nasıl Kullanılır? — Tablo, skorlar, sinyaller ve ris
 | **Para Akışı** | MFI, OBV, CMF ve hacim davranışının özeti | Fiyat yükselirken para akışı zayıfsa hareketin kalıcılığı sorgulanmalıdır. |
 | **PEG / Değerleme** | Şirketin büyümesine göre değerleme oranını ve kısa etiketi gösterir | Teknik skora dahil edilmez. Düşük pozitif PEG büyümeye göre daha makul değerlemeye, yüksek PEG daha yüksek büyüme primine işaret edebilir. |
 | **Nihai Sinyal** | Algoritmanın teknik koşullara verdiği sınıflandırma | Emir değildir; sinyal açıklaması ve risk planıyla birlikte kullanılmalıdır. |
-| **Fiyatlanma / Koşu** | Son 5 günlük getiriyi ve fiyatın EMA21'den ATR bazında uzaklığını ölçer | Güçlü trend ile iyi yeni giriş noktasını ayırır. “Sinyal çalıştı” uyarısında trend bozulmamış olsa bile geri çekilme beklenir. |
 | **Giriş Kalitesi** | 5 dk, 15 dk ve 1 saat zamanlamasının alım ön sinyalini destekleyip desteklemediği | 5 dk hareketin başlangıcını, 15 dk devam teyidini, 1 saat ana yön uyumunu ölçer. 85+ ve üst zaman dilimi teyidi varsa “Teyit Edildi”; 75+ güçlü, 55+ erken, 35+ hazırlanıyor, altı uygun değil olarak sınıflanır. |
 | **Karma Destek / Direnç** | Tepe-dip, EMA50, Bollinger ve ATR’den türetilen karar seviyeleri | Destek altı kalıcılık riski; direnç üstü hacimli kapanış yükseliş senaryosunu güçlendirir. |
 | **Süren Stop** | ATR/Chandelier mantığıyla hesaplanan teknik iptal noktası | Gap ve sert haber hareketlerinde fiyat stop seviyesini atlayabilir. |
@@ -2122,9 +2227,6 @@ with tab1:
 
                         ema_9_val = df_long['Close'].ewm(span=9, adjust=False).mean().iloc[-1]
                         ema_21_val = df_long['Close'].ewm(span=21, adjust=False).mean().iloc[-1]
-                        fiyatlanma = fiyatlanma_uyarisi_hesapla(
-                            df_long, bugun_kapanis, ema_21_val, atr, rsi
-                        )
                         bb_ust_serisi = df_long['Close'].rolling(20).mean() + (df_long['Close'].rolling(20).std() * 2)
                         onceki_bb_ust = bb_ust_serisi.shift(1).iloc[-1]
                         kirilim_adaylari = [x for x in [swing_high, onceki_bb_ust] if pd.notna(x)]
@@ -2178,8 +2280,7 @@ with tab1:
                             on_sinyal, skor, int(tetik_sonucu.get("puan", 0)), bugun_kapanis,
                             ema_9_val, ema_21_val, ema_50_val, sma_200, rsi,
                             float(macd_serisi.iloc[-1]), float(macd_sinyal.iloc[-1]),
-                            cmf, mfi_val, bb_ust, adx,
-                            fiyatlanma.get("seviye", "NORMAL")
+                            cmf, mfi_val, bb_ust, adx
                         )
 
                         panel_ek = {
@@ -2214,11 +2315,6 @@ with tab1:
                             "supertrend": int(supertrend), "supertrend_line": float(supertrend_line), "vwap": float(vwap) if np.isfinite(vwap) else np.nan,
                             "mtf_detay": mtf_detay, "mtf_uyum": int(mtf_uyum), "guven_skoru": int(guven_skoru),
                             "risk_odul": float(risk_odul), "risk_yuzde": float(risk_yuzde), "risk_seviyesi": risk_seviyesi, "volatilite_rejimi": vol_rejimi,
-                            "fiyatlanma_seviyesi": fiyatlanma.get("seviye", "NORMAL"),
-                            "fiyatlanma_mesaji": fiyatlanma.get("mesaj", "✅ Fiyatlanma normal"),
-                            "bes_gun_getiri": float(fiyatlanma.get("bes_gun_getiri", np.nan)),
-                            "ema21_uzaklik_yuzde": float(fiyatlanma.get("ema21_uzaklik_yuzde", np.nan)),
-                            "ema21_atr_uzaklik": float(fiyatlanma.get("ema21_atr_uzaklik", np.nan)),
                             "sinyal_yonu": sinyal_yonu_belirle(sinyal), "cezali_skor": int(skor), "nihai_skor": int(skor),
                             "eski_cezali_skor": int(eski_skor), "skor_bonus": int(gelismis_bonus),
                             "skor_ceza": int(gelismis_ceza), "skor_aciklama": skor_aciklama
@@ -2244,7 +2340,6 @@ with tab1:
                             "Varlık": ticker, "Fiyat": fiyat_str, "Görec. Güç (Sektör)": gorec_guc_str,
                             "Gelişmiş Skor": skor_etiket, "Güven": f"%{guven_skoru}", "MTF Uyum": f"%{mtf_uyum}", "Risk": risk_seviyesi, "Para Akışı": para_durumu,
                             "PEG / Değerleme": peg_gosterim, "Nihai Sinyal": sinyal, "🎯 Giriş Kalitesi": mikro_teyit, "Veri Kaynağı": veri_kaynagi,
-                            "Fiyatlanma / Koşu": fiyatlanma.get("mesaj", "✅ Fiyatlanma normal"),
                             "Karma Destek": f"{karma_destek:.2f}", "Karma Direnç": f"{karma_direnc:.2f}",
                             "Süren Stop": f"{trailing_stop:.2f}", "Teknik Hedefler": hibrit_tp
                         })
@@ -2530,6 +2625,85 @@ with tab2:
                     st.caption(
                         "Aynı hissede alım sinyali sona erip daha sonra yeniden oluşursa yeni dönem aktif tabloda açılır; "
                         "önceki dönem burada saklanır."
+                    )
+
+
+            st.markdown("---")
+            st.markdown("### 🏆 IZFIN Performans Karnesi")
+            st.caption(
+                "Yeni sinyaller IZFIN-v1.0 sürümüyle dondurulur. 1/5/10/20/45 işlem günü "
+                "sonuçları sonradan değiştirilmez; ABD hisseleri NASDAQ, BIST hisseleri BIST100 ile karşılaştırılır."
+            )
+
+            kc1, kc2 = st.columns([1, 3])
+            with kc1:
+                karne_guncelle = st.button("🏆 Karneleri Güncelle", use_container_width=True)
+            with kc2:
+                ufuk_secimi = st.selectbox(
+                    "Karne ufku (işlem günü)",
+                    options=[1, 5, 10, 20, 45],
+                    index=3,
+                    key="izfin_karne_ufku",
+                )
+
+            if karne_guncelle:
+                with st.spinner("IZFIN performans karnesi güncelleniyor..."):
+                    kayitlar = performans_karnelerini_guncelle(kayitlar)
+                st.success("Karne güncellendi. Yeterli işlem günü oluşan sinyaller donduruldu.")
+
+            karne_df = performans_karnesi_ozeti(kayitlar, gun=int(ufuk_secimi))
+            if karne_df.empty:
+                st.info(
+                    f"Henüz +{ufuk_secimi} işlem günü tamamlamış ölçülebilir sinyal yok. "
+                    "Yeni IZFIN-v1.0 sinyalleri biriktikçe bu bölüm otomatik anlam kazanacak."
+                )
+            else:
+                pozitif_oran = float((karne_df["getiri"] > 0).mean() * 100)
+                medyan_getiri = float(karne_df["getiri"].median())
+                alfa_seri = pd.to_numeric(karne_df["alfa"], errors="coerce").dropna()
+                benchmark_ustu = float((alfa_seri > 0).mean() * 100) if not alfa_seri.empty else np.nan
+                medyan_alfa = float(alfa_seri.median()) if not alfa_seri.empty else np.nan
+
+                c1, c2, c3, c4 = st.columns(4)
+                c1.metric("Ölçülen Sinyal", len(karne_df))
+                c2.metric("Pozitif Sonuç", f"%{pozitif_oran:.1f}")
+                c3.metric(f"+{ufuk_secimi}G Medyan", f"%{medyan_getiri:+.2f}")
+                c4.metric(
+                    "Benchmark Üstü",
+                    f"%{benchmark_ustu:.1f}" if np.isfinite(benchmark_ustu) else "—"
+                )
+
+                if np.isfinite(medyan_alfa):
+                    st.caption(f"Medyan göreceli performans (alfa): %{medyan_alfa:+.2f}")
+
+                gorunum = karne_df.copy()
+                gorunum["getiri"] = pd.to_numeric(gorunum["getiri"], errors="coerce")
+                gorunum["alfa"] = pd.to_numeric(gorunum["alfa"], errors="coerce")
+                gorunum = gorunum.sort_values("getiri", ascending=False)
+                gorunum = gorunum.rename(columns={
+                    "ticker": "Varlık",
+                    "sinyal": "İlk Sinyal",
+                    "strategy_version": "Sürüm",
+                    "hibrit_skor": "İlk Hibrit",
+                    "giris_kalitesi": "İlk Giriş",
+                    "getiri": f"+{ufuk_secimi}G Getiri %",
+                    "alfa": "Benchmark Farkı %",
+                })
+                gcols = ["Varlık", "İlk Sinyal", "Sürüm", "İlk Hibrit", "İlk Giriş",
+                         f"+{ufuk_secimi}G Getiri %", "Benchmark Farkı %"]
+                st.dataframe(
+                    gorunum[[c for c in gcols if c in gorunum.columns]].style.format({
+                        f"+{ufuk_secimi}G Getiri %": "{:+.2f}%",
+                        "Benchmark Farkı %": "{:+.2f}%",
+                    }, na_rep="—"),
+                    use_container_width=True,
+                    hide_index=True,
+                )
+
+                if len(karne_df) < 30:
+                    st.warning(
+                        "Örneklem henüz küçük. Başarı oranlarını karar vermek için kullanmadan önce "
+                        "en az 30, tercihen 100+ bağımsız sinyal biriktirmek daha sağlıklıdır."
                     )
 
 with tab3:
