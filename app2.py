@@ -1985,7 +1985,7 @@ def hisse_sil_callback():
         st.session_state.sil_hisse_input_field = ""
 
 st.title("📈 IZFIN")
-st.markdown("**Fırsatın izini sür.** · Finnhub + Yahoo hibrit piyasa veri motoru")
+st.markdown("**Fırsatın izini sür.**'')
 st.markdown("---")
 
 with st.expander("📘 Nasıl Kullanılır? — Tablo, skorlar, sinyaller ve risk yönetimi", expanded=False):
