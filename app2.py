@@ -16,7 +16,7 @@ from plotly.subplots import make_subplots
 
 # --- 1. SAYFA YAPILANDIRMASI ---
 st.set_page_config(
-    page_title="Hibrit Portföy Komuta Merkezi",
+    page_title="IZFIN",
     page_icon="📈",
     layout="wide"
 )
@@ -1463,6 +1463,23 @@ def performans_kayitlarini_getir(limit=250):
 
 
 
+
+def _guvenli_dict(deger):
+    """Firestore/Pandas legacy alanını güvenli sözlüğe dönüştürür."""
+    if isinstance(deger, dict):
+        return deger
+    # NaN, None, string, list vb. eski tipleri boş sözlük kabul et.
+    return {}
+
+
+def _guvenli_float(deger, varsayilan=np.nan):
+    try:
+        sonuc = float(deger)
+        return sonuc if np.isfinite(sonuc) else varsayilan
+    except Exception:
+        return varsayilan
+
+
 def performans_kayitlarini_tekillestir(kayitlar):
     """Firestore'daki eski mükerrer kayıtları ekranda güvenli biçimde birleştirir.
 
@@ -1521,10 +1538,21 @@ def performans_kayitlarini_tekillestir(kayitlar):
             "ilk_sinyal", "strategy_version",
             "ilk_hibrit_skor", "ilk_giris_kalitesi",
             "ilk_algoritma_guveni", "ilk_peg", "ilk_sektorel_fark",
-            "benchmark_ticker", "performans_ufuklari"
+            "benchmark_ticker"
         ]:
-            if alan in ilk and pd.notna(ilk.get(alan)):
-                birlesik[alan] = ilk.get(alan)
+            if alan in ilk:
+                deger = ilk.get(alan)
+                try:
+                    gecerli = not pd.isna(deger)
+                except Exception:
+                    gecerli = deger is not None
+                if gecerli:
+                    birlesik[alan] = deger
+
+        # Karne alanı yalnızca gerçekten sözlükse taşınır.
+        birlesik["performans_ufuklari"] = _guvenli_dict(
+            ilk.get("performans_ufuklari")
+        )
 
         # Güncel getiri MUTLAKA ilk giriş fiyatından hesaplanır.
         try:
@@ -1693,7 +1721,7 @@ def performans_karnelerini_guncelle(kayitlar):
             continue
 
         # Sinyal gününden sonraki tamamlanmış işlem günlerini esas al.
-        mevcut_ufuklar = dict(kayit.get("performans_ufuklari") or {})
+        mevcut_ufuklar = dict(_guvenli_dict(kayit.get("performans_ufuklari")))
         guncel_ufuklar = dict(mevcut_ufuklar)
 
         # İlk 45 işlem günündeki maksimum olumlu/olumsuz hareket (entry fiyatına göre).
@@ -1760,10 +1788,33 @@ def performans_karnesi_ozeti(kayitlar, gun=20):
     kayitlar = performans_kayitlarini_tekillestir(kayitlar)
     satirlar = []
     key = str(gun)
+    gorulen_donemler = set()
     for k in kayitlar:
-        ufuk = (k.get("performans_ufuklari") or {}).get(key)
-        if not ufuk or ufuk.get("getiri") is None:
+        ufuklar = _guvenli_dict(k.get("performans_ufuklari"))
+        ufuk = _guvenli_dict(ufuklar.get(key))
+        getiri = _guvenli_float(ufuk.get("getiri"))
+        if not np.isfinite(getiri):
             continue
+
+        # Aynı hisse + aynı ilk alım dönemi karnede yalnızca bir kez sayılır.
+        tarih_raw = str(k.get("olusturma_zamani", ""))
+        try:
+            tarih_anahtar = pd.to_datetime(tarih_raw, errors="coerce")
+            if pd.isna(tarih_anahtar):
+                tarih_anahtar = tarih_raw
+            else:
+                tarih_anahtar = tarih_anahtar.floor("min").isoformat()
+        except Exception:
+            tarih_anahtar = tarih_raw
+        donem_anahtar = (
+            str(k.get("ticker", "")).upper(),
+            str(tarih_anahtar),
+            round(_guvenli_float(k.get("giris_fiyati"), 0.0), 6),
+        )
+        if donem_anahtar in gorulen_donemler:
+            continue
+        gorulen_donemler.add(donem_anahtar)
+
         satirlar.append({
             "ticker": k.get("ticker"),
             "sinyal": k.get("ilk_sinyal", k.get("sinyal", "-")),
@@ -1771,10 +1822,10 @@ def performans_karnesi_ozeti(kayitlar, gun=20):
             "hibrit_skor": k.get("ilk_hibrit_skor"),
             "giris_kalitesi": k.get("ilk_giris_kalitesi"),
             "peg": k.get("ilk_peg"),
-            "getiri": float(ufuk.get("getiri")),
-            "benchmark_getiri": ufuk.get("benchmark_getiri"),
-            "alfa": ufuk.get("alfa"),
-            "max_dusus": k.get("max_dusus_45g"),
+            "getiri": getiri,
+            "benchmark_getiri": _guvenli_float(ufuk.get("benchmark_getiri")),
+            "alfa": _guvenli_float(ufuk.get("alfa")),
+            "max_dusus": _guvenli_float(k.get("max_dusus_45g")),
         })
     return pd.DataFrame(satirlar)
 
@@ -1933,14 +1984,14 @@ def hisse_sil_callback():
         st.session_state.secilen_varliklar = st.session_state.custom_tickers.copy()
         st.session_state.sil_hisse_input_field = ""
 
-st.title("📈 Hibrit Portföy Komuta Merkezi")
-st.markdown("**Mod:** Finnhub + Yahoo Hibrit Canlı OHLCV Motoru")
+st.title("📈 IZFIN")
+st.markdown("**Fırsatın izini sür.** · Finnhub + Yahoo hibrit piyasa veri motoru")
 st.markdown("---")
 
 with st.expander("📘 Nasıl Kullanılır? — Tablo, skorlar, sinyaller ve risk yönetimi", expanded=False):
     st.markdown("""
 <div style="background:linear-gradient(135deg,#17191f,#20242d);border:1px solid #343a46;border-radius:14px;padding:20px 22px;margin-bottom:16px;">
-  <div style="font-size:20px;font-weight:700;color:#ffffff;margin-bottom:8px;">Hibrit Portföy Komuta Merkezi kullanım rehberi</div>
+  <div style="font-size:20px;font-weight:700;color:#ffffff;margin-bottom:8px;">IZFIN kullanım rehberi</div>
   <div style="color:#c8ced8;line-height:1.7;font-size:14px;">Bu ekran tek bir göstergeden “al” veya “sat” üretmez. Trend, momentum, hacim, para akışı, volatilite, likidite ve çoklu zaman dilimi verilerini birlikte değerlendirir. En sağlıklı kullanım; önce tabloyla adayları daraltmak, sonra detay paneliyle gerekçeyi okumak ve son olarak destek–stop–hedef planını kontrol etmektir.</div>
 </div>
 """, unsafe_allow_html=True)
@@ -1950,7 +2001,7 @@ with st.expander("📘 Nasıl Kullanılır? — Tablo, skorlar, sinyaller ve ris
 1. **Varlıkları seçin ve Derin Taramayı çalıştırın.** İlk tarama; trendi, skoru, para akışını ve sinyali aynı tabloda karşılaştırır.  
 2. **Sadece sinyal adına bakmayın.** Gelişmiş skor, risk seviyesi, MTF uyumu, veri kaynağı ve çok zaman dilimli giriş kalitesini birlikte okuyun.  
 3. **Detay panelinde göstergelerin birbiriyle uyumunu kontrol edin.** RSI düşükken MACD ve para akışı hâlâ zayıfsa dönüş teyidi tamamlanmamış olabilir.  
-4. **Destek, stop ve hedefleri işlemden önce belirleyin.** Önerilen lot, seçtiğiniz kasa ve risk oranına göre hesaplanır; körü körüne uygulanmamalıdır.  
+4. **Destek, stop ve hedefleri işlemden önce birlikte okuyun.** Teknik seviyeler olasılık bölgesidir; tek bir hedef veya stop değeri kesin sonuç olarak görülmemelidir.  
 5. **Sinyal performansı ve backtest sonuçlarını izleyin.** Stratejinin hangi piyasa ve RSI bölgelerinde daha iyi çalıştığını zaman içinde ölçün.
 """)
 
@@ -2636,17 +2687,37 @@ with tab2:
             # Ana tabloda her hisse için yalnızca en eski ilk alım kaydı tutulur.
             # Böylece eski sürümlerden kalan mükerrer açık belgeler ekranda çoğalmaz.
             acik_df = df_perf[df_perf["durum"].eq("ACIK")].copy()
+            if not acik_df.empty:
+                acik_df["ticker"] = acik_df["ticker"].fillna("").astype(str).str.strip().str.upper()
             acik_df = (
                 acik_df.sort_values(["ticker", "_tarih"], ascending=[True, True])
                 .drop_duplicates(subset=["ticker"], keep="first")
                 .sort_values("_tarih", ascending=False)
                 .reset_index(drop=True)
             )
-            kapali_df = (
-                df_perf[df_perf["durum"].eq("KAPALI")].copy()
-                .sort_values(["_kapanis_tarih", "_tarih"], ascending=False)
-                .reset_index(drop=True)
-            )
+            kapali_df = df_perf[df_perf["durum"].eq("KAPALI")].copy()
+            if not kapali_df.empty:
+                kapali_df["_giris_gun"] = kapali_df["_tarih"].dt.floor("D")
+                kapali_df["_kapanis_gun"] = kapali_df["_kapanis_tarih"].dt.floor("D")
+                kapali_df["_giris_fiyat_key"] = pd.to_numeric(
+                    kapali_df.get("giris_fiyati"), errors="coerce"
+                ).round(4)
+                kapali_df["_doluluk"] = kapali_df.notna().sum(axis=1)
+                kapali_df = (
+                    kapali_df
+                    .sort_values(
+                        ["_doluluk", "_kapanis_tarih", "_tarih"],
+                        ascending=[False, False, True],
+                        na_position="last"
+                    )
+                    .drop_duplicates(
+                        subset=["ticker", "_giris_gun", "_giris_fiyat_key", "_kapanis_gun"],
+                        keep="first"
+                    )
+                    .sort_values(["_kapanis_tarih", "_tarih"], ascending=False)
+                    .drop(columns=["_giris_gun", "_kapanis_gun", "_giris_fiyat_key", "_doluluk"], errors="ignore")
+                    .reset_index(drop=True)
+                )
 
             simdi_ts = pd.Timestamp.now(tz=None)
 
@@ -2758,7 +2829,7 @@ with tab2:
                     ).clip(lower=0)
 
                     def _ufuk_extreme(row, tip="max"):
-                        ufuklar = row.get("performans_ufuklari") or {}
+                        ufuklar = _guvenli_dict(row.get("performans_ufuklari"))
                         vals = []
                         if isinstance(ufuklar, dict):
                             for item in ufuklar.values():
