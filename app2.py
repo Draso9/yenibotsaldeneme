@@ -97,7 +97,7 @@ STRATEJI_SURUMU = "IZFIN-v1.2"
 PERFORMANS_UFUKLARI = (1, 5, 10, 20, 45)
 
 # --- IZFIN UYGULAMA SÜRÜMÜ / LOG ---
-IZFIN_APP_SURUMU = "v1.4 Data & Backtest Stable"
+IZFIN_APP_SURUMU = "v1.4.1 Yahoo Compatibility Fix"
 logger = logging.getLogger("IZFIN")
 if not logger.handlers:
     logging.basicConfig(level=logging.INFO)
@@ -311,11 +311,11 @@ def taze_veri_indir(tickers_tuple):
             progress=False,
             threads=True,
             auto_adjust=True,
-            repair=True,
-            timeout=10,
+                        timeout=10,
         )
         return data
-    except Exception:
+    except Exception as e:
+        izfin_hata_logla("yahoo_toplu_gunluk", e)
         return pd.DataFrame()
 
 @st.cache_data(ttl=20, show_spinner=False)
@@ -424,10 +424,10 @@ def intraday_veri_cek(ticker, interval="5m", period="5d"):
             progress=False,
             prepost=True,
             auto_adjust=True,
-            repair=True,
-        )
+                    )
         return _normalize_yf_columns(df)
-    except Exception:
+    except Exception as e:
+        izfin_hata_logla("yahoo_intraday_tekil", e, ticker)
         return pd.DataFrame()
 
 
@@ -446,10 +446,10 @@ def toplu_intraday_veri_cek(tickers_tuple, interval="5m", period="5d"):
             prepost=True,
             threads=True,
             auto_adjust=True,
-            repair=True,
-            timeout=8,
+                        timeout=8,
         )
-    except Exception:
+    except Exception as e:
+        izfin_hata_logla("yahoo_intraday_toplu", e)
         return pd.DataFrame()
 
 
@@ -953,8 +953,7 @@ def basit_backtest(ticker, period='5y'):
             period=period,
             progress=False,
             auto_adjust=True,
-            repair=True,
-            threads=False,
+                        threads=False,
             timeout=10,
         )
         df = _normalize_yf_columns(df).dropna(subset=['Close','High','Low','Volume'])
@@ -1535,7 +1534,7 @@ def _donem_ohlc_cek(ticker, baslangic_iso, bitis_iso):
         bit = pd.to_datetime(bitis_iso, errors="coerce")
         if pd.isna(bas) or pd.isna(bit):
             return pd.DataFrame()
-        df = yf.download(ticker, start=(bas-pd.Timedelta(days=2)).date().isoformat(), end=(bit+pd.Timedelta(days=2)).date().isoformat(), interval="1d", progress=False, auto_adjust=True, repair=True, threads=False, timeout=8)
+        df = yf.download(ticker, start=(bas-pd.Timedelta(days=2)).date().isoformat(), end=(bit+pd.Timedelta(days=2)).date().isoformat(), interval="1d", progress=False, auto_adjust=True, threads=False, timeout=8)
         return _normalize_yf_columns(df)
     except Exception as e:
         izfin_hata_logla("kapanan_donem_ohlc", e, ticker)
@@ -2077,7 +2076,7 @@ def _gunluk_kapanis_serisi(ticker, period="1y"):
     try:
         df = yf.download(
             ticker, period=period, interval="1d", progress=False,
-            auto_adjust=True, repair=True, threads=False, timeout=8
+            auto_adjust=True, threads=False, timeout=8
         )
         if df is None or df.empty:
             return pd.Series(dtype=float)
@@ -2577,9 +2576,10 @@ with tab1:
                 try:
                     sektor_toplu = yf.download(
                         list(sektor_referanslari.keys()), period="40d", group_by="ticker",
-                        progress=False, threads=True, auto_adjust=True, repair=True, timeout=8
+                        progress=False, threads=True, auto_adjust=True, timeout=8
                     )
-                except Exception:
+                except Exception as e:
+                    izfin_hata_logla("yahoo_sektor_toplu", e)
                     sektor_toplu = pd.DataFrame()
                 for sembol in sektor_referanslari.keys():
                     try:
