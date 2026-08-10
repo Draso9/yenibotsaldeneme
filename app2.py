@@ -1462,6 +1462,124 @@ def performans_kayitlarini_getir(limit=250):
         return []
 
 
+
+def performans_kayitlarini_tekillestir(kayitlar):
+    """Firestore'daki eski mükerrer kayıtları ekranda güvenli biçimde birleştirir.
+
+    Açık pozisyon:
+      - ticker başına tek satır,
+      - ilk alım tarihi ve ilk giriş fiyatı EN ESKİ kayıttan,
+      - güncel sinyal/fiyat ve teknik alanlar EN YENİ kayıttan alınır.
+
+    Kapalı pozisyon:
+      - farklı alım dönemleri korunur,
+      - yalnızca aynı ticker + aynı ilk alım zamanı/fiyat kombinasyonundaki
+        eski teknik mükerrerler tek satıra indirilir.
+
+    Firestore belgelerini silmez; yalnızca okuma/gösterim katmanını temizler.
+    """
+    if not kayitlar:
+        return []
+
+    df = pd.DataFrame(kayitlar).copy()
+    if df.empty:
+        return []
+
+    for col in ["ticker", "durum", "yon"]:
+        if col not in df.columns:
+            df[col] = ""
+
+    df["ticker"] = (
+        df["ticker"].fillna("").astype(str).str.strip().str.upper()
+    )
+    df["durum"] = (
+        df["durum"].fillna("ACIK").replace({"None": "ACIK", "": "ACIK"})
+        .astype(str).str.upper()
+    )
+    df["_tarih"] = pd.to_datetime(df.get("olusturma_zamani"), errors="coerce")
+    df["_guncel_tarih"] = pd.to_datetime(df.get("guncelleme_zamani"), errors="coerce")
+
+    # --------------------------------------------------------------
+    # AÇIKLAR: ticker başına tek dönem
+    # --------------------------------------------------------------
+    acik = df[df["durum"].eq("ACIK") & df["ticker"].ne("")].copy()
+    acik_birlesik = []
+
+    for ticker, grup in acik.groupby("ticker", sort=False):
+        grup = grup.sort_values(
+            ["_tarih", "_guncel_tarih"], ascending=[True, True], na_position="last"
+        )
+        ilk = grup.iloc[0].to_dict()
+        son = grup.sort_values(
+            ["_guncel_tarih", "_tarih"], ascending=[False, False], na_position="last"
+        ).iloc[0].to_dict()
+
+        # İlk giriş kimliğini koru.
+        birlesik = dict(son)
+        for alan in [
+            "doc_id", "olusturma_zamani", "giris_fiyati",
+            "ilk_sinyal", "strategy_version",
+            "ilk_hibrit_skor", "ilk_giris_kalitesi",
+            "ilk_algoritma_guveni", "ilk_peg", "ilk_sektorel_fark",
+            "benchmark_ticker", "performans_ufuklari"
+        ]:
+            if alan in ilk and pd.notna(ilk.get(alan)):
+                birlesik[alan] = ilk.get(alan)
+
+        # Güncel getiri MUTLAKA ilk giriş fiyatından hesaplanır.
+        try:
+            giris = float(birlesik.get("giris_fiyati", 0) or 0)
+            son_fiyat = float(son.get("son_fiyat", son.get("kapanis_fiyati", 0)) or 0)
+            if giris > 0 and son_fiyat > 0:
+                birlesik["son_fiyat"] = son_fiyat
+                birlesik["getiri_yuzde"] = (son_fiyat / giris - 1.0) * 100.0
+        except Exception:
+            pass
+
+        birlesik["durum"] = "ACIK"
+        birlesik["_mukerrer_sayisi"] = int(len(grup))
+        acik_birlesik.append(birlesik)
+
+    # --------------------------------------------------------------
+    # KAPALILAR: gerçek farklı dönemler korunur, teknik kopyalar elenir.
+    # --------------------------------------------------------------
+    kapali = df[df["durum"].eq("KAPALI") & df["ticker"].ne("")].copy()
+    kapali_birlesik = []
+
+    if not kapali.empty:
+        # Dakika düzeyinde başlangıç + ilk fiyat, eski sürümlerde oluşmuş aynı
+        # işlem kopyalarını ayırmak için yeterince güvenli bir parmak izidir.
+        kapali["_ilk_dakika"] = kapali["_tarih"].dt.floor("min")
+        giris_num = pd.to_numeric(kapali.get("giris_fiyati"), errors="coerce")
+        kapali["_giris_anahtar"] = giris_num.round(6)
+
+        for _, grup in kapali.groupby(
+            ["ticker", "_ilk_dakika", "_giris_anahtar"], dropna=False, sort=False
+        ):
+            # En dolu / en güncel kapanış kaydını al.
+            grup = grup.copy()
+            grup["_doluluk"] = grup.notna().sum(axis=1)
+            secilen = grup.sort_values(
+                ["_doluluk", "_guncel_tarih"], ascending=[False, False], na_position="last"
+            ).iloc[0].to_dict()
+            secilen["_mukerrer_sayisi"] = int(len(grup))
+            kapali_birlesik.append(secilen)
+
+    birlesikler = acik_birlesik + kapali_birlesik
+    for k in birlesikler:
+        k.pop("_tarih", None)
+        k.pop("_guncel_tarih", None)
+        k.pop("_ilk_dakika", None)
+        k.pop("_giris_anahtar", None)
+        k.pop("_doluluk", None)
+
+    birlesikler.sort(
+        key=lambda x: str(x.get("olusturma_zamani", "")),
+        reverse=True
+    )
+    return birlesikler
+
+
 def performans_fiyatlarini_guncelle(kayitlar):
     if not db:
         return kayitlar
@@ -1638,6 +1756,8 @@ def performans_karnelerini_guncelle(kayitlar):
 
 def performans_karnesi_ozeti(kayitlar, gun=20):
     """Seçilen işlem günü ufku için toplu IZFIN karnesini hesaplar."""
+    # Eski Firestore kopyalarının karnede aynı dönemi birkaç kez saymasını önle.
+    kayitlar = performans_kayitlarini_tekillestir(kayitlar)
     satirlar = []
     key = str(gun)
     for k in kayitlar:
@@ -1939,6 +2059,8 @@ with st.sidebar.expander("📋 Varlık Seçimi", expanded=True):
     st.button("🗑️ Kalıcı Sil", on_click=hisse_sil_callback)
     st.selectbox("Profil", list(preset_options.keys()), index=list(preset_options.keys()).index(st.session_state.aktif_profil), key="profil_selectbox_key", on_change=profil_degisti)
     selected_tickers = st.multiselect("Taranacak Varlıklar", options=tum_varliklar_havuzu, key="secilen_varliklar")
+    # Aynı sembolün farklı kaynaklardan listeye birden çok kez taşınmasına karşı son güvenlik.
+    selected_tickers = list(dict.fromkeys([str(x).strip().upper() for x in selected_tickers if str(x).strip()]))
 
 tarama_tetiklendi = st.sidebar.button("🚀 Derin Taramayı Başlat", type="primary", use_container_width=True)
 
@@ -2480,9 +2602,15 @@ with tab2:
             )
 
         kayitlar = performans_kayitlarini_getir()
+        # Tüm performans ekranı aynı temiz kayıt setini kullanır.
+        # Böylece aktif tablo, kapanmış geçmiş ve IZFIN Karnesi aynı hisseyi
+        # aynı alım dönemi için tekrar tekrar göstermez.
+        kayitlar = performans_kayitlarini_tekillestir(kayitlar)
+
         if guncelle_tiklandi and kayitlar:
             with st.spinner("Açık alım kayıtları güncel fiyatlarla karşılaştırılıyor..."):
                 kayitlar = performans_fiyatlarini_guncelle(kayitlar)
+                kayitlar = performans_kayitlarini_tekillestir(kayitlar)
             st.success("Güncel fiyatlar yenilendi.")
 
         if not kayitlar:
@@ -2605,15 +2733,110 @@ with tab2:
                 if kapali_df.empty:
                     st.info("Henüz kapanmış alım dönemi bulunmuyor.")
                 else:
+                    # Kapanmış dönemin yalnızca çıkış getirisini değil,
+                    # süreç içindeki kaliteyi de göster.
+                    giris_fiyat_seri = pd.to_numeric(
+                        kapali_df.get("giris_fiyati"), errors="coerce"
+                    )
+                    kapanis_fiyat_seri = pd.to_numeric(
+                        kapali_df.get("kapanis_fiyati", kapali_df.get("son_fiyat")),
+                        errors="coerce"
+                    )
+                    hesaplanan_getiri = (
+                        (kapanis_fiyat_seri / giris_fiyat_seri) - 1.0
+                    ) * 100.0
+                    mevcut_getiri = pd.to_numeric(
+                        kapali_df.get("getiri_yuzde"), errors="coerce"
+                    )
+                    kapanis_getiri = mevcut_getiri.where(
+                        mevcut_getiri.notna(), hesaplanan_getiri
+                    )
+
+                    pozisyonda_gun = (
+                        (kapali_df["_kapanis_tarih"] - kapali_df["_tarih"])
+                        .dt.total_seconds() / 86400.0
+                    ).clip(lower=0)
+
+                    def _ufuk_extreme(row, tip="max"):
+                        ufuklar = row.get("performans_ufuklari") or {}
+                        vals = []
+                        if isinstance(ufuklar, dict):
+                            for item in ufuklar.values():
+                                try:
+                                    g = float((item or {}).get("getiri"))
+                                    if np.isfinite(g):
+                                        vals.append(g)
+                                except Exception:
+                                    pass
+
+                        direkt_alan = (
+                            "max_yukselis_45g" if tip == "max"
+                            else "max_dusus_45g"
+                        )
+                        try:
+                            direkt = float(row.get(direkt_alan))
+                            if np.isfinite(direkt):
+                                return direkt
+                        except Exception:
+                            pass
+
+                        if not vals:
+                            return np.nan
+                        return max(vals) if tip == "max" else min(vals)
+
+                    def _hedef_gordu(row, hedef_no):
+                        try:
+                            giris = float(row.get("giris_fiyati"))
+                        except Exception:
+                            return "—"
+                        if not np.isfinite(giris) or giris <= 0:
+                            return "—"
+
+                        hedef = None
+                        for anahtar in (
+                            f"tp{hedef_no}", f"TP{hedef_no}",
+                            f"ilk_tp{hedef_no}", f"hedef{hedef_no}"
+                        ):
+                            try:
+                                aday = float(row.get(anahtar))
+                                if np.isfinite(aday):
+                                    hedef = aday
+                                    break
+                            except Exception:
+                                pass
+
+                        if hedef is None:
+                            return "—"
+
+                        gorulen = _ufuk_extreme(row, "max")
+                        if not np.isfinite(gorulen):
+                            return "—"
+
+                        gerekli_getiri = (hedef / giris - 1.0) * 100.0
+                        return "✅" if gorulen >= gerekli_getiri else "❌"
+
+                    max_kar = kapali_df.apply(
+                        lambda r: _ufuk_extreme(r, "max"), axis=1
+                    )
+                    max_dusus = kapali_df.apply(
+                        lambda r: _ufuk_extreme(r, "min"), axis=1
+                    )
+
                     kapanmis_gorunum = pd.DataFrame({
                         "İlk Alım Tarihi": kapali_df["_tarih"].dt.strftime("%d.%m.%Y %H:%M"),
                         "Kapanış Tarihi": kapali_df["_kapanis_tarih"].dt.strftime("%d.%m.%Y %H:%M"),
                         "Varlık": kapali_df.get("ticker"),
                         "Son Alım Sinyali": kapali_df.get("sinyal"),
                         "Kapanış Nedeni": kapali_df.get("kapanis_sinyali"),
-                        "İlk Alım Fiyatı": kapali_df.get("giris_fiyati"),
-                        "Kapanış Fiyatı": kapali_df.get("kapanis_fiyati", kapali_df.get("son_fiyat")),
-                        "Kâr / Zarar %": kapali_df.get("getiri_yuzde"),
+                        "İlk Alım Fiyatı": giris_fiyat_seri,
+                        "Kapanış Fiyatı": kapanis_fiyat_seri,
+                        "Kâr / Zarar %": kapanis_getiri,
+                        "Pozisyonda Gün": pozisyonda_gun.round(1),
+                        "Maks. Kâr %": max_kar,
+                        "Maks. Düşüş %": max_dusus,
+                        "TP1": kapali_df.apply(lambda r: _hedef_gordu(r, 1), axis=1),
+                        "TP2": kapali_df.apply(lambda r: _hedef_gordu(r, 2), axis=1),
+                        "TP3": kapali_df.apply(lambda r: _hedef_gordu(r, 3), axis=1),
                         "Durum": "⚪ Kapalı",
                     })
                     st.dataframe(
@@ -2624,7 +2847,8 @@ with tab2:
                     )
                     st.caption(
                         "Aynı hissede alım sinyali sona erip daha sonra yeniden oluşursa yeni dönem aktif tabloda açılır; "
-                        "önceki dönem burada saklanır."
+                        "önceki dönem burada saklanır. Maksimum kâr/düşüş ve TP sütunları, ilgili alım dönemi için "
+                        "yeterli karne/hedef verisi varsa gösterilir. Eski legacy kayıtlarda veri yoksa '—' normaldir."
                     )
 
 
