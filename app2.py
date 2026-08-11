@@ -93,11 +93,11 @@ except Exception:
 VARSAYILAN_TICKERS = ["AAPL", "MSFT", "TSLA", "NVDA", "AMD", "INTC", "THYAO.IS", "FROTO.IS", "TOASO.IS"]
 
 # --- IZFIN STRATEJİ SÜRÜMÜ ---
-STRATEJI_SURUMU = "IZFIN-v1.3-central-decision"
+STRATEJI_SURUMU = "IZFIN-v1.3.1-central-decision-safe"
 PERFORMANS_UFUKLARI = (1, 5, 10, 20, 45)
 
 # --- IZFIN UYGULAMA SÜRÜMÜ / LOG ---
-IZFIN_APP_SURUMU = "v1.5.0 Central Decision Engine"
+IZFIN_APP_SURUMU = "v1.5.1 Central Decision Safe Fix"
 logger = logging.getLogger("IZFIN")
 if not logger.handlers:
     logging.basicConfig(level=logging.INFO)
@@ -921,6 +921,23 @@ def sinyal_guven_skoru(panel, temel_skor):
     return int(round(min(95,max(20,puan))))
 
 
+def _safe_float(value, default=0.0):
+    """Karar motorunu NaN/None/string kaynaklı tek-varlık hatalarına karşı korur."""
+    try:
+        x = float(value)
+        return x if np.isfinite(x) else float(default)
+    except (TypeError, ValueError, OverflowError):
+        return float(default)
+
+
+def _safe_int(value, default=0):
+    try:
+        x = float(value)
+        return int(round(x)) if np.isfinite(x) else int(default)
+    except (TypeError, ValueError, OverflowError):
+        return int(default)
+
+
 def merkezi_karar_motoru(panel):
     """IZFIN'in tek karar beyni.
 
@@ -930,29 +947,30 @@ def merkezi_karar_motoru(panel):
     """
     profil = str(panel.get('profil', panel.get('on_sinyal', 'NÖTR')))
     profil_u = profil.upper()
-    skor = int(panel.get('nihai_skor', panel.get('cezali_skor', panel.get('skor', 50))) or 50)
-    giris = int(panel.get('giris_puani', panel.get('tetik_puani', 0)) or 0)
-    guven = int(panel.get('guven_skoru', 50) or 50)
-    mtf = int(panel.get('mtf_uyum', 50) or 50)
-    risk = str(panel.get('risk_seviyesi', 'ORTA')).upper()
-    vol_rejimi = str(panel.get('volatilite_rejimi', '')).upper()
+    skor = _safe_int(panel.get('nihai_skor', panel.get('cezali_skor', panel.get('skor', 50))), 50)
+    giris = _safe_int(panel.get('giris_puani', panel.get('tetik_puani', 0)), 0)
+    guven = _safe_int(panel.get('guven_skoru', 50), 50)
+    mtf = _safe_int(panel.get('mtf_uyum', 50), 50)
+    risk = str(panel.get('risk_seviyesi', 'ORTA') or 'ORTA').upper()
+    vol_rejimi = str(panel.get('volatilite_rejimi', '') or '').upper()
 
-    fiyat = float(panel.get('fiyat', 0) or 0)
-    ema9 = float(panel.get('ema9', fiyat) or fiyat)
-    ema21 = float(panel.get('ema21', fiyat) or fiyat)
-    ema50 = float(panel.get('ema50', fiyat) or fiyat)
-    sma200 = float(panel.get('sma200', fiyat) or fiyat)
-    rsi = float(panel.get('rsi', 50) or 50)
-    mfi = float(panel.get('mfi', 50) or 50)
-    macd = float(panel.get('macd', 0) or 0)
-    macd_signal = float(panel.get('macd_signal', 0) or 0)
-    cmf = float(panel.get('cmf', 0) or 0)
-    adx = float(panel.get('adx', 0) or 0)
-    plus_di = float(panel.get('plus_di', 0) or 0)
-    minus_di = float(panel.get('minus_di', 0) or 0)
-    supertrend = int(panel.get('supertrend', 0) or 0)
-    bb_ust = float(panel.get('bb_ust', float('inf')) or float('inf'))
-    risk_odul = float(panel.get('risk_odul', 0) or 0)
+    fiyat = _safe_float(panel.get('fiyat', 0), 0)
+    ema9 = _safe_float(panel.get('ema9', fiyat), fiyat)
+    ema21 = _safe_float(panel.get('ema21', fiyat), fiyat)
+    ema50 = _safe_float(panel.get('ema50', fiyat), fiyat)
+    sma200 = _safe_float(panel.get('sma200', fiyat), fiyat)
+    rsi = _safe_float(panel.get('rsi', 50), 50)
+    mfi = _safe_float(panel.get('mfi', 50), 50)
+    macd = _safe_float(panel.get('macd', 0), 0)
+    macd_signal = _safe_float(panel.get('macd_signal', 0), 0)
+    cmf = _safe_float(panel.get('cmf', 0), 0)
+    adx = _safe_float(panel.get('adx', 0), 0)
+    plus_di = _safe_float(panel.get('plus_di', 0), 0)
+    minus_di = _safe_float(panel.get('minus_di', 0), 0)
+    supertrend = _safe_int(panel.get('supertrend', 0), 0)
+    bb_raw = panel.get('bb_ust', None)
+    bb_ust = _safe_float(bb_raw, float('inf')) if bb_raw is not None else float('inf')
+    risk_odul = _safe_float(panel.get('risk_odul', 0), 0)
     sahte_kirilim = bool(panel.get('tetik_sahte_kirilim', False))
 
     trend_ana = fiyat > sma200 and fiyat > ema50
@@ -2965,9 +2983,27 @@ with tab1:
                             'macd': float(macd_serisi.iloc[-1]), 'macd_signal': float(macd_sinyal.iloc[-1]),
                             'bb_ust': float(bb_ust),
                         }
-                        merkezi_karar = merkezi_karar_motoru(merkezi_girdi)
+                        try:
+                            merkezi_karar = merkezi_karar_motoru(merkezi_girdi)
+                        except Exception as e:
+                            # Merkezi katman hiçbir zaman veri taramasını düşürmemeli.
+                            # Hata loglanır, varlık eski teknik profille görünmeye devam eder.
+                            izfin_hata_logla("merkezi_karar_motoru", e, ticker)
+                            merkezi_karar = {
+                                'karar': 'İZLE / TEYİT BEKLE 🟡',
+                                'aksiyon': 'IZLE',
+                                'profil': profil_sinyali,
+                                'guven': int(guven_skoru),
+                                'risk': risk_seviyesi,
+                                'mtf_uyum': int(mtf_uyum),
+                                'giris_puani': int(tetik_sonucu.get("puan", 0) or 0),
+                                'hibrit_skor': int(skor),
+                                'olumlu': [],
+                                'olumsuz': ['merkezi karar katmanında hesaplama hatası; güvenli izleme moduna geçildi'],
+                                'ozet': 'Karar katmanı hata verdiği için varlık taramadan atılmadı; güvenli izleme modu kullanıldı.'
+                            }
                         sinyal = merkezi_karar['karar']
-                        if sinyal_yonu_belirle(sinyal) == 'ALIM':
+                        if merkezi_karar.get('aksiyon') in {'GUCLU_AL', 'AL', 'ERKEN_AL'}:
                             alim_firsati += 1
 
                         gecici_teknik_paneller[ticker] = {
@@ -3052,6 +3088,11 @@ with tab1:
                 tip = h.get("tip", "Hata")
                 tipler[tip] = tipler.get(tip, 0) + 1
             st.caption("Teknik hata özeti (ayrıntılar Streamlit Cloud loglarında): " + " · ".join(f"{k}: {v}" for k, v in sorted(tipler.items())))
+            ornek_hatalar = st.session_state.taramada_hatalar[:5]
+            if ornek_hatalar:
+                st.caption("İlk hata bağlamları: " + " · ".join(
+                    f"{h.get('ticker') or 'genel'} / {h.get('baglam','?')} / {h.get('tip','Hata')}" for h in ornek_hatalar
+                ))
             
         if not st.session_state.sonuclar:
             st.error("❌ Veriler çekilemedi. Lütfen sol menüden farklı bir hisse grubu seçip tekrar deneyin.")
