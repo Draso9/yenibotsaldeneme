@@ -93,11 +93,11 @@ except Exception:
 VARSAYILAN_TICKERS = ["AAPL", "MSFT", "TSLA", "NVDA", "AMD", "INTC", "THYAO.IS", "FROTO.IS", "TOASO.IS"]
 
 # --- IZFIN STRATEJİ SÜRÜMÜ ---
-STRATEJI_SURUMU = "IZFIN-v1.2"
+STRATEJI_SURUMU = "IZFIN-v1.3-central-decision"
 PERFORMANS_UFUKLARI = (1, 5, 10, 20, 45)
 
 # --- IZFIN UYGULAMA SÜRÜMÜ / LOG ---
-IZFIN_APP_SURUMU = "v1.4.1 Yahoo Compatibility Fix"
+IZFIN_APP_SURUMU = "v1.5.0 Central Decision Engine"
 logger = logging.getLogger("IZFIN")
 if not logger.handlers:
     logging.basicConfig(level=logging.INFO)
@@ -921,19 +921,127 @@ def sinyal_guven_skoru(panel, temel_skor):
     return int(round(min(95,max(20,puan))))
 
 
-def karar_motoru_ozeti(panel):
-    guven=int(panel.get('guven_skoru',50)); risk=panel.get('risk_seviyesi','ORTA')
-    olumlu=[]; olumsuz=[]
-    if panel.get('adx',0)>=25: olumlu.append('trend gücü yüksek')
-    else: olumsuz.append('trend gücü sınırlı')
-    if panel.get('cmf',0)>0: olumlu.append('CMF para girişini destekliyor')
-    else: olumsuz.append('CMF para akışı zayıf')
-    if panel.get('supertrend',0)==1: olumlu.append('SuperTrend yukarı')
+def merkezi_karar_motoru(panel):
+    """IZFIN'in tek karar beyni.
+
+    Profil, hibrit skor, giriş kalitesi, algoritma güveni, MTF uyumu,
+    trend/momentum/para akışı ve risk verilerini birlikte değerlendirir.
+    Görsel paneller karar üretmez; yalnızca bu fonksiyonun sonucunu gösterir.
+    """
+    profil = str(panel.get('profil', panel.get('on_sinyal', 'NÖTR')))
+    profil_u = profil.upper()
+    skor = int(panel.get('nihai_skor', panel.get('cezali_skor', panel.get('skor', 50))) or 50)
+    giris = int(panel.get('giris_puani', panel.get('tetik_puani', 0)) or 0)
+    guven = int(panel.get('guven_skoru', 50) or 50)
+    mtf = int(panel.get('mtf_uyum', 50) or 50)
+    risk = str(panel.get('risk_seviyesi', 'ORTA')).upper()
+    vol_rejimi = str(panel.get('volatilite_rejimi', '')).upper()
+
+    fiyat = float(panel.get('fiyat', 0) or 0)
+    ema9 = float(panel.get('ema9', fiyat) or fiyat)
+    ema21 = float(panel.get('ema21', fiyat) or fiyat)
+    ema50 = float(panel.get('ema50', fiyat) or fiyat)
+    sma200 = float(panel.get('sma200', fiyat) or fiyat)
+    rsi = float(panel.get('rsi', 50) or 50)
+    mfi = float(panel.get('mfi', 50) or 50)
+    macd = float(panel.get('macd', 0) or 0)
+    macd_signal = float(panel.get('macd_signal', 0) or 0)
+    cmf = float(panel.get('cmf', 0) or 0)
+    adx = float(panel.get('adx', 0) or 0)
+    plus_di = float(panel.get('plus_di', 0) or 0)
+    minus_di = float(panel.get('minus_di', 0) or 0)
+    supertrend = int(panel.get('supertrend', 0) or 0)
+    bb_ust = float(panel.get('bb_ust', float('inf')) or float('inf'))
+    risk_odul = float(panel.get('risk_odul', 0) or 0)
+    sahte_kirilim = bool(panel.get('tetik_sahte_kirilim', False))
+
+    trend_ana = fiyat > sma200 and fiyat > ema50
+    trend_kisa = ema9 > ema21
+    trend_guclu = trend_ana and trend_kisa and supertrend == 1
+    momentum_pozitif = macd > macd_signal and plus_di >= minus_di
+    para_akisi_pozitif = cmf >= 0
+    asiri_isinmis = rsi >= 70 and np.isfinite(bb_ust) and fiyat >= bb_ust * 0.995
+    momentum_bozuluyor = macd <= macd_signal or fiyat < ema9 or cmf < -0.03 or mfi < 45
+    yuksek_risk = risk in {'YÜKSEK', 'ÇOK YÜKSEK', 'PANİK / ÇOK YÜKSEK'} or 'PANİK' in vol_rejimi
+    alim_profili = any(x in profil_u for x in ['ALIM', 'KIRILIM', 'ADAY'])
+    tepki_profili = 'HACİMLİ TEPKİ' in profil_u or 'KURTULUŞ' in profil_u
+
+    olumlu, olumsuz = [], []
+    if trend_ana: olumlu.append('ana trend yukarı')
+    else: olumsuz.append('ana trend teyidi yok')
+    if trend_kisa: olumlu.append('EMA9/EMA21 kısa trend uyumlu')
+    else: olumsuz.append('kısa trend zayıf')
+    if adx >= 25: olumlu.append('trend gücü yüksek')
+    elif adx < 18: olumsuz.append('trend gücü sınırlı')
+    if cmf > 0.05: olumlu.append('CMF para girişini destekliyor')
+    elif cmf < -0.05: olumsuz.append('CMF para akışı zayıf')
+    if supertrend == 1: olumlu.append('SuperTrend yukarı')
     else: olumsuz.append('SuperTrend aşağı')
-    if panel.get('mtf_uyum',50)>=65: olumlu.append('zaman dilimleri uyumlu')
-    elif panel.get('mtf_uyum',50)<=40: olumsuz.append('zaman dilimleri çatışıyor')
-    karar='GÜÇLÜ ALIM ADAYI' if guven>=80 and panel.get('sinyal_yonu')=='ALIM' else 'TEYİTLİ ALIM ADAYI' if guven>=65 and panel.get('sinyal_yonu')=='ALIM' else 'İZLE / TEYİT BEKLE' if guven>=45 else 'RİSKTEN KAÇIN'
-    return {'karar':karar,'guven':guven,'risk':risk,'olumlu':olumlu,'olumsuz':olumsuz}
+    if mtf >= 70: olumlu.append(f'zaman dilimleri güçlü uyumlu (%{mtf})')
+    elif mtf >= 60: olumlu.append(f'zaman dilimleri uyumlu (%{mtf})')
+    elif mtf <= 40: olumsuz.append(f'zaman dilimleri çatışıyor (%{mtf})')
+    if giris >= 80: olumlu.append(f'giriş bölgesi güçlü ({giris}/100)')
+    elif giris >= 55: olumlu.append(f'giriş kalitesi gelişiyor ({giris}/100)')
+    elif alim_profili: olumsuz.append(f'giriş teyidi yetersiz ({giris}/100)')
+    if guven >= 75: olumlu.append(f'algoritma güveni yüksek (%{guven})')
+    elif guven < 65: olumsuz.append(f'algoritma güveni sınırlı (%{guven})')
+    if sahte_kirilim: olumsuz.append('sahte kırılım riski var')
+    if yuksek_risk: olumsuz.append(f'risk seviyesi {risk.lower()}')
+    if risk_odul and risk_odul < 1.2: olumsuz.append('risk/ödül zayıf')
+
+    if (not trend_ana and skor < 45) or (supertrend == -1 and mtf <= 40 and guven < 55):
+        karar, aksiyon = 'SAT / KAÇIN 🔴', 'SAT_KACIN'
+    elif asiri_isinmis and momentum_bozuluyor:
+        karar, aksiyon = 'KÂR AL / RİSK AZALT 🟠', 'KAR_AL'
+    elif 'MOMENTUM AŞIRI ISINDI' in profil_u and (rsi >= 68 or yuksek_risk):
+        karar, aksiyon = 'KÂR KORU / YENİ GİRİŞ BEKLE 🟠', 'KAR_KORU'
+    elif (alim_profili and trend_guclu and momentum_pozitif and para_akisi_pozitif
+          and guven >= 80 and giris >= 80 and mtf >= 70 and not yuksek_risk
+          and not sahte_kirilim and not asiri_isinmis):
+        karar, aksiyon = 'GÜÇLÜ AL 🚀', 'GUCLU_AL'
+    elif (alim_profili and trend_ana and supertrend == 1 and guven >= 70 and giris >= 65
+          and mtf >= 60 and cmf >= -0.03 and not yuksek_risk and not sahte_kirilim and not asiri_isinmis):
+        karar, aksiyon = 'AL 🟢', 'AL'
+    elif (alim_profili and trend_ana and guven >= 62 and giris >= 55 and mtf >= 55
+          and not yuksek_risk and cmf >= -0.05 and not sahte_kirilim and not asiri_isinmis):
+        karar, aksiyon = 'ERKEN AL 🟢', 'ERKEN_AL'
+    elif alim_profili:
+        karar, aksiyon = 'TEYİT BEKLE 🟡', 'TEYIT_BEKLE'
+    elif tepki_profili and guven >= 45:
+        karar, aksiyon = 'İZLE / TEYİT BEKLE 🟡', 'IZLE'
+    elif guven < 40 or (supertrend == -1 and not trend_ana):
+        karar, aksiyon = 'RİSKTEN KAÇIN 🔴', 'RISK_KACIN'
+    else:
+        karar, aksiyon = 'İZLE / NÖTR ⚪', 'IZLE'
+
+    nedenler = []
+    if aksiyon in {'GUCLU_AL', 'AL', 'ERKEN_AL'}:
+        nedenler = olumlu[:4]
+        if olumsuz:
+            nedenler.append('Sınırlayıcı: ' + olumsuz[0])
+    elif aksiyon in {'TEYIT_BEKLE', 'IZLE'}:
+        if olumlu:
+            nedenler.append('Olumlu: ' + ', '.join(olumlu[:2]))
+        if olumsuz:
+            nedenler.append('Bekleme nedeni: ' + ', '.join(olumsuz[:3]))
+    else:
+        nedenler = olumsuz[:4] or ['risk/getiri yapısı yeni pozisyon için yeterli değil']
+
+    ozet = ' · '.join(nedenler) if nedenler else 'Karar, mevcut teknik verilerin ortak değerlendirmesinden üretildi.'
+    return {
+        'karar': karar, 'aksiyon': aksiyon, 'profil': profil,
+        'guven': guven, 'risk': risk, 'mtf_uyum': mtf,
+        'giris_puani': giris, 'hibrit_skor': skor,
+        'olumlu': olumlu, 'olumsuz': olumsuz, 'ozet': ozet,
+    }
+
+
+def karar_motoru_ozeti(panel):
+    """Şeffaf panel ikinci bir karar üretmez; merkezi kararın aynısını döndürür."""
+    karar = panel.get('merkezi_karar') if isinstance(panel, dict) else None
+    if isinstance(karar, dict) and karar.get('karar'):
+        return karar
+    return merkezi_karar_motoru(panel or {})
 
 
 @st.cache_data(ttl=3600, show_spinner=False)
@@ -1151,113 +1259,59 @@ def ogrenme_profili_olustur(kayitlar):
     return g[g['Örnek']>=3].sort_values(['Başarı %','Örnek'],ascending=False)
 
 # --- AKILLI AKSİYON REHBERİ ---
-def aksiyon_rehberi_olustur(nihai_sinyal, teyit_5dk):
-    """Nihai sinyali, algoritmanın gerçekten kullandığı teknik koşullarla açıklar."""
+def aksiyon_rehberi_olustur(nihai_sinyal, teyit_5dk, profil=None, karar_detay=None):
+    """Nihai aksiyonu ve teknik profili tek merkezi kararın diliyle açıklar."""
     sinyal_metni = str(nihai_sinyal).upper()
-    teyit_metni = str(teyit_5dk)
+    profil_metni = str(profil or 'NÖTR')
+    teyit_metni = str(teyit_5dk or '—')
+    detay = karar_detay if isinstance(karar_detay, dict) else {}
+    ozet = str(detay.get('ozet', '') or '')
+    olumlu = detay.get('olumlu', []) or []
+    olumsuz = detay.get('olumsuz', []) or []
 
-    if "YÜKSELİŞ KIRILIMI" in sinyal_metni:
-        renk = "#00d2d3"
-        baslik = "🚀 YÜKSELİŞ KIRILIMI — DİRENÇ ÜZERİ TEYİT"
-        ana_metin = ("Fiyat, önceki teknik direnç bölgesini artan hacim ve kısa vadeli momentum desteğiyle aşmıştır. "
-                      "EMA 9'un EMA 21 üzerinde olması kırılım yönünü destekler; ancak sinyalin kalitesi, kırılan seviyenin "
-                      "yeni destek olarak korunmasına ve hacmin tamamen sönmemesine bağlıdır. İlk geri çekilmede direnç "
-                      "üstünde tutunma görülmezse sahte kırılım riski artar.")
-        alt_not = f'<div style="margin-top:15px;padding:11px;background:rgba(0,210,211,.10);border-left:4px solid #00d2d3;border-radius:5px;"><b>5 DK TEYİT:</b> {teyit_metni}</div>'
-
-    elif "KUSURSUZ ALIM" in sinyal_metni or "GÜÇLÜ ALIM" in sinyal_metni:
-        renk = "#2ecc71"
-        baslik = "🟢 KUSURSUZ ALIM — TREND İÇİ GÜÇLÜ GERİ ÇEKİLME"
-        ana_metin = ("Uzun vadeli yükseliş eğilimi korunurken fiyat, Bollinger alt bandı ve destek bölgesine doğru belirgin "
-                      "biçimde geri çekilmiştir. Düşük RSI kısa vadeli satış baskısını gösterir; bu yapı tek başına dönüş "
-                      "garantisi değildir. Hacim, MFI/OBV ve 5 dakikalık tepki teyidi olumluysa trend yönünde yeniden "
-                      "pozisyonlanma için yüksek öncelikli bir aday olarak değerlendirilir. Tek seferde tam pozisyon yerine "
-                      "stop seviyesine bağlı kontrollü giriş daha uygundur.")
-        alt_not = f'<div style="margin-top:15px;padding:11px;background:rgba(46,204,113,.10);border-left:4px solid #2ecc71;border-radius:5px;"><b>KISA VADELİ TEYİT:</b> {teyit_metni}</div>'
-
-    elif "KADEMELİ ALIM" in sinyal_metni:
-        renk = "#3498db"
-        baslik = "🔵 KADEMELİ ALIM — TEYİT BEKLEYEN TREND İÇİ ZAYIFLIK"
-        ana_metin = ("Ana yükseliş trendi henüz bozulmamış olsa da kısa vadeli momentum zayıftır ve kesin dönüş teyidi "
-                      "oluşmamıştır. Fiyat destek veya Bollinger orta-alt bölgesine yaklaşırken RSI soğumaktadır. Bu nedenle "
-                      "işlem, tek noktadan toplu alım yerine planlı kademelerle; her kademe için stop, toplam risk ve maksimum "
-                      "pozisyon büyüklüğü önceden belirlenerek ele alınmalıdır.")
-        alt_not = f'<div style="margin-top:15px;padding:11px;background:rgba(52,152,219,.10);border-left:4px solid #3498db;border-radius:5px;"><b>TETİK DURUMU:</b> {teyit_metni}</div>'
-
-    elif "UZUN VADELİ ADAY" in sinyal_metni:
-        renk = "#8e44ad"
-        baslik = "🌟 UZUN VADELİ TEKNİK TREND ADAYI"
-        ana_metin = ("Fiyat SMA 200 ve orta vadeli trend ölçütlerinin üzerinde seyretmekte, hibrit skor sistemi de teknik "
-                      "yapıyı olumlu değerlendirmektedir. Bu etiket bilanço, değerleme, büyüme veya GARP analizi değildir; "
-                      "yalnızca fiyat, trend, momentum, hacim ve para akışı göstergelerinden üretilen uzun vadeli teknik "
-                      "izleme sinyalidir. Yeni pozisyon için desteklere yakın kademeli giriş veya direnç üzeri teyit yaklaşımı "
-                      "tercih edilmelidir.")
-        alt_not = '<div style="margin-top:15px;padding:11px;background:rgba(142,68,173,.10);border-left:4px solid #8e44ad;border-radius:5px;"><b>NOT:</b> Temel analiz yapılmadan yalnızca bu etikete dayanarak uzun vadeli yatırım kararı verilmemelidir.</div>'
-
-    elif "HACİMLİ TEPKİ" in sinyal_metni:
-        renk = "#f39c12"
-        baslik = "🟡 HACİMLİ TEPKİ — İZLEME VE TEYİT MODU"
-        ana_metin = ("Fiyat, normalin üzerinde hacimle güçlü bir günlük tepki üretmiştir. Bu hareket satış baskısının "
-                      "zayıfladığına işaret edebilir; ancak tek başına yeni bir yükseliş trendi veya doğrudan alım sinyali "
-                      "değildir. Tepkinin devamı için EMA uyumu, destek üzerinde kalıcılık ve para akışında iyileşme aranmalıdır.")
-        alt_not = '<div style="margin-top:15px;padding:11px;background:rgba(243,156,18,.10);border-left:4px solid #f39c12;border-radius:5px;"><b>YAKLAŞIM:</b> İzleme listesine alın; teyit oluşmadan alım sinyali olarak değerlendirmeyin.</div>'
-
-    elif "KURTULUŞ" in sinyal_metni:
-        renk = "#d35400"
-        baslik = "🧗 KURTULUŞ ÇABASI — ANA TREND HÂLÂ ZAYIF"
-        ana_metin = ("Varlık ana trend ölçütlerinin altında kalmasına rağmen kısa vadeli toparlanma göstermektedir. EMA 50 "
-                      "üzerine çıkış olumlu bir ilk adım olsa da SMA 200, trend gücü ve hacim teyidi sağlanmadan dönüş tamamlanmış "
-                      "kabul edilmez. Bu bölge yüksek hata payı taşıdığı için sermaye koruma öncelikli olmalıdır.")
-        alt_not = '<div style="margin-top:15px;padding:11px;background:rgba(211,84,0,.10);border-left:4px solid #d35400;border-radius:5px;"><b>BEKLENTİ:</b> Ana direnç ve uzun vadeli ortalama üzerinde kalıcı kapanış beklenmelidir.</div>'
-
-    elif "UZAK DUR" in sinyal_metni:
-        renk = "#e74c3c"
-        baslik = "🔴 UZAK DUR — RİSK / GETİRİ YAPISI ZAYIF"
-        ana_metin = ("Fiyat ana trendin altında, momentum ve/veya para akışı zayıf ya da likidite cezaları belirgindir. Sistem "
-                      "bu koşullarda yeni alım için yeterli teknik avantaj görmemektedir. Mevcut pozisyonda stop planı ve sermaye "
-                      "koruma disiplini öncelikli; yeni pozisyon için trend ve hacim yapısının yeniden güçlenmesi beklenmelidir.")
-        alt_not = '<div style="margin-top:15px;padding:11px;background:rgba(231,76,60,.10);border-left:4px solid #e74c3c;border-radius:5px;"><b>RİSK:</b> Düşen trendde yalnızca ucuz görünen fiyata dayanarak işlem açmayın.</div>'
-
-    elif "MOMENTUM AŞIRI ISINDI" in sinyal_metni:
-        renk = "#f1c40f"
-        baslik = "🟡 MOMENTUM AŞIRI ISINDI — TREND GÜÇLÜ, YENİ ALIMDA TEMKİN"
-        ana_metin = ("Ana trend ve kısa vadeli momentum güçlü kalırken fiyat üst banda ve yüksek RSI bölgesine taşınmıştır. "
-                      "Bu durum otomatik satış anlamına gelmez; ancak yeni pozisyonu kovalamak yerine kırılan seviyenin destek "
-                      "olarak korunması veya daha dengeli bir geri çekilme beklenmelidir. Mevcut pozisyonda kademeli kâr koruma "
-                      "ve stop yükseltme düşünülebilir.")
-        alt_not = '<div style="margin-top:15px;padding:11px;background:rgba(241,196,15,.10);border-left:4px solid #f1c40f;border-radius:5px;"><b>YÖNLENDİRME:</b> Trend devam ediyor olabilir; yeni alım için fiyatı kovalamayın, teyitli geri çekilme bekleyin.</div>'
-
-    elif "KAR REALİZASYONU" in sinyal_metni or "KÂR REALİZASYONU" in sinyal_metni:
-        renk = "#e67e22"
-        baslik = "🟠 KÂR REALİZASYONU — AŞIRI ALIM / ÜST BANT RİSKİ"
-        ana_metin = ("Fiyat Bollinger üst bandına taşınmış ve RSI yüksek bölgeye ulaşmıştır. Bu durum trendin mutlaka biteceği "
-                      "anlamına gelmez; fakat kısa vadeli getiri potansiyeline kıyasla geri çekilme riski artmıştır. Pozisyonun "
-                      "bir bölümünde kâr alma, stop seviyesini yükseltme veya yeni alım için daha dengeli bir geri çekilme bekleme "
-                      "yaklaşımı değerlendirilebilir.")
-        alt_not = '<div style="margin-top:15px;padding:11px;background:rgba(230,126,34,.10);border-left:4px solid #e67e22;border-radius:5px;"><b>POZİSYON YÖNETİMİ:</b> Tam çıkış zorunlu değildir; risk azaltma ve stop güncelleme sinyalidir.</div>'
-
+    if 'GÜÇLÜ AL' in sinyal_metni:
+        renk, baslik = '#2ecc71', '🚀 GÜÇLÜ AL — ÇOKLU TEYİT TAMAMLANDI'
+        ana_metin = ('Ana trend, giriş kalitesi, algoritma güveni ve çoklu zaman dilimi teyitleri aynı yönde güçlenmiştir. '
+                     'Bu karar yalnızca yüksek giriş puanına değil, trend, momentum, para akışı ve risk filtrelerinin birlikte geçilmesine dayanır.')
+    elif sinyal_metni.startswith('AL ') or sinyal_metni == 'AL':
+        renk, baslik = '#27ae60', '🟢 AL — TEKNİK TEYİT YETERLİ'
+        ana_metin = ('Teknik yapı alım yönünü destekliyor ve gerekli teyitlerin çoğu sağlanmış durumda. '
+                     'Yine de pozisyon büyüklüğü, stop ve risk/ödül planı korunmalıdır.')
+    elif 'ERKEN AL' in sinyal_metni:
+        renk, baslik = '#16a085', '🟢 ERKEN AL — OLUMLU YAPI, TAM TEYİT HENÜZ YOK'
+        ana_metin = ('Trend yapısı olumlu ve giriş motoru güçleniyor; ancak güçlü alım için aranan tüm filtreler henüz tamamlanmış değil. '
+                     'Bu nedenle sinyal daha erken ve daha yüksek hata paylı bir giriş sınıfıdır.')
+    elif 'TEYİT BEKLE' in sinyal_metni:
+        renk, baslik = '#f1c40f', '🟡 TEYİT BEKLE — ADAYLIK OLUMLU, AKSİYON HENÜZ ONAYLI DEĞİL'
+        ana_metin = ('Varlığın teknik profili veya bulunduğu fiyat bölgesi olumlu olabilir; fakat algoritma güveni, para akışı, trend gücü, '
+                     'çoklu zaman dilimi veya giriş teyitlerinden en az biri final AL kararını destekleyecek seviyeye ulaşmamıştır.')
+    elif any(x in sinyal_metni for x in ['KÂR AL', 'KAR AL', 'KÂR KORU', 'KAR KORU']):
+        renk, baslik = '#e67e22', '🟠 KÂR KORU / RİSK AZALT — YENİ GİRİŞ İÇİN UYGUN DEĞİL'
+        ana_metin = ('Trend tamamen bozulmuş olmak zorunda değildir; ancak aşırı ısınma veya momentum bozulması nedeniyle yeni girişin risk/getirisi zayıflamıştır. '
+                     'Mevcut pozisyonda kâr koruma, stop yükseltme veya kademeli risk azaltma yaklaşımı öne çıkar.')
+    elif 'SAT / KAÇIN' in sinyal_metni or 'RİSKTEN KAÇIN' in sinyal_metni:
+        renk, baslik = '#e74c3c', '🔴 SAT / KAÇIN — SERMAYE KORUMA ÖNCELİKLİ'
+        ana_metin = ('Ana trend ve/veya risk filtreleri yeni pozisyon için yeterli teknik avantaj göstermiyor. '
+                     'Bu bölgede güçlü bir dönüş teyidi oluşmadan agresif girişten kaçınmak önceliklidir.')
     else:
-        renk = "#95a5a6"
-        baslik = "⚪ NÖTR — NET TEKNİK AVANTAJ YOK"
-        ana_metin = ("Trend, momentum, hacim ve para akışı göstergeleri ortak ve güçlü bir yön üretmemektedir. Fiyat destek ile "
-                      "direnç arasında karar aşamasında olabilir. Yeni işlem için direnç üzeri hacimli kırılım, destekten doğrulanmış "
-                      "tepki veya çoklu zaman dilimlerinde belirgin yön uyumu beklenmelidir.")
-        alt_not = '<div style="margin-top:15px;padding:11px;background:rgba(149,165,166,.10);border-left:4px solid #95a5a6;border-radius:5px;"><b>YAKLAŞIM:</b> İşlem üretmek yerine sabırlı kalıp teyit bekleyin.</div>'
+        renk, baslik = '#95a5a6', '⚪ İZLE / NÖTR — NET AKSİYON AVANTAJI YOK'
+        ana_metin = ('Göstergeler ortak ve yeterince güçlü bir işlem yönü üretmiyor. Sistem işlem üretmek yerine yeni teyit beklemeyi tercih ediyor.')
 
-    return (
-        f'<div style="background:rgba(128,128,128,.08);padding:22px;border-radius:12px;border-left:5px solid {renk};'
-        f'margin-top:20px;color:inherit;font-family:sans-serif;box-shadow:0 4px 12px rgba(0,0,0,.25);">'
-        f'<h3 style="color:{renk};margin:0 0 12px 0;font-size:18px;">{baslik}</h3>'
-        f'<p style="font-size:14px;line-height:1.75;color:inherit;margin:0 0 12px 0;">{ana_metin}</p>'
-        f'{alt_not}</div>'
-    )
+    gerekce = ozet or ('Olumlu: ' + ', '.join(olumlu[:3]) if olumlu else '')
+    if not gerekce and olumsuz:
+        gerekce = 'Riskler: ' + ', '.join(olumsuz[:3])
+    gerekce_html = f'<div style="margin-top:12px"><b>Merkezi karar gerekçesi:</b> {gerekce}</div>' if gerekce else ''
 
-
-def _seviye_yildizi(seviye, adaylar, atr):
-    """Yakın teknik referansların çakışmasını 1-5 yıldızla özetler."""
-    tolerans = max(float(atr) * 0.35, abs(float(seviye)) * 0.003)
-    uyum = sum(1 for x in adaylar if pd.notna(x) and abs(float(x) - float(seviye)) <= tolerans)
-    return min(5, max(1, uyum + 1))
+    return f'''
+    <div style="margin-top:18px;padding:18px;border-radius:10px;border-left:6px solid {renk};background:rgba(128,128,128,.08);color:inherit;line-height:1.65;">
+      <h3 style="margin-top:0;color:{renk};">{baslik}</h3>
+      <div><b>Teknik profil:</b> {profil_metni}</div>
+      <p>{ana_metin}</p>
+      {gerekce_html}
+      <div style="margin-top:12px;padding:10px;background:rgba(128,128,128,.08);border-radius:6px;"><b>Giriş motoru:</b> {teyit_metni}</div>
+      <div style="margin-top:10px;font-size:12px;opacity:.72;">Profil, skor ve teyitler açıklayıcı katmanlardır; işlem aksiyonu yalnızca merkezi nihai karar motorundan gelir.</div>
+    </div>
+    '''
 
 
 def teknik_seviyeler_hesapla(df, fiyat, atr, ema50, bb_alt, bb_mid, bb_ust, hv20):
@@ -1399,6 +1453,7 @@ def gelismis_teknik_panel_olustur(d):
     tp1_y, tp2_y, tp3_y = int(d.get("tp1_yildiz",3)), int(d.get("tp2_yildiz",2)), int(d.get("tp3_yildiz",1))
     hacim, hacim_ort, hacim_oran = float(d["hacim"]), float(d["hacim_ort"]), float(d["hacim_oran"])
     sinyal, veri_kaynagi = str(d["sinyal"]), str(d["veri_kaynagi"])
+    profil = str(d.get("profil", d.get("on_sinyal", "NÖTR")))
     seans_disi = str(d.get("seans_disi", "—"))
     seans_notu = f" · {seans_disi} (ek bilgi; skora dahil değil)" if seans_disi and seans_disi != "—" else ""
     gunluk_degisim, ticker = float(d["gunluk_degisim"]), str(d["ticker"])
@@ -1448,7 +1503,9 @@ def gelismis_teknik_panel_olustur(d):
     ])
 
     tetik_list = "".join(f"<li>{x}</li>" for x in tetik_detay[:7]) or "<li>Henüz yeterli çok zaman dilimli giriş teyidi bulunmuyor.</li>"
-    karar_cls = "pozitif" if any(x in sinyal for x in ["ALIM", "KIRILIM", "ADAY"]) else "negatif" if any(x in sinyal for x in ["UZAK DUR", "KAR REALİZASYONU"]) else "uyari"
+    karar_cls = ("pozitif" if sinyal_yonu_belirle(sinyal) == "ALIM" else
+                 "negatif" if sinyal_yonu_belirle(sinyal) == "SATIŞ" else
+                 "uyari" if any(x in sinyal for x in ["TEYİT", "KÂR", "KAR", "🟠", "🟡"]) else "notr")
     yildiz = lambda n: "★"*max(1,min(5,n)) + "☆"*(5-max(1,min(5,n)))
     bollinger_konum = "Üst banda yakın" if fiyat >= bb_ust*.985 else "Alt banda yakın" if fiyat <= bb_alt*1.015 else "Bant içinde"
     ana_yorum = "SMA 200 üzerinde ana yükseliş yapısını koruyor" if fiyat > sma200 else "SMA 200 altında ve ana trend baskı altında"
@@ -1508,23 +1565,20 @@ def gelismis_teknik_panel_olustur(d):
         <div class="hp-target-card"><span>TP3 — Agresif trend</span><strong>{tp3:.2f}</strong><div class="hp-stars">{yildiz(tp3_y)}</div></div>
       </div></div>
       <div class="hp-comment"><b>🧠 Algoritmik yorum:</b> Fiyat {ana_yorum}. Kısa vadede EMA 9 {kisa_yorum}, RSI {rsi:.1f} ve MACD histogramı {macd_hist:.3f}. Hacim 20 günlük ortalamanın %{hacim_oran:.0f} seviyesinde; fiyatın {s1:.2f}–{r1:.2f} karar aralığındaki davranışı yönün devamı açısından önemlidir.</div>
-      <div class="hp-decision"><div class="hp-decision-title">🧭 Nihai karar: <span class="hp-pill {karar_cls}">{sinyal}</span></div><div>Hibrit skor: <b>{skor}/100</b> · Algoritma güveni: <b>%{guven}</b> · Giriş kalitesi: <b>{tetik_puani}/100</b></div><div class="hp-small" style="margin-top:6px">Bu panel teknik karar desteğidir; emir veya getiri garantisi değildir.</div></div>
+      <div class="hp-decision"><div class="hp-decision-title">🧭 Nihai karar: <span class="hp-pill {karar_cls}">{sinyal}</span></div><div style="margin-top:5px"><b>Teknik profil:</b> {profil}</div><div>Hibrit skor: <b>{skor}/100</b> · Algoritma güveni: <b>%{guven}</b> · Giriş kalitesi: <b>{tetik_puani}/100</b></div><div class="hp-small" style="margin-top:6px">Profil ve skorlar açıklayıcıdır; işlem aksiyonu merkezi karar motorundan gelir.</div></div>
     </div>
     """
 
 def sinyal_yonu_belirle(sinyal):
-    """Sinyali karar yönüne çevirir.
-
-    Performans takibinde yalnızca gerçek pozisyon açma niyeti taşıyan ALIM,
-    KIRILIM ve ADAY sinyalleri alım kabul edilir. HACİMLİ TEPKİ izleme
-    sinyalidir; pozisyon önerisi olmadığı için performans arşivine girmez.
-    """
+    """Nihai aksiyonu işlem yönüne çevirir; eski kayıt etiketleriyle de uyumludur."""
     metin = str(sinyal).upper()
-    if any(x in metin for x in ["ALIM", "KIRILIM", "ADAY"]):
-        return "ALIM"
-    if any(x in metin for x in ["UZAK DUR", "KAR REALİZASYONU", "KÂR REALİZASYONU"]):
-        return "SATIŞ"
-    return "NÖTR"
+    if any(x in metin for x in ['SAT / KAÇIN', 'RİSKTEN KAÇIN', 'UZAK DUR', 'KAR REALİZASYONU', 'KÂR REALİZASYONU']):
+        return 'SATIŞ'
+    if any(x in metin for x in ['TEYİT BEKLE', 'İZLE', 'NÖTR', 'KÂR KORU', 'KAR KORU']):
+        return 'NÖTR'
+    if any(x in metin for x in ['GÜÇLÜ AL', 'ERKEN AL', 'AL 🟢', 'KUSURSUZ ALIM', 'KADEMELİ ALIM', 'YÜKSELİŞ KIRILIMI', 'GÜÇLÜ KIRILIM']):
+        return 'ALIM'
+    return 'NÖTR'
 
 
 @st.cache_data(ttl=1800, show_spinner=False)
@@ -2844,18 +2898,14 @@ with tab1:
                         on_sinyal = "Nötr (İzle) ⚖️"
                         if breakout_kosulu:
                             on_sinyal = "YÜKSELİŞ KIRILIMI 🚀"
-                            alim_firsati += 1
                         elif bugun_kapanis > bb_ust and rsi >= 68:
                             on_sinyal = "MOMENTUM AŞIRI ISINDI 🟡"
                         elif bugun_kapanis <= bb_alt and rsi <= 35 and uzun_vade_trend and (mfi_val <= 40 or gunluk_degisim > 0):
                             on_sinyal = "KUSURSUZ ALIM 🟢"
-                            alim_firsati += 1
                         elif rsi <= 40 and uzun_vade_trend and bugun_kapanis <= bb_mid and bugun_kapanis <= (karma_destek + atr):
                             on_sinyal = "KADEMELİ ALIM 🔵"
-                            alim_firsati += 1
                         elif uzun_vade_trend and skor >= 70:
                             on_sinyal = "UZUN VADELİ ADAY 🌟"
-                            alim_firsati += 1
                         elif hacim_patlamasi_var and rsi < 50:
                             on_sinyal = "HACİMLİ TEPKİ 🟡"
                         elif not uzun_vade_trend:
@@ -2884,7 +2934,9 @@ with tab1:
                                 izfin_hata_logla("giris_motoru", e, ticker)
                                 mikro_teyit = "⚠️ Giriş motoru verisi alınamadı"
 
-                        sinyal = nihai_karar_motoru(
+                        # Eski motor artık işlem kararı vermek yerine teknik PROFİL üretir.
+                        # Yapı tanımları korunur; gerçek aksiyon tek merkezi motordan gelir.
+                        profil_sinyali = nihai_karar_motoru(
                             on_sinyal, skor, int(tetik_sonucu.get("puan", 0)), bugun_kapanis,
                             ema_9_val, ema_21_val, ema_50_val, sma_200, rsi,
                             float(macd_serisi.iloc[-1]), float(macd_sinyal.iloc[-1]),
@@ -2895,9 +2947,28 @@ with tab1:
                             'fiyat': float(bugun_kapanis), 'adx': adx, 'plus_di': plus_di, 'minus_di': minus_di,
                             'cmf': cmf, 'supertrend': supertrend, 'vwap': vwap, 'mtf_uyum': mtf_uyum,
                             'sektorel_fark': float(sektorel_fark), 'risk_odul': float(risk_odul),
-                            'risk_seviyesi': risk_seviyesi, 'sinyal_yonu': sinyal_yonu_belirle(sinyal)
+                            'risk_seviyesi': risk_seviyesi
                         }
                         guven_skoru = sinyal_guven_skoru(panel_ek, skor)
+
+                        merkezi_girdi = {
+                            **panel_ek,
+                            'profil': profil_sinyali, 'on_sinyal': on_sinyal,
+                            'nihai_skor': int(skor),
+                            'giris_puani': int(tetik_sonucu.get("puan", 0)),
+                            'giris_asamasi': tetik_sonucu.get("asama", "YOK"),
+                            'tetik_sahte_kirilim': bool(tetik_sonucu.get("sahte_kirilim", False)),
+                            'guven_skoru': int(guven_skoru), 'volatilite_rejimi': vol_rejimi,
+                            'ema9': float(ema_9_val), 'ema21': float(ema_21_val),
+                            'ema50': float(ema_50_val), 'sma200': float(sma_200),
+                            'rsi': float(rsi), 'mfi': float(mfi_val),
+                            'macd': float(macd_serisi.iloc[-1]), 'macd_signal': float(macd_sinyal.iloc[-1]),
+                            'bb_ust': float(bb_ust),
+                        }
+                        merkezi_karar = merkezi_karar_motoru(merkezi_girdi)
+                        sinyal = merkezi_karar['karar']
+                        if sinyal_yonu_belirle(sinyal) == 'ALIM':
+                            alim_firsati += 1
 
                         gecici_teknik_paneller[ticker] = {
                             "ticker": ticker, "fiyat": float(bugun_kapanis), "gunluk_degisim": float(gunluk_degisim),
@@ -2911,7 +2982,7 @@ with tab1:
                             "r1": float(seviyeler["r1"]), "r2": float(seviyeler["r2"]), "r3": float(seviyeler["r3"]),
                             "tp1_yildiz": int(seviyeler["tp1_yildiz"]), "tp2_yildiz": int(seviyeler["tp2_yildiz"]), "tp3_yildiz": int(seviyeler["tp3_yildiz"]),
                             "hacim": float(bugun_hacim), "hacim_ort": float(hacim_sma20), "hacim_oran": float(hacim_oran),
-                            "sektorel_fark": float(sektorel_fark), "sinyal": sinyal, "veri_kaynagi": veri_kaynagi, "teyit": mikro_teyit,
+                            "sektorel_fark": float(sektorel_fark), "sinyal": sinyal, "profil": profil_sinyali, "on_sinyal": on_sinyal, "merkezi_karar": merkezi_karar, "veri_kaynagi": veri_kaynagi, "teyit": mikro_teyit,
                             "tetik_puani": int(tetik_sonucu.get("puan", 0)), "tetik_seviyesi": tetik_sonucu.get("seviye", "⏳ TETİK YOK"),
                             "tetik_detay": tetik_sonucu.get("detay", []), "tetik_direnc": tetik_sonucu.get("direnc"),
                             "tetik_hacim_orani": float(tetik_sonucu.get("hacim_orani", 0.0)), "tetik_rsi": tetik_sonucu.get("rsi"),
@@ -2948,7 +3019,7 @@ with tab1:
                         gecici_sonuclar.append({
                             "Varlık": ticker, "Fiyat": fiyat_str, "Görec. Güç (Sektör)": gorec_guc_str,
                             "Gelişmiş Skor": skor_etiket, "Güven": f"%{guven_skoru}", "MTF Uyum": f"%{mtf_uyum}", "Risk": risk_seviyesi, "Para Akışı": para_durumu,
-                            "PEG / Değerleme": peg_gosterim, "Nihai Sinyal": sinyal, "🎯 Giriş Kalitesi": mikro_teyit,
+                            "PEG / Değerleme": peg_gosterim, "Teknik Profil": profil_sinyali, "Nihai Sinyal": sinyal, "🎯 Giriş Kalitesi": mikro_teyit,
                             "Seans Dışı": seans_disi_metin, "Veri Kaynağı": veri_kaynagi,
                             "Karma Destek": f"{karma_destek:.2f}", "Karma Direnç": f"{karma_direnc:.2f}",
                             "Süren Stop": f"{trailing_stop:.2f}", "Teknik Hedefler": hibrit_tp
@@ -2991,16 +3062,16 @@ with tab1:
             with col3: st.markdown(f"""<div class="kpi-card"><div class="kpi-title">Alım Fırsatları & Kırılımlar</div><div class="kpi-value kpi-highlight-fire">{"🔥 " + str(st.session_state.alim_firsati)}</div></div>""", unsafe_allow_html=True)
             
             st.markdown("<br>", unsafe_allow_html=True)
-            sadece_alim_goster = st.checkbox("🎯 Sadece Alım Fırsatlarını, Kırılımları & Tepkileri Göster", value=False)
+            sadece_alim_goster = st.checkbox("🎯 Sadece Merkezi Motorun AL Sinyallerini Göster", value=False)
             
             df_sonuc = pd.DataFrame(st.session_state.sonuclar)
             if sadece_alim_goster:
-                df_sonuc = df_sonuc[df_sonuc["Nihai Sinyal"].str.contains("ALIM|TEPKİ|KIRILIM|ADAY", na=False)]
+                df_sonuc = df_sonuc[df_sonuc["Nihai Sinyal"].apply(lambda x: sinyal_yonu_belirle(x) == "ALIM")]
             
             def color_df(row):
                 c = ''
                 if any(x in str(row['Nihai Sinyal']) for x in ['🟢', '🔵', '🚀', '🌟']): c = 'background-color: rgba(39, 174, 96, 0.15)'
-                elif '🟡' in str(row['Nihai Sinyal']): c = 'background-color: rgba(243, 156, 18, 0.2)'
+                elif any(x in str(row['Nihai Sinyal']) for x in ['🟡', '🟠']): c = 'background-color: rgba(243, 156, 18, 0.2)'
                 elif any(x in str(row['Nihai Sinyal']) for x in ['🛑', '🔴']): c = 'background-color: rgba(192, 57, 43, 0.15)'
                 return [c] * len(row)
 
@@ -3074,7 +3145,7 @@ with tab1:
                         hisse_satiri = df_sonuc[df_sonuc["Varlık"] == secilen_detay_hisse]
                         anlik_sinyal = hisse_satiri["Nihai Sinyal"].values[0] if not hisse_satiri.empty else "Nötr (İzle)"
                         anlik_teyit = hisse_satiri["🎯 Giriş Kalitesi"].values[0] if not hisse_satiri.empty else ""
-                        st.markdown(aksiyon_rehberi_olustur(anlik_sinyal, anlik_teyit), unsafe_allow_html=True)
+                        st.markdown(aksiyon_rehberi_olustur(anlik_sinyal, anlik_teyit, panel_verisi.get('profil'), karar), unsafe_allow_html=True)
                     else:
                         st.info("Bu varlık için teknik panel verisi bulunamadı. Derin taramayı yeniden çalıştırın.")
 
