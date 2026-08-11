@@ -93,11 +93,11 @@ except Exception:
 VARSAYILAN_TICKERS = ["AAPL", "MSFT", "TSLA", "NVDA", "AMD", "INTC", "THYAO.IS", "FROTO.IS", "TOASO.IS"]
 
 # --- IZFIN STRATEJİ SÜRÜMÜ ---
-STRATEJI_SURUMU = "IZFIN-v1.3.1-central-decision-safe"
+STRATEJI_SURUMU = "IZFIN-v1.3.3-central-decision-audited"
 PERFORMANS_UFUKLARI = (1, 5, 10, 20, 45)
 
 # --- IZFIN UYGULAMA SÜRÜMÜ / LOG ---
-IZFIN_APP_SURUMU = "v1.5.1 Central Decision Safe Fix"
+IZFIN_APP_SURUMU = "v1.5.3 Central Decision Audited"
 logger = logging.getLogger("IZFIN")
 if not logger.handlers:
     logging.basicConfig(level=logging.INFO)
@@ -117,7 +117,8 @@ def izfin_hata_logla(baglam, hata, ticker=None):
         if "taramada_hatalar" not in st.session_state:
             st.session_state.taramada_hatalar = []
         st.session_state.taramada_hatalar.append({
-            "baglam": baglam, "ticker": ticker, "tip": type(hata).__name__
+            "baglam": baglam, "ticker": ticker, "tip": type(hata).__name__,
+            "mesaj": str(hata)[:180]
         })
     except Exception:
         pass
@@ -1332,6 +1333,13 @@ def aksiyon_rehberi_olustur(nihai_sinyal, teyit_5dk, profil=None, karar_detay=No
     '''
 
 
+def _seviye_yildizi(seviye, adaylar, atr):
+    """Yakın teknik referansların çakışmasını 1-5 yıldızla özetler."""
+    tolerans = max(float(atr) * 0.35, abs(float(seviye)) * 0.003)
+    uyum = sum(1 for x in adaylar if pd.notna(x) and abs(float(x) - float(seviye)) <= tolerans)
+    return min(5, max(1, uyum + 1))
+
+
 def teknik_seviyeler_hesapla(df, fiyat, atr, ema50, bb_alt, bb_mid, bb_ust, hv20):
     """Geçmiş tepe/dipler, bantlar, ATR ve volatilite projeksiyonundan S/R ve TP üretir."""
     fiyat, atr = float(fiyat), max(float(atr), fiyat * 0.005)
@@ -1590,7 +1598,7 @@ def gelismis_teknik_panel_olustur(d):
 def sinyal_yonu_belirle(sinyal):
     """Nihai aksiyonu işlem yönüne çevirir; eski kayıt etiketleriyle de uyumludur."""
     metin = str(sinyal).upper()
-    if any(x in metin for x in ['SAT / KAÇIN', 'RİSKTEN KAÇIN', 'UZAK DUR', 'KAR REALİZASYONU', 'KÂR REALİZASYONU']):
+    if any(x in metin for x in ['SAT / KAÇIN', 'RİSKTEN KAÇIN', 'UZAK DUR', 'KAR REALİZASYONU', 'KÂR REALİZASYONU', 'KAR AL', 'KÂR AL']):
         return 'SATIŞ'
     if any(x in metin for x in ['TEYİT BEKLE', 'İZLE', 'NÖTR', 'KÂR KORU', 'KAR KORU']):
         return 'NÖTR'
@@ -3091,7 +3099,7 @@ with tab1:
             ornek_hatalar = st.session_state.taramada_hatalar[:5]
             if ornek_hatalar:
                 st.caption("İlk hata bağlamları: " + " · ".join(
-                    f"{h.get('ticker') or 'genel'} / {h.get('baglam','?')} / {h.get('tip','Hata')}" for h in ornek_hatalar
+                    f"{h.get('ticker') or 'genel'} / {h.get('baglam','?')} / {h.get('tip','Hata')}: {h.get('mesaj','')}" for h in ornek_hatalar
                 ))
             
         if not st.session_state.sonuclar:
