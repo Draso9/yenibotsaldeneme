@@ -93,11 +93,11 @@ except Exception:
 VARSAYILAN_TICKERS = ["AAPL", "MSFT", "TSLA", "NVDA", "AMD", "INTC", "THYAO.IS", "FROTO.IS", "TOASO.IS"]
 
 # --- IZFIN STRATEJİ SÜRÜMÜ ---
-STRATEJI_SURUMU = "IZFIN-v1.5.4-stability-audited"
+STRATEJI_SURUMU = "IZFIN-v1.5.6-deploy-verified"
 PERFORMANS_UFUKLARI = (1, 5, 10, 20, 45)
 
 # --- IZFIN UYGULAMA SÜRÜMÜ / LOG ---
-IZFIN_APP_SURUMU = "v1.5.4 Stability Audited"
+IZFIN_APP_SURUMU = "v1.5.6 Deploy Verified"
 logger = logging.getLogger("IZFIN")
 if not logger.handlers:
     logging.basicConfig(level=logging.INFO)
@@ -1904,7 +1904,7 @@ def sinyal_kayitlarini_firestore_yaz(sonuclar, teknik_paneller):
             except Exception as e:
                 izfin_hata_logla("pozisyon_kapatma", e, ticker)
 
-def legacy_mukerrer_kayitlari_temizle():
+def gecmis_mukerrer_kayitlari_temizle():
     """Mükerrerleri önce yedek koleksiyona kopyalar, sonra siler. Otomatik çalışmaz."""
     if not db or not st.session_state.user_email:
         return {"silinen":0,"yedeklenen":0,"grup":0}
@@ -1915,7 +1915,7 @@ def legacy_mukerrer_kayitlari_temizle():
             v=doc.to_dict() or {}
             if v.get("yon")=="ALIM": docs.append((doc.id,v))
     except Exception as e:
-        izfin_hata_logla("legacy_temizlik_okuma",e); return {"silinen":0,"yedeklenen":0,"grup":0}
+        izfin_hata_logla("gecmis_kayit_temizlik_okuma",e); return {"silinen":0,"yedeklenen":0,"grup":0}
     gruplar={}
     for doc_id,v in docs:
         ticker=str(v.get("ticker","")).strip().upper(); durum=str(v.get("durum","ACIK") or "ACIK").upper()
@@ -1940,13 +1940,13 @@ def legacy_mukerrer_kayitlari_temizle():
             if doc_id==keep_id: continue
             try:
                 backup_id=f"{doc_id}_{datetime.now().strftime('%Y%m%d%H%M%S%f')}"
-                db.collection("sinyal_arsivi_temizlik_yedegi").document(backup_id).set({**v,"orijinal_doc_id":doc_id,"temizlik_zamani":datetime.now().isoformat(),"temizlik_nedeni":"legacy_mukerrer","korunan_doc_id":keep_id})
+                db.collection("sinyal_arsivi_temizlik_yedegi").document(backup_id).set({**v,"orijinal_doc_id":doc_id,"temizlik_zamani":datetime.now().isoformat(),"temizlik_nedeni":"gecmis_mukerrer_kayit","korunan_doc_id":keep_id})
                 yedeklenen+=1; db.collection("sinyal_arsivi").document(doc_id).delete(); silinen+=1
-            except Exception as e: izfin_hata_logla("legacy_temizlik_silme",e,ticker)
+            except Exception as e: izfin_hata_logla("gecmis_kayit_temizlik_silme",e,ticker)
         if key[0]=="ACIK":
             try:
                 aktif_id=f"{email_key}_{ticker.replace('.', '_')}"; db.collection("aktif_sinyaller").document(aktif_id).set({"arsiv_doc_id":keep_id,"durum":"ACIK"},merge=True)
-            except Exception as e: izfin_hata_logla("legacy_temizlik_aktif_bag",e,ticker)
+            except Exception as e: izfin_hata_logla("gecmis_kayit_temizlik_aktif_bag",e,ticker)
     return {"silinen":silinen,"yedeklenen":yedeklenen,"grup":grup_sayisi}
 
 @st.cache_data(ttl=300, show_spinner=False)
@@ -2001,7 +2001,7 @@ def performans_cache_gecersiz_kil():
 
 
 def _guvenli_dict(deger):
-    """Firestore/Pandas legacy alanını güvenli sözlüğe dönüştürür."""
+    """Firestore/Pandas geçmiş kayıt alanını güvenli sözlüğe dönüştürür."""
     if isinstance(deger, dict):
         return deger
     # NaN, None, string, list vb. eski tipleri boş sözlük kabul et.
@@ -2306,10 +2306,6 @@ def performans_karnelerini_guncelle(kayitlar):
             update["max_yukselis_45g"] = kayit["max_yukselis_45g"]
             update["max_dusus_45g"] = kayit["max_dusus_45g"]
 
-        # Eski kayıtlara sürüm uydurmayız; geçmiş metodolojiyi dürüstçe legacy tutarız.
-        if not kayit.get("strategy_version"):
-            update["strategy_version"] = "legacy"
-
         try:
             db.collection("sinyal_arsivi").document(doc_id).set(update, merge=True)
             kayit.update(update)
@@ -2352,12 +2348,22 @@ def performans_karnesi_ozeti(kayitlar, gun=20):
             continue
         gorulen_donemler.add(donem_anahtar)
 
+        ilk_sinyal = k.get("ilk_sinyal") or k.get("sinyal") or "Kayıtlı alım"
+        strateji_surumu = k.get("strategy_version") or ""
+        ilk_hibrit = k.get("ilk_hibrit_skor")
+        if ilk_hibrit is None:
+            ilk_hibrit = k.get("hibrit_skor")
+        ilk_giris = k.get("ilk_giris_kalitesi")
+        if ilk_giris is None:
+            ilk_giris = k.get("tetik_puani")
+
         satirlar.append({
             "ticker": k.get("ticker"),
-            "sinyal": k.get("ilk_sinyal", k.get("sinyal", "-")),
-            "strategy_version": k.get("strategy_version", "legacy"),
-            "hibrit_skor": k.get("ilk_hibrit_skor"),
-            "giris_kalitesi": k.get("ilk_giris_kalitesi"),
+            "sinyal_tarihi": pd.to_datetime(k.get("olusturma_zamani"), errors="coerce"),
+            "sinyal": ilk_sinyal,
+            "strategy_version": strateji_surumu,
+            "hibrit_skor": ilk_hibrit,
+            "giris_kalitesi": ilk_giris,
             "peg": k.get("ilk_peg"),
             "getiri": getiri,
             "benchmark_getiri": _guvenli_float(ufuk.get("benchmark_getiri")),
@@ -2529,6 +2535,7 @@ def hisse_sil_callback():
 
 st.title("📈 IZFIN")
 st.markdown("**Fırsatın izini sür.**")
+st.caption(f"Sistem sürümü: {IZFIN_APP_SURUMU}")
 st.markdown("---")
 
 with st.expander("📘 Nasıl Kullanılır? — Tablo, skorlar, sinyaller ve risk yönetimi", expanded=False):
@@ -2635,6 +2642,7 @@ Gelişmiş bonus ve cezalar sınırlandırılır; böylece yeni katman eski skor
     st.warning("Bu uygulama algoritmik teknik analiz ve karar desteği sağlar; yatırım tavsiyesi, kesin getiri veya zarar etmeme garantisi değildir. Haber, bilanço, makro gelişme, likidite ve piyasa boşlukları teknik seviyeleri geçersiz kılabilir.")
 
 st.sidebar.header("⚙️ Kontrol Paneli")
+st.sidebar.caption(f"Çalışan sürüm: {IZFIN_APP_SURUMU}")
 
 if not FINNHUB_API_KEY:
     st.sidebar.warning("Finnhub anahtarı bulunamadı. Yahoo fallback ile çalışılıyor.")
@@ -3252,12 +3260,12 @@ with tab2:
                 "Sinyal kaybolursa pozisyon kapanır. Aynı hissede daha sonra yeniden alım oluşursa yeni dönem başlatılır."
             )
 
-        with st.expander("🧹 Legacy kayıt bakımı", expanded=False):
+        with st.expander("🧹 Geçmiş kayıt bakımı", expanded=False):
             st.caption("Eski sürümlerin oluşturduğu gerçek mükerrer Firestore belgelerini temizler. Silmeden önce her belge sinyal_arsivi_temizlik_yedegi koleksiyonuna kopyalanır.")
-            temizlik_onay = st.checkbox("Yedek alındıktan sonra mükerrer kayıtların silinmesini onaylıyorum.", key="legacy_temizlik_onay")
+            temizlik_onay = st.checkbox("Yedek alındıktan sonra mükerrer kayıtların silinmesini onaylıyorum.", key="gecmis_kayit_temizlik_onay")
             if st.button("🧹 Mükerrerleri Yedekle ve Temizle", disabled=not temizlik_onay):
-                with st.spinner("Legacy kayıtlar kontrol ediliyor..."):
-                    temiz_ozet = legacy_mukerrer_kayitlari_temizle()
+                with st.spinner("Geçmiş kayıtlar kontrol ediliyor..."):
+                    temiz_ozet = gecmis_mukerrer_kayitlari_temizle()
                     performans_cache_gecersiz_kil()
                 st.success(f"Temizlik tamamlandı: {temiz_ozet['grup']} mükerrer grup · {temiz_ozet['yedeklenen']} yedek · {temiz_ozet['silinen']} silinen belge.")
 
@@ -3486,10 +3494,10 @@ with tab2:
                     max_dusus = pd.to_numeric(
                         kapali_df.get("donem_max_dusus", pd.Series(np.nan, index=kapali_df.index)), errors="coerce"
                     )
-                    legacy_max = kapali_df.apply(lambda r: _ufuk_extreme(r, "max"), axis=1)
-                    legacy_min = kapali_df.apply(lambda r: _ufuk_extreme(r, "min"), axis=1)
-                    max_kar = max_kar.where(max_kar.notna(), legacy_max)
-                    max_dusus = max_dusus.where(max_dusus.notna(), legacy_min)
+                    eski_max = kapali_df.apply(lambda r: _ufuk_extreme(r, "max"), axis=1)
+                    eski_min = kapali_df.apply(lambda r: _ufuk_extreme(r, "min"), axis=1)
+                    max_kar = max_kar.where(max_kar.notna(), eski_max)
+                    max_dusus = max_dusus.where(max_dusus.notna(), eski_min)
 
                     kapanmis_gorunum = pd.DataFrame({
                         "İlk Alım Tarihi": kapali_df["_tarih"].dt.strftime("%d.%m.%Y %H:%M"),
@@ -3523,7 +3531,7 @@ with tab2:
                         "Aynı hissede alım sinyali sona erip daha sonra yeniden oluşursa yeni dönem aktif tabloda açılır; "
                         "önceki dönem burada saklanır. Maksimum kâr/düşüş ve TP sütunları, ilgili alım dönemi için "
                         "yeterli karne/hedef verisi varsa gösterilir. Yeni kayıtlarda maksimum kâr/düşüş ve hedef hitleri yalnızca pozisyonun açık kaldığı dönemden hesaplanır. "
-                        "Aynı günlük mum içinde hem stop hem hedef görülmüşse gün içi gerçekleşme sırası bu günlük ölçümden belirlenemez. Eski legacy kayıtlarda '—' normaldir."
+                        "Aynı günlük mum içinde hem stop hem hedef görülmüşse gün içi gerçekleşme sırası bu günlük ölçümden belirlenemez. Önceki sürümlerde eksik ölçümler '—' olarak gösterilir."
                     )
 
 
@@ -3575,29 +3583,70 @@ with tab2:
                 if np.isfinite(medyan_alfa):
                     st.caption(f"Medyan göreceli performans (alfa): %{medyan_alfa:+.2f}")
 
-                gorunum = karne_df.copy()
-                gorunum["getiri"] = pd.to_numeric(gorunum["getiri"], errors="coerce")
-                gorunum["alfa"] = pd.to_numeric(gorunum["alfa"], errors="coerce")
-                gorunum = gorunum.sort_values("getiri", ascending=False)
-                gorunum = gorunum.rename(columns={
-                    "ticker": "Varlık",
-                    "sinyal": "İlk Sinyal",
-                    "strategy_version": "Sürüm",
-                    "hibrit_skor": "İlk Hibrit",
-                    "giris_kalitesi": "İlk Giriş",
-                    "getiri": f"+{ufuk_secimi}G Getiri %",
-                    "alfa": "Benchmark Farkı %",
-                })
-                gcols = ["Varlık", "İlk Sinyal", "Sürüm", "İlk Hibrit", "İlk Giriş",
-                         f"+{ufuk_secimi}G Getiri %", "Benchmark Farkı %"]
+                # Ana karne olay değil varlık bazında gösterilir. Böylece aynı hissedeki
+                # farklı gerçek sinyal dönemleri kopya satır gibi görünmez; eksik eski
+                # eksik geçmiş metadata da kullanıcıya ham değer olarak yansımaz.
+                detay_karne = karne_df.copy()
+                detay_karne["getiri"] = pd.to_numeric(detay_karne["getiri"], errors="coerce")
+                detay_karne["alfa"] = pd.to_numeric(detay_karne["alfa"], errors="coerce")
+
+                gorunum = (
+                    detay_karne.groupby("ticker", dropna=False)
+                    .agg(
+                        **{
+                            "Sinyal Sayısı": ("getiri", "size"),
+                            "Başarı Oranı %": ("getiri", lambda x: float((x > 0).mean() * 100)),
+                            f"+{ufuk_secimi}G Medyan Getiri %": ("getiri", "median"),
+                            "Medyan Benchmark Farkı %": ("alfa", "median"),
+                        }
+                    )
+                    .reset_index()
+                    .rename(columns={"ticker": "Varlık"})
+                    .sort_values(f"+{ufuk_secimi}G Medyan Getiri %", ascending=False)
+                )
+
                 st.dataframe(
-                    gorunum[[c for c in gcols if c in gorunum.columns]].style.format({
-                        f"+{ufuk_secimi}G Getiri %": "{:+.2f}%",
-                        "Benchmark Farkı %": "{:+.2f}%",
+                    gorunum.style.format({
+                        "Sinyal Sayısı": "{:.0f}",
+                        "Başarı Oranı %": "{:.1f}%",
+                        f"+{ufuk_secimi}G Medyan Getiri %": "{:+.2f}%",
+                        "Medyan Benchmark Farkı %": "{:+.2f}%",
                     }, na_rep="—"),
                     use_container_width=True,
                     hide_index=True,
                 )
+
+                with st.expander("Ölçüm dönemlerini göster", expanded=False):
+                    detay = detay_karne.copy()
+                    detay["sinyal_tarihi"] = pd.to_datetime(
+                        detay["sinyal_tarihi"], errors="coerce"
+                    ).dt.strftime("%d.%m.%Y")
+                    detay = detay.rename(columns={
+                        "ticker": "Varlık",
+                        "sinyal_tarihi": "Sinyal Tarihi",
+                        "sinyal": "Sinyal",
+                        "getiri": f"+{ufuk_secimi}G Getiri %",
+                        "alfa": "Benchmark Farkı %",
+                    })
+                    detay_kolonlari = [
+                        "Varlık", "Sinyal Tarihi", "Sinyal",
+                        f"+{ufuk_secimi}G Getiri %", "Benchmark Farkı %"
+                    ]
+                    # Tamamı eksik olan tarih/sinyal alanlarını boş sütun olarak gösterme.
+                    detay_kolonlari = [
+                        c for c in detay_kolonlari
+                        if c in detay.columns and not detay[c].isna().all()
+                    ]
+                    st.dataframe(
+                        detay[detay_kolonlari].sort_values(
+                            f"+{ufuk_secimi}G Getiri %", ascending=False
+                        ).style.format({
+                            f"+{ufuk_secimi}G Getiri %": "{:+.2f}%",
+                            "Benchmark Farkı %": "{:+.2f}%",
+                        }, na_rep="—"),
+                        use_container_width=True,
+                        hide_index=True,
+                    )
 
                 if len(karne_df) < 30:
                     st.warning(
