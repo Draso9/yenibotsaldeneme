@@ -93,11 +93,11 @@ except Exception:
 VARSAYILAN_TICKERS = ["AAPL", "MSFT", "TSLA", "NVDA", "AMD", "INTC", "THYAO.IS", "FROTO.IS", "TOASO.IS"]
 
 # --- IZFIN STRATEJİ SÜRÜMÜ ---
-STRATEJI_SURUMU = "IZFIN-v1.3.3-central-decision-audited"
+STRATEJI_SURUMU = "IZFIN-v1.5.4-stability-audited"
 PERFORMANS_UFUKLARI = (1, 5, 10, 20, 45)
 
 # --- IZFIN UYGULAMA SÜRÜMÜ / LOG ---
-IZFIN_APP_SURUMU = "v1.5.3 Central Decision Audited"
+IZFIN_APP_SURUMU = "v1.5.4 Stability Audited"
 logger = logging.getLogger("IZFIN")
 if not logger.handlers:
     logging.basicConfig(level=logging.INFO)
@@ -472,6 +472,36 @@ def toplu_veriden_ticker_ayir(toplu_df, ticker, toplam_adet):
     return pd.DataFrame()
 
 
+def gunluk_toplu_veriden_ticker_ayir(toplu_df, ticker, toplam_adet):
+    """Yahoo'nun tek/çok sembolde değişebilen kolon düzenini güvenle ayırır."""
+    return toplu_veriden_ticker_ayir(toplu_df, ticker, toplam_adet)
+
+
+def _yalnizca_kapali_mumlar(df, varsayilan_dakika=5):
+    """Son bar gerçekten oluşuyorsa çıkarır; kapanmış son barı gereksiz yere silmez."""
+    if df is None or df.empty:
+        return pd.DataFrame()
+    x = df.copy().sort_index()
+    if len(x) < 2:
+        return x.iloc[0:0]
+    try:
+        idx = pd.DatetimeIndex(pd.to_datetime(x.index))
+        farklar = idx.to_series().diff().dropna()
+        pozitif = farklar[farklar > pd.Timedelta(0)]
+        bar_suresi = pozitif.tail(20).median() if not pozitif.empty else pd.Timedelta(minutes=varsayilan_dakika)
+        if pd.isna(bar_suresi) or bar_suresi <= pd.Timedelta(0):
+            bar_suresi = pd.Timedelta(minutes=varsayilan_dakika)
+        son = idx[-1]
+        simdi = pd.Timestamp.now(tz=son.tz) if son.tz is not None else pd.Timestamp.now()
+        # Küçük veri gecikmelerini tolere et; yalnızca halen oluşan barı dışarıda bırak.
+        if simdi < son + bar_suresi + pd.Timedelta(seconds=10):
+            return x.iloc[:-1].copy()
+    except Exception:
+        # Zaman bilgisi yorumlanamazsa ileriye bakış riskine karşı muhafazakâr davran.
+        return x.iloc[:-1].copy()
+    return x
+
+
 def finnhub_quotelari_paralel_cek(tickers, max_workers=6):
     """ABD hisselerinin quote verisini paralel çeker; BIST Yahoo ile devam eder."""
     abd = [t for t in tickers if not str(t).endswith('.IS')]
@@ -576,8 +606,9 @@ def tetik_puani_hesapla(intraday, uzun_vade_trend):
     if len(df) < 24:
         return bos
 
-    # Son mum aktif/oluşuyor kabul edilerek dışarıda bırakılır.
-    kapali = df.iloc[:-1].copy()
+    # Yalnızca gerçekten oluşmakta olan son mum dışarıda bırakılır. Piyasa kapalıyken
+    # tamamlanmış son mumu silmek, giriş motorunu bir bar geriden çalıştırıyordu.
+    kapali = _yalnizca_kapali_mumlar(df)
     if len(kapali) < 22:
         return bos
 
@@ -1768,8 +1799,14 @@ def sinyal_kayitlarini_firestore_yaz(sonuclar, teknik_paneller):
             }
 
             if aktif_mi and arsiv_doc_id:
-                # İlk giriş bilgileri değiştirilmez. Sinyal aynıysa yalnızca fiyat ve
-                # teknik seviyeler güncellenir; sinyal değişirse değişim bilgisi eklenir.
+                # İlk giriş bilgileri değiştirilmez. Firestore maliyetini ve gereksiz
+                # belge sürümlerini azaltmak için aynı sinyal devam ederken yazma yapma.
+                # Canlı fiyat, tarama panelinden; kalıcı performans fiyatı ise ilgili
+                # kullanıcı düğmesinden ayrıca güncellenir.
+                if onceki_sinyal == sinyal:
+                    continue
+
+                # Sinyal gerçekten değiştiğinde güncel teknik bağlamı kaydet.
                 arsiv_guncelleme = dict(ortak_guncel)
                 aktif_guncelleme = {
                     "user_email": email,
@@ -1779,14 +1816,13 @@ def sinyal_kayitlarini_firestore_yaz(sonuclar, teknik_paneller):
                     "arsiv_doc_id": arsiv_doc_id,
                     "guncelleme_zamani": simdi.isoformat(),
                 }
-                if onceki_sinyal != sinyal:
-                    degisim_sayisi = int(aktif.get("sinyal_degisim_sayisi", 0) or 0) + 1
-                    arsiv_guncelleme.update({
-                        "onceki_sinyal": onceki_sinyal,
-                        "son_sinyal_degisim_zamani": simdi.isoformat(),
-                        "sinyal_degisim_sayisi": degisim_sayisi,
-                    })
-                    aktif_guncelleme["sinyal_degisim_sayisi"] = degisim_sayisi
+                degisim_sayisi = int(aktif.get("sinyal_degisim_sayisi", 0) or 0) + 1
+                arsiv_guncelleme.update({
+                    "onceki_sinyal": onceki_sinyal,
+                    "son_sinyal_degisim_zamani": simdi.isoformat(),
+                    "sinyal_degisim_sayisi": degisim_sayisi,
+                })
+                aktif_guncelleme["sinyal_degisim_sayisi"] = degisim_sayisi
                 try:
                     db.collection("sinyal_arsivi").document(arsiv_doc_id).set(arsiv_guncelleme, merge=True)
                     aktif_ref.set(aktif_guncelleme, merge=True)
@@ -2680,10 +2716,9 @@ with tab1:
                 for sira, ticker in enumerate(selected_tickers, start=1):
                     ilerleme.progress((sira - 1) / toplam_ticker, text=f"{ticker} analiz ediliyor ({sira}/{toplam_ticker})")
                     try:
-                        if len(selected_tickers) == 1:
-                            df_long = toplu_df.copy()
-                        else:
-                            df_long = toplu_df[ticker].copy() if ticker in toplu_df.columns.levels[0] else pd.DataFrame()
+                        df_long = gunluk_toplu_veriden_ticker_ayir(
+                            toplu_df, ticker, len(selected_tickers)
+                        )
                         
                         if isinstance(df_long.columns, pd.MultiIndex): 
                             df_long.columns = df_long.columns.get_level_values(0)
