@@ -93,11 +93,11 @@ except Exception:
 VARSAYILAN_TICKERS = ["AAPL", "MSFT", "TSLA", "NVDA", "AMD", "INTC", "THYAO.IS", "FROTO.IS", "TOASO.IS"]
 
 # --- IZFIN STRATEJİ SÜRÜMÜ ---
-STRATEJI_SURUMU = "IZFIN-v1.5.7-mtf-closed-bars"
+STRATEJI_SURUMU = "IZFIN-v1.6.1-simplified-hierarchy"
 PERFORMANS_UFUKLARI = (1, 5, 10, 20, 45)
 
 # --- IZFIN UYGULAMA SÜRÜMÜ / LOG ---
-IZFIN_APP_SURUMU = "v1.5.7 MTF Closed-Bar Fix"
+IZFIN_APP_SURUMU = "v1.6.1 Sade Hiyerarşi"
 logger = logging.getLogger("IZFIN")
 if not logger.handlers:
     logging.basicConfig(level=logging.INFO)
@@ -1110,29 +1110,138 @@ def karar_motoru_ozeti(panel):
     return merkezi_karar_motoru(panel or {})
 
 
+def _backtest_supertrend_serisi(df, period=10, multiplier=3.0):
+    """Canlı SuperTrend mantığının tüm geçmiş için nedensel (causal) seri karşılığı."""
+    high = pd.to_numeric(df['High'], errors='coerce')
+    low = pd.to_numeric(df['Low'], errors='coerce')
+    close = pd.to_numeric(df['Close'], errors='coerce')
+    tr = pd.concat([(high-low), (high-close.shift()).abs(), (low-close.shift()).abs()], axis=1).max(axis=1)
+    atr = tr.ewm(alpha=1/period, adjust=False).mean()
+    hl2 = (high+low)/2
+    upper = hl2 + multiplier*atr
+    lower = hl2 - multiplier*atr
+    final_upper, final_lower = upper.copy(), lower.copy()
+    trend = pd.Series(1, index=df.index, dtype=int)
+    for i in range(1, len(df)):
+        final_upper.iloc[i] = upper.iloc[i] if (upper.iloc[i] < final_upper.iloc[i-1] or close.iloc[i-1] > final_upper.iloc[i-1]) else final_upper.iloc[i-1]
+        final_lower.iloc[i] = lower.iloc[i] if (lower.iloc[i] > final_lower.iloc[i-1] or close.iloc[i-1] < final_lower.iloc[i-1]) else final_lower.iloc[i-1]
+        if close.iloc[i] > final_upper.iloc[i-1]:
+            trend.iloc[i] = 1
+        elif close.iloc[i] < final_lower.iloc[i-1]:
+            trend.iloc[i] = -1
+        else:
+            trend.iloc[i] = trend.iloc[i-1]
+    return trend
+
+
+def _backtest_adx_serileri(df, period=14):
+    """ADX/+DI/-DI değerlerini tüm geçmiş için tek seferde hesaplar."""
+    high = pd.to_numeric(df['High'], errors='coerce')
+    low = pd.to_numeric(df['Low'], errors='coerce')
+    close = pd.to_numeric(df['Close'], errors='coerce')
+    up = high.diff()
+    down = -low.diff()
+    plus_dm = up.where((up > down) & (up > 0), 0.0)
+    minus_dm = down.where((down > up) & (down > 0), 0.0)
+    tr = pd.concat([(high-low), (high-close.shift()).abs(), (low-close.shift()).abs()], axis=1).max(axis=1)
+    atr = tr.ewm(alpha=1/period, adjust=False).mean()
+    plus_di = 100 * plus_dm.ewm(alpha=1/period, adjust=False).mean() / (atr + 1e-9)
+    minus_di = 100 * minus_dm.ewm(alpha=1/period, adjust=False).mean() / (atr + 1e-9)
+    dx = 100 * (plus_di-minus_di).abs() / (plus_di+minus_di+1e-9)
+    adx = dx.ewm(alpha=1/period, adjust=False).mean()
+    return adx, plus_di, minus_di
+
+
+def _backtest_daily_mtf_proxy(i, c, ema9, ema21, ema50, sma200, macd, macd_signal, rsi, adx, plus_di, minus_di):
+    """Intraday geçmişi olmayan uzun dönem test için yalnızca günlük veriden zaman-ölçeği uyumu.
+
+    Bu değer canlı 5dk/15dk/1s MTF'nin yerine geçmiş intraday veri uydurmaz; günlük kısa/orta/uzun
+    trend katmanlarının aynı yöne bakıp bakmadığını 0-100 ölçeğine taşır.
+    """
+    if i < 200:
+        return 50
+    puanlar = []
+    # Kısa günlük yapı
+    p = 0
+    p += 1 if c.iloc[i] > ema21.iloc[i] else -1
+    p += 1 if ema9.iloc[i] > ema21.iloc[i] else -1
+    p += 1 if macd.iloc[i] > macd_signal.iloc[i] else -1
+    rv = float(rsi.iloc[i]) if pd.notna(rsi.iloc[i]) else 50.0
+    p += 1 if 50 <= rv <= 70 else (-1 if rv < 40 or rv > 75 else 0)
+    puanlar.append(p)
+    # Orta vadeli günlük yapı
+    p = 0
+    p += 1 if c.iloc[i] > ema50.iloc[i] else -1
+    p += 1 if ema21.iloc[i] > ema50.iloc[i] else -1
+    p += 1 if macd.iloc[i] > macd_signal.iloc[i] else -1
+    p += 1 if (adx.iloc[i] >= 20 and plus_di.iloc[i] >= minus_di.iloc[i]) else -1
+    puanlar.append(p)
+    # Uzun vadeli günlük yapı
+    p = 0
+    p += 1 if c.iloc[i] > sma200.iloc[i] else -1
+    p += 1 if ema50.iloc[i] > sma200.iloc[i] else -1
+    p += 1 if i >= 20 and c.iloc[i] > c.iloc[i-20] else -1
+    p += 1 if plus_di.iloc[i] >= minus_di.iloc[i] else -1
+    puanlar.append(p)
+    net = sum(puanlar)
+    return int(max(0, min(100, round(50 + 50 * net / 12))))
+
+
+def _backtest_giris_proxy(on_sinyal, skor, hacim_oran, ema9_gt_ema21, macd_gt_signal,
+                          adx, cmf, supertrend, rsi, mfi):
+    """Uzun dönem günlük testte intraday giriş puanı yerine kullanılan açıkça etiketli proxy.
+
+    Amaç 5dk veri varmış gibi davranmak değil; günlük adayın ne kadar olgun olduğunu aynı 0-100
+    ölçeğinde yaklaşıklaştırmaktır. Canlı uygulamadaki gerçek giriş motorunun yerine geçmez.
+    """
+    s = str(on_sinyal).upper()
+    if not any(x in s for x in ['ALIM', 'KIRILIM', 'ADAY']):
+        return 0
+    if 'KIRILIM' in s:
+        puan = 60
+    elif 'KUSURSUZ ALIM' in s:
+        puan = 55
+    elif 'KADEMELİ ALIM' in s:
+        puan = 50
+    else:
+        puan = 45
+    if skor >= 70: puan += 8
+    if skor >= 80: puan += 4
+    if hacim_oran >= 120: puan += 7
+    if hacim_oran >= 150: puan += 3
+    if ema9_gt_ema21: puan += 6
+    if macd_gt_signal: puan += 6
+    if adx >= 25: puan += 6
+    elif adx < 18: puan -= 5
+    if cmf > 0.05: puan += 5
+    elif cmf < -0.05: puan -= 5
+    if supertrend == 1: puan += 5
+    else: puan -= 5
+    if 35 <= rsi <= 68: puan += 4
+    if mfi < 30: puan -= 3
+    return int(max(0, min(100, puan)))
+
+
 @st.cache_data(ttl=3600, show_spinner=False)
 def basit_backtest(ticker, period='5y'):
-    """Günlük veride iki farklı şeyi birlikte ölçer.
+    """IZFIN Daily Core geçmiş doğrulaması.
 
-    1) Sinyal kalitesi: girişten 5/10/20/45 işlem günü sonraki sabit ufuk getirileri.
-    2) Basitleştirilmiş işlem sonucu: sinyal anında dondurulan ilk Stop ve TP1'den
-       hangisinin sonraki 45 işlem günü içinde önce görüldüğü.
+    Her geçmiş günde yalnızca o gün ve öncesindeki bilgi kullanılarak canlı sistemin günlük
+    çekirdeğine mümkün olduğunca aynı analiz zinciri uygulanır: hibrit skor, ADX/DI, CMF,
+    SuperTrend, volatilite/risk, teknik profil, algoritma güveni ve merkezi karar motoru.
 
-    Sinyal üretiminde gelecek veri kullanılmaz. Aynı gün hem Stop hem TP1 görülürse
-    günlük OHLC sıralamayı gösteremediği için muhafazakâr biçimde Stop önce kabul edilir.
+    Uzun dönem 5dk/15dk/1s geçmişi bulunmadığı için canlı intraday Giriş Motoru ve seans VWAP'ı
+    birebir geriye yürütülmez. Bunların yerine geçmiş veri uydurulmaz; günlük ölçekten türetilen
+    'Daily MTF' ve 'Giriş Proxy' açıkça ayrı alanlar olarak kullanılır.
     """
     try:
         df = yf.download(
-            ticker,
-            period=period,
-            progress=False,
-            auto_adjust=True,
-                        threads=False,
-            timeout=10,
+            ticker, period=period, progress=False, auto_adjust=True,
+            threads=False, timeout=10,
         )
-        df = _normalize_yf_columns(df).dropna(subset=['Close','High','Low','Volume'])
+        df = _normalize_yf_columns(df).dropna(subset=['Close','High','Low','Volume']).copy()
     except Exception as e:
-        izfin_hata_logla("backtest_veri", e, ticker)
+        izfin_hata_logla('backtest_veri', e, ticker)
         return pd.DataFrame(), {}
 
     if len(df) < 260:
@@ -1141,177 +1250,249 @@ def basit_backtest(ticker, period='5y'):
     c = pd.to_numeric(df['Close'], errors='coerce')
     h = pd.to_numeric(df['High'], errors='coerce')
     l = pd.to_numeric(df['Low'], errors='coerce')
-    v = pd.to_numeric(df['Volume'], errors='coerce')
+    v = pd.to_numeric(df['Volume'], errors='coerce').fillna(0)
 
+    ema9 = c.ewm(span=9, adjust=False).mean()
+    ema21 = c.ewm(span=21, adjust=False).mean()
     ema50 = c.ewm(span=50, adjust=False).mean()
     sma200 = c.rolling(200).mean()
-    rsi = _rsi_serisi(c)
+    rsi_ser = _rsi_serisi(c)
     macd = c.ewm(span=12, adjust=False).mean() - c.ewm(span=26, adjust=False).mean()
-    ms = macd.ewm(span=9, adjust=False).mean()
-    bbm = c.rolling(20).mean()
-    bbs = c.rolling(20).std()
-    bbl = bbm - 2 * bbs
-    bbu = bbm + 2 * bbs
-    volr = v / (v.rolling(20).mean() + 1e-9)
-    prev_high = h.shift(1).rolling(50).max()
+    macd_signal = macd.ewm(span=9, adjust=False).mean()
+    bb_mid = c.rolling(20).mean()
+    bb_std = c.rolling(20).std()
+    bb_alt = bb_mid - 2 * bb_std
+    bb_ust = bb_mid + 2 * bb_std
+    hacim_sma20 = v.rolling(20, min_periods=5).mean()
+    hacim_oran_ser = v / (hacim_sma20 + 1e-9) * 100
 
-    # ATR ve HV yalnızca o gün ve geçmiş veriden.
+    typical = (h + l + c) / 3
+    raw_flow = typical * v
+    pos_flow = pd.Series(np.where(typical > typical.shift(1), raw_flow, 0.0), index=df.index)
+    neg_flow = pd.Series(np.where(typical < typical.shift(1), raw_flow, 0.0), index=df.index)
+    mfi_ser = 100 - (100 / (1 + pos_flow.rolling(14).sum() / (neg_flow.rolling(14).sum() + 1e-5)))
+
+    obv = pd.Series(np.where(c > c.shift(1), v, np.where(c < c.shift(1), -v, 0.0)), index=df.index).cumsum()
+    obv_ema = obv.ewm(span=20, adjust=False).mean()
+
+    adx_ser, plus_di_ser, minus_di_ser = _backtest_adx_serileri(df)
+    denom = (h-l).replace(0, np.nan)
+    mfm = ((c-l)-(h-c)) / denom
+    mfv = mfm.fillna(0) * v
+    cmf_ser = mfv.rolling(20).sum() / (v.rolling(20).sum() + 1e-9)
+    supertrend_ser = _backtest_supertrend_serisi(df)
+
     prev_close = c.shift(1)
-    tr = pd.concat([
-        (h - l).abs(),
-        (h - prev_close).abs(),
-        (l - prev_close).abs(),
-    ], axis=1).max(axis=1)
+    tr = pd.concat([(h-l).abs(), (h-prev_close).abs(), (l-prev_close).abs()], axis=1).max(axis=1)
     atr14 = tr.rolling(14).mean()
     log_ret = np.log(c / c.shift(1)).replace([np.inf, -np.inf], np.nan)
-    hv20_seri = log_ret.rolling(20).std(ddof=1) * np.sqrt(252)
-
-    kosul_break = (c >= prev_high) & (volr >= 1.2) & (c > sma200) & (macd > ms)
-    kosul_kus = (c <= bbl) & (rsi <= 35) & (c > sma200)
-    kosul_kad = (rsi <= 40) & (c > sma200) & (c <= bbm)
-    kosul_aday = (c > sma200) & (c > ema50) & (macd > ms) & (rsi.between(40, 68))
-    sinyal = np.select(
-        [kosul_break, kosul_kus, kosul_kad, kosul_aday],
-        ['YÜKSELİŞ KIRILIMI', 'KUSURSUZ ALIM', 'KADEMELİ ALIM', 'UZUN VADELİ ADAY'],
-        ''
-    )
+    hv20_ser = log_ret.rolling(20).std(ddof=1) * np.sqrt(252)
 
     rows = []
-    sonraki_yeni_giris = 200  # göstergelerin olgunlaşması için
-    sinyal_idx = np.where(sinyal != '')[0]
+    sonraki_yeni_giris = 200
+    is_bist = str(ticker).upper().endswith('.IS')
 
-    for i in sinyal_idx:
+    # İlk 200 gün gösterge olgunlaşması içindir; son 5 gün sabit ufuk için korunur.
+    for i in range(200, len(df) - 5):
         if i < sonraki_yeni_giris:
             continue
-        if i + 5 >= len(df):
+        if any(pd.isna(x) for x in [sma200.iloc[i], ema50.iloc[i], bb_mid.iloc[i], bb_ust.iloc[i], bb_alt.iloc[i], atr14.iloc[i]]):
             continue
 
-        giris = float(c.iloc[i])
-        atr = float(atr14.iloc[i]) if pd.notna(atr14.iloc[i]) else np.nan
-        if not np.isfinite(atr) or atr <= 0 or giris <= 0:
-            continue
+        fiyat = float(c.iloc[i])
+        onceki = float(c.iloc[i-1]) if i > 0 else fiyat
+        gunluk_degisim = ((fiyat / onceki) - 1) * 100 if onceki > 0 else 0.0
+        hacim_oran = float(hacim_oran_ser.iloc[i]) if pd.notna(hacim_oran_ser.iloc[i]) else 100.0
+        rsi = float(rsi_ser.iloc[i]) if pd.notna(rsi_ser.iloc[i]) else 50.0
+        mfi = float(mfi_ser.iloc[i]) if pd.notna(mfi_ser.iloc[i]) else 50.0
+        adx = float(adx_ser.iloc[i]) if pd.notna(adx_ser.iloc[i]) else 0.0
+        plus_di = float(plus_di_ser.iloc[i]) if pd.notna(plus_di_ser.iloc[i]) else 0.0
+        minus_di = float(minus_di_ser.iloc[i]) if pd.notna(minus_di_ser.iloc[i]) else 0.0
+        cmf = float(cmf_ser.iloc[i]) if pd.notna(cmf_ser.iloc[i]) else 0.0
+        supertrend = int(supertrend_ser.iloc[i])
+        atr = float(atr14.iloc[i])
+        hv20 = float(hv20_ser.iloc[i]) if pd.notna(hv20_ser.iloc[i]) and hv20_ser.iloc[i] > 0 else float((atr/fiyat)*np.sqrt(252))
+        uzun_vade_trend = fiyat > float(sma200.iloc[i])
+        hacim_patlamasi = hacim_oran >= 130 and gunluk_degisim >= 4.0
+        ort_ciro = float(hacim_sma20.iloc[i] * fiyat) if pd.notna(hacim_sma20.iloc[i]) else 0.0
+        is_sig_tahta = ort_ciro < (50_000_000 if is_bist else 5_000_000)
 
-        ema50_i = float(ema50.iloc[i])
-        bb_alt_i = float(bbl.iloc[i])
-        bb_mid_i = float(bbm.iloc[i])
-        bb_ust_i = float(bbu.iloc[i])
-        hv20_i = float(hv20_seri.iloc[i]) if pd.notna(hv20_seri.iloc[i]) else float((atr / giris) * np.sqrt(252))
+        # Canlı hibrit skorun aynı günlük bileşenleri.
+        eski_skor = 50
+        eski_skor += 15 if uzun_vade_trend else (-5 if hacim_patlamasi else -25)
+        eski_skor += 10 if fiyat > float(ema50.iloc[i]) else -15
+        eski_skor += 15 if (hacim_oran >= 100 and obv.iloc[i] > obv_ema.iloc[i]) else -20
+        if 35 <= rsi <= 55:
+            eski_skor += 10
+        elif rsi > 70:
+            eski_skor -= 15
+        eski_skor += 10 if macd.iloc[i] > macd_signal.iloc[i] else -10
+        if fiyat <= float(bb_mid.iloc[i]):
+            eski_skor += 10
+        elif fiyat >= float(bb_ust.iloc[i]) and rsi >= 65:
+            eski_skor -= 15
+        if is_sig_tahta:
+            eski_skor -= 20
+        eski_skor = int(max(0, min(100, eski_skor)))
 
-        # Seviye fonksiyonuna yalnızca i gününe kadar olan geçmiş veriyi ver.
-        hist = df.iloc[:i + 1].copy()
-        seviyeler = teknik_seviyeler_hesapla(
-            hist, giris, atr, ema50_i, bb_alt_i, bb_mid_i, bb_ust_i, hv20_i
+        mtf_uyum = _backtest_daily_mtf_proxy(
+            i, c, ema9, ema21, ema50, sma200, macd, macd_signal, rsi_ser,
+            adx_ser, plus_di_ser, minus_di_ser,
         )
-        tp1 = float(seviyeler['tp1'])
-        tp2 = float(seviyeler['tp2'])
-        tp3 = float(seviyeler['tp3'])
+        bonus = ceza = 0
+        if adx >= 25 and plus_di > minus_di: bonus += 6
+        elif adx < 18: ceza += 4
+        if cmf > 0.05: bonus += 5
+        elif cmf < -0.05: ceza += 5
+        if supertrend == 1: bonus += 4
+        else: ceza += 4
+        mtf_etki = int(round((mtf_uyum - 50) * 0.10))
+        if mtf_etki > 0: bonus += mtf_etki
+        elif mtf_etki < 0: ceza += abs(mtf_etki)
+        # Seans VWAP ve geçmiş tarihli sektör referansı uzun dönem veri setinde yok:
+        # bu iki alan nötrdür; veri uydurulmaz.
+        bonus = min(bonus, 15)
+        ceza = min(ceza, 15)
+        skor = int(max(0, min(100, eski_skor + bonus - ceza)))
 
-        gecmis_df = df.iloc[:i + 1]
+        hist = df.iloc[:i+1].copy()
+        gecmis = df.iloc[:i] if i > 0 else hist
+        swing_high = float(pd.to_numeric(gecmis['High'], errors='coerce').tail(50).max())
+        swing_low = float(pd.to_numeric(gecmis['Low'], errors='coerce').tail(50).min())
+        seviyeler = teknik_seviyeler_hesapla(
+            hist, fiyat, atr, float(ema50.iloc[i]), float(bb_alt.iloc[i]),
+            float(bb_mid.iloc[i]), float(bb_ust.iloc[i]), hv20,
+        )
         karma_destek = float(seviyeler['s1'])
-        chandelier_stop = float(gecmis_df['High'].tail(22).max()) - (atr * 3)
-        stop_adaylari = [
-            x for x in [
-                chandelier_stop,
-                giris - (atr * 1.5),
-                karma_destek - (atr * 0.25),
-            ]
-            if pd.notna(x) and float(x) < giris
-        ]
-        stop = max(stop_adaylari, default=giris - (atr * 1.5))
+        tp1, tp2, tp3 = float(seviyeler['tp1']), float(seviyeler['tp2']), float(seviyeler['tp3'])
+        chandelier = float(pd.to_numeric(gecmis['High'], errors='coerce').tail(22).max()) - atr*3
+        stop_adaylari = [x for x in [chandelier, fiyat-atr*1.5, karma_destek-atr*0.25] if pd.notna(x) and x < fiyat]
+        stop = max(stop_adaylari, default=fiyat-atr*1.5)
+        risk_yuzde = (fiyat-stop) / max(fiyat, 1e-9) * 100
+        risk_seviyesi = 'YÜKSEK' if risk_yuzde > 7 or adx < 18 else ('DÜŞÜK' if risk_yuzde < 3.5 and adx >= 25 else 'ORTA')
+        vol_rejimi = volatilite_rejimi(fiyat, atr, hv20)
+        risk_odul = (tp2-fiyat) / max(fiyat-stop, 1e-9)
+
+        onceki_bb_ust = float(bb_ust.shift(1).iloc[i]) if pd.notna(bb_ust.shift(1).iloc[i]) else np.nan
+        kirilim_aday = [x for x in [swing_high, onceki_bb_ust] if pd.notna(x)]
+        kirilim_ref = min(kirilim_aday, default=fiyat+atr)
+        breakout = fiyat >= kirilim_ref and hacim_oran >= 120 and ema9.iloc[i] > ema21.iloc[i] and uzun_vade_trend
+
+        on_sinyal = 'Nötr (İzle) ⚖️'
+        if breakout:
+            on_sinyal = 'YÜKSELİŞ KIRILIMI 🚀'
+        elif fiyat > float(bb_ust.iloc[i]) and rsi >= 68:
+            on_sinyal = 'MOMENTUM AŞIRI ISINDI 🟡'
+        elif fiyat <= float(bb_alt.iloc[i]) and rsi <= 35 and uzun_vade_trend and (mfi <= 40 or gunluk_degisim > 0):
+            on_sinyal = 'KUSURSUZ ALIM 🟢'
+        elif rsi <= 40 and uzun_vade_trend and fiyat <= float(bb_mid.iloc[i]) and fiyat <= (karma_destek + atr):
+            on_sinyal = 'KADEMELİ ALIM 🔵'
+        elif uzun_vade_trend and skor >= 70:
+            on_sinyal = 'UZUN VADELİ ADAY 🌟'
+        elif hacim_patlamasi and rsi < 50:
+            on_sinyal = 'HACİMLİ TEPKİ 🟡'
+        elif not uzun_vade_trend:
+            on_sinyal = 'KURTULUŞ ÇABASI 🧗' if fiyat > float(ema50.iloc[i]) else 'UZAK DUR! 🛑'
+
+        giris_proxy = _backtest_giris_proxy(
+            on_sinyal, skor, hacim_oran, bool(ema9.iloc[i] > ema21.iloc[i]),
+            bool(macd.iloc[i] > macd_signal.iloc[i]), adx, cmf, supertrend, rsi, mfi,
+        )
+        profil = nihai_karar_motoru(
+            on_sinyal, skor, giris_proxy, fiyat,
+            float(ema9.iloc[i]), float(ema21.iloc[i]), float(ema50.iloc[i]), float(sma200.iloc[i]),
+            rsi, float(macd.iloc[i]), float(macd_signal.iloc[i]), cmf, mfi,
+            float(bb_ust.iloc[i]), adx,
+        )
+        panel_ek = {
+            'fiyat': fiyat, 'adx': adx, 'plus_di': plus_di, 'minus_di': minus_di,
+            'cmf': cmf, 'supertrend': supertrend, 'vwap': np.nan, 'mtf_uyum': mtf_uyum,
+            'sektorel_fark': np.nan, 'risk_odul': risk_odul, 'risk_seviyesi': risk_seviyesi,
+        }
+        guven = sinyal_guven_skoru(panel_ek, skor)
+        karar = merkezi_karar_motoru({
+            **panel_ek,
+            'profil': profil, 'on_sinyal': on_sinyal, 'nihai_skor': skor,
+            'giris_puani': giris_proxy, 'giris_asamasi': 'DAILY_PROXY',
+            'tetik_sahte_kirilim': False, 'guven_skoru': guven,
+            'volatilite_rejimi': vol_rejimi,
+            'ema9': float(ema9.iloc[i]), 'ema21': float(ema21.iloc[i]),
+            'ema50': float(ema50.iloc[i]), 'sma200': float(sma200.iloc[i]),
+            'rsi': rsi, 'mfi': mfi, 'macd': float(macd.iloc[i]),
+            'macd_signal': float(macd_signal.iloc[i]), 'bb_ust': float(bb_ust.iloc[i]),
+        })
+
+        # Backtest işlemi yalnızca merkezi motorun alım yönlü gerçek aksiyon sınıflarında açılır.
+        if karar.get('aksiyon') not in {'GUCLU_AL', 'AL', 'ERKEN_AL'}:
+            continue
 
         row = {
             'Tarih': df.index[i],
-            'Sinyal': sinyal[i],
-            'Giriş': giris,
+            'Sinyal': karar.get('karar', 'AL'),
+            'Teknik Profil': profil,
+            'Ön Sinyal': on_sinyal,
+            'Hibrit Skor': skor,
+            'Güven %': guven,
+            'Daily MTF %': mtf_uyum,
+            'Giriş Proxy': giris_proxy,
+            'Giriş': fiyat,
             'İlk Stop': float(stop),
-            'İlk TP1': tp1,
-            'İlk TP2': tp2,
-            'İlk TP3': tp3,
+            'İlk TP1': tp1, 'İlk TP2': tp2, 'İlk TP3': tp3,
         }
-
-        # Sabit ufuklar: sinyal seçme kalitesini bağımsız ölçmeye devam eder.
         for ufuk in [5, 10, 20, 45]:
-            if i + ufuk < len(df):
-                row[f'{ufuk}G %'] = float((c.iloc[i + ufuk] / giris - 1) * 100)
-            else:
-                row[f'{ufuk}G %'] = np.nan
+            row[f'{ufuk}G %'] = float((c.iloc[i+ufuk] / fiyat - 1) * 100) if i+ufuk < len(df) else np.nan
 
-        son_i = min(i + 45, len(df) - 1)
+        son_i = min(i+45, len(df)-1)
         ilk_olay = '45G SÜRE SONU'
         cikis_i = son_i
         cikis_fiyati = float(c.iloc[son_i])
         tp1_gordu = tp2_gordu = tp3_gordu = stop_gordu = False
-        belirsiz_ayni_gun = False
-
-        for j in range(i + 1, son_i + 1):
-            gun_low = float(l.iloc[j])
-            gun_high = float(h.iloc[j])
-
+        belirsiz = False
+        for j in range(i+1, son_i+1):
+            gun_low, gun_high = float(l.iloc[j]), float(h.iloc[j])
             stop_hit = gun_low <= stop
             tp1_hit = gun_high >= tp1
-            tp2_gordu = tp2_gordu or (gun_high >= tp2)
-            tp3_gordu = tp3_gordu or (gun_high >= tp3)
+            tp2_gordu = tp2_gordu or gun_high >= tp2
+            tp3_gordu = tp3_gordu or gun_high >= tp3
             stop_gordu = stop_gordu or stop_hit
             tp1_gordu = tp1_gordu or tp1_hit
-
             if stop_hit and tp1_hit:
-                # Günlük mum sıralama vermez; iyimserlikten kaçın.
-                belirsiz_ayni_gun = True
-                ilk_olay = 'STOP (AYNI GÜN TP1 DE GÖRÜLDÜ)'
-                cikis_i = j
-                cikis_fiyati = stop
-                break
-            elif stop_hit:
-                ilk_olay = 'STOP'
-                cikis_i = j
-                cikis_fiyati = stop
-                break
-            elif tp1_hit:
-                ilk_olay = 'TP1'
-                cikis_i = j
-                cikis_fiyati = tp1
-                break
+                belirsiz = True; ilk_olay = 'STOP (AYNI GÜN TP1 DE GÖRÜLDÜ)'; cikis_i = j; cikis_fiyati = stop; break
+            if stop_hit:
+                ilk_olay = 'STOP'; cikis_i = j; cikis_fiyati = stop; break
+            if tp1_hit:
+                ilk_olay = 'TP1'; cikis_i = j; cikis_fiyati = tp1; break
 
         row.update({
-            'İlk Olay': ilk_olay,
-            'Çıkış Tarihi': df.index[cikis_i],
-            'İşlem Sonucu %': float((cikis_fiyati / giris - 1) * 100),
-            'Pozisyonda İşlem Günü': int(cikis_i - i),
-            'TP1 Gördü': bool(tp1_gordu),
-            'TP2 Gördü': bool(tp2_gordu),
-            'TP3 Gördü': bool(tp3_gordu),
-            'Stop Gördü': bool(stop_gordu),
-            'Aynı Gün Belirsiz': bool(belirsiz_ayni_gun),
+            'İlk Olay': ilk_olay, 'Çıkış Tarihi': df.index[cikis_i],
+            'İşlem Sonucu %': float((cikis_fiyati/fiyat - 1)*100),
+            'Pozisyonda İşlem Günü': int(cikis_i-i),
+            'TP1 Gördü': bool(tp1_gordu), 'TP2 Gördü': bool(tp2_gordu), 'TP3 Gördü': bool(tp3_gordu),
+            'Stop Gördü': bool(stop_gordu), 'Aynı Gün Belirsiz': bool(belirsiz),
         })
         rows.append(row)
-
-        # Aynı sinyal koşulunun peş peşe her gününü bağımsız işlem sayma.
-        # Yeni test işlemi, mevcut test işlemi kapandıktan sonraki ilk günden başlayabilir.
         sonraki_yeni_giris = cikis_i + 1
 
     out = pd.DataFrame(rows)
     if out.empty:
         return out, {}
-
     for col in ['20G %', '45G %', 'İşlem Sonucu %']:
-        if col in out:
-            out[col] = pd.to_numeric(out[col], errors='coerce')
-
-    trade_sonuclari = out['İşlem Sonucu %'].dropna()
+        out[col] = pd.to_numeric(out[col], errors='coerce')
+    trade = out['İşlem Sonucu %'].dropna()
     stats = {
         'sinyal': len(out),
-        'kazanma20': float((out['20G %'].dropna() > 0).mean() * 100) if out['20G %'].notna().any() else 0.0,
-        'ort20': float(out['20G %'].mean()),
-        'medyan20': float(out['20G %'].median()),
-        'kazanma45': float((out['45G %'].dropna() > 0).mean() * 100) if out['45G %'].notna().any() else 0.0,
+        'kazanma20': float((out['20G %'].dropna() > 0).mean()*100) if out['20G %'].notna().any() else 0.0,
+        'ort20': float(out['20G %'].mean()), 'medyan20': float(out['20G %'].median()),
+        'kazanma45': float((out['45G %'].dropna() > 0).mean()*100) if out['45G %'].notna().any() else 0.0,
         'ort45': float(out['45G %'].mean()),
-        'islem_basarisi': float((trade_sonuclari > 0).mean() * 100) if len(trade_sonuclari) else 0.0,
-        'islem_ort': float(trade_sonuclari.mean()) if len(trade_sonuclari) else 0.0,
-        'tp1_oran': float((out['İlk Olay'] == 'TP1').mean() * 100),
-        'stop_oran': float(out['İlk Olay'].astype(str).str.startswith('STOP').mean() * 100),
+        'islem_basarisi': float((trade > 0).mean()*100) if len(trade) else 0.0,
+        'islem_ort': float(trade.mean()) if len(trade) else 0.0,
+        'tp1_oran': float((out['İlk Olay'] == 'TP1').mean()*100),
+        'stop_oran': float(out['İlk Olay'].astype(str).str.startswith('STOP').mean()*100),
         'belirsiz': int(out['Aynı Gün Belirsiz'].sum()),
     }
     return out, stats
+
 
 def ogrenme_profili_olustur(kayitlar):
     if not kayitlar: return pd.DataFrame()
@@ -2647,11 +2828,11 @@ Gelişmiş bonus ve cezalar sınırlandırılır; böylece yeni katman eski skor
 - Aynı yönde yüksek korelasyonlu hisseler toplam portföy riskini büyütebilir.
 """)
 
-    st.markdown("### 7) Diğer bölümler ne işe yarar?")
+    st.markdown("### 7) Uygulama yapısı")
     st.markdown("""
-- **Sinyal Performans Takibi:** Yalnızca gerçek alım yönlü sinyallerin giriş fiyatına göre canlı performansını izler; tam backtest değildir.
-- **Akıllı Projeksiyon:** ATR ile tarihsel volatiliteyi birleştirerek yaklaşık 45 günlük hareket bandı üretir; gerçek implied volatility kullanmaz.
-- **Strateji Doğrulama / Backtest:** Bölünme/temettü etkisine göre düzeltilmiş günlük OHLC kullanır; sabit 5/10/20/45 günlük sinyal kalitesini ve ilk Stop/TP1 olayını ayrı ayrı ölçer. Günlük mumda Stop ve TP1 aynı gün görülürse sıralama bilinmediğinden Stop önce varsayılır.
+- **🚀 Analiz Merkezi:** Derin tarama, detaylı teknik analiz, şeffaf karar motoru ve isteğe bağlı projeksiyon/senaryo analizi tek akışta sunulur.
+- **📊 Takip & Performans:** Gerçekte oluşmuş alım dönemlerini, aktif/kapanmış pozisyonları ve 1/5/10/20/45 günlük performans karnesini birlikte izler.
+- **🧪 Strateji Laboratuvarı:** IZFIN Daily Core motorunu geçmiş veride yeniden çalıştırır; özet başarı ölçümleri ve geçmiş karar ayrıntıları aynı bölümde tutulur.
 - **Beta güvenliği:** Mevcut sürüm kişisel/kapalı beta oturumu içindir. Herkese açık ticari sürümden önce Firebase Auth ID token/session-cookie tabanlı gerçek kimlik doğrulama katmanına geçilmelidir.
 """)
 
@@ -2684,7 +2865,7 @@ with st.sidebar.expander("📋 Varlık Seçimi", expanded=True):
 
 tarama_tetiklendi = st.sidebar.button("🚀 Derin Taramayı Başlat", type="primary", use_container_width=True)
 
-tab1, tab2, tab3, tab4 = st.tabs(["🚀 Derin Tarama Merkezi", "📊 Sinyal Performans Takibi", "🎯 Akıllı Projeksiyon", "🧪 Strateji Doğrulama"])
+tab1, tab2, tab3 = st.tabs(["🚀 Analiz Merkezi", "📊 Takip & Performans", "🧪 Strateji Laboratuvarı"])
 
 with tab1:
     if tarama_tetiklendi:
@@ -3257,8 +3438,105 @@ with tab1:
                     else:
                         st.info("Bu varlık için teknik panel verisi bulunamadı. Derin taramayı yeniden çalıştırın.")
 
+    st.markdown("---")
+    with st.expander("🎯 Projeksiyon & Senaryo Analizi", expanded=False):
+        st.caption("Seçilen varlığın yaklaşık 45 günlük hareket bandını ve teknik senaryolarını açar; ana tarama akışını kalabalıklaştırmaz.")
+        st.subheader("🎯 Akıllı Projeksiyon Motoru")
+        st.markdown(
+            "ATR ile gerçekleşen fiyat aralığını, tarihsel volatilite ile getiri dağılımını "
+            "birleştirerek yaklaşık 45 günlük karma hareket bandı üretir."
+        )
+        
+        if not st.session_state.tarama_durumu or not st.session_state.teknik_paneller:
+            st.warning("Önce Analiz Merkezi'nde en az bir varlığı tarayın.")
+        else:
+            varliklar = list(st.session_state.teknik_paneller.keys())
+            secilen_opsiyon = st.selectbox("Projeksiyon yapılacak varlık", varliklar, key="opsiyon_varlik_secimi")
+            panel = st.session_state.teknik_paneller.get(secilen_opsiyon, {})
+            proj = opsiyon_projeksiyonu_hesapla(panel, gun=45)
+        
+            if not proj:
+                st.error("Projeksiyon için yeterli fiyat verisi bulunamadı.")
+            else:
+                st.markdown("### 📐 Model karşılaştırması")
+                o1, o2, o3, o4 = st.columns(4)
+                o1.metric("Güncel Fiyat", f"{proj['fiyat']:.2f}")
+                o2.metric("ATR Modeli", f"±{proj['atr_hareket']:.2f}", f"%{proj['atr_yuzde']:.1f}")
+                o3.metric("Volatilite Modeli", f"±{proj['volatilite_hareket']:.2f}", f"%{proj['volatilite_yuzde']:.1f}")
+                o4.metric("Karma Model", f"±{proj['karma_hareket']:.2f}", f"%{proj['karma_yuzde']:.1f}")
+        
+                b1, b2, b3 = st.columns(3)
+                b1.metric("45G Karma Bant", f"{proj['alt_1s']:.2f} / {proj['ust_1s']:.2f}")
+                b2.metric("Geniş Risk Bandı", f"{proj['alt_2s']:.2f} / {proj['ust_2s']:.2f}")
+                b3.metric("Model Güven Skoru", f"%{proj['guven_skoru']}", f"Uyum %{proj['model_uyumu']*100:.0f}")
+        
+                st.progress(proj['guven_skoru'] / 100)
+                st.caption(
+                    f"20 günlük yıllıklandırılmış volatilite: %{proj['hv20']*100:.1f} · "
+                    f"60 günlük: %{proj['hv60']*100:.1f} · Karma: %{proj['hv_karma']*100:.1f}"
+                )
+        
+                sinyal = panel.get("sinyal", "Nötr")
+                rsi_v = float(panel.get("rsi", 50))
+                macd_v = float(panel.get("macd", 0))
+                macd_s = float(panel.get("macd_signal", 0))
+                destek = float(panel.get("destek", proj['alt_1s']))
+                direnc = float(panel.get("direnc", proj['ust_1s']))
+                stop = float(panel.get("stop", proj['alt_1s']))
+                tp1 = float(panel.get("tp1", proj['ust_1s']))
+                tp2 = float(panel.get("tp2", proj['ust_2s']))
+        
+                al_col, sat_col = st.columns(2)
+                with al_col:
+                    st.markdown("### 🟢 Yükseliş / Alım Senaryosu")
+                    st.markdown(f"""**Tetik:** Fiyatın **{direnc:.2f}** direnci üzerinde kalıcılık sağlaması, RSI'ın 50 üzerine çıkması ve MACD'nin sinyal çizgisini yukarı kesmesi.
+        
+        **Teknik hedefler:** {tp1:.2f} → {tp2:.2f}
+        
+        **Karma model üst bantları:** {proj['ust_1s']:.2f} → {proj['ust_2s']:.2f}
+        
+        **Risk iptali / stop bölgesi:** {stop:.2f}""")
+                with sat_col:
+                    st.markdown("### 🔴 Düşüş / Satış Baskısı Senaryosu")
+                    st.markdown(f"""**Tetik:** Fiyatın **{destek:.2f}** desteği altında kapanması, RSI'ın 40 altına gerilemesi veya MACD negatifliğinin güçlenmesi.
+        
+        **Karma model aşağı bantları:** {proj['alt_1s']:.2f} → {proj['alt_2s']:.2f}
+        
+        **Senaryo geçersizliği:** {direnc:.2f} üzeri kalıcılık""")
+        
+                st.markdown("### 🧭 Algoritmik Yön Özeti")
+                yon = sinyal_yonu_belirle(sinyal)
+                model_farki = abs(proj['atr_yuzde'] - proj['volatilite_yuzde'])
+                if model_farki <= 3:
+                    model_yorumu = "ATR ve volatilite modelleri birbirine yakın; hareket tahmini görece tutarlı."
+                elif proj['volatilite_yuzde'] > proj['atr_yuzde']:
+                    model_yorumu = "Tarihsel volatilite, güncel ATR'den daha geniş hareket ihtimali gösteriyor; ani fiyat genişlemelerine karşı temkinli olunmalı."
+                else:
+                    model_yorumu = "Güncel ATR, tarihsel volatiliteden daha yüksek; kısa vadede olağandışı hareketlilik yaşanıyor olabilir."
+        
+                if yon == "ALIM":
+                    st.success(
+                        f"Mevcut sistem sinyali: **{sinyal}**. Yükseliş senaryosu öncelikli. "
+                        f"{model_yorumu} Güven skoru %{proj['guven_skoru']}; teyit görülmeden pozisyon büyütülmemelidir."
+                    )
+                elif yon == "SATIŞ":
+                    st.error(
+                        f"Mevcut sistem sinyali: **{sinyal}**. Sermaye koruma ve aşağı yönlü risk öncelikli. "
+                        f"{model_yorumu} Güven skoru %{proj['guven_skoru']}."
+                    )
+                else:
+                    st.info(
+                        f"Mevcut sistem sinyali: **{sinyal}**. Fiyat {destek:.2f}–{direnc:.2f} karar aralığında. "
+                        f"{model_yorumu} Kırılım yönü beklenmelidir."
+                    )
+        
+                st.caption(
+                    "Bu bölüm gerçek opsiyon zinciri veya implied volatility kullanmaz. ATR + tarihsel volatilite "
+                    "tabanlı fiyat hareketi tahminidir; güven skoru istatistiksel olasılık değil, model uyum göstergesidir."
+                )
+
 with tab2:
-    st.subheader("📊 Sinyal Performans Takibi")
+    st.subheader("📊 Takip & Performans")
     st.markdown(
         "Her hissede **ilk alım sinyali tarihi ve fiyatı sabit tutulur**. "
         "Aynı alım dönemi devam ederken sinyal türü değişse bile yeni kayıt açılmaz; "
@@ -3670,119 +3948,64 @@ with tab2:
                         "en az 30, tercihen 100+ bağımsız sinyal biriktirmek daha sağlıklıdır."
                     )
 
+
 with tab3:
-    st.subheader("🎯 Akıllı Projeksiyon Motoru")
+    st.subheader("🧪 Strateji Laboratuvarı · IZFIN Daily Core Backtest")
     st.markdown(
-        "ATR ile gerçekleşen fiyat aralığını, tarihsel volatilite ile getiri dağılımını "
-        "birleştirerek yaklaşık 45 günlük karma hareket bandı üretir."
-    )
-
-    if not st.session_state.tarama_durumu or not st.session_state.teknik_paneller:
-        st.warning("Önce Derin Tarama Merkezi'nde en az bir varlığı tarayın.")
-    else:
-        varliklar = list(st.session_state.teknik_paneller.keys())
-        secilen_opsiyon = st.selectbox("Projeksiyon yapılacak varlık", varliklar, key="opsiyon_varlik_secimi")
-        panel = st.session_state.teknik_paneller.get(secilen_opsiyon, {})
-        proj = opsiyon_projeksiyonu_hesapla(panel, gun=45)
-
-        if not proj:
-            st.error("Projeksiyon için yeterli fiyat verisi bulunamadı.")
-        else:
-            st.markdown("### 📐 Model karşılaştırması")
-            o1, o2, o3, o4 = st.columns(4)
-            o1.metric("Güncel Fiyat", f"{proj['fiyat']:.2f}")
-            o2.metric("ATR Modeli", f"±{proj['atr_hareket']:.2f}", f"%{proj['atr_yuzde']:.1f}")
-            o3.metric("Volatilite Modeli", f"±{proj['volatilite_hareket']:.2f}", f"%{proj['volatilite_yuzde']:.1f}")
-            o4.metric("Karma Model", f"±{proj['karma_hareket']:.2f}", f"%{proj['karma_yuzde']:.1f}")
-
-            b1, b2, b3 = st.columns(3)
-            b1.metric("45G Karma Bant", f"{proj['alt_1s']:.2f} / {proj['ust_1s']:.2f}")
-            b2.metric("Geniş Risk Bandı", f"{proj['alt_2s']:.2f} / {proj['ust_2s']:.2f}")
-            b3.metric("Model Güven Skoru", f"%{proj['guven_skoru']}", f"Uyum %{proj['model_uyumu']*100:.0f}")
-
-            st.progress(proj['guven_skoru'] / 100)
-            st.caption(
-                f"20 günlük yıllıklandırılmış volatilite: %{proj['hv20']*100:.1f} · "
-                f"60 günlük: %{proj['hv60']*100:.1f} · Karma: %{proj['hv_karma']*100:.1f}"
-            )
-
-            sinyal = panel.get("sinyal", "Nötr")
-            rsi_v = float(panel.get("rsi", 50))
-            macd_v = float(panel.get("macd", 0))
-            macd_s = float(panel.get("macd_signal", 0))
-            destek = float(panel.get("destek", proj['alt_1s']))
-            direnc = float(panel.get("direnc", proj['ust_1s']))
-            stop = float(panel.get("stop", proj['alt_1s']))
-            tp1 = float(panel.get("tp1", proj['ust_1s']))
-            tp2 = float(panel.get("tp2", proj['ust_2s']))
-
-            al_col, sat_col = st.columns(2)
-            with al_col:
-                st.markdown("### 🟢 Yükseliş / Alım Senaryosu")
-                st.markdown(f"""**Tetik:** Fiyatın **{direnc:.2f}** direnci üzerinde kalıcılık sağlaması, RSI'ın 50 üzerine çıkması ve MACD'nin sinyal çizgisini yukarı kesmesi.
-
-**Teknik hedefler:** {tp1:.2f} → {tp2:.2f}
-
-**Karma model üst bantları:** {proj['ust_1s']:.2f} → {proj['ust_2s']:.2f}
-
-**Risk iptali / stop bölgesi:** {stop:.2f}""")
-            with sat_col:
-                st.markdown("### 🔴 Düşüş / Satış Baskısı Senaryosu")
-                st.markdown(f"""**Tetik:** Fiyatın **{destek:.2f}** desteği altında kapanması, RSI'ın 40 altına gerilemesi veya MACD negatifliğinin güçlenmesi.
-
-**Karma model aşağı bantları:** {proj['alt_1s']:.2f} → {proj['alt_2s']:.2f}
-
-**Senaryo geçersizliği:** {direnc:.2f} üzeri kalıcılık""")
-
-            st.markdown("### 🧭 Algoritmik Yön Özeti")
-            yon = sinyal_yonu_belirle(sinyal)
-            model_farki = abs(proj['atr_yuzde'] - proj['volatilite_yuzde'])
-            if model_farki <= 3:
-                model_yorumu = "ATR ve volatilite modelleri birbirine yakın; hareket tahmini görece tutarlı."
-            elif proj['volatilite_yuzde'] > proj['atr_yuzde']:
-                model_yorumu = "Tarihsel volatilite, güncel ATR'den daha geniş hareket ihtimali gösteriyor; ani fiyat genişlemelerine karşı temkinli olunmalı."
-            else:
-                model_yorumu = "Güncel ATR, tarihsel volatiliteden daha yüksek; kısa vadede olağandışı hareketlilik yaşanıyor olabilir."
-
-            if yon == "ALIM":
-                st.success(
-                    f"Mevcut sistem sinyali: **{sinyal}**. Yükseliş senaryosu öncelikli. "
-                    f"{model_yorumu} Güven skoru %{proj['guven_skoru']}; teyit görülmeden pozisyon büyütülmemelidir."
-                )
-            elif yon == "SATIŞ":
-                st.error(
-                    f"Mevcut sistem sinyali: **{sinyal}**. Sermaye koruma ve aşağı yönlü risk öncelikli. "
-                    f"{model_yorumu} Güven skoru %{proj['guven_skoru']}."
-                )
-            else:
-                st.info(
-                    f"Mevcut sistem sinyali: **{sinyal}**. Fiyat {destek:.2f}–{direnc:.2f} karar aralığında. "
-                    f"{model_yorumu} Kırılım yönü beklenmelidir."
-                )
-
-            st.caption(
-                "Bu bölüm gerçek opsiyon zinciri veya implied volatility kullanmaz. ATR + tarihsel volatilite "
-                "tabanlı fiyat hareketi tahminidir; güven skoru istatistiksel olasılık değil, model uyum göstergesidir."
-            )
-
-
-
-with tab4:
-    st.subheader("🧪 Strateji Doğrulama ve Backtest")
-    st.markdown(
-        "İki ayrı ölçüm yapar: **sinyal kalitesi** için 5/10/20/45 işlem günü sonraki sabit getiriler; "
-        "**işlem simülasyonu** için ise sinyal anında dondurulan ilk Stop ve TP1 seviyesinden hangisinin önce görüldüğü. "
-        "Aynı sinyal koşulunun peş peşe her günü bağımsız işlem sayılmaz."
+        "Geçmişte her gün için yalnızca o güne kadar bilinen verilerle **IZFIN günlük çekirdek karar motorunu** yeniden çalıştırır. "
+        "Merkezi motor yalnızca GÜÇLÜ AL / AL / ERKEN AL dediğinde test işlemi açılır; ardından 5/10/20/45 günlük hareket ve Stop/TP sonucu ölçülür. "
+        "Uzun dönem intraday geçmişi olmadığı için 5dk/15dk/1s giriş motoru uydurulmaz; Daily MTF ve Giriş Proxy açıkça ayrı gösterilir."
     )
 
     bt_c1, bt_c2 = st.columns([2, 1])
     with bt_c1:
-        bt_ticker = st.selectbox("Test edilecek varlık", options=tum_varliklar_havuzu, key="bt_ticker")
+        # Uzun listelerde klasik selectbox yerine arama odaklı seçim kullanılır.
+        # Kullanıcı kayıtlı havuzda olmayan geçerli bir Yahoo sembolünü de doğrudan test edebilir.
+        bt_havuz = sorted(set(str(x).strip().upper() for x in tum_varliklar_havuzu if str(x).strip()))
+        bt_arama = st.text_input(
+            "Test edilecek varlığı ara",
+            value=st.session_state.get("bt_son_ticker", ""),
+            placeholder="Örn. NVDA, AAPL, THYAO.IS",
+            key="bt_ticker_arama",
+            help="Sembolü yazın. Kayıtlı varlıklarda eşleşmeler daraltılır; listede olmayan geçerli Yahoo sembolleri de test edilebilir.",
+        ).strip().upper()
+
+        bt_ticker = ""
+        if bt_arama:
+            # Önce sembolün başından eşleşenleri, sonra içinde geçenleri getir.
+            baslayanlar = [x for x in bt_havuz if x.startswith(bt_arama)]
+            icerenler = [x for x in bt_havuz if bt_arama in x and x not in baslayanlar]
+            bt_eslesmeler = (baslayanlar + icerenler)[:25]
+
+            if bt_arama in bt_havuz:
+                bt_ticker = bt_arama
+                st.caption(f"✅ Seçilen varlık: {bt_ticker}")
+            elif bt_eslesmeler:
+                bt_ticker = st.selectbox(
+                    "Eşleşen varlıklar",
+                    options=bt_eslesmeler,
+                    key="bt_ticker_eslesme",
+                    help="Aramayı daraltmak için sembolden daha fazla karakter yazabilirsiniz.",
+                )
+            else:
+                bt_ticker = bt_arama
+                st.caption(f"🔎 {bt_ticker} kayıtlı havuzda yok; geçerli bir Yahoo sembolüyse doğrudan test edilecek.")
+        else:
+            st.caption("Bir sembol yazın; örneğin NVDA veya THYAO.IS.")
+
     with bt_c2:
         bt_period = st.selectbox("Geçmiş dönem", ["3y", "5y", "10y"], index=1, key="bt_period")
 
-    if st.button("🧪 Backtest'i Çalıştır", type="primary", use_container_width=True):
-        with st.spinner("Geçmiş alım sinyalleri hesaplanıyor..."):
+    bt_calistir = st.button(
+        "🧪 Backtest'i Çalıştır",
+        type="primary",
+        use_container_width=True,
+        disabled=not bool(bt_ticker),
+    )
+
+    if bt_calistir:
+        st.session_state.bt_son_ticker = bt_ticker
+        with st.spinner("Geçmiş IZFIN Daily Core kararları yeniden hesaplanıyor..."):
             bt, stats = basit_backtest(bt_ticker, bt_period)
 
         if bt.empty:
@@ -3806,7 +4029,7 @@ with tab4:
                     "Günlük veri sıralamayı göstermediği için muhafazakâr biçimde Stop önce kabul edildi."
                 )
 
-            st.markdown("### 📌 Sinyal türlerine göre özet")
+            st.markdown("### 📌 Merkezi karar türlerine göre özet")
             ozet = (
                 bt.groupby("Sinyal")
                 .agg(
@@ -3838,11 +4061,34 @@ with tab4:
             }, na_rep="-")
             st.dataframe(ozet_stil, use_container_width=True, hide_index=True)
 
+            with st.expander("🔬 Geçmiş IZFIN kararlarını incele", expanded=False):
+                detay_kolonlar = [
+                    "Tarih", "Sinyal", "Teknik Profil", "Ön Sinyal",
+                    "Hibrit Skor", "Güven %", "Daily MTF %", "Giriş Proxy",
+                    "Giriş", "İlk Stop", "İlk TP1", "İlk Olay", "İşlem Sonucu %",
+                    "20G %", "45G %",
+                ]
+                detay_bt = bt[[k for k in detay_kolonlar if k in bt.columns]].copy()
+                for tarih_col in ["Tarih"]:
+                    if tarih_col in detay_bt:
+                        detay_bt[tarih_col] = pd.to_datetime(detay_bt[tarih_col], errors="coerce").dt.strftime("%Y-%m-%d")
+                st.dataframe(
+                    detay_bt.style.format({
+                        "Hibrit Skor": "{:.0f}", "Güven %": "{:.0f}", "Daily MTF %": "{:.0f}",
+                        "Giriş Proxy": "{:.0f}", "Giriş": "{:.2f}", "İlk Stop": "{:.2f}", "İlk TP1": "{:.2f}",
+                        "İşlem Sonucu %": "{:+.2f}%", "20G %": "{:+.2f}%", "45G %": "{:+.2f}%",
+                    }, na_rep="-"),
+                    use_container_width=True, hide_index=True,
+                    height=min(520, 82 + 35 * len(detay_bt)),
+                )
+                st.caption("Bu tablo, geçmişte hangi tarihte hangi merkezi IZFIN kararının işlem açtığını ve karar anındaki günlük çekirdek puanlarını gösterir.")
+
             with st.expander("ℹ️ Backtest sonuçları nasıl okunur?", expanded=False):
                 st.markdown("""
-- **İşlem Başarı %**, ilk TP1'in ilk Stop'tan önce görülmesi veya 45 günlük süre sonunda pozitif kapanan test işlemlerinin oranıdır.
-- **20G / 45G sonuçları**, çıkıştan bağımsız sabit ufuk ölçümüdür; hissenin sinyal sonrası yön seçme kalitesini gösterir.
-- İlk Stop ve TP1, yalnızca sinyal gününe kadar bilinen verilerle hesaplanıp dondurulur.
-- Aynı gün hem Stop hem TP1 görülürse günlük OHLC hangi seviyenin önce geldiğini söylemez; test muhafazakâr biçimde Stop'u önce kabul eder.
-- Komisyon, vergi, spread ve gerçek emir kayması henüz modellenmez. Bu nedenle sonuçlar gerçek işlem getirisi garantisi değildir.
+- **Bu test artık eski basit dört koşulu değil, IZFIN'in günlük çekirdek analiz zincirini geçmişte yeniden çalıştırır.** Hibrit skor, ADX/DI, CMF, SuperTrend, risk, teknik profil, güven ve merkezi karar birlikte değerlendirilir.
+- **Yalnızca merkezi motorun GÜÇLÜ AL / AL / ERKEN AL aksiyonları işlem açar.** TEYİT BEKLE ve İZLE geçmiş işlem sayılmaz.
+- **Daily MTF % ve Giriş Proxy**, 5–10 yıllık intraday geçmiş bulunmadığı için günlük veriden türetilen doğrulama alanlarıdır; canlı 5dk/15dk/1s Giriş Motoruymuş gibi sunulmaz.
+- **20G / 45G sonuçları**, çıkıştan bağımsız sabit ufuk ölçümüdür; hissenin karar sonrası yön seçme kalitesini gösterir.
+- İlk Stop ve TP1 yalnızca sinyal gününe kadar bilinen verilerle hesaplanıp dondurulur. Aynı gün ikisi de görülürse test muhafazakâr biçimde Stop'u önce kabul eder.
+- Komisyon, vergi, spread ve gerçek emir kayması modellenmez; sonuçlar gerçek işlem getirisi garantisi değildir.
 """)
