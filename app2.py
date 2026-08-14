@@ -93,11 +93,11 @@ except Exception:
 VARSAYILAN_TICKERS = ["AAPL", "MSFT", "TSLA", "NVDA", "AMD", "INTC", "THYAO.IS", "FROTO.IS", "TOASO.IS"]
 
 # --- IZFIN STRATEJİ SÜRÜMÜ ---
-STRATEJI_SURUMU = "IZFIN-v1.5.6-deploy-verified"
+STRATEJI_SURUMU = "IZFIN-v1.5.7-mtf-closed-bars"
 PERFORMANS_UFUKLARI = (1, 5, 10, 20, 45)
 
 # --- IZFIN UYGULAMA SÜRÜMÜ / LOG ---
-IZFIN_APP_SURUMU = "v1.5.6 Deploy Verified"
+IZFIN_APP_SURUMU = "v1.5.7 MTF Closed-Bar Fix"
 logger = logging.getLogger("IZFIN")
 if not logger.handlers:
     logging.basicConfig(level=logging.INFO)
@@ -290,17 +290,6 @@ def _finnhub_get(endpoint, params, timeout=3, max_retry=2):
             return None
 
     return None
-    try:
-        r = session.get(
-            f"{FINNHUB_BASE_URL}/{endpoint}",
-            params={**params, "token": FINNHUB_API_KEY},
-            timeout=timeout,
-        )
-        r.raise_for_status()
-        data = r.json()
-        return data if isinstance(data, dict) else None
-    except Exception:
-        return None
 
 @st.cache_data(ttl=900, show_spinner=False)
 def taze_veri_indir(tickers_tuple):
@@ -892,9 +881,28 @@ def seans_vwap_hesapla(intraday):
 
 
 def _resample_ohlcv(df, rule):
-    if df is None or df.empty: return pd.DataFrame()
-    x = df.copy()
-    return x.resample(rule).agg({'Open':'first','High':'max','Low':'min','Close':'last','Volume':'sum'}).dropna(subset=['Close'])
+    """Normal seans başlangıcına hizalı OHLCV üretir.
+
+    Özellikle ABD hisselerinde seans 09:30'da başladığı için varsayılan saat-başı
+    resample ilk 1 saatlik mumu 09:30-10:00 gibi eksik oluşturabiliyordu.
+    Zaman dilimine göre seans açılışını doğru ankora çeviriyoruz.
+    """
+    if df is None or df.empty:
+        return pd.DataFrame()
+    x = df.copy().sort_index()
+    try:
+        td = pd.Timedelta(rule)
+        kural_dk = max(1, int(td.total_seconds() // 60))
+        tz_str = str(getattr(x.index, 'tz', '') or '')
+        seans_acilis_dk = 570 if 'New_York' in tz_str else 600 if 'Istanbul' in tz_str else 0
+        offset = pd.Timedelta(minutes=(seans_acilis_dk % kural_dk)) if seans_acilis_dk else pd.Timedelta(0)
+        return (x.resample(rule, origin='start_day', offset=offset)
+                 .agg({'Open':'first','High':'max','Low':'min','Close':'last','Volume':'sum'})
+                 .dropna(subset=['Close']))
+    except Exception:
+        return (x.resample(rule)
+                 .agg({'Open':'first','High':'max','Low':'min','Close':'last','Volume':'sum'})
+                 .dropna(subset=['Close']))
 
 
 def _zaman_dilimi_karari(df):
@@ -915,12 +923,20 @@ def _zaman_dilimi_karari(df):
 
 
 def coklu_zaman_dilimi_analizi(intraday, daily):
+    """MTF uyumunu yalnızca tamamlanmış gün içi mumlarla hesaplar.
+
+    Giriş motoru kapanmamış mumu zaten dışlıyordu; MTF katmanında aynı koruma
+    yoktu. Bu nedenle yarım oluşmuş 5/15/60/240 dk mumlar merkezi karar puanını
+    geçici olarak oynatabiliyordu.
+    """
     sonuclar={}
     if intraday is not None and not intraday.empty:
-        sonuclar['5Dk']=_zaman_dilimi_karari(intraday)
-        sonuclar['15Dk']=_zaman_dilimi_karari(_resample_ohlcv(intraday,'15min'))
-        sonuclar['1S']=_zaman_dilimi_karari(_resample_ohlcv(intraday,'60min'))
-        sonuclar['4S']=_zaman_dilimi_karari(_resample_ohlcv(intraday,'240min'))
+        kapali_5 = _yalnizca_kapali_mumlar(intraday)
+        sonuclar['5Dk']=_zaman_dilimi_karari(kapali_5)
+        for ad, kural in [('15Dk','15min'), ('1S','60min'), ('4S','240min')]:
+            yeniden = _resample_ohlcv(kapali_5, kural)
+            yeniden = _yalnizca_kapali_mumlar(yeniden, varsayilan_dakika=int(pd.Timedelta(kural).total_seconds() // 60))
+            sonuclar[ad]=_zaman_dilimi_karari(yeniden)
     sonuclar['Günlük']=_zaman_dilimi_karari(daily)
     gecerli=[v for v in sonuclar.values() if v.get('yon')!='VERİ YOK']
     net=sum(v.get('puan',0) for v in gecerli)
