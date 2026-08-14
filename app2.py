@@ -10,6 +10,8 @@ import os
 import logging
 import base64
 import re
+import html
+import secrets as pysecrets
 from zoneinfo import ZoneInfo
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from threading import Lock
@@ -130,6 +132,32 @@ hr {border-color:#122a3e!important;}
 @media(max-width:1200px){.iz-live-shell{grid-template-columns:1fr}.iz-livebar{grid-template-columns:repeat(4,1fr)!important}.iz-home-grid{grid-template-columns:1fr}.iz-dashboard{grid-template-columns:1fr!important}}
 @media(max-width:800px){[data-testid="stSidebar"]{min-width:unset!important;max-width:unset!important}.iz-livebar{grid-template-columns:repeat(2,1fr)!important}}
 
+/* --- IZFIN v1.7.2 product polish --- */
+[data-testid="stMainBlockContainer"] {padding-top:2.05rem!important;}
+[data-testid="stSidebar"] > div:first-child {padding-top:1.35rem!important;}
+.iz-brand {align-items:center!important;padding:15px 4px 22px!important;overflow:visible!important;}
+.iz-brand img {object-fit:contain!important;object-position:center!important;padding:3px!important;background:#06111d!important;transform:translateY(-2px);overflow:visible!important;}
+.iz-brand-copy {display:flex;flex-direction:column;justify-content:center;min-height:62px;}
+.iz-quickscan {background:linear-gradient(105deg,rgba(12,98,221,.22),rgba(20,207,216,.12));border:1px solid #1c7399;border-radius:14px;padding:12px 13px;margin:2px 0 14px;color:#dff9ff;}
+.iz-quickscan strong {display:block;font-size:12px;color:#f3fbff}.iz-quickscan span{font-size:9px;color:#7da3b9;letter-spacing:.3px}
+.iz-home-scan-banner {background:linear-gradient(110deg,rgba(9,57,111,.82),rgba(7,39,70,.88));border:1px solid #147db1;border-radius:15px;padding:15px 18px;margin:13px 0;display:flex;align-items:center;justify-content:space-between;gap:16px;box-shadow:0 0 32px rgba(14,145,209,.08)}
+.iz-home-scan-banner .copy strong{font-size:15px;color:#f4fbff}.iz-home-scan-banner .copy span{display:block;color:#8eadc1;font-size:11px;margin-top:3px}
+.iz-table-wrap {width:100%;overflow-x:auto;border:1px solid #17354b;border-radius:15px;background:#07131f;margin:10px 0 16px;}
+.iz-table {width:100%;border-collapse:separate;border-spacing:0;min-width:1180px;font-size:11px;color:#dcecf7;}
+.iz-table thead th {position:sticky;top:0;background:#091725;color:#7092a8;text-align:left;font-size:9px;letter-spacing:.65px;padding:11px 12px;border-bottom:1px solid #1a3c55;white-space:nowrap;z-index:1;}
+.iz-table tbody td {padding:11px 12px;border-bottom:1px solid rgba(23,53,75,.58);vertical-align:middle;white-space:nowrap;background:#07131f;}
+.iz-table tbody tr:hover td {background:#0a1b2a;}
+.iz-table tbody tr:last-child td {border-bottom:0;}
+.iz-table .ticker {font-weight:800;color:#f2f9ff}.iz-table .score{font-weight:800;color:#26e2a2}.iz-table .muted{color:#8ca4b6}.iz-table .risk-high{color:#ff7f8b;font-weight:700}.iz-table .risk-mid{color:#ffd06a;font-weight:700}.iz-table .risk-low{color:#55e9b0;font-weight:700}
+.iz-auth-shell {max-width:1040px;margin:5vh auto 0;}
+.iz-auth-hero {display:grid;grid-template-columns:1.05fr .95fr;background:linear-gradient(135deg,#071522,#07101b);border:1px solid #183b54;border-radius:22px;overflow:hidden;box-shadow:0 35px 90px rgba(0,0,0,.28)}
+.iz-auth-brand {padding:42px;background:radial-gradient(circle at 30% 20%,rgba(21,220,230,.11),transparent 35%),linear-gradient(145deg,#071725,#06101b);min-height:520px;display:flex;flex-direction:column;justify-content:space-between}
+.iz-auth-brand-top {display:flex;align-items:center;gap:16px}.iz-auth-brand-top img{width:78px;height:78px;object-fit:contain;border:1px solid rgba(35,226,234,.24);border-radius:20px;padding:4px;background:#06111d}.iz-auth-brand-top b{font-size:31px;letter-spacing:8px}.iz-auth-brand-top small{display:block;color:#70a8c6;letter-spacing:2.3px;font-size:8px;margin-top:5px}
+.iz-auth-copy h1{font-size:35px;margin:0 0 12px;color:#f2f9ff}.iz-auth-copy p{color:#91aabd;line-height:1.7;max-width:440px}.iz-auth-pill{display:inline-block;border:1px solid #155178;background:rgba(20,116,172,.14);border-radius:999px;padding:6px 10px;color:#67dce7;font-size:9px;letter-spacing:1px;margin-bottom:14px}
+.iz-auth-form {padding:38px 38px 34px;background:#060e18}.iz-auth-form h2{margin:0 0 5px;color:#f3f9ff}.iz-auth-form .sub{color:#7895a9;font-size:12px;margin-bottom:18px}
+.iz-account-chip {background:#071522;border:1px solid #17384f;border-radius:12px;padding:10px 12px;margin:8px 0 14px}.iz-account-chip b{color:#eaf8ff;font-size:11px}.iz-account-chip span{display:block;color:#7391a5;font-size:9px;margin-top:2px}
+@media(max-width:850px){.iz-auth-hero{grid-template-columns:1fr}.iz-auth-brand{min-height:auto;padding:28px}.iz-auth-form{padding:28px}.iz-home-scan-banner{flex-direction:column;align-items:flex-start}}
+
 </style>
 """, unsafe_allow_html=True)
 
@@ -143,12 +171,16 @@ session.headers.update({
 })
 
 # --- ÇEREZ YÖNETİCİSİ (COOKIE MANAGER) ---
+# Eski düz e-posta cookie'si güvenilir oturum sayılmaz. "Beni hatırla" yalnızca
+# Firebase Admin'in imzaladığı session cookie ile çalışır.
 cookie_manager = stx.CookieManager(key="cookie_manager")
-saved_email = cookie_manager.get(cookie="user_email")
-if saved_email is not None:
-    saved_email = str(saved_email).strip().lower()
-    if ("@" not in saved_email) or len(saved_email) > 254 or any(ch in saved_email for ch in ["\n", "\r", "/", "\\"]):
-        saved_email = None
+saved_session_cookie = cookie_manager.get(cookie="izfin_session")
+try:
+    _legacy_email_cookie = cookie_manager.get(cookie="user_email")
+    if _legacy_email_cookie:
+        cookie_manager.delete("user_email")
+except Exception:
+    pass
 
 # --- FIREBASE BAŞLATMA ---
 if not firebase_admin._apps:
@@ -167,14 +199,172 @@ try:
 except Exception:
     db = None
 
+# --- FIREBASE AUTH: GERÇEK E-POSTA/ŞİFRE OTURUMU ---
+def _firebase_web_api_key():
+    try:
+        key = st.secrets.get("FIREBASE_WEB_API_KEY", "")
+    except Exception:
+        key = ""
+    if not key:
+        key = os.getenv("FIREBASE_WEB_API_KEY", "")
+    if not key:
+        try:
+            if "firebase_web" in st.secrets:
+                key = dict(st.secrets["firebase_web"]).get("apiKey", "")
+        except Exception:
+            pass
+    return str(key or "").strip()
+
+FIREBASE_WEB_API_KEY = _firebase_web_api_key()
+FIREBASE_AUTH_BASE = "https://identitytoolkit.googleapis.com/v1"
+
+def _firebase_auth_hata_mesaji(kod):
+    kod = str(kod or "").split(" : ")[0].strip()
+    return {
+        "EMAIL_EXISTS": "Bu e-posta adresiyle zaten bir hesap var.",
+        "EMAIL_NOT_FOUND": "Bu e-posta ile kayıtlı hesap bulunamadı.",
+        "INVALID_PASSWORD": "Şifre hatalı.",
+        "INVALID_LOGIN_CREDENTIALS": "E-posta veya şifre hatalı.",
+        "USER_DISABLED": "Bu kullanıcı hesabı devre dışı bırakılmış.",
+        "INVALID_EMAIL": "Geçerli bir e-posta adresi girin.",
+        "WEAK_PASSWORD": "Şifre yeterince güçlü değil.",
+        "TOO_MANY_ATTEMPTS_TRY_LATER": "Çok fazla başarısız deneme yapıldı. Bir süre sonra tekrar deneyin.",
+        "OPERATION_NOT_ALLOWED": "Firebase'de Email/Password giriş yöntemi etkin değil.",
+    }.get(kod, f"Kimlik doğrulama başarısız: {kod or 'bilinmeyen hata'}")
+
+def _firebase_auth_post(action, payload):
+    if not FIREBASE_WEB_API_KEY:
+        return None, "FIREBASE_WEB_API_KEY eksik. Streamlit secrets'e Firebase Web API Key eklenmeli."
+    try:
+        r = requests.post(
+            f"{FIREBASE_AUTH_BASE}/accounts:{action}?key={FIREBASE_WEB_API_KEY}",
+            json=payload,
+            timeout=10,
+        )
+        data = r.json() if r.content else {}
+        if r.ok:
+            return data, None
+        kod = ((data.get("error") or {}).get("message") or f"HTTP_{r.status_code}")
+        return None, _firebase_auth_hata_mesaji(kod)
+    except Exception as e:
+        return None, f"Firebase Authentication bağlantısı kurulamadı: {e}"
+
+def _kullanici_liste_doc_id():
+    uid = str(st.session_state.get("user_uid") or "").strip()
+    return uid or str(st.session_state.get("user_email") or "").strip().lower()
+
+def _kullanici_profilini_hazirla(uid, email):
+    if not db or not uid:
+        return
+    try:
+        db.collection("kullanicilar").document(uid).set({
+            "uid": uid, "email": email, "son_giris": datetime.now().isoformat(),
+        }, merge=True)
+    except Exception as e:
+        logging.getLogger("IZFIN").exception("Kullanıcı profili yazılamadı: %s", e)
+
+def _oturum_ac(data, beni_hatirla=False):
+    id_token = str((data or {}).get("idToken") or "")
+    if not id_token:
+        return False, "Firebase ID token alınamadı."
+    try:
+        claims = auth.verify_id_token(id_token)
+        uid = str(claims.get("uid") or (data or {}).get("localId") or "")
+        email = str(claims.get("email") or (data or {}).get("email") or "").strip().lower()
+        if not uid or not email:
+            return False, "Kullanıcı kimliği doğrulanamadı."
+        st.session_state.user_uid = uid
+        st.session_state.user_email = email
+        st.session_state.logout_triggered = False
+        st.session_state.kullanici_listesi_yuklendi = False
+        _kullanici_profilini_hazirla(uid, email)
+        try:
+            cookie_manager.delete("izfin_session")
+        except Exception:
+            pass
+        if beni_hatirla:
+            expires_in = timedelta(days=14)
+            session_cookie = auth.create_session_cookie(id_token, expires_in=expires_in)
+            cookie_manager.set("izfin_session", session_cookie, expires_at=datetime.now() + expires_in)
+        return True, None
+    except Exception as e:
+        izfin_hata_logla("firebase_id_token_dogrulama", e)
+        return False, "Güvenli oturum oluşturulamadı. Lütfen tekrar giriş yapın."
+
+def _kayit_ol(email, password):
+    data, err = _firebase_auth_post("signUp", {"email": email, "password": password, "returnSecureToken": True})
+    if err:
+        return None, err
+    uid = str(data.get("localId") or "")
+    if db and uid:
+        try:
+            db.collection("kullanicilar").document(uid).set({
+                "uid": uid, "email": email, "olusturma_zamani": datetime.now().isoformat(), "son_giris": None,
+            }, merge=True)
+        except Exception as e:
+            izfin_hata_logla("kayit_profil_firestore", e)
+        try:
+            db.collection("kullanici_listeleri").document(uid).set({
+                "uid": uid,
+                "email": email,
+                "tickers": VARSAYILAN_TICKERS.copy(),
+                "guncelleme_zamani": datetime.now().isoformat(),
+            }, merge=True)
+        except Exception as e:
+            izfin_hata_logla("kayit_ilk_kisisel_liste", e)
+    try:
+        _firebase_auth_post("sendOobCode", {"requestType": "VERIFY_EMAIL", "idToken": data.get("idToken")})
+    except Exception:
+        pass
+    return data, None
+
+def _sifre_sifirlama_maili(email):
+    _, err = _firebase_auth_post("sendOobCode", {"requestType": "PASSWORD_RESET", "email": email})
+    return err
+
+def _captcha_yenile():
+    st.session_state.captcha_a = pysecrets.randbelow(8) + 2
+    st.session_state.captcha_b = pysecrets.randbelow(8) + 2
+    st.session_state.captcha_nonce = pysecrets.token_hex(6)
+
+def _captcha_hazirla():
+    if "captcha_a" not in st.session_state or "captcha_b" not in st.session_state:
+        _captcha_yenile()
+
+if "user_uid" not in st.session_state:
+    st.session_state.user_uid = None
+if "user_email" not in st.session_state:
+    st.session_state.user_email = None
+if "logout_triggered" not in st.session_state:
+    st.session_state.logout_triggered = False
+
+if (not st.session_state.user_email) and saved_session_cookie and not st.session_state.logout_triggered:
+    try:
+        claims = auth.verify_session_cookie(str(saved_session_cookie), check_revoked=True)
+        uid = str(claims.get("uid") or "")
+        user = auth.get_user(uid) if uid else None
+        email = str((claims.get("email") if claims else None) or (user.email if user else "") or "").strip().lower()
+        if uid and email:
+            st.session_state.user_uid = uid
+            st.session_state.user_email = email
+            st.session_state.kullanici_listesi_yuklendi = False
+            _kullanici_profilini_hazirla(uid, email)
+    except Exception:
+        try:
+            cookie_manager.delete("izfin_session")
+        except Exception:
+            pass
+        st.session_state.user_uid = None
+        st.session_state.user_email = None
+
 VARSAYILAN_TICKERS = ["AAPL", "MSFT", "TSLA", "NVDA", "AMD", "INTC", "THYAO.IS", "FROTO.IS", "TOASO.IS"]
 
 # --- IZFIN STRATEJİ SÜRÜMÜ ---
-STRATEJI_SURUMU = "IZFIN-v1.7.1-signature-ui-refined"
+STRATEJI_SURUMU = "IZFIN-v1.7.2-signature-ui-auth-personal"
 PERFORMANS_UFUKLARI = (1, 5, 10, 20, 45)
 
 # --- IZFIN UYGULAMA SÜRÜMÜ / LOG ---
-IZFIN_APP_SURUMU = "v1.7.1 Signature UI"
+IZFIN_APP_SURUMU = "v1.7.2 Signature UI"
 logger = logging.getLogger("IZFIN")
 if not logger.handlers:
     logging.basicConfig(level=logging.INFO)
@@ -226,28 +416,8 @@ BIST_100 = sorted(set(BIST_30 + [
 ABD_HİSSELERİ = ["AAPL", "MSFT", "GOOGL", "AMZN", "META", "TSLA", "NVDA", "AMD", "INTC", "NFLX"]
 
 # --- OTURUM DURUMU (SESSION STATE) ---
-if "user_email" not in st.session_state:
-    st.session_state.user_email = None
-
-if "logout_triggered" not in st.session_state:
-    st.session_state.logout_triggered = False
-
 if "opsiyon_sonuclar" not in st.session_state:
     st.session_state.opsiyon_sonuclar = None
-
-if st.session_state.user_email is None and saved_email is not None and not st.session_state.logout_triggered:
-    st.session_state.user_email = saved_email
-    if db:
-        try:
-            doc = db.collection("kullanici_listeleri").document(saved_email).get()
-            if doc.exists:
-                st.session_state.custom_tickers = doc.to_dict().get("tickers", VARSAYILAN_TICKERS.copy())
-            else:
-                st.session_state.custom_tickers = VARSAYILAN_TICKERS.copy()
-        except Exception as e:
-            izfin_hata_logla("kayitli_liste_ilk_yukleme", e)
-            st.session_state.custom_tickers = VARSAYILAN_TICKERS.copy()
-    st.rerun()
 
 # --- HİBRİT VERİ ÇEKME MOTORU (YFINANCE + FINNHUB) ---
 FINNHUB_API_KEY = st.secrets.get("FINNHUB_API_KEY", os.getenv("FINNHUB_API_KEY", ""))
@@ -2750,20 +2920,61 @@ for _key, _default in _SESSION_DEFAULTS.items():
         st.session_state[_key] = _default.copy() if hasattr(_default, "copy") else _default
 
 # Kullanıcının Firebase'de kayıtlı özel listesini her oturumda yalnızca bir kez yükle.
-# Deploy/yeniden başlatma sonrasında session_state sıfırlansa bile kişisel liste geri gelir.
+# v1.7.2: belge anahtarı e-posta yerine Firebase UID'dir; hesaplar birbirinden ayrılır.
 if st.session_state.user_email and db and not st.session_state.kullanici_listesi_yuklendi:
     try:
-        _liste_doc = db.collection("kullanici_listeleri").document(st.session_state.user_email).get()
+        _doc_id = _kullanici_liste_doc_id()
+        _liste_doc = db.collection("kullanici_listeleri").document(_doc_id).get()
+        if (not _liste_doc.exists) and st.session_state.get("user_uid"):
+            _legacy = db.collection("kullanici_listeleri").document(st.session_state.user_email).get()
+            if _legacy.exists:
+                _legacy_data = _legacy.to_dict() or {}
+                db.collection("kullanici_listeleri").document(_doc_id).set({"uid": st.session_state.user_uid,"email": st.session_state.user_email,"tickers": _legacy_data.get("tickers", VARSAYILAN_TICKERS.copy()),"guncelleme_zamani": datetime.now().isoformat()}, merge=True)
+                _liste_doc = db.collection("kullanici_listeleri").document(_doc_id).get()
         if _liste_doc.exists:
             _kayitli_tickerlar = (_liste_doc.to_dict() or {}).get("tickers", [])
-            if isinstance(_kayitli_tickerlar, list) and _kayitli_tickerlar:
-                st.session_state.custom_tickers = [str(x).upper() for x in _kayitli_tickerlar]
-                if st.session_state.aktif_profil == "Kendi Listem":
-                    st.session_state.secilen_varliklar = st.session_state.custom_tickers.copy()
+            if isinstance(_kayitli_tickerlar, list):
+                st.session_state.custom_tickers = [str(x).upper() for x in _kayitli_tickerlar if str(x).strip()]
+        if not st.session_state.custom_tickers:
+            st.session_state.custom_tickers = VARSAYILAN_TICKERS.copy()
+        if st.session_state.aktif_profil == "Kendi Listem":
+            st.session_state.secilen_varliklar = st.session_state.custom_tickers.copy()
         st.session_state.kullanici_listesi_yuklendi = True
     except Exception as _liste_hatasi:
-        # Geçici Firebase hatasında varsayılan listeyi kalıcı olarak yazma; sonraki rerunda tekrar dene.
-        st.sidebar.warning(f"Kayıtlı listeniz şu anda yüklenemedi: {_liste_hatasi}")
+        st.warning(f"Kayıtlı listeniz şu anda yüklenemedi: {_liste_hatasi}")
+
+def kullanici_listesini_kaydet():
+    if not db or not st.session_state.get("user_email"):
+        return
+    try:
+        db.collection("kullanici_listeleri").document(_kullanici_liste_doc_id()).set({"uid": st.session_state.get("user_uid"),"email": st.session_state.user_email,"tickers": list(dict.fromkeys(st.session_state.custom_tickers)),"guncelleme_zamani": datetime.now().isoformat()}, merge=True)
+    except Exception as e:
+        izfin_hata_logla("kullanici_listesi_yaz", e)
+
+@st.cache_data(ttl=600, show_spinner=False)
+def hisse_onerileri_getir(arama):
+    q = str(arama or "").strip()
+    if not q:
+        return []
+    q_up = q.upper(); yerel=[]
+    for sembol in sorted(set(BIST_100 + ABD_HİSSELERİ)):
+        if q_up in sembol.upper():
+            yerel.append({"symbol": sembol, "name": "Kayıtlı / hazır evren", "exchange": "BIST" if sembol.endswith(".IS") else "US"})
+    uzaktan=[]
+    try:
+        r=session.get("https://query1.finance.yahoo.com/v1/finance/search",params={"q":q,"quotesCount":8,"newsCount":0},timeout=4)
+        if r.ok:
+            for x in (r.json().get("quotes") or []):
+                qt=str(x.get("quoteType") or "").upper(); symbol=str(x.get("symbol") or "").upper().strip()
+                if symbol and qt in {"EQUITY","ETF","INDEX"}:
+                    uzaktan.append({"symbol":symbol,"name":str(x.get("shortname") or x.get("longname") or ""),"exchange":str(x.get("exchange") or "")})
+    except Exception:
+        pass
+    sonuc=[]; seen=set()
+    for item in yerel+uzaktan:
+        if item["symbol"] not in seen:
+            seen.add(item["symbol"]); sonuc.append(item)
+    return sonuc[:10]
 
 def get_preset_options():
     return {"Kendi Listem": st.session_state.custom_tickers, "BIST 30": BIST_30, "BIST 100": BIST_100, "ABD Büyük Teknoloji": ABD_HİSSELERİ}
@@ -2784,11 +2995,7 @@ def hisse_ekle_callback():
     if input_val and input_val.strip():
         for h in [x.strip().upper() for x in input_val.replace(",", " ").split() if x.strip()]:
             if h not in st.session_state.custom_tickers: st.session_state.custom_tickers.append(h)
-        if db and st.session_state.user_email:
-            try:
-                db.collection("kullanici_listeleri").document(st.session_state.user_email).set({"tickers": st.session_state.custom_tickers})
-            except Exception as e:
-                izfin_hata_logla("kullanici_listesi_yaz", e)
+        kullanici_listesini_kaydet()
         st.session_state.aktif_profil = "Kendi Listem"
         st.session_state.secilen_varliklar = st.session_state.custom_tickers.copy()
         st.session_state.ek_hisse_input_field = ""
@@ -2798,11 +3005,7 @@ def hisse_sil_callback():
     if input_val and input_val.strip():
         for h in [x.strip().upper() for x in input_val.replace(",", " ").split() if x.strip()]:
             if h in st.session_state.custom_tickers: st.session_state.custom_tickers.remove(h)
-        if db and st.session_state.user_email:
-            try:
-                db.collection("kullanici_listeleri").document(st.session_state.user_email).set({"tickers": st.session_state.custom_tickers})
-            except Exception as e:
-                izfin_hata_logla("kullanici_listesi_yaz", e)
+        kullanici_listesini_kaydet()
         st.session_state.aktif_profil = "Kendi Listem"
         st.session_state.secilen_varliklar = st.session_state.custom_tickers.copy()
         st.session_state.sil_hisse_input_field = ""
@@ -3046,6 +3249,91 @@ def izfin_movers_html(max_n=6):
 def izfin_home_action_html():
     return '''<div class="iz-cta"><div class="iz-section-label">AKILLI TARAMA</div><h3>Fırsatı geniş havuzda keşfet</h3><p>Seçtiğin piyasa grubunu IZFIN karar motoruyla tara; skor, güven, giriş kalitesi, MTF ve risk filtrelerini aynı tabloda karşılaştır.</p></div>'''
 
+def izfin_auth_ekrani():
+    _captcha_hazirla()
+    st.markdown('<div class="iz-auth-shell"></div>', unsafe_allow_html=True)
+    left, right = st.columns([1.05, .95], gap="large")
+    with left:
+        st.markdown(f'''<div class="iz-auth-brand" style="border:1px solid #183b54;border-radius:22px;min-height:570px"><div class="iz-auth-brand-top"><img src="data:image/png;base64,{IZFIN_LOGO_B64}"><div><b>IZFIN</b><small>ANALYZE • PREDICT • INVEST</small></div></div><div class="iz-auth-copy"><span class="iz-auth-pill">SIGNATURE INTELLIGENCE</span><h1>Piyasayı izle.<br>Kararı sistemleştir.</h1><p>Akıllı tarama, kişisel izleme listeleri, sinyal performansı ve strateji doğrulama tek güvenli hesap altında birleşir.</p></div><div style="color:#607f94;font-size:10px">Kişisel listeler ve takip kayıtları hesabınıza özel saklanır.</div></div>''', unsafe_allow_html=True)
+    with right:
+        st.markdown('<div class="iz-auth-form" style="border:1px solid #183b54;border-radius:22px 22px 0 0"><h2>IZFIN hesabınız</h2><div class="sub">Devam etmek için giriş yapın veya yeni hesap oluşturun.</div></div>', unsafe_allow_html=True)
+        if not FIREBASE_WEB_API_KEY:
+            st.error("Giriş sistemi yapılandırması eksik: Streamlit Secrets içine FIREBASE_WEB_API_KEY eklenmeli.")
+        giris_tab, kayit_tab = st.tabs(["Giriş Yap", "Kayıt Ol"])
+        with giris_tab:
+            with st.form("izfin_login_form", clear_on_submit=False):
+                email = st.text_input("E-posta", placeholder="ornek@email.com").strip().lower()
+                password = st.text_input("Şifre", type="password")
+                remember = st.checkbox("Beni hatırla", value=True)
+                login_btn = st.form_submit_button("IZFIN'e Giriş Yap", type="primary", use_container_width=True)
+            if login_btn:
+                if not email or not password:
+                    st.error("E-posta ve şifre gerekli.")
+                else:
+                    data, err = _firebase_auth_post("signInWithPassword", {"email": email, "password": password, "returnSecureToken": True})
+                    if err: st.error(err)
+                    else:
+                        ok, msg = _oturum_ac(data, beni_hatirla=remember)
+                        if ok:
+                            st.success("Giriş başarılı."); time.sleep(.2); st.rerun()
+                        else: st.error(msg)
+            with st.expander("Şifremi unuttum", expanded=False):
+                reset_email = st.text_input("Şifre sıfırlama e-postası", key="reset_email").strip().lower()
+                if st.button("Sıfırlama bağlantısı gönder", key="reset_btn", use_container_width=True):
+                    if not reset_email: st.warning("E-posta adresinizi girin.")
+                    else:
+                        err=_sifre_sifirlama_maili(reset_email); st.error(err) if err else st.success("Şifre sıfırlama e-postası gönderildi.")
+        with kayit_tab:
+            with st.form("izfin_register_form", clear_on_submit=False):
+                reg_email=st.text_input("E-posta",key="reg_email",placeholder="ornek@email.com").strip().lower()
+                reg_pass=st.text_input("Şifre",key="reg_pass",type="password",help="En az 8 karakter; büyük harf, küçük harf ve rakam içersin.")
+                reg_pass2=st.text_input("Şifre Tekrar",key="reg_pass2",type="password")
+                st.caption(f"İnsan doğrulaması: {st.session_state.captcha_a} + {st.session_state.captcha_b} = ?")
+                captcha=st.text_input("Doğrulama sonucu",key=f"captcha_{st.session_state.captcha_nonce}")
+                terms=st.checkbox("Kullanım koşullarını ve gizlilik bilgilendirmesini okudum.",key="reg_terms")
+                register_btn=st.form_submit_button("Hesabımı Oluştur",type="primary",use_container_width=True)
+            if register_btn:
+                errors=[]
+                if "@" not in reg_email or "." not in reg_email.split("@")[-1]: errors.append("Geçerli bir e-posta girin.")
+                if reg_pass != reg_pass2: errors.append("Şifreler eşleşmiyor.")
+                if len(reg_pass)<8 or not re.search(r"[A-ZÇĞİÖŞÜ]",reg_pass) or not re.search(r"[a-zçğıöşü]",reg_pass) or not re.search(r"\d",reg_pass): errors.append("Şifre en az 8 karakter, büyük/küçük harf ve rakam içermeli.")
+                try: captcha_ok=int(captcha.strip())==int(st.session_state.captcha_a+st.session_state.captcha_b)
+                except Exception: captcha_ok=False
+                if not captcha_ok: errors.append("Doğrulama işlemi yanlış.")
+                if not terms: errors.append("Kullanım koşulları onaylanmalı.")
+                if errors:
+                    for e in errors: st.error(e)
+                    _captcha_yenile()
+                else:
+                    data,err=_kayit_ol(reg_email,reg_pass)
+                    if err: st.error(err); _captcha_yenile()
+                    else: st.success("Hesabınız oluşturuldu. Şimdi Giriş Yap sekmesinden oturum açabilirsiniz."); _captcha_yenile()
+
+def izfin_tarama_tablosu_html(df):
+    if df is None or df.empty:
+        return '<div class="iz-table-wrap"><div style="padding:22px;color:#7895a9">Gösterilecek tarama sonucu yok.</div></div>'
+    ana_cols=["Varlık","Fiyat","Nihai Sinyal","Gelişmiş Skor","Güven","🎯 Giriş Kalitesi","MTF Uyum","Risk","Para Akışı","PEG / Değerleme","Seans Dışı"]
+    cols=[c for c in ana_cols if c in df.columns]
+    esc=lambda v: html.escape(str(v if v is not None else "—"))
+    heads=''.join(f'<th>{esc(c)}</th>' for c in cols); body=[]
+    for _,row in df.iterrows():
+        tds=[]
+        for c in cols:
+            s=str(row.get(c,"—")); cls=''; rendered=esc(s)
+            if c=="Varlık": cls='ticker'
+            elif c=="Gelişmiş Skor": cls='score'
+            elif c=="Nihai Sinyal": rendered=f'<span class="iz-badge {_iz_badge_class(s)}">{esc(s)}</span>'
+            elif c=="Risk":
+                u=s.upper(); cls='risk-high' if ('YÜKSEK' in u or 'PANİK' in u) else ('risk-low' if ('DÜŞÜK' in u or 'SAKİN' in u) else 'risk-mid')
+            elif c in ["PEG / Değerleme","Seans Dışı","Para Akışı"]: cls='muted'
+            tds.append(f'<td class="{cls}">{rendered}</td>')
+        body.append('<tr>'+''.join(tds)+'</tr>')
+    return f'<div class="iz-table-wrap"><table class="iz-table"><thead><tr>{heads}</tr></thead><tbody>{"".join(body)}</tbody></table></div>'
+
+if not st.session_state.get("user_email") or not st.session_state.get("user_uid"):
+    izfin_auth_ekrani()
+    st.stop()
+
 st.sidebar.markdown(izfin_brand_html(), unsafe_allow_html=True)
 st.markdown(izfin_market_bar_html(izfin_piyasa_bandi_verisi()), unsafe_allow_html=True)
 
@@ -3147,7 +3435,7 @@ Gelişmiş bonus ve cezalar sınırlandırılır; böylece yeni katman eski skor
 - **🚀 Analiz Merkezi:** Derin tarama, detaylı teknik analiz, şeffaf karar motoru ve isteğe bağlı projeksiyon/senaryo analizi tek akışta sunulur.
 - **📊 Takip & Performans:** Gerçekte oluşmuş alım dönemlerini, aktif/kapanmış pozisyonları ve 1/5/10/20/45 günlük performans karnesini birlikte izler.
 - **🧪 Strateji Laboratuvarı:** IZFIN Daily Core motorunu geçmiş veride yeniden çalıştırır; özet başarı ölçümleri ve geçmiş karar ayrıntıları aynı bölümde tutulur.
-- **Beta güvenliği:** Mevcut sürüm kişisel/kapalı beta oturumu içindir. Herkese açık ticari sürümden önce Firebase Auth ID token/session-cookie tabanlı gerçek kimlik doğrulama katmanına geçilmelidir.
+- **Hesap güvenliği:** Email/Password girişi Firebase Authentication ile doğrulanır; “Beni hatırla” seçeneğinde Firebase session cookie kullanılır. Kişisel liste ve takip verileri kullanıcı UID'sine bağlı tutulur.
 """)
 
     st.warning("Bu uygulama algoritmik teknik analiz ve karar desteği sağlar; yatırım tavsiyesi, kesin getiri veya zarar etmeme garantisi değildir. Haber, bilanço, makro gelişme, likidite ve piyasa boşlukları teknik seviyeleri geçersiz kılabilir.")
@@ -3158,7 +3446,10 @@ if "izfin_nav" not in st.session_state:
 def _izfin_nav_to(hedef):
     st.session_state.izfin_nav = hedef
 
-st.sidebar.markdown('<div class="iz-nav-label">NAVİGASYON</div>', unsafe_allow_html=True)
+st.sidebar.markdown('<div class="iz-quickscan"><strong>✦ Akıllı Tarama Merkezi</strong><span>Skor · güven · giriş kalitesi · MTF · risk</span></div>', unsafe_allow_html=True)
+if st.sidebar.button("✦ TARAMA MERKEZİNE GİT", type="primary", use_container_width=True, key="quick_scan_nav"):
+    _izfin_nav_to("🔎 Akıllı Tarama"); st.rerun()
+st.sidebar.markdown('<div class="iz-nav-label" style="margin-top:14px">NAVİGASYON</div>', unsafe_allow_html=True)
 for _nav_label in ["🏠 Ana Sayfa", "🔎 Akıllı Tarama", "📊 Takip & Performans", "🧪 Strateji Laboratuvarı"]:
     st.sidebar.button(
         _nav_label,
@@ -3172,6 +3463,7 @@ aktif_sayfa = st.session_state.izfin_nav
 
 st.sidebar.markdown("---")
 st.sidebar.markdown('<div class="iz-nav-label">KONTROL MERKEZİ</div>', unsafe_allow_html=True)
+st.sidebar.markdown(f'<div class="iz-account-chip"><b>{html.escape(st.session_state.user_email)}</b><span>Kişisel IZFIN hesabı · listeleriniz ve takip verileriniz size özeldir</span></div>', unsafe_allow_html=True)
 st.sidebar.caption(f"Çalışan sürüm: {IZFIN_APP_SURUMU}")
 if not FINNHUB_API_KEY:
     st.sidebar.caption("ℹ️ Finnhub yok: ABD quote katmanı Yahoo fallback ile devam ediyor.")
@@ -3180,34 +3472,48 @@ selected_tickers = list(st.session_state.get("secilen_varliklar", []))
 tarama_tetiklendi = False
 if aktif_sayfa == "🔎 Akıllı Tarama":
     with st.sidebar.expander("📋 Tarama Evreni", expanded=True):
-        st.text_input("Varlık Ekle:", key="ek_hisse_input_field")
-        st.button("＋ Listeye Ekle", on_click=hisse_ekle_callback, use_container_width=True)
-        st.text_input("Varlık Sil:", key="sil_hisse_input_field")
-        st.button("− Kalıcı Sil", on_click=hisse_sil_callback, use_container_width=True)
+        _arama=st.text_input("Hisse ara / listeye ekle",key="ek_hisse_arama",placeholder="NVDA, THYAO, Apple...")
+        _oneriler=hisse_onerileri_getir(_arama) if _arama.strip() else []
+        if _oneriler:
+            _labels=[f"{x['symbol']} · {x['name'][:32]} · {x['exchange']}" for x in _oneriler]
+            _idx=st.selectbox("Eşleşen hisseler",range(len(_oneriler)),format_func=lambda i:_labels[i],key="hisse_oneri_secimi")
+            if st.button("＋ Seçili Hisseyi Listeme Ekle",use_container_width=True,key="autocomplete_add"):
+                _symbol=_oneriler[int(_idx)]["symbol"]
+                if _symbol not in st.session_state.custom_tickers: st.session_state.custom_tickers.append(_symbol)
+                kullanici_listesini_kaydet(); st.session_state.aktif_profil="Kendi Listem"; st.session_state.secilen_varliklar=st.session_state.custom_tickers.copy(); st.rerun()
+        elif _arama.strip(): st.caption("Eşleşme bulunamadı. Tam sembolü manuel alandan ekleyebilirsiniz.")
+        with st.expander("Manuel ekleme / silme",expanded=False):
+            st.text_input("Sembol ekle",key="ek_hisse_input_field",placeholder="örn. RKLB")
+            st.button("＋ Manuel Ekle",on_click=hisse_ekle_callback,use_container_width=True)
+            st.text_input("Sembol sil",key="sil_hisse_input_field")
+            st.button("− Kalıcı Sil",on_click=hisse_sil_callback,use_container_width=True)
         st.selectbox("Profil", list(preset_options.keys()), index=list(preset_options.keys()).index(st.session_state.aktif_profil), key="profil_selectbox_key", on_change=profil_degisti)
-        selected_tickers = st.multiselect("Taranacak Varlıklar", options=tum_varliklar_havuzu, key="secilen_varliklar")
-        selected_tickers = list(dict.fromkeys([str(x).strip().upper() for x in selected_tickers if str(x).strip()]))
+        selected_tickers=st.multiselect("Taranacak Varlıklar",options=sorted(set(tum_varliklar_havuzu+st.session_state.custom_tickers)),key="secilen_varliklar")
+        selected_tickers=list(dict.fromkeys([str(x).strip().upper() for x in selected_tickers if str(x).strip()]))
     tarama_tetiklendi = st.sidebar.button("✦ AKILLI TARAMAYI BAŞLAT", type="primary", use_container_width=True)
 
 st.sidebar.markdown("---")
 if st.sidebar.button("🚪 Çıkış Yap", use_container_width=True):
-    cookie_manager.delete("user_email")
-    st.session_state.user_email = None
-    st.session_state.kullanici_listesi_yuklendi = False
-    st.session_state.logout_triggered = True
-    time.sleep(0.5)
-    st.rerun()
+    try:
+        cookie_manager.delete("izfin_session"); cookie_manager.delete("user_email")
+    except Exception: pass
+    st.session_state.user_email=None; st.session_state.user_uid=None
+    st.session_state.custom_tickers=VARSAYILAN_TICKERS.copy(); st.session_state.secilen_varliklar=VARSAYILAN_TICKERS.copy()
+    st.session_state.kullanici_listesi_yuklendi=False; st.session_state.logout_triggered=True
+    time.sleep(.2); st.rerun()
 
 if aktif_sayfa in ["🏠 Ana Sayfa", "🔎 Akıllı Tarama"]:
     if aktif_sayfa == "🏠 Ana Sayfa":
         st.markdown(izfin_dashboard_html(), unsafe_allow_html=True)
+        st.markdown('<div class="iz-home-scan-banner"><div class="copy"><strong>✦ Fırsatları tüm evrende tara</strong><span>IZFIN merkezi karar motorunu seçtiğiniz piyasa grubunda çalıştırın.</span></div><span class="iz-badge wait">SIGNATURE SCAN</span></div>', unsafe_allow_html=True)
+        if st.button("✦ AKILLI TARAMA MERKEZİNE GİT →", type="primary", use_container_width=True, key="home_scan_primary"):
+            _izfin_nav_to("🔎 Akıllı Tarama"); st.rerun()
         st.markdown(izfin_top_signals_html(), unsafe_allow_html=True)
         hc1, hc2 = st.columns([1.45, .85])
         with hc1:
             st.markdown(izfin_movers_html(), unsafe_allow_html=True)
         with hc2:
             st.markdown(izfin_home_action_html(), unsafe_allow_html=True)
-            st.button("✦ Akıllı Tarama Merkezine Git →", type="primary", use_container_width=True, on_click=_izfin_nav_to, args=("🔎 Akıllı Tarama",), key="home_to_scan")
     else:
         st.markdown('''<div class="iz-scanner-hero"><div><div class="iz-section-label">IZFIN SCANNER</div><h2>Akıllı Tarama Merkezi</h2><p>Varlık evrenini seç, merkezi karar motorunu çalıştır ve sonuçları skor · güven · giriş kalitesi · MTF · risk ekseninde karşılaştır.</p></div><span class="iz-badge wait">SIGNATURE SCAN</span></div>''', unsafe_allow_html=True)
     if tarama_tetiklendi:
@@ -3707,7 +4013,9 @@ if aktif_sayfa in ["🏠 Ana Sayfa", "🔎 Akıllı Tarama"]:
                 return [c] * len(row)
 
             if not df_sonuc.empty:
-                st.dataframe(df_sonuc.style.apply(color_df, axis=1), use_container_width=True, height=350)
+                st.markdown("### ✦ Akıllı Tarama Sonuçları")
+                st.caption("Ana tablo karar vermeyi kolaylaştıran temel alanları gösterir; ayrıntılı teknik panel aşağıda açılır.")
+                st.markdown(izfin_tarama_tablosu_html(df_sonuc), unsafe_allow_html=True)
 
                 peg_degerlendirilemeyenler = [
                     str(v) for v in df_sonuc.loc[
