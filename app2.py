@@ -1307,6 +1307,36 @@ button[kind="primary"],
     color:#eefcff!important;
 }
 
+
+/* v1.7.36 — klasik görünüm + şeffaf tıklama overlay */
+.iz-pulse-card-standalone{
+    min-height:255px!important;
+}
+.iz-map-card-standalone{
+    padding-bottom:10px!important;
+    margin-bottom:7px!important;
+}
+.iz-heat-overlay-visible{
+    min-height:68px!important;
+    height:68px!important;
+    border-radius:8px!important;
+    padding:8px 9px!important;
+    transition:all .15s ease!important;
+    overflow:hidden!important;
+}
+.iz-heat-overlay-visible strong{
+    display:block!important;
+    color:#f2fbff!important;
+    font-size:10px!important;
+    line-height:1.15!important;
+    margin-bottom:4px!important;
+}
+.iz-heat-overlay-visible span{
+    color:#aac4d0!important;
+    font-size:7.5px!important;
+    line-height:1.2!important;
+}
+
 </style>
 """, unsafe_allow_html=True)
 
@@ -4527,6 +4557,92 @@ def _iz_heat_color(skor):
     if skor >= 45: return "background:linear-gradient(145deg,#263842,#1e2d37)"
     return "background:linear-gradient(145deg,#5b202a,#421b23)"
 
+
+def izfin_render_clickable_heatmap_overlay(max_n=20):
+    """
+    Klasik IZFIN ısı haritası görünümünü aynen korur.
+    Her görünür HTML kartın üzerine şeffaf native Streamlit butonu bindirir.
+    """
+    items = _iz_heatmap_items(max_n=max_n)
+    if not items:
+        st.markdown(
+            '<div style="padding:34px 15px;text-align:center;color:#7891a5;border:1px dashed #1a4059;border-radius:11px">'
+            '<b style="color:#b7c9d6">İlk Akıllı Tarama bekleniyor</b><br>'
+            '<span style="font-size:10px">Tarama sonrası renk = IZFIN skoru, çerçeve = algoritma güveni olacak.</span>'
+            '</div>',
+            unsafe_allow_html=True,
+        )
+        return
+
+    # Klasik grid yapısını 4 kolon halinde kur.
+    for row_start in range(0, len(items), 4):
+        cols = st.columns(4, gap="small")
+        for j, (s, g, t, d) in enumerate(items[row_start:row_start + 4]):
+            with cols[j]:
+                safe_key = re.sub(r"[^A-Za-z0-9_]+", "_", str(t))
+                container_key = f"heat_overlay_{row_start+j}_{safe_key}"
+                button_key = f"heat_overlay_btn_{row_start+j}_{safe_key}"
+                border_px = max(1, int(g / 30))
+                d_color = "#31e59c" if d >= 0 else "#ff6b78"
+
+                with st.container(key=container_key):
+                    st.markdown(
+                        f"""
+                        <div class="iz-heat iz-heat-overlay-visible"
+                             style="{_iz_heat_color(s)};
+                                    box-shadow:inset 0 0 0 {border_px}px rgba(38,238,220,.13)">
+                            <strong>{html.escape(str(t))}</strong>
+                            <span>IZ {int(s)} · Güven {int(g)}%</span>
+                            <span style="display:block;color:{d_color};margin-top:2px">{d:+.2f}%</span>
+                        </div>
+                        """,
+                        unsafe_allow_html=True,
+                    )
+                    st.button(
+                        f"{t} detay",
+                        key=button_key,
+                        use_container_width=True,
+                        on_click=_izfin_home_ticker_ac,
+                        args=(t,),
+                    )
+
+                st.markdown(
+                    f"""
+                    <style>
+                    .st-key-{container_key} {{
+                        position:relative!important;
+                        min-height:68px!important;
+                    }}
+                    .st-key-{container_key} .st-key-{button_key} {{
+                        position:absolute!important;
+                        inset:0!important;
+                        z-index:20!important;
+                        height:100%!important;
+                        margin:0!important;
+                        padding:0!important;
+                    }}
+                    .st-key-{container_key} .st-key-{button_key} button {{
+                        position:absolute!important;
+                        inset:0!important;
+                        width:100%!important;
+                        height:100%!important;
+                        min-height:68px!important;
+                        opacity:0!important;
+                        cursor:pointer!important;
+                        border:0!important;
+                        background:transparent!important;
+                        padding:0!important;
+                    }}
+                    .st-key-{container_key}:hover .iz-heat-overlay-visible {{
+                        transform:translateY(-1px)!important;
+                        filter:brightness(1.07)!important;
+                        outline:1px solid rgba(42,205,216,.42)!important;
+                    }}
+                    </style>
+                    """,
+                    unsafe_allow_html=True,
+                )
+
 def izfin_dashboard_html():
     pulse,trend,momentum,flow,risk,kaynak = _iz_panel_metrics()
     items = _iz_heatmap_items(max_n=20)
@@ -4570,6 +4686,77 @@ def _iz_badge_class(s):
     if "ERKEN" in u: return "early"
     if "TEYİT" in u or "İZLE" in u: return "wait"
     return "risk"
+
+
+def izfin_render_classic_dashboard_clickable():
+    pulse,trend,momentum,flow,risk,kaynak = _iz_panel_metrics()
+    trend_lbl = "GÜÇLÜ" if trend >= 70 else "İYİ" if trend >= 55 else "KARIŞIK"
+    mom_lbl = "GÜÇLÜ" if momentum >= 70 else "İYİ" if momentum >= 55 else "KARIŞIK"
+    flow_lbl = "POZİTİF" if flow >= 60 else "DENGELİ" if flow >= 45 else "ZAYIF"
+    risk_lbl = "DÜŞÜK" if risk < 40 else "ORTA" if risk < 65 else "YÜKSEK"
+
+    st.markdown(
+        '<div class="iz-hero"><div class="iz-section-label">IZFIN SIGNATURE COMMAND CENTER</div>'
+        '<h1>IZFIN Piyasa Merkezi</h1>'
+        '<p>Piyasanın nabzını gör, fırsatı tara, kararın gerekçesini incele ve sonucu ölç.</p></div>',
+        unsafe_allow_html=True,
+    )
+
+    left, right = st.columns([1.35, .85], gap="medium")
+
+    with left:
+        st.markdown(
+            f"""
+            <div class="iz-card iz-pulse-card-standalone">
+                <div class="iz-card-head">
+                    <div>
+                        <div class="iz-card-title" style="margin:0">IZFIN PİYASA NABZI</div>
+                        <div class="iz-card-kicker">{kaynak}</div>
+                    </div>
+                    <span class="iz-badge wait">{_iz_pulse_label(pulse)}</span>
+                </div>
+
+                <div class="iz-pulse">
+                    <div class="iz-gauge" style="--pulse:{pulse}%">
+                        <div class="iz-gauge-content">
+                            <div class="iz-gauge-num">{pulse}<span style="font-size:12px;color:#7890a3">/100</span></div>
+                            <div class="iz-gauge-label">{_iz_pulse_label(pulse)}</div>
+                        </div>
+                    </div>
+                    <div>
+                        <div class="iz-pulse-copy">
+                            Trend, momentum, para akışı ve risk tek çerçevede okunur.
+                            Tarama sonrası nabız doğrudan IZFIN teknik motorunun analiz ettiği varlıklardan hesaplanır.
+                        </div>
+                        <div class="iz-components">
+                            <div class="iz-comp"><div class="iz-comp-name">TREND</div><div class="iz-comp-val">{trend}</div><div class="iz-comp-sub">{trend_lbl}</div></div>
+                            <div class="iz-comp"><div class="iz-comp-name">MOMENTUM</div><div class="iz-comp-val">{momentum}</div><div class="iz-comp-sub">{mom_lbl}</div></div>
+                            <div class="iz-comp"><div class="iz-comp-name">PARA AKIŞI</div><div class="iz-comp-val">{flow}</div><div class="iz-comp-sub">{flow_lbl}</div></div>
+                            <div class="iz-comp"><div class="iz-comp-name">RİSK</div><div class="iz-comp-val">{risk}</div><div class="iz-comp-sub" style="color:#f2b94d">{risk_lbl}</div></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+
+    with right:
+        st.markdown(
+            """
+            <div class="iz-card iz-map-card-standalone">
+                <div class="iz-card-head">
+                    <div>
+                        <div class="iz-card-title" style="margin:0">IZFIN FIRSAT HARİTASI</div>
+                        <div class="iz-card-kicker">RENK = SKOR · ÇERÇEVE = GÜVEN</div>
+                    </div>
+                    <span style="font-size:9px;color:#4ecfe0">SIGNATURE MAP</span>
+                </div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+        izfin_render_clickable_heatmap_overlay(max_n=20)
 
 def izfin_top_signals_html(max_n=7):
     sonuclar = st.session_state.get("sonuclar") or []
@@ -5135,8 +5322,7 @@ if aktif_sayfa in ["🏠 Ana Sayfa", "🔎 Akıllı Tarama"]:
         if _home_msg:
             st.warning(_home_msg)
 
-        st.markdown(izfin_dashboard_html(), unsafe_allow_html=True)
-        izfin_heat_clicks_compact(max_n=8)
+        izfin_render_classic_dashboard_clickable()
 
         st.markdown('<div class="iz-home-scan-banner"><div class="copy"><strong>✦ Fırsatları tüm evrende tara</strong><span>IZFIN merkezi karar motorunu seçtiğiniz piyasa grubunda çalıştırın.</span></div><span class="iz-badge wait">SIGNATURE SCAN</span></div>', unsafe_allow_html=True)
         if st.button("✦ AKILLI TARAMA MERKEZİNE GİT →", type="primary", use_container_width=True, key="home_scan_primary"):
