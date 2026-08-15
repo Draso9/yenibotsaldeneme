@@ -1399,6 +1399,47 @@ button[kind="primary"],
 }
 .iz-classic-map-empty b{color:#b7c9d6}
 
+
+/* v1.7.38 — daha sıkı ve keskin Fırsat Haritası */
+.iz-map-card-standalone{
+    border-radius:3px!important;
+    margin-bottom:4px!important;
+    padding:10px 11px!important;
+}
+.iz-heat-overlay-visible{
+    min-height:53px!important;
+    height:53px!important;
+    border-radius:1px!important;
+    padding:5px 7px!important;
+    margin:0!important;
+    box-shadow:none!important;
+}
+.iz-heat-overlay-visible strong{
+    font-size:9px!important;
+    margin-bottom:2px!important;
+    letter-spacing:.15px!important;
+}
+.iz-heat-overlay-visible span{
+    font-size:6.5px!important;
+    line-height:1.08!important;
+}
+[class*="st-key-heat_overlay_"]{
+    min-height:53px!important;
+}
+[class*="st-key-heat_overlay_"] [data-testid="stVerticalBlock"]{
+    gap:0!important;
+}
+[class*="st-key-heat_overlay_btn_"] button{
+    height:53px!important;
+    min-height:53px!important;
+    border-radius:1px!important;
+}
+[class*="st-key-heat_overlay_"]:hover .iz-heat-overlay-visible{
+    transform:none!important;
+    filter:brightness(1.12)!important;
+    outline:1px solid rgba(50,220,229,.72)!important;
+}
+
 </style>
 """, unsafe_allow_html=True)
 
