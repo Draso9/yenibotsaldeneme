@@ -983,6 +983,231 @@ button[kind="primary"],
     color:#fff!important;
 }
 
+
+/* v1.7.27 — Kapanmış Pozisyon Geçmişi: IZFIN native table */
+.iz-closed-kpis{
+    display:grid;
+    grid-template-columns:repeat(4,minmax(0,1fr));
+    gap:9px;
+    margin:4px 0 12px;
+}
+.iz-closed-kpis>div{
+    padding:11px 12px;
+    border:1px solid #17445d;
+    border-radius:11px;
+    background:linear-gradient(145deg,#071724,#092536);
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.025);
+}
+.iz-closed-kpis small{
+    display:block;
+    color:#648ca1;
+    font-size:8px;
+    font-weight:800;
+    letter-spacing:.85px;
+    margin-bottom:4px;
+}
+.iz-closed-kpis b{
+    color:#edf9fd;
+    font-size:15px;
+    font-weight:760;
+}
+.iz-closed-kpis b.pos{color:#43d9a0}
+.iz-closed-kpis b.neg{color:#ff7181}
+
+.iz-closed-table-shell{
+    width:100%;
+    border:1px solid #17445d;
+    border-radius:13px;
+    overflow:hidden;
+    background:#06131f;
+    box-shadow:0 14px 34px rgba(0,0,0,.16),inset 0 1px 0 rgba(255,255,255,.02);
+}
+.iz-closed-table-scroll{
+    width:100%;
+    overflow-x:auto;
+    max-height:500px;
+    overflow-y:auto;
+}
+.iz-closed-table{
+    width:100%;
+    min-width:1550px;
+    border-collapse:separate;
+    border-spacing:0;
+    font-size:11px;
+    color:#d8e8f0;
+}
+.iz-closed-table thead th{
+    position:sticky;
+    top:0;
+    z-index:3;
+    padding:10px 11px;
+    text-align:left;
+    white-space:nowrap;
+    color:#74a7bd;
+    background:#081a28;
+    border-bottom:1px solid #1d4d64;
+    font-size:8.5px;
+    letter-spacing:.6px;
+    text-transform:uppercase;
+    font-weight:850;
+}
+.iz-closed-table tbody td{
+    padding:10px 11px;
+    border-bottom:1px solid rgba(30,70,91,.52);
+    background:#071522;
+    white-space:nowrap;
+    vertical-align:middle;
+}
+.iz-closed-table tbody tr:nth-child(even) td{
+    background:#081927;
+}
+.iz-closed-table tbody tr:hover td{
+    background:#0a2434;
+}
+.iz-closed-table td.num{
+    text-align:right;
+    font-variant-numeric:tabular-nums;
+}
+.iz-closed-table td.center{text-align:center}
+.iz-closed-table td.date{color:#8ca8b8;font-size:10px}
+.iz-closed-table td.pos{color:#43d9a0;font-weight:800}
+.iz-closed-table td.neg{color:#ff7181;font-weight:800}
+.iz-closed-table td.neu{color:#a5bbc7}
+.iz-closed-table td.pos-soft{color:#72dcb4}
+.iz-closed-table td.neg-soft{color:#f18b98}
+
+.iz-ticker-chip{
+    display:inline-flex;
+    padding:5px 8px;
+    border-radius:7px;
+    color:#dff9fc;
+    background:#0b3143;
+    border:1px solid #1b6479;
+    font-weight:800;
+    letter-spacing:.2px;
+}
+.iz-signal-chip{
+    display:inline-flex;
+    max-width:180px;
+    overflow:hidden;
+    text-overflow:ellipsis;
+    padding:5px 7px;
+    border-radius:7px;
+    background:#0d2636;
+    border:1px solid #244d61;
+    color:#b8d8e5;
+    font-weight:650;
+}
+.iz-close-reason{
+    display:inline-flex;
+    max-width:210px;
+    overflow:hidden;
+    text-overflow:ellipsis;
+    padding:5px 7px;
+    border-radius:7px;
+    background:#251923;
+    border:1px solid #653748;
+    color:#f2c2cb;
+    font-weight:650;
+}
+@media(max-width:850px){
+    .iz-closed-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+
+
+/* v1.7.28 — Closed history insights */
+.iz-closed-kpis-wide{
+    grid-template-columns:repeat(4,minmax(0,1fr));
+}
+.iz-closed-insight-card{
+    margin:0 0 13px;
+    padding:15px 17px;
+    border:1px solid #1a5068;
+    border-radius:13px;
+    background:linear-gradient(145deg,#071824,#0a2637);
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.025);
+}
+.iz-closed-insight-head{
+    display:flex;
+    align-items:flex-start;
+    justify-content:space-between;
+    gap:18px;
+    margin-bottom:10px;
+}
+.iz-closed-insight-head small{
+    display:block;
+    color:#23d4de;
+    font-size:8px;
+    font-weight:850;
+    letter-spacing:1.15px;
+    margin-bottom:3px;
+}
+.iz-closed-insight-head h4{
+    margin:0;
+    color:#f1faff;
+    font-size:16px;
+}
+.iz-closed-extremes{
+    display:flex;
+    flex-wrap:wrap;
+    justify-content:flex-end;
+    gap:6px;
+}
+.iz-closed-extremes span{
+    padding:6px 8px;
+    border-radius:7px;
+    border:1px solid #1e4c61;
+    background:#071522;
+    color:#9bb9c8;
+    font-size:9px;
+    white-space:nowrap;
+}
+.iz-closed-extremes b{color:#dceef5}
+.iz-closed-insight-card ul{
+    margin:0;
+    padding-left:18px;
+    color:#c6dce6;
+    font-size:11px;
+    line-height:1.72;
+}
+.iz-closed-insight-card li{margin:3px 0}
+.iz-close-reason-summary{
+    margin:10px 0 3px;
+    padding:10px 12px;
+    border:1px solid #173f55;
+    border-radius:10px;
+    background:#071522;
+}
+.iz-close-reason-summary>small{
+    display:block;
+    color:#648ca1;
+    font-size:8px;
+    font-weight:850;
+    letter-spacing:.85px;
+    margin-bottom:7px;
+}
+.iz-close-reason-summary>div{
+    display:flex;
+    flex-wrap:wrap;
+    gap:6px;
+}
+.iz-close-reason-summary span{
+    display:inline-flex;
+    gap:5px;
+    padding:5px 7px;
+    border-radius:7px;
+    border:1px solid #244b5f;
+    background:#0a1d2b;
+    color:#8caaba;
+    font-size:9px;
+}
+.iz-close-reason-summary b{color:#d6e8ef}
+@media(max-width:900px){
+    .iz-closed-kpis-wide{grid-template-columns:repeat(2,minmax(0,1fr))}
+    .iz-closed-insight-head{flex-direction:column}
+    .iz-closed-extremes{justify-content:flex-start}
+}
+
 </style>
 """, unsafe_allow_html=True)
 
@@ -6066,12 +6291,188 @@ if aktif_sayfa == "📊 Takip & Performans":
                         "Stop": kapali_df.apply(lambda r: ("✅" if bool(r.get("ilk_stop_gordu")) else "❌") if isinstance(r.get("ilk_stop_gordu"), (bool, np.bool_)) else "—", axis=1),
                         "Durum": "⚪ Kapalı",
                     })
-                    st.dataframe(
-                        tablo_stili(kapanmis_gorunum),
-                        use_container_width=True,
-                        height=min(480, 82 + 36 * len(kapanmis_gorunum)),
-                        hide_index=True,
+                    # v1.7.27 — Kapanmış geçmişi Streamlit'in beyaz grid temasından bağımsız
+                    # özel IZFIN tablosu olarak göster.
+                    _kg = kapanmis_gorunum.copy()
+
+                    # Kapanmış dönem özetleri.
+                    _ret = pd.to_numeric(_kg["Kâr / Zarar %"], errors="coerce")
+                    _days = pd.to_numeric(_kg["Pozisyonda Gün"], errors="coerce")
+                    _valid_ret = _ret.dropna()
+                    _win_rate = float((_valid_ret > 0).mean() * 100) if not _valid_ret.empty else np.nan
+                    _avg_ret = float(_valid_ret.mean()) if not _valid_ret.empty else np.nan
+                    _med_days = float(_days.dropna().median()) if not _days.dropna().empty else np.nan
+
+                    # Daha zengin kapanmış dönem istatistikleri.
+                    _unique_tickers = int(_kg["Varlık"].nunique()) if "Varlık" in _kg.columns else 0
+
+                    _tp1_rate = np.nan
+                    if "TP1" in _kg.columns:
+                        _tp1_vals = _kg["TP1"].astype(str).str.upper()
+                        _tp1_rate = float(_tp1_vals.isin(["EVET", "TRUE", "1", "✓"]).mean() * 100)
+
+                    _stop_rate = np.nan
+                    if "Stop" in _kg.columns:
+                        _stop_vals = _kg["Stop"].astype(str).str.upper()
+                        _stop_rate = float(_stop_vals.isin(["EVET", "TRUE", "1", "✓"]).mean() * 100)
+
+                    _best_txt = "—"
+                    _worst_txt = "—"
+                    if not _valid_ret.empty:
+                        try:
+                            _best_i = _ret.idxmax()
+                            _worst_i = _ret.idxmin()
+                            _best_txt = f"{_kg.loc[_best_i, 'Varlık']} %{float(_ret.loc[_best_i]):+.1f}"
+                            _worst_txt = f"{_kg.loc[_worst_i, 'Varlık']} %{float(_ret.loc[_worst_i]):+.1f}"
+                        except Exception:
+                            pass
+
+                    _median_ret = float(_valid_ret.median()) if not _valid_ret.empty else np.nan
+
+                    st.markdown(
+                        f"""
+                        <div class="iz-closed-kpis iz-closed-kpis-wide">
+                            <div><small>KAPANMIŞ ALIM DÖNEMİ</small><b>{len(_kg)}</b></div>
+                            <div><small>FARKLI HİSSE</small><b>{_unique_tickers}</b></div>
+                            <div><small>POZİTİF KAPANIŞ</small><b>{f"%{_win_rate:.1f}" if np.isfinite(_win_rate) else "—"}</b></div>
+                            <div><small>ORT. GETİRİ</small><b class="{'pos' if np.isfinite(_avg_ret) and _avg_ret >= 0 else 'neg'}">{f"%{_avg_ret:+.2f}" if np.isfinite(_avg_ret) else "—"}</b></div>
+                            <div><small>MEDYAN GETİRİ</small><b class="{'pos' if np.isfinite(_median_ret) and _median_ret >= 0 else 'neg'}">{f"%{_median_ret:+.2f}" if np.isfinite(_median_ret) else "—"}</b></div>
+                            <div><small>MEDYAN SÜRE</small><b>{f"{_med_days:.1f} gün" if np.isfinite(_med_days) else "—"}</b></div>
+                            <div><small>TP1 GÖRÜLME</small><b>{f"%{_tp1_rate:.1f}" if np.isfinite(_tp1_rate) else "—"}</b></div>
+                            <div><small>STOP GÖRÜLME</small><b>{f"%{_stop_rate:.1f}" if np.isfinite(_stop_rate) else "—"}</b></div>
+                        </div>
+                        """,
+                        unsafe_allow_html=True,
                     )
+
+                    # Kullanıcıya ham tablodan önce kısa ve anlaşılır sistem yorumu.
+                    _yorum_parcalari = []
+
+                    if np.isfinite(_win_rate):
+                        if _win_rate >= 65:
+                            _yorum_parcalari.append(f"Kapanmış alım dönemlerinin %{_win_rate:.0f}'i pozitif sonuçlanmış; geçmiş sinyal seçimi güçlü görünüyor.")
+                        elif _win_rate >= 50:
+                            _yorum_parcalari.append(f"Kapanmış alım dönemlerinin %{_win_rate:.0f}'i pozitif; sistem geçmişte hafif pozitif bir seçicilik göstermiş.")
+                        else:
+                            _yorum_parcalari.append(f"Pozitif kapanış oranı %{_win_rate:.0f}; geçmiş sinyal seçimi daha seçici filtrelere ihtiyaç duyabilir.")
+
+                    if np.isfinite(_avg_ret) and np.isfinite(_median_ret):
+                        if _avg_ret > _median_ret + 2:
+                            _yorum_parcalari.append("Ortalama getiri medyanın belirgin üzerinde; birkaç güçlü kazanan toplam performansı yukarı taşıyor.")
+                        elif _median_ret > _avg_ret + 2:
+                            _yorum_parcalari.append("Medyan getiri ortalamanın üzerinde; birkaç zayıf dönem genel ortalamayı aşağı çekiyor.")
+                        elif _avg_ret > 0:
+                            _yorum_parcalari.append("Ortalama ve medyan getiri birbirine yakın; sonuç dağılımı görece dengeli.")
+                        else:
+                            _yorum_parcalari.append("Ortalama ve medyan getirinin birlikte zayıf olması, kapanış disiplininin ayrıca incelenmesini gerektiriyor.")
+
+                    if np.isfinite(_tp1_rate) and np.isfinite(_stop_rate):
+                        if _tp1_rate > _stop_rate + 10:
+                            _yorum_parcalari.append("TP1 görülme oranı stop görülme oranından belirgin yüksek; giriş sonrası olumlu hareket üretme kapasitesi iyi.")
+                        elif _stop_rate > _tp1_rate + 10:
+                            _yorum_parcalari.append("Stop görülme oranı TP1 oranından yüksek; giriş zamanlaması veya risk filtresi geliştirilebilir.")
+                        else:
+                            _yorum_parcalari.append("TP1 ve stop görülme oranları birbirine yakın; sinyal sonrası yön ayrışması sınırlı.")
+
+                    if _unique_tickers <= 3 and len(_kg) >= 5:
+                        _yorum_parcalari.append("Sonuçların önemli bölümü az sayıda hissede yoğunlaşmış; genelleme yaparken örneklem çeşitliliğine dikkat edilmeli.")
+
+                    _yorum_html = "".join(
+                        f"<li>{html.escape(str(x))}</li>"
+                        for x in _yorum_parcalari[:4]
+                    ) or "<li>Yeterli kapanmış dönem biriktikçe sistem yorumu burada daha anlamlı hale gelecek.</li>"
+
+                    st.markdown(
+                        f"""
+                        <div class="iz-closed-insight-card">
+                            <div class="iz-closed-insight-head">
+                                <div>
+                                    <small>IZFIN GEÇMİŞ PERFORMANS ÖZETİ</small>
+                                    <h4>Sistem geçmişte ne yaptı?</h4>
+                                </div>
+                                <div class="iz-closed-extremes">
+                                    <span><b>En iyi</b> {_best_txt}</span>
+                                    <span><b>En zayıf</b> {_worst_txt}</span>
+                                </div>
+                            </div>
+                            <ul>{_yorum_html}</ul>
+                        </div>
+                        """,
+                        unsafe_allow_html=True,
+                    )
+
+                    def _fmt_num(v, suffix="", signed=False):
+                        try:
+                            x = float(v)
+                            if not np.isfinite(x):
+                                return "—"
+                            return f"{x:+.2f}{suffix}" if signed else f"{x:.2f}{suffix}"
+                        except Exception:
+                            return "—"
+
+                    _rows = []
+                    for _, _r in _kg.iterrows():
+                        _ret_v = pd.to_numeric(pd.Series([_r.get("Kâr / Zarar %")]), errors="coerce").iloc[0]
+                        _ret_cls = "pos" if pd.notna(_ret_v) and _ret_v > 0 else ("neg" if pd.notna(_ret_v) and _ret_v < 0 else "neu")
+                        _ticker = html.escape(str(_r.get("Varlık", "—")))
+                        _reason = html.escape(str(_r.get("Kapanış Nedeni", "—")))
+                        _signal = html.escape(str(_r.get("Son Alım Sinyali", "—")))
+                        _rows.append(
+                            "<tr>"
+                            f"<td class='date'>{html.escape(str(_r.get('İlk Alım Tarihi','—')))}</td>"
+                            f"<td class='date'>{html.escape(str(_r.get('Kapanış Tarihi','—')))}</td>"
+                            f"<td><span class='iz-ticker-chip'>{_ticker}</span></td>"
+                            f"<td><span class='iz-signal-chip'>{_signal}</span></td>"
+                            f"<td><span class='iz-close-reason'>{_reason}</span></td>"
+                            f"<td class='num'>{_fmt_num(_r.get('İlk Alım Fiyatı'))}</td>"
+                            f"<td class='num'>{_fmt_num(_r.get('Kapanış Fiyatı'))}</td>"
+                            f"<td class='num { _ret_cls }'>{_fmt_num(_r.get('Kâr / Zarar %'), '%', True)}</td>"
+                            f"<td class='num'>{_fmt_num(_r.get('Pozisyonda Gün'))}</td>"
+                            f"<td class='num pos-soft'>{_fmt_num(_r.get('Maks. Kâr %'), '%', True)}</td>"
+                            f"<td class='num neg-soft'>{_fmt_num(_r.get('Maks. Düşüş %'), '%', True)}</td>"
+                            f"<td class='num'>{_fmt_num(_r.get('İlk Stop'))}</td>"
+                            f"<td class='num'>{_fmt_num(_r.get('İlk TP1'))}</td>"
+                            f"<td class='center'>{html.escape(str(_r.get('TP1','—')))}</td>"
+                            f"<td class='center'>{html.escape(str(_r.get('TP2','—')))}</td>"
+                            f"<td class='center'>{html.escape(str(_r.get('TP3','—')))}</td>"
+                            f"<td class='center'>{html.escape(str(_r.get('Stop','—')))}</td>"
+                            "</tr>"
+                        )
+
+                    _closed_html = (
+                        "<div class='iz-closed-table-shell'>"
+                        "<div class='iz-closed-table-scroll'>"
+                        "<table class='iz-closed-table'>"
+                        "<thead><tr>"
+                        "<th>İlk Alım</th><th>Kapanış</th><th>Varlık</th><th>Son Sinyal</th><th>Kapanış Nedeni</th>"
+                        "<th>Giriş</th><th>Kapanış</th><th>K/Z %</th><th>Gün</th><th>Maks. Kâr</th><th>Maks. Düşüş</th>"
+                        "<th>İlk Stop</th><th>İlk TP1</th><th>TP1</th><th>TP2</th><th>TP3</th><th>Stop</th>"
+                        "</tr></thead><tbody>"
+                        + "".join(_rows)
+                        + "</tbody></table></div></div>"
+                    )
+                    st.markdown(_closed_html, unsafe_allow_html=True)
+
+                    # Kapanış nedenleri dağılımı — kullanıcıya sistemin neden pozisyon kapattığını gösterir.
+                    if "Kapanış Nedeni" in _kg.columns:
+                        try:
+                            _reason_counts = _kg["Kapanış Nedeni"].fillna("Belirsiz").astype(str).value_counts().head(5)
+                            _reason_chips = "".join(
+                                f"<span><b>{html.escape(str(k))}</b> {int(v)}</span>"
+                                for k, v in _reason_counts.items()
+                            )
+                            st.markdown(
+                                f"""
+                                <div class="iz-close-reason-summary">
+                                    <small>EN SIK KAPANIŞ NEDENLERİ</small>
+                                    <div>{_reason_chips}</div>
+                                </div>
+                                """,
+                                unsafe_allow_html=True,
+                            )
+                        except Exception:
+                            pass
+
                     st.caption(
                         "Aynı hissede alım sinyali sona erip daha sonra yeniden oluşursa yeni dönem aktif tabloda açılır; "
                         "önceki dönem burada saklanır. Maksimum kâr/düşüş ve TP sütunları, ilgili alım dönemi için "
