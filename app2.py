@@ -175,6 +175,40 @@ hr {border-color:#122a3e!important;}
 .stTabs [data-baseweb="tab-list"] {border-radius:11px!important;}
 @media(max-width:850px){.iz-auth-shell{max-width:94%;margin-top:2vh}.iz-auth-logo img{width:62px;height:62px}.iz-auth-logo .word{font-size:25px}.iz-home-scan-banner{flex-direction:column;align-items:flex-start}}
 
+/* IZFIN AUTH POLISH — Streamlit varsayılan kırmızı vurguları bastır */
+.stTabs [data-baseweb="tab-list"] {
+  display:grid!important;grid-template-columns:1fr 1fr!important;gap:5px!important;
+  background:#06131f!important;border:1px solid #17384f!important;border-radius:13px!important;
+  padding:5px!important;margin:2px 0 14px!important;box-shadow:inset 0 1px 0 rgba(255,255,255,.02)!important;
+}
+.stTabs [data-baseweb="tab"] {
+  width:100%!important;justify-content:center!important;height:44px!important;padding:0 14px!important;
+  border:1px solid transparent!important;border-radius:9px!important;background:transparent!important;
+  color:#7894a8!important;font-weight:650!important;font-size:12px!important;transition:.18s ease!important;
+}
+.stTabs [data-baseweb="tab"]:hover {background:rgba(21,114,166,.10)!important;color:#dff8ff!important;}
+.stTabs [data-baseweb="tab"][aria-selected="true"] {
+  background:linear-gradient(105deg,rgba(18,123,236,.95),rgba(17,204,213,.82))!important;
+  color:#fff!important;border-color:rgba(53,225,236,.52)!important;
+  box-shadow:0 7px 22px rgba(12,140,220,.18),inset 0 1px 0 rgba(255,255,255,.10)!important;
+}
+.stTabs [data-baseweb="tab-highlight"], .stTabs [role="tablist"] + div, .stTabs [data-baseweb="tab-border"] {
+  background:transparent!important;border-color:transparent!important;height:0!important;display:none!important;
+}
+/* form primary buttons */
+div[data-testid="stFormSubmitButton"] button, div[data-testid="stButton"] button[kind="primary"] {
+  min-height:48px!important;border-radius:11px!important;border:1px solid rgba(49,223,235,.58)!important;
+  background:linear-gradient(105deg,#147be9 0%,#11cfd5 100%)!important;color:white!important;
+  font-weight:750!important;letter-spacing:.1px!important;
+  box-shadow:0 10px 26px rgba(12,128,218,.18),inset 0 1px 0 rgba(255,255,255,.13)!important;
+}
+div[data-testid="stFormSubmitButton"] button:hover, div[data-testid="stButton"] button[kind="primary"]:hover {
+  filter:brightness(1.07)!important;transform:translateY(-1px)!important;
+  box-shadow:0 14px 30px rgba(13,161,224,.24),0 0 0 1px rgba(45,232,237,.14)!important;
+}
+/* checkbox accent */
+[data-testid="stCheckbox"] input:checked + div {background-color:#16cbd7!important;border-color:#16cbd7!important;}
+
 </style>
 """, unsafe_allow_html=True)
 
@@ -390,7 +424,7 @@ if (not st.session_state.user_email) and saved_session_cookie and not st.session
 VARSAYILAN_TICKERS = ["AAPL", "MSFT", "TSLA", "NVDA", "AMD", "INTC", "THYAO.IS", "FROTO.IS", "TOASO.IS"]
 
 # --- IZFIN STRATEJİ SÜRÜMÜ ---
-STRATEJI_SURUMU = "IZFIN-v1.7.3-premium-auth-google"
+STRATEJI_SURUMU = "IZFIN-v1.7.4-premium-auth-polished"
 PERFORMANS_UFUKLARI = (1, 5, 10, 20, 45)
 
 # --- IZFIN UYGULAMA SÜRÜMÜ / LOG ---
@@ -3307,12 +3341,20 @@ def _google_login_component():
 <script src='https://www.gstatic.com/firebasejs/10.12.5/firebase-auth-compat.js'></script>
 <style>
 *{{box-sizing:border-box}}body{{margin:0;background:transparent;font-family:Inter,system-ui,-apple-system,Segoe UI,sans-serif}}
-button{{width:100%;height:44px;border-radius:10px;border:1px solid #d8e0e7;background:#fff;color:#17222d;font-size:13px;font-weight:650;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:10px;transition:.18s;box-shadow:0 5px 18px rgba(0,0,0,.16)}}
-button:hover{{transform:translateY(-1px);box-shadow:0 8px 24px rgba(0,0,0,.23)}}
-.g{{width:18px;height:18px;border-radius:50%;font-weight:800;font-size:15px;display:grid;place-items:center;color:#4285F4}}
-#error{{font-size:10px;color:#ff7c87;text-align:center;margin-top:7px;min-height:12px}}
+button{{width:100%;height:48px;border-radius:11px;border:1px solid #cfd9e2;background:linear-gradient(180deg,#ffffff,#f7fafc);color:#17222d;font-size:13px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:11px;transition:.18s ease;box-shadow:0 8px 22px rgba(0,0,0,.16),inset 0 1px 0 rgba(255,255,255,.9)}}
+button:hover{{transform:translateY(-1px);border-color:#9ec7e6;box-shadow:0 12px 28px rgba(0,0,0,.22),0 0 0 2px rgba(30,174,230,.08)}}
+button:active{{transform:translateY(0)}}button:disabled{{opacity:.72;cursor:wait}}
+.gmark{{width:19px;height:19px;display:block;flex:0 0 19px}}
+#error{{font-size:10px;color:#ff8791;text-align:center;margin-top:7px;min-height:12px}}
 </style></head><body>
-<button id='gbtn'><span class='g'>G</span><span>Google ile Devam Et</span></button><div id='error'></div>
+<button id='gbtn' aria-label='Google ile devam et'>
+<svg class='gmark' viewBox='0 0 18 18' xmlns='http://www.w3.org/2000/svg' aria-hidden='true'>
+<path fill='#4285F4' d='M17.64 9.205c0-.638-.057-1.252-.164-1.841H9v3.482h4.844a4.14 4.14 0 0 1-1.797 2.714v2.258h2.909c1.702-1.567 2.684-3.878 2.684-6.613z'/>
+<path fill='#34A853' d='M9 18c2.43 0 4.468-.806 5.956-2.182l-2.909-2.258c-.806.54-1.835.859-3.047.859-2.344 0-4.328-1.585-5.037-3.714H.956v2.332A9 9 0 0 0 9 18z'/>
+<path fill='#FBBC05' d='M3.963 10.705A5.41 5.41 0 0 1 3.682 9c0-.592.102-1.167.281-1.705V4.963H.956A9 9 0 0 0 0 9c0 1.452.347 2.827.956 4.037l3.007-2.332z'/>
+<path fill='#EA4335' d='M9 3.58c1.321 0 2.507.454 3.441 1.346l2.581-2.581C13.464.891 11.427 0 9 0A9 9 0 0 0 .956 4.963l3.007 2.332C4.672 5.165 6.656 3.58 9 3.58z'/>
+</svg>
+<span>Google ile Devam Et</span></button><div id='error'></div>
 <script>
 const cfg={{apiKey:{FIREBASE_WEB_API_KEY!r},authDomain:{FIREBASE_AUTH_DOMAIN!r},projectId:{FIREBASE_PROJECT_ID!r}}};
 try{{if(!firebase.apps.length) firebase.initializeApp(cfg);}}catch(e){{}}
