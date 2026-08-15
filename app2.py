@@ -583,6 +583,83 @@ button[kind="primary"],
     opacity:1!important;
 }
 
+
+/* v1.7.19 — Streamlit tag stilinden bağımsız IZFIN liste tasarımı */
+.iz-saved-list-label{
+    margin:8px 0 7px;
+    color:#78a8be;
+    font-size:11px;
+}
+.iz-static-chip-wrap{
+    display:flex;
+    flex-wrap:wrap;
+    gap:7px;
+}
+.iz-saved-list-box{
+    padding:12px;
+    min-height:48px;
+    border:1px solid #17465d;
+    border-radius:11px;
+    background:#071724;
+}
+.iz-static-chip{
+    display:inline-flex;
+    align-items:center;
+    padding:6px 9px;
+    border-radius:7px;
+    border:1px solid #1a5c72;
+    background:linear-gradient(135deg,#0b293a,#0d3949);
+    color:#d9f3f7!important;
+    font-size:11px;
+    line-height:1;
+    font-weight:650;
+    letter-spacing:.15px;
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.025);
+}
+.iz-active-universe{
+    margin:7px 0 10px;
+    padding:14px;
+    border:1px solid #19516a;
+    border-radius:12px;
+    background:linear-gradient(145deg,#071925,#09283a);
+}
+.iz-active-universe-top{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:12px;
+    margin-bottom:11px;
+}
+.iz-active-universe-top div{
+    display:flex;
+    flex-direction:column;
+    gap:2px;
+}
+.iz-active-universe-top small{
+    color:#5f899e;
+    font-size:8px;
+    letter-spacing:1px;
+    font-weight:750;
+}
+.iz-active-universe-top strong{
+    color:#effaff;
+    font-size:14px;
+}
+.iz-active-universe-top > span{
+    color:#18d5df;
+    font-size:9px;
+    font-weight:800;
+    letter-spacing:.7px;
+    border:1px solid #1b6077;
+    background:#082333;
+    border-radius:999px;
+    padding:6px 9px;
+}
+.iz-empty-list{
+    color:#66899a;
+    font-size:10px;
+}
+
 </style>
 """, unsafe_allow_html=True)
 
@@ -4404,12 +4481,16 @@ if aktif_sayfa in ["🏠 Ana Sayfa", "🔎 Akıllı Tarama"]:
             with st.expander("Kişisel Listemi Yönet", expanded=True):
                 if st.session_state.custom_tickers:
                     st.caption(f"{len(st.session_state.custom_tickers)} kayıtlı varlık")
-                    st.multiselect(
-                        "Kayıtlı hisselerim",
-                        options=st.session_state.custom_tickers,
-                        default=st.session_state.custom_tickers,
-                        key="kisisel_liste_goruntule",
-                        disabled=True,
+                    _kayitli_html = "".join(
+                        f'<span class="iz-static-chip">{x}</span>'
+                        for x in st.session_state.custom_tickers
+                    )
+                    st.markdown(
+                        f"""
+                        <div class="iz-saved-list-label">Kayıtlı hisselerim</div>
+                        <div class="iz-static-chip-wrap iz-saved-list-box">{_kayitli_html}</div>
+                        """,
+                        unsafe_allow_html=True,
                     )
                 else:
                     st.caption("Henüz kişisel listenizde varlık yok.")
@@ -4443,17 +4524,59 @@ if aktif_sayfa in ["🏠 Ana Sayfa", "🔎 Akıllı Tarama"]:
                 help="Hazır piyasa profili seçebilir veya Kendi Listem ile kişisel listenizi tarayabilirsiniz.",
             )
 
-            selected_tickers = st.multiselect(
-                "Taranacak Varlıklar",
-                options=sorted(set(tum_varliklar_havuzu + st.session_state.custom_tickers)),
-                key="secilen_varliklar",
-                placeholder="Taramaya dahil edilecek varlıkları seçin",
-            )
-            selected_tickers = list(dict.fromkeys([
-                str(x).strip().upper()
-                for x in selected_tickers
-                if str(x).strip()
-            ]))
+            # v1.7.19 — Ayrı "Taranacak Varlıklar" seçicisi kaldırıldı.
+            # Profil Kendi Listem ise kullanıcının Firebase'deki kişisel listesi doğrudan taranır.
+            # Diğer hazır profiller seçilirse ilgili preset doğrudan kullanılır.
+            if st.session_state.aktif_profil == "Kendi Listem":
+                selected_tickers = list(dict.fromkeys([
+                    str(x).strip().upper()
+                    for x in st.session_state.custom_tickers
+                    if str(x).strip()
+                ]))
+                st.session_state.secilen_varliklar = selected_tickers.copy()
+
+                _liste_html = "".join(
+                    f'<span class="iz-static-chip">{x}</span>'
+                    for x in selected_tickers
+                ) or '<span class="iz-empty-list">Listenizde henüz hisse yok</span>'
+
+                st.markdown(
+                    f"""
+                    <div class="iz-active-universe">
+                        <div class="iz-active-universe-top">
+                            <div>
+                                <small>AKTİF TARAMA EVRENİ</small>
+                                <strong>Kendi Listem</strong>
+                            </div>
+                            <span>{len(selected_tickers)} VARLIK</span>
+                        </div>
+                        <div class="iz-static-chip-wrap">{_liste_html}</div>
+                    </div>
+                    """,
+                    unsafe_allow_html=True,
+                )
+            else:
+                selected_tickers = list(dict.fromkeys([
+                    str(x).strip().upper()
+                    for x in preset_options.get(st.session_state.aktif_profil, [])
+                    if str(x).strip()
+                ]))
+                st.session_state.secilen_varliklar = selected_tickers.copy()
+
+                st.markdown(
+                    f"""
+                    <div class="iz-active-universe">
+                        <div class="iz-active-universe-top">
+                            <div>
+                                <small>AKTİF TARAMA EVRENİ</small>
+                                <strong>{st.session_state.aktif_profil}</strong>
+                            </div>
+                            <span>{len(selected_tickers)} VARLIK</span>
+                        </div>
+                    </div>
+                    """,
+                    unsafe_allow_html=True,
+                )
 
             st.markdown(
                 f"""<div class="iz-scan-selection-summary"><b>{len(selected_tickers)}</b><span> varlık taramaya hazır</span></div>""",
