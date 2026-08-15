@@ -284,7 +284,7 @@ STRATEJI_SURUMU = "IZFIN-v1.7.5-auth-switch-fixed"
 PERFORMANS_UFUKLARI = (1, 5, 10, 20, 45)
 
 # --- IZFIN UYGULAMA SÜRÜMÜ / LOG ---
-IZFIN_APP_SURUMU = "v1.7.48 CSS Extraction Fixed"
+IZFIN_APP_SURUMU = "v1.7.49 CSS Scope Fix"
 logger = logging.getLogger("IZFIN")
 if not logger.handlers:
     logging.basicConfig(level=logging.INFO)
@@ -4827,8 +4827,32 @@ if aktif_sayfa in ["🏠 Ana Sayfa", "🔎 Akıllı Tarama"]:
 
                 # v1.7.26 — Tarama tablosu odak / geniş ekran modu
                 if st.session_state.izfin_scan_table_focus:
-                    # Focus-mode CSS moved to styles/izfin.css
+                    st.markdown(
+                        """
+                        <style>
+[data-testid="stSidebar"]{display:none!important;}
+                        [data-testid="stHeader"]{display:none!important;}
+                        [data-testid="stToolbar"]{display:none!important;}
+                        footer{display:none!important;}
 
+                        .stAppViewContainer .main .block-container{
+                            max-width:100%!important;
+                            width:100%!important;
+                            padding:12px 18px 28px!important;
+                        }
+
+                        .iz-scan-table-wrap{
+                            width:100%!important;
+                            max-width:none!important;
+                            overflow-x:hidden!important;
+                        }
+
+                        .iz-focus-title h2{font-size:21px!important;}
+                        .iz-focus-title p{font-size:10px!important;}
+                        </style>
+                        """,
+                        unsafe_allow_html=True,
+                    )
                     focus_h1, focus_h2 = st.columns([6.8, 1.2], vertical_alignment="center")
                     with focus_h1:
                         st.markdown(
