@@ -1618,6 +1618,42 @@ button[kind="primary"],
     background:#0a3041!important;border-color:#2bcbd6!important;
 }
 
+
+/* v1.7.42 — Ana sayfa kompakt iki kolon */
+.iz-home-focus-left,
+.iz-home-focus-right{
+    min-width:0;
+}
+
+/* Alt ana sayfa kartlarını biraz sıkılaştır */
+.iz-signal-row{
+    padding-top:7px!important;
+    padding-bottom:7px!important;
+}
+.iz-mover-row{
+    padding-top:6px!important;
+    padding-bottom:6px!important;
+}
+
+/* Sağ kolon dar olduğundan mover metinlerini taşırma */
+.iz-mover-row strong,
+.iz-mover-row span{
+    white-space:nowrap!important;
+    overflow:hidden!important;
+    text-overflow:ellipsis!important;
+}
+
+/* Tıklama şeritleri de daha az yer kaplasın */
+.iz-click-strip-label{
+    margin-top:4px!important;
+    margin-bottom:3px!important;
+}
+[class*="st-key-classic_signal_click_"] button,
+[class*="st-key-classic_mover_click_"] button{
+    min-height:25px!important;
+    padding:2px 5px!important;
+}
+
 </style>
 """, unsafe_allow_html=True)
 
@@ -5130,8 +5166,8 @@ def izfin_top_signals_html(max_n=7):
         fiyat = r.get("Fiyat","—"); risk = p.get("risk_seviyesi",r.get("Risk","—")); mtf = int(float(p.get("mtf_uyum",50) or 50))
         rows.append(f'<tr><td><b>{t}</b></td><td>{fiyat}</td><td><span class="iz-badge {_iz_badge_class(sin)}">{sin}</span></td><td><b style="color:#20e69a">{skor}</b></td><td><div class="iz-ring" style="--g:{g}"><span>{g}%</span></div></td><td>{mtf}%</td><td>{risk}</td></tr>')
     if not rows:
-        return '<div class="iz-signals"><div class="iz-card-title">ÖNE ÇIKAN IZFIN SİNYALLERİ</div><div style="color:#7891a5;padding:18px 0">Derin Tarama çalıştırıldığında en yüksek skorlu sinyaller burada özetlenecek.</div></div>'
-    return '<div class="iz-signals"><div class="iz-card-title">ÖNE ÇIKAN IZFIN SİNYALLERİ</div><table><thead><tr><th>VARLIK</th><th>FİYAT</th><th>IZFIN KARARI</th><th>SKOR</th><th>GÜVEN</th><th>MTF</th><th>RİSK</th></tr></thead><tbody>' + ''.join(rows) + '</tbody></table></div>'
+        return '<div class="iz-signals"><div class="iz-card-title">GÜNÜN DİKKAT ÇEKENİ</div><div style="color:#7891a5;padding:18px 0">Derin Tarama çalıştırıldığında en yüksek skorlu sinyaller burada özetlenecek.</div></div>'
+    return '<div class="iz-signals"><div class="iz-card-title">GÜNÜN DİKKAT ÇEKENİ</div><table><thead><tr><th>VARLIK</th><th>FİYAT</th><th>IZFIN KARARI</th><th>SKOR</th><th>GÜVEN</th><th>MTF</th><th>RİSK</th></tr></thead><tbody>' + ''.join(rows) + '</tbody></table></div>'
 
 def izfin_movers_html(max_n=6):
     sonuclar = st.session_state.get("sonuclar") or []
@@ -5688,11 +5724,15 @@ if aktif_sayfa in ["🏠 Ana Sayfa", "🔎 Akıllı Tarama"]:
         if st.button("✦ AKILLI TARAMA MERKEZİNE GİT →", type="primary", use_container_width=True, key="home_scan_primary"):
             _izfin_nav_to("🔎 Akıllı Tarama"); st.rerun()
 
-        st.markdown(izfin_top_signals_html(), unsafe_allow_html=True)
-        izfin_top_signal_clicks(max_n=7)
+        home_focus_left, home_focus_right = st.columns([1.28, .72], gap="large")
 
-        st.markdown(izfin_movers_html(), unsafe_allow_html=True)
-        izfin_mover_clicks(max_n=6)
+        with home_focus_left:
+            st.markdown(izfin_top_signals_html(), unsafe_allow_html=True)
+            izfin_top_signal_clicks(max_n=5)
+
+        with home_focus_right:
+            st.markdown(izfin_movers_html(), unsafe_allow_html=True)
+            izfin_mover_clicks(max_n=5)
     else:
         st.markdown('''<div class="iz-scanner-hero"><div><div class="iz-section-label">IZFIN SCANNER</div><h2>Akıllı Tarama Merkezi</h2><p>Varlık evrenini seç, merkezi karar motorunu çalıştır ve sonuçları skor · güven · giriş kalitesi · MTF · risk ekseninde karşılaştır.</p></div><span class="iz-badge wait">SIGNATURE SCAN</span></div>''', unsafe_allow_html=True)
 
