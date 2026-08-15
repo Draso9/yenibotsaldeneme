@@ -1664,6 +1664,134 @@ button[kind="primary"],
     box-sizing:border-box;
 }
 
+
+/* v1.7.44 — Okunabilir geniş tablo */
+.iz-wide-table-shell{
+    width:100%;
+    overflow:hidden;
+    border:1px solid #17465d;
+    border-radius:10px;
+    background:#06131f;
+    box-shadow:0 12px 28px rgba(0,0,0,.14);
+}
+.iz-wide-table{
+    width:100%;
+    table-layout:fixed;
+    border-collapse:collapse;
+    color:#dcebf2;
+    font-size:11px;
+}
+.iz-wide-table th{
+    padding:10px 10px;
+    text-align:left;
+    background:#081a28;
+    color:#72a7bd;
+    border-bottom:1px solid #1d4d64;
+    font-size:8.5px;
+    font-weight:850;
+    letter-spacing:.6px;
+}
+.iz-wide-table td{
+    padding:10px 10px;
+    border-bottom:1px solid rgba(30,70,91,.48);
+    background:#071522;
+    vertical-align:middle;
+    overflow:hidden;
+}
+.iz-wide-table tr:nth-child(even) td{background:#081927}
+.iz-wide-table tr:hover td{background:#0a2434}
+
+.iz-wide-table th:nth-child(1){width:12%}
+.iz-wide-table th:nth-child(2){width:16%}
+.iz-wide-table th:nth-child(3){width:31%}
+.iz-wide-table th:nth-child(4){width:18%}
+.iz-wide-table th:nth-child(5){width:12%}
+.iz-wide-table th:nth-child(6){width:11%}
+
+.iz-wide-asset strong{
+    display:block;
+    color:#f4fbff;
+    font-size:12px;
+    font-weight:800;
+}
+.iz-wide-asset span{
+    display:block;
+    margin-top:3px;
+    color:#87a6b6;
+    font-size:9px;
+}
+.iz-wide-decision .iz-badge{
+    display:inline-flex!important;
+    max-width:100%!important;
+    font-size:9px!important;
+    padding:5px 7px!important;
+    white-space:normal!important;
+    line-height:1.2!important;
+}
+
+.iz-wide-quality{
+    display:grid!important;
+    grid-template-columns:.7fr .75fr .65fr 2.1fr;
+    gap:5px;
+}
+.iz-wide-quality>div,
+.iz-wide-riskflow>div{
+    min-width:0;
+    padding:6px 7px;
+    border:1px solid #173d51;
+    border-radius:6px;
+    background:#071522;
+}
+.iz-wide-quality span,
+.iz-wide-riskflow span{
+    display:block;
+    color:#62899d;
+    font-size:6.8px;
+    font-weight:850;
+    letter-spacing:.45px;
+    margin-bottom:2px;
+}
+.iz-wide-quality b,
+.iz-wide-riskflow b{
+    display:block;
+    color:#e7f6fb;
+    font-size:9.5px;
+    font-weight:760;
+    white-space:nowrap;
+    overflow:hidden;
+    text-overflow:ellipsis;
+}
+.iz-wide-entry b{
+    white-space:nowrap;
+    overflow:hidden;
+    text-overflow:ellipsis;
+}
+
+.iz-wide-riskflow{
+    display:grid!important;
+    grid-template-columns:.8fr 1.2fr;
+    gap:5px;
+}
+.iz-wide-riskflow .risk-high b{color:#ff7b88}
+.iz-wide-riskflow .risk-low b{color:#46dca5}
+.iz-wide-riskflow .risk-mid b{color:#edc25e}
+
+.iz-wide-value,
+.iz-wide-session{
+    color:#a8bec9;
+    font-size:9.5px;
+    white-space:nowrap;
+    overflow:hidden;
+    text-overflow:ellipsis;
+}
+
+@media(max-width:1400px){
+    .iz-wide-table{font-size:10px}
+    .iz-wide-table th{font-size:8px;padding:8px 7px}
+    .iz-wide-table td{padding:8px 7px}
+    .iz-wide-quality b,.iz-wide-riskflow b{font-size:8.8px}
+}
+
 </style>
 """, unsafe_allow_html=True)
 
@@ -5573,6 +5701,71 @@ def izfin_tarama_tablosu_html(df):
         body.append('<tr>'+''.join(tds)+'</tr>')
     return f'<div class="iz-table-wrap"><table class="iz-table"><thead><tr>{heads}</tr></thead><tbody>{"".join(body)}</tbody></table></div>'
 
+
+def izfin_tarama_genis_ozet_html(df):
+    """Geniş görünüm için okunabilir, gruplanmış IZFIN sonuç tablosu."""
+    if df is None or df.empty:
+        return '<div class="iz-wide-table-empty">Gösterilecek tarama sonucu yok.</div>'
+
+    esc = lambda v: html.escape(str(v if v is not None else "—"))
+
+    rows = []
+    for _, row in df.iterrows():
+        ticker = esc(row.get("Varlık", "—"))
+        fiyat = esc(row.get("Fiyat", "—"))
+        sinyal = str(row.get("Nihai Sinyal", "—"))
+        sinyal_esc = esc(sinyal)
+
+        skor = esc(row.get("Gelişmiş Skor", "—"))
+        guven = esc(row.get("Güven", "—"))
+        mtf = esc(row.get("MTF Uyum", "—"))
+        giris = esc(row.get("🎯 Giriş Kalitesi", "—"))
+
+        risk = str(row.get("Risk", "—"))
+        risk_esc = esc(risk)
+        para = esc(row.get("Para Akışı", "—"))
+        peg = esc(row.get("PEG / Değerleme", "—"))
+        seans = esc(row.get("Seans Dışı", "—"))
+
+        risk_u = risk.upper()
+        risk_cls = (
+            "risk-high" if ("YÜKSEK" in risk_u or "PANİK" in risk_u)
+            else "risk-low" if ("DÜŞÜK" in risk_u or "SAKİN" in risk_u)
+            else "risk-mid"
+        )
+
+        rows.append(
+            "<tr>"
+            f"<td class='iz-wide-asset'><strong>{ticker}</strong><span>{fiyat}</span></td>"
+            f"<td class='iz-wide-decision'><span class='iz-badge {_iz_badge_class(sinyal)}'>{sinyal_esc}</span></td>"
+            "<td class='iz-wide-quality'>"
+                f"<div><span>SKOR</span><b>{skor}</b></div>"
+                f"<div><span>GÜVEN</span><b>{guven}</b></div>"
+                f"<div><span>MTF</span><b>{mtf}</b></div>"
+                f"<div class='iz-wide-entry' title='{giris}'><span>GİRİŞ</span><b>{giris}</b></div>"
+            "</td>"
+            f"<td class='iz-wide-riskflow'><div class='{risk_cls}'><span>RİSK</span><b>{risk_esc}</b></div>"
+                f"<div><span>AKIŞ</span><b title='{para}'>{para}</b></div></td>"
+            f"<td class='iz-wide-value' title='{peg}'>{peg}</td>"
+            f"<td class='iz-wide-session' title='{seans}'>{seans}</td>"
+            "</tr>"
+        )
+
+    return (
+        "<div class='iz-wide-table-shell'>"
+        "<table class='iz-wide-table'>"
+        "<thead><tr>"
+        "<th>VARLIK / FİYAT</th>"
+        "<th>IZFIN KARARI</th>"
+        "<th>KALİTE</th>"
+        "<th>RİSK / AKIŞ</th>"
+        "<th>DEĞERLEME</th>"
+        "<th>SEANS DIŞI</th>"
+        "</tr></thead>"
+        "<tbody>" + "".join(rows) + "</tbody>"
+        "</table></div>"
+    )
+
 if not st.session_state.get("user_email") or not st.session_state.get("user_uid"):
     izfin_auth_ekrani()
     st.stop()
@@ -6496,86 +6689,17 @@ if aktif_sayfa in ["🏠 Ana Sayfa", "🔎 Akıllı Tarama"]:
                         .stAppViewContainer .main .block-container{
                             max-width:100%!important;
                             width:100%!important;
-                            padding:10px 12px 24px!important;
-                        }
-
-                        .iz-signals,.iz-scan-table-wrap{
-                            width:100%!important;
-                            max-width:none!important;
+                            padding:12px 18px 28px!important;
                         }
 
                         .iz-scan-table-wrap{
                             width:100%!important;
-                            min-height:calc(100vh - 118px)!important;
+                            max-width:none!important;
                             overflow-x:hidden!important;
                         }
 
-                        .iz-scan-table-wrap table{
-                            width:100%!important;
-                            max-width:100%!important;
-                            min-width:0!important;
-                            table-layout:fixed!important;
-                            font-size:9px!important;
-                            border-collapse:collapse!important;
-                        }
-
-                        .iz-scan-table-wrap th{
-                            padding:6px 4px!important;
-                            font-size:7px!important;
-                            line-height:1.15!important;
-                            white-space:normal!important;
-                            word-break:break-word!important;
-                            overflow-wrap:anywhere!important;
-                        }
-
-                        .iz-scan-table-wrap td{
-                            padding:5px 4px!important;
-                            font-size:8px!important;
-                            line-height:1.18!important;
-                            white-space:nowrap!important;
-                            overflow:hidden!important;
-                            text-overflow:ellipsis!important;
-                            max-width:0!important;
-                        }
-
-                        .iz-scan-table-wrap td *,
-                        .iz-scan-table-wrap th *{
-                            max-width:100%!important;
-                            font-size:inherit!important;
-                        }
-
-                        .iz-scan-table-wrap .iz-badge{
-                            padding:3px 5px!important;
-                            font-size:6.5px!important;
-                            letter-spacing:0!important;
-                            white-space:nowrap!important;
-                        }
-
-                        .iz-scan-table-wrap .iz-ring{
-                            width:28px!important;
-                            height:28px!important;
-                            min-width:28px!important;
-                        }
-
-                        .iz-scan-table-wrap .iz-ring span{
-                            font-size:6.5px!important;
-                        }
-
-                        .iz-focus-title h2{
-                            font-size:19px!important;
-                        }
-
-                        .iz-focus-title p,
-                        .iz-focus-meta{
-                            font-size:8px!important;
-                        }
-
-                        @media (max-width:1400px){
-                            .iz-scan-table-wrap table{font-size:8px!important;}
-                            .iz-scan-table-wrap th{font-size:6.5px!important;padding:5px 3px!important;}
-                            .iz-scan-table-wrap td{font-size:7px!important;padding:4px 3px!important;}
-                            .iz-scan-table-wrap .iz-badge{font-size:6px!important;padding:2px 4px!important;}
-                        }
+                        .iz-focus-title h2{font-size:21px!important;}
+                        .iz-focus-title p{font-size:10px!important;}
                         </style>
                         """,
                         unsafe_allow_html=True,
@@ -6613,9 +6737,12 @@ if aktif_sayfa in ["🏠 Ana Sayfa", "🔎 Akıllı Tarama"]:
 
                     st.markdown(
                         '<div class="iz-scan-table-wrap">'
-                        + izfin_tarama_tablosu_html(df_sonuc)
+                        + izfin_tarama_genis_ozet_html(df_sonuc)
                         + '</div>',
                         unsafe_allow_html=True,
+                    )
+                    st.caption(
+                        "Geniş görünüm benzer alanları gruplar. Normal görünümde tüm sütunlar ayrı ayrı gösterilmeye devam eder."
                     )
                     st.stop()
 
