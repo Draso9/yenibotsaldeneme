@@ -12,6 +12,9 @@ import base64
 import re
 import html
 import secrets as pysecrets
+import hashlib
+import hmac
+from urllib.parse import urlencode
 from zoneinfo import ZoneInfo
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from threading import Lock
@@ -169,6 +172,9 @@ hr {border-color:#122a3e!important;}
 .iz-google-wrap {margin-top:10px;padding-top:12px;border-top:1px solid rgba(28,65,89,.65);}
 .iz-google-caption {font-size:9px;color:#6d8799;text-align:center;margin:0 0 9px;}
 .iz-google-note {font-size:8.5px;color:#58758a;text-align:center;margin-top:4px;}
+.iz-google-oauth-btn{width:100%;height:46px;border-radius:11px;border:1px solid #cfd9e2;background:linear-gradient(180deg,#fff 0%,#f7fafc 100%);color:#17222d!important;font-size:13px;font-weight:700;text-decoration:none!important;display:flex;align-items:center;justify-content:center;gap:11px;transition:.18s;box-shadow:0 7px 20px rgba(0,0,0,.18),inset 0 1px 0 rgba(255,255,255,.95);}
+.iz-google-oauth-btn:hover{transform:translateY(-1px);border-color:#9fb8ca;color:#101c27!important;box-shadow:0 11px 27px rgba(0,0,0,.24);}
+.iz-google-g{width:19px;height:19px;display:block;flex:0 0 19px;}
 .iz-auth-footer {font-size:8.5px;color:#526e82;margin-top:13px;letter-spacing:.15px;}
 [data-testid="stTextInput"] input {border-radius:11px!important;min-height:44px!important;background:#071522!important;border:1px solid #21435a!important;color:#eef8ff!important;box-shadow:inset 0 1px 0 rgba(255,255,255,.02)!important;}
 [data-testid="stTextInput"] input:focus {border-color:#17dce5!important;box-shadow:0 0 0 1px rgba(23,220,229,.45),0 0 22px rgba(18,185,221,.10)!important;}
@@ -294,6 +300,23 @@ def _firebase_project_id():
 
 FIREBASE_PROJECT_ID = _firebase_project_id()
 FIREBASE_AUTH_DOMAIN = f"{FIREBASE_PROJECT_ID}.firebaseapp.com" if FIREBASE_PROJECT_ID else ""
+
+
+def _secret_degeri(ad, varsayilan=""):
+    try:
+        v = st.secrets.get(ad, varsayilan)
+    except Exception:
+        v = os.getenv(ad, varsayilan)
+    return str(v or varsayilan).strip()
+
+GOOGLE_OAUTH_CLIENT_ID = _secret_degeri("GOOGLE_OAUTH_CLIENT_ID")
+GOOGLE_OAUTH_CLIENT_SECRET = _secret_degeri("GOOGLE_OAUTH_CLIENT_SECRET")
+GOOGLE_OAUTH_REDIRECT_URI = _secret_degeri(
+    "GOOGLE_OAUTH_REDIRECT_URI",
+    "https://yenibotsaldeneme-3mevwlpzmsq8khknqxxyuf.streamlit.app/",
+)
+GOOGLE_OAUTH_AUTHORIZE_URL = "https://accounts.google.com/o/oauth2/v2/auth"
+GOOGLE_OAUTH_TOKEN_URL = "https://oauth2.googleapis.com/token"
 
 
 def _firebase_auth_hata_mesaji(kod):
@@ -3327,67 +3350,165 @@ def izfin_movers_html(max_n=6):
 def izfin_home_action_html():
     return '''<div class="iz-cta"><div class="iz-section-label">AKILLI TARAMA</div><h3>Fırsatı geniş havuzda keşfet</h3><p>Seçtiğin piyasa grubunu IZFIN karar motoruyla tara; skor, güven, giriş kalitesi, MTF ve risk filtrelerini aynı tabloda karşılaştır.</p></div>'''
 
+def _google_state_uret():
+    """OAuth state'i Streamlit session'a bağımlı olmadan imzalar (10 dk geçerli)."""
+    if not GOOGLE_OAUTH_CLIENT_SECRET:
+        return ""
+    ts = str(int(time.time()))
+    nonce = pysecrets.token_urlsafe(16)
+    payload = f"{ts}.{nonce}"
+    sig = hmac.new(
+        GOOGLE_OAUTH_CLIENT_SECRET.encode("utf-8"),
+        payload.encode("utf-8"),
+        hashlib.sha256,
+    ).hexdigest()
+    return f"{payload}.{sig}"
+
+
+def _google_state_dogrula(state):
+    try:
+        ts, nonce, sig = str(state or "").split(".", 2)
+        payload = f"{ts}.{nonce}"
+        beklenen = hmac.new(
+            GOOGLE_OAUTH_CLIENT_SECRET.encode("utf-8"),
+            payload.encode("utf-8"),
+            hashlib.sha256,
+        ).hexdigest()
+        if not hmac.compare_digest(sig, beklenen):
+            return False
+        yas = int(time.time()) - int(ts)
+        return 0 <= yas <= 600
+    except Exception:
+        return False
+
+
+def _google_oauth_url():
+    if not GOOGLE_OAUTH_CLIENT_ID or not GOOGLE_OAUTH_CLIENT_SECRET:
+        return ""
+    params = {
+        "client_id": GOOGLE_OAUTH_CLIENT_ID,
+        "redirect_uri": GOOGLE_OAUTH_REDIRECT_URI,
+        "response_type": "code",
+        "scope": "openid email profile",
+        "state": _google_state_uret(),
+        "prompt": "select_account",
+        "include_granted_scopes": "true",
+    }
+    return GOOGLE_OAUTH_AUTHORIZE_URL + "?" + urlencode(params)
+
+
+def _google_tokenu_firebase_tokenina_cevir(google_id_token):
+    if not FIREBASE_WEB_API_KEY:
+        return None, "Firebase Web API Key eksik."
+    try:
+        post_body = urlencode({"id_token": google_id_token, "providerId": "google.com"})
+        r = requests.post(
+            f"{FIREBASE_AUTH_BASE}/accounts:signInWithIdp?key={FIREBASE_WEB_API_KEY}",
+            json={
+                "postBody": post_body,
+                "requestUri": GOOGLE_OAUTH_REDIRECT_URI,
+                "returnIdpCredential": True,
+                "returnSecureToken": True,
+            },
+            timeout=12,
+        )
+        data = r.json() if r.content else {}
+        if r.ok and data.get("idToken"):
+            return data, None
+        kod = ((data.get("error") or {}).get("message") or data.get("errorMessage") or f"HTTP_{r.status_code}")
+        if "EMAIL_EXISTS" in str(kod):
+            return None, "Bu Google e-postası mevcut başka bir IZFIN hesabıyla çakışıyor. Önce mevcut yöntemle giriş yapın."
+        return None, f"Firebase Google oturumu oluşturulamadı: {kod}"
+    except Exception as e:
+        izfin_hata_logla("google_firebase_exchange", e)
+        return None, "Google kimliği Firebase hesabına bağlanamadı."
+
+
 def _google_callback_isle():
     try:
-        token = str(st.query_params.get("izfin_google_token", "") or "").strip()
+        oauth_error = str(st.query_params.get("error", "") or "").strip()
+        code = str(st.query_params.get("code", "") or "").strip()
+        state = str(st.query_params.get("state", "") or "").strip()
     except Exception:
-        token = ""
-    if not token:
+        oauth_error = code = state = ""
+
+    if oauth_error:
+        try: st.query_params.clear()
+        except Exception: pass
+        if oauth_error == "access_denied":
+            return False, "Google girişi kullanıcı tarafından iptal edildi."
+        return False, f"Google OAuth hatası: {oauth_error}"
+    if not code:
         return None
+    if not GOOGLE_OAUTH_CLIENT_SECRET or not _google_state_dogrula(state):
+        try: st.query_params.clear()
+        except Exception: pass
+        return False, "Google oturumu güvenlik doğrulamasından geçemedi. Lütfen yeniden deneyin."
+
     try:
-        try:
-            st.query_params.clear()
-        except Exception:
-            pass
-        ok, msg = _oturum_ac({"idToken": token}, beni_hatirla=True)
-        return (ok, msg)
+        token_resp = requests.post(
+            GOOGLE_OAUTH_TOKEN_URL,
+            data={
+                "code": code,
+                "client_id": GOOGLE_OAUTH_CLIENT_ID,
+                "client_secret": GOOGLE_OAUTH_CLIENT_SECRET,
+                "redirect_uri": GOOGLE_OAUTH_REDIRECT_URI,
+                "grant_type": "authorization_code",
+            },
+            timeout=12,
+        )
+        token_data = token_resp.json() if token_resp.content else {}
+        if not token_resp.ok:
+            aciklama = token_data.get("error_description") or token_data.get("error") or f"HTTP_{token_resp.status_code}"
+            try: st.query_params.clear()
+            except Exception: pass
+            return False, f"Google yetkilendirme kodu doğrulanamadı: {aciklama}"
+        google_id_token = str(token_data.get("id_token") or "")
+        if not google_id_token:
+            try: st.query_params.clear()
+            except Exception: pass
+            return False, "Google kimlik tokenı alınamadı."
+
+        firebase_data, err = _google_tokenu_firebase_tokenina_cevir(google_id_token)
+        if err:
+            try: st.query_params.clear()
+            except Exception: pass
+            return False, err
+        ok, msg = _oturum_ac(firebase_data, beni_hatirla=True)
+        try: st.query_params.clear()
+        except Exception: pass
+        return ok, msg
     except Exception as e:
-        izfin_hata_logla("google_callback", e)
-        return (False, "Google oturumu tamamlanamadı. Lütfen tekrar deneyin.")
+        izfin_hata_logla("google_oauth_callback", e)
+        try: st.query_params.clear()
+        except Exception: pass
+        return False, "Google oturumu tamamlanamadı. Lütfen tekrar deneyin."
 
 
 def _google_login_component():
-    if not FIREBASE_WEB_API_KEY or not FIREBASE_AUTH_DOMAIN or not FIREBASE_PROJECT_ID:
-        st.info("Google ile giriş için Firebase Web yapılandırması tamamlanmalı.")
+    """Iframe/popup kullanmadan üst seviye Google OAuth redirect düğmesi."""
+    if not GOOGLE_OAUTH_CLIENT_ID:
+        st.info("Google ile giriş için GOOGLE_OAUTH_CLIENT_ID eksik.")
         return
-    html_doc = f"""<!doctype html><html><head><meta charset='utf-8'>
-<script src='https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js'></script>
-<script src='https://www.gstatic.com/firebasejs/10.12.5/firebase-auth-compat.js'></script>
-<style>
-*{{box-sizing:border-box}}body{{margin:0;background:transparent;font-family:Inter,system-ui,-apple-system,Segoe UI,sans-serif}}
-button{{width:100%;height:46px;border-radius:11px;border:1px solid #cfd9e2;background:linear-gradient(180deg,#ffffff 0%,#f7fafc 100%);color:#17222d;font-size:13px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:11px;transition:.18s;box-shadow:0 7px 20px rgba(0,0,0,.18),inset 0 1px 0 rgba(255,255,255,.95)}}
-button:hover{{transform:translateY(-1px);border-color:#9fb8ca;box-shadow:0 11px 27px rgba(0,0,0,.24)}}
-button:active{{transform:translateY(0)}}
-.gmark{{width:19px;height:19px;display:block;flex:0 0 19px}}
-#error{{font-size:10px;color:#ff7c87;text-align:center;margin-top:7px;min-height:12px}}
-</style></head><body>
-<button id='gbtn' aria-label='Google ile devam et'><svg class='gmark' viewBox='0 0 18 18' xmlns='http://www.w3.org/2000/svg'><path fill='#4285F4' d='M17.64 9.205c0-.638-.057-1.252-.164-1.841H9v3.482h4.844a4.14 4.14 0 0 1-1.797 2.715v2.258h2.909c1.702-1.567 2.684-3.875 2.684-6.614z'/><path fill='#34A853' d='M9 18c2.43 0 4.467-.806 5.956-2.181l-2.909-2.258c-.806.54-1.835.859-3.047.859-2.344 0-4.328-1.585-5.037-3.714H.956v2.332A9 9 0 0 0 9 18z'/><path fill='#FBBC05' d='M3.963 10.706A5.41 5.41 0 0 1 3.682 9c0-.592.102-1.167.281-1.706V4.962H.956A9 9 0 0 0 0 9c0 1.452.347 2.827.956 4.038l3.007-2.332z'/><path fill='#EA4335' d='M9 3.58c1.321 0 2.507.454 3.44 1.345l2.581-2.582C13.463.891 11.426 0 9 0A9 9 0 0 0 .956 4.962l3.007 2.332C4.672 5.165 6.656 3.58 9 3.58z'/></svg><span>Google ile devam et</span></button><div id='error'></div>
-<script>
-const cfg={{apiKey:{FIREBASE_WEB_API_KEY!r},authDomain:{FIREBASE_AUTH_DOMAIN!r},projectId:{FIREBASE_PROJECT_ID!r}}};
-try{{if(!firebase.apps.length) firebase.initializeApp(cfg);}}catch(e){{}}
-const provider=new firebase.auth.GoogleAuthProvider();provider.setCustomParameters({{prompt:'select_account'}});
-document.getElementById('gbtn').onclick=async()=>{{
- const btn=document.getElementById('gbtn'),err=document.getElementById('error');err.textContent='';btn.disabled=true;btn.querySelector('span:last-child').textContent='Google açılıyor…';
- try{{const res=await firebase.auth().signInWithPopup(provider);const tok=await res.user.getIdToken(true);const base=window.parent.location.origin+window.parent.location.pathname;window.parent.location.assign(base+'?izfin_google_token='+encodeURIComponent(tok));}}
- catch(e){{
-   let code=(e&&e.code)?e.code:'auth/unknown';
-   let m='Google ile giriş tamamlanamadı.';
-   if(code==='auth/popup-closed-by-user') m='Google penceresi tamamlanmadan kapatıldı.';
-   else if(code==='auth/popup-blocked') m='Tarayıcı Google giriş penceresini engelledi. Bu site için pop-up izni verip tekrar deneyin.';
-   else if(code==='auth/unauthorized-domain') m='Bu Streamlit alan adı Firebase Authorized Domains listesinde değil.';
-   else if(code==='auth/account-exists-with-different-credential') m='Bu e-posta IZFIN’de başka bir giriş yöntemiyle kayıtlı. Önce mevcut e-posta/şifrenizle giriş yapın; Google hesabını aynı hesaba bağlamamız gerekiyor.';
-   else if(code==='auth/operation-not-supported-in-this-environment') m='Google oturumu bu tarayıcı/iframe ortamında başlatılamadı.';
-   else if(code==='auth/cancelled-popup-request') m='Başka bir Google giriş penceresi zaten açık.';
-   else if(code==='auth/network-request-failed') m='Google/Firebase bağlantısı sırasında ağ hatası oluştu.';
-   else if(code==='auth/internal-error') m='Firebase Google oturumunda iç hata oluştu.';
-   err.textContent=m+' ['+code+']';
-   console.error('IZFIN Google Auth', code, e&&e.message?e.message:e);
-   btn.disabled=false;btn.querySelector('span:last-child').textContent='Google ile Devam Et';
-  }}
-}};
-</script></body></html>"""
-    components.html(html_doc, height=66, scrolling=False)
-
+    if not GOOGLE_OAUTH_CLIENT_SECRET:
+        st.info("Google ile giriş için GOOGLE_OAUTH_CLIENT_SECRET Streamlit Secrets'a eklenmeli.")
+        return
+    auth_url = _google_oauth_url()
+    if not auth_url:
+        st.info("Google OAuth yapılandırması tamamlanamadı.")
+        return
+    safe_url = html.escape(auth_url, quote=True)
+    st.markdown(f"""
+    <a class='iz-google-oauth-btn' href='{safe_url}' target='_self' rel='noopener'>
+      <svg class='iz-google-g' viewBox='0 0 18 18' xmlns='http://www.w3.org/2000/svg'>
+        <path fill='#4285F4' d='M17.64 9.205c0-.638-.057-1.252-.164-1.841H9v3.482h4.844a4.14 4.14 0 0 1-1.797 2.715v2.258h2.909c1.702-1.567 2.684-3.875 2.684-6.614z'/>
+        <path fill='#34A853' d='M9 18c2.43 0 4.467-.806 5.956-2.181l-2.909-2.258c-.806.54-1.835.859-3.047.859-2.344 0-4.328-1.585-5.037-3.714H.956v2.332A9 9 0 0 0 9 18z'/>
+        <path fill='#FBBC05' d='M3.963 10.706A5.41 5.41 0 0 1 3.682 9c0-.592.102-1.167.281-1.706V4.962H.956A9 9 0 0 0 0 9c0 1.452.347 2.827.956 4.038l3.007-2.332z'/>
+        <path fill='#EA4335' d='M9 3.58c1.321 0 2.507.454 3.44 1.345l2.581-2.582C13.463.891 11.426 0 9 0A9 9 0 0 0 .956 4.962l3.007 2.332C4.672 5.165 6.656 3.58 9 3.58z'/>
+      </svg>
+      <span>Google ile devam et</span>
+    </a>
+    """, unsafe_allow_html=True)
 
 def izfin_auth_ekrani():
     callback = _google_callback_isle()
