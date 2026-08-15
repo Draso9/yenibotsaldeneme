@@ -660,6 +660,113 @@ button[kind="primary"],
     font-size:10px;
 }
 
+
+/* v1.7.21 — Projection & Scenario standalone workspace */
+.iz-proj-hero{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    gap:20px;
+    padding:22px 24px;
+    margin:0 0 18px;
+    border:1px solid #17445f;
+    border-radius:17px;
+    background:linear-gradient(135deg,#071826,#09283a);
+    box-shadow:0 18px 44px rgba(0,0,0,.18),inset 0 1px 0 rgba(255,255,255,.025);
+}
+.iz-proj-hero h2{margin:4px 0 5px;color:#f3fbff;font-size:25px}
+.iz-proj-hero p{margin:0;color:#7595a8;font-size:11px;max-width:760px}
+.iz-proj-empty{
+    padding:28px;
+    border:1px dashed #23536b;
+    border-radius:15px;
+    background:#071724;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    gap:6px;
+    text-align:center;
+}
+.iz-proj-empty b{color:#edf9fd;font-size:15px}
+.iz-proj-empty span{color:#6f91a5;font-size:10px}
+.iz-proj-model-note{
+    min-height:73px;
+    padding:12px 14px;
+    border:1px solid #17445f;
+    border-radius:12px;
+    background:#071724;
+    display:flex;
+    flex-direction:column;
+    justify-content:center;
+}
+.iz-proj-model-note small{font-size:8px;letter-spacing:1px;color:#13d8e2}
+.iz-proj-model-note b{color:#eaf8fd;font-size:12px;margin:2px 0}
+.iz-proj-model-note span{color:#66899d;font-size:9px}
+.iz-proj-section-title{
+    margin:20px 0 10px;
+    font-size:10px;
+    font-weight:800;
+    letter-spacing:1.25px;
+    color:#5fa9c6;
+    text-transform:uppercase;
+}
+.iz-scenario-card{
+    min-height:294px;
+    padding:18px;
+    border-radius:15px;
+    background:linear-gradient(145deg,#071724,#092333);
+    border:1px solid #17445f;
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.025);
+}
+.iz-scenario-up{border-color:#176456}
+.iz-scenario-down{border-color:#6a3342}
+.iz-scenario-head{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    margin-bottom:16px;
+}
+.iz-scenario-dot{
+    width:11px;height:11px;border-radius:50%;
+    box-shadow:0 0 15px currentColor;
+}
+.iz-scenario-up .iz-scenario-dot{background:#31d59a;color:#31d59a}
+.iz-scenario-down .iz-scenario-dot{background:#ff6177;color:#ff6177}
+.iz-scenario-head small{
+    display:block;font-size:8px;letter-spacing:1px;color:#6f91a5;margin-bottom:2px
+}
+.iz-scenario-head h3{margin:0;color:#f3fbff;font-size:17px}
+.iz-scenario-row{
+    display:flex;
+    flex-direction:column;
+    gap:4px;
+    padding:11px 0;
+    border-top:1px solid rgba(35,77,99,.58);
+}
+.iz-scenario-row span{color:#6e91a5;font-size:9px;text-transform:uppercase;letter-spacing:.55px}
+.iz-scenario-row b{color:#dceef5;font-size:11px;line-height:1.55;font-weight:650}
+.iz-direction-card{
+    margin-top:18px;
+    padding:17px 19px;
+    border-radius:14px;
+    background:#071724;
+    border:1px solid #20465a;
+    display:grid;
+    grid-template-columns:220px 1fr;
+    gap:18px;
+    align-items:center;
+}
+.iz-direction-card small{font-size:8px;letter-spacing:1px;color:#678da1}
+.iz-direction-card h3{margin:3px 0 0;color:#f1f9fd;font-size:17px}
+.iz-direction-card p{margin:0;color:#bcd4df;font-size:11px;line-height:1.65}
+.iz-direction-up{border-color:#176456;background:linear-gradient(135deg,#071b24,#092a2c)}
+.iz-direction-down{border-color:#6a3342;background:linear-gradient(135deg,#1b1118,#21141c)}
+.iz-direction-neutral{border-color:#28556c}
+@media(max-width:850px){
+    .iz-proj-hero{flex-direction:column;align-items:flex-start}
+    .iz-direction-card{grid-template-columns:1fr}
+}
+
 </style>
 """, unsafe_allow_html=True)
 
@@ -4369,7 +4476,7 @@ st.sidebar.markdown('<div class="iz-quickscan"><strong>✦ Akıllı Tarama Merke
 if st.sidebar.button("✦ TARAMA MERKEZİNE GİT", type="primary", use_container_width=True, key="quick_scan_nav"):
     _izfin_nav_to("🔎 Akıllı Tarama"); st.rerun()
 st.sidebar.markdown('<div class="iz-nav-label" style="margin-top:14px">NAVİGASYON</div>', unsafe_allow_html=True)
-for _nav_label in ["🏠 Ana Sayfa", "🔎 Akıllı Tarama", "📊 Takip & Performans", "🧪 Strateji Laboratuvarı"]:
+for _nav_label in ["🏠 Ana Sayfa", "🔎 Akıllı Tarama", "🎯 Projeksiyon & Senaryo", "📊 Takip & Performans", "🧪 Strateji Laboratuvarı"]:
     st.sidebar.button(
         _nav_label,
         key=f"nav_{_nav_label}",
@@ -5225,103 +5332,197 @@ if aktif_sayfa in ["🏠 Ana Sayfa", "🔎 Akıllı Tarama"]:
                     else:
                         st.info("Bu varlık için teknik panel verisi bulunamadı. Derin taramayı yeniden çalıştırın.")
 
-    if aktif_sayfa == "🔎 Akıllı Tarama":
-        st.markdown("---")
-        with st.expander("🎯 Projeksiyon & Senaryo Analizi", expanded=False):
-            st.caption("Seçilen varlığın yaklaşık 45 günlük hareket bandını ve teknik senaryolarını açar; ana tarama akışını kalabalıklaştırmaz.")
-            st.subheader("🎯 Akıllı Projeksiyon Motoru")
-            st.markdown(
-                "ATR ile gerçekleşen fiyat aralığını, tarihsel volatilite ile getiri dağılımını "
-                "birleştirerek yaklaşık 45 günlük karma hareket bandı üretir."
+
+if aktif_sayfa == "🎯 Projeksiyon & Senaryo":
+    st.markdown(
+        """
+        <div class="iz-proj-hero">
+            <div>
+                <div class="iz-section-label">IZFIN PROJECTION LAB</div>
+                <h2>Projeksiyon & Senaryo Analizi</h2>
+                <p>Seçilen varlık için yaklaşık 45 günlük hareket bandını, model uyumunu ve yukarı/aşağı teknik senaryoları tek ekranda inceleyin.</p>
+            </div>
+            <span class="iz-badge wait">45G MODEL</span>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    if not st.session_state.tarama_durumu or not st.session_state.teknik_paneller:
+        st.markdown(
+            """
+            <div class="iz-proj-empty">
+                <b>Önce Akıllı Tarama çalıştırılmalı</b>
+                <span>Projeksiyon motoru, son taramada oluşan teknik panel verilerini kullanır.</span>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+        if st.button(
+            "Akıllı Tarama Merkezine Git",
+            type="primary",
+            use_container_width=True,
+            key="projection_to_scan",
+        ):
+            _izfin_nav_to("🔎 Akıllı Tarama")
+            st.rerun()
+    else:
+        varliklar = list(st.session_state.teknik_paneller.keys())
+
+        top_left, top_right = st.columns([1.15, .85], gap="large")
+        with top_left:
+            secilen_opsiyon = st.selectbox(
+                "Projeksiyon yapılacak varlık",
+                varliklar,
+                key="opsiyon_varlik_secimi",
             )
-        
-            if not st.session_state.tarama_durumu or not st.session_state.teknik_paneller:
-                st.warning("Önce Analiz Merkezi'nde en az bir varlığı tarayın.")
+        with top_right:
+            st.markdown(
+                """
+                <div class="iz-proj-model-note">
+                    <small>MODEL</small>
+                    <b>ATR + Tarihsel Volatilite</b>
+                    <span>45 günlük karma fiyat hareket bandı</span>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
+
+        panel = st.session_state.teknik_paneller.get(secilen_opsiyon, {})
+        proj = opsiyon_projeksiyonu_hesapla(panel, gun=45)
+
+        if not proj:
+            st.error("Projeksiyon için yeterli fiyat verisi bulunamadı.")
+        else:
+            st.markdown('<div class="iz-proj-section-title">Model Karşılaştırması</div>', unsafe_allow_html=True)
+
+            o1, o2, o3, o4 = st.columns(4)
+            o1.metric("Güncel Fiyat", f"{proj['fiyat']:.2f}")
+            o2.metric("ATR Modeli", f"±{proj['atr_hareket']:.2f}", f"%{proj['atr_yuzde']:.1f}")
+            o3.metric("Volatilite Modeli", f"±{proj['volatilite_hareket']:.2f}", f"%{proj['volatilite_yuzde']:.1f}")
+            o4.metric("Karma Model", f"±{proj['karma_hareket']:.2f}", f"%{proj['karma_yuzde']:.1f}")
+
+            b1, b2, b3 = st.columns(3)
+            b1.metric("45G Karma Bant", f"{proj['alt_1s']:.2f} / {proj['ust_1s']:.2f}")
+            b2.metric("Geniş Risk Bandı", f"{proj['alt_2s']:.2f} / {proj['ust_2s']:.2f}")
+            b3.metric("Model Güven Skoru", f"%{proj['guven_skoru']}", f"Uyum %{proj['model_uyumu']*100:.0f}")
+
+            st.progress(proj['guven_skoru'] / 100)
+            st.caption(
+                f"20 günlük yıllıklandırılmış volatilite: %{proj['hv20']*100:.1f} · "
+                f"60 günlük: %{proj['hv60']*100:.1f} · Karma: %{proj['hv_karma']*100:.1f}"
+            )
+
+            sinyal = panel.get("sinyal", "Nötr")
+            destek = float(panel.get("destek", proj['alt_1s']))
+            direnc = float(panel.get("direnc", proj['ust_1s']))
+            stop = float(panel.get("stop", proj['alt_1s']))
+            tp1 = float(panel.get("tp1", proj['ust_1s']))
+            tp2 = float(panel.get("tp2", proj['ust_2s']))
+
+            st.markdown('<div class="iz-proj-section-title">Teknik Senaryolar</div>', unsafe_allow_html=True)
+
+            al_col, sat_col = st.columns(2, gap="large")
+
+            with al_col:
+                st.markdown(
+                    f"""
+                    <div class="iz-scenario-card iz-scenario-up">
+                        <div class="iz-scenario-head">
+                            <span class="iz-scenario-dot"></span>
+                            <div>
+                                <small>POZİTİF SENARYO</small>
+                                <h3>Yükseliş / Alım Senaryosu</h3>
+                            </div>
+                        </div>
+
+                        <div class="iz-scenario-row">
+                            <span>Tetik</span>
+                            <b>{direnc:.2f} üzeri kalıcılık + RSI 50 üstü + MACD yukarı kesişim</b>
+                        </div>
+                        <div class="iz-scenario-row">
+                            <span>Teknik hedefler</span>
+                            <b>{tp1:.2f} → {tp2:.2f}</b>
+                        </div>
+                        <div class="iz-scenario-row">
+                            <span>Karma model üst bantları</span>
+                            <b>{proj['ust_1s']:.2f} → {proj['ust_2s']:.2f}</b>
+                        </div>
+                        <div class="iz-scenario-row">
+                            <span>Risk iptali / stop</span>
+                            <b>{stop:.2f}</b>
+                        </div>
+                    </div>
+                    """,
+                    unsafe_allow_html=True,
+                )
+
+            with sat_col:
+                st.markdown(
+                    f"""
+                    <div class="iz-scenario-card iz-scenario-down">
+                        <div class="iz-scenario-head">
+                            <span class="iz-scenario-dot"></span>
+                            <div>
+                                <small>NEGATİF SENARYO</small>
+                                <h3>Düşüş / Satış Baskısı</h3>
+                            </div>
+                        </div>
+
+                        <div class="iz-scenario-row">
+                            <span>Tetik</span>
+                            <b>{destek:.2f} altı kapanış + RSI 40 altı veya MACD negatifliğinin güçlenmesi</b>
+                        </div>
+                        <div class="iz-scenario-row">
+                            <span>Karma model aşağı bantları</span>
+                            <b>{proj['alt_1s']:.2f} → {proj['alt_2s']:.2f}</b>
+                        </div>
+                        <div class="iz-scenario-row">
+                            <span>Senaryo geçersizliği</span>
+                            <b>{direnc:.2f} üzeri kalıcılık</b>
+                        </div>
+                    </div>
+                    """,
+                    unsafe_allow_html=True,
+                )
+
+            yon = sinyal_yonu_belirle(sinyal)
+            model_farki = abs(proj['atr_yuzde'] - proj['volatilite_yuzde'])
+
+            if model_farki <= 3:
+                model_yorumu = "ATR ve volatilite modelleri birbirine yakın; hareket tahmini görece tutarlı."
+            elif proj['volatilite_yuzde'] > proj['atr_yuzde']:
+                model_yorumu = "Tarihsel volatilite, güncel ATR'den daha geniş hareket ihtimali gösteriyor; ani fiyat genişlemelerine karşı temkinli olunmalı."
             else:
-                varliklar = list(st.session_state.teknik_paneller.keys())
-                secilen_opsiyon = st.selectbox("Projeksiyon yapılacak varlık", varliklar, key="opsiyon_varlik_secimi")
-                panel = st.session_state.teknik_paneller.get(secilen_opsiyon, {})
-                proj = opsiyon_projeksiyonu_hesapla(panel, gun=45)
-        
-                if not proj:
-                    st.error("Projeksiyon için yeterli fiyat verisi bulunamadı.")
-                else:
-                    st.markdown("### 📐 Model karşılaştırması")
-                    o1, o2, o3, o4 = st.columns(4)
-                    o1.metric("Güncel Fiyat", f"{proj['fiyat']:.2f}")
-                    o2.metric("ATR Modeli", f"±{proj['atr_hareket']:.2f}", f"%{proj['atr_yuzde']:.1f}")
-                    o3.metric("Volatilite Modeli", f"±{proj['volatilite_hareket']:.2f}", f"%{proj['volatilite_yuzde']:.1f}")
-                    o4.metric("Karma Model", f"±{proj['karma_hareket']:.2f}", f"%{proj['karma_yuzde']:.1f}")
-        
-                    b1, b2, b3 = st.columns(3)
-                    b1.metric("45G Karma Bant", f"{proj['alt_1s']:.2f} / {proj['ust_1s']:.2f}")
-                    b2.metric("Geniş Risk Bandı", f"{proj['alt_2s']:.2f} / {proj['ust_2s']:.2f}")
-                    b3.metric("Model Güven Skoru", f"%{proj['guven_skoru']}", f"Uyum %{proj['model_uyumu']*100:.0f}")
-        
-                    st.progress(proj['guven_skoru'] / 100)
-                    st.caption(
-                        f"20 günlük yıllıklandırılmış volatilite: %{proj['hv20']*100:.1f} · "
-                        f"60 günlük: %{proj['hv60']*100:.1f} · Karma: %{proj['hv_karma']*100:.1f}"
-                    )
-        
-                    sinyal = panel.get("sinyal", "Nötr")
-                    rsi_v = float(panel.get("rsi", 50))
-                    macd_v = float(panel.get("macd", 0))
-                    macd_s = float(panel.get("macd_signal", 0))
-                    destek = float(panel.get("destek", proj['alt_1s']))
-                    direnc = float(panel.get("direnc", proj['ust_1s']))
-                    stop = float(panel.get("stop", proj['alt_1s']))
-                    tp1 = float(panel.get("tp1", proj['ust_1s']))
-                    tp2 = float(panel.get("tp2", proj['ust_2s']))
-        
-                    al_col, sat_col = st.columns(2)
-                    with al_col:
-                        st.markdown("### 🟢 Yükseliş / Alım Senaryosu")
-                        st.markdown(f"""**Tetik:** Fiyatın **{direnc:.2f}** direnci üzerinde kalıcılık sağlaması, RSI'ın 50 üzerine çıkması ve MACD'nin sinyal çizgisini yukarı kesmesi.
-        
-            **Teknik hedefler:** {tp1:.2f} → {tp2:.2f}
-        
-            **Karma model üst bantları:** {proj['ust_1s']:.2f} → {proj['ust_2s']:.2f}
-        
-            **Risk iptali / stop bölgesi:** {stop:.2f}""")
-                    with sat_col:
-                        st.markdown("### 🔴 Düşüş / Satış Baskısı Senaryosu")
-                        st.markdown(f"""**Tetik:** Fiyatın **{destek:.2f}** desteği altında kapanması, RSI'ın 40 altına gerilemesi veya MACD negatifliğinin güçlenmesi.
-        
-            **Karma model aşağı bantları:** {proj['alt_1s']:.2f} → {proj['alt_2s']:.2f}
-        
-            **Senaryo geçersizliği:** {direnc:.2f} üzeri kalıcılık""")
-        
-                    st.markdown("### 🧭 Algoritmik Yön Özeti")
-                    yon = sinyal_yonu_belirle(sinyal)
-                    model_farki = abs(proj['atr_yuzde'] - proj['volatilite_yuzde'])
-                    if model_farki <= 3:
-                        model_yorumu = "ATR ve volatilite modelleri birbirine yakın; hareket tahmini görece tutarlı."
-                    elif proj['volatilite_yuzde'] > proj['atr_yuzde']:
-                        model_yorumu = "Tarihsel volatilite, güncel ATR'den daha geniş hareket ihtimali gösteriyor; ani fiyat genişlemelerine karşı temkinli olunmalı."
-                    else:
-                        model_yorumu = "Güncel ATR, tarihsel volatiliteden daha yüksek; kısa vadede olağandışı hareketlilik yaşanıyor olabilir."
-        
-                    if yon == "ALIM":
-                        st.success(
-                            f"Mevcut sistem sinyali: **{sinyal}**. Yükseliş senaryosu öncelikli. "
-                            f"{model_yorumu} Güven skoru %{proj['guven_skoru']}; teyit görülmeden pozisyon büyütülmemelidir."
-                        )
-                    elif yon == "SATIŞ":
-                        st.error(
-                            f"Mevcut sistem sinyali: **{sinyal}**. Sermaye koruma ve aşağı yönlü risk öncelikli. "
-                            f"{model_yorumu} Güven skoru %{proj['guven_skoru']}."
-                        )
-                    else:
-                        st.info(
-                            f"Mevcut sistem sinyali: **{sinyal}**. Fiyat {destek:.2f}–{direnc:.2f} karar aralığında. "
-                            f"{model_yorumu} Kırılım yönü beklenmelidir."
-                        )
-        
-                    st.caption(
-                        "Bu bölüm gerçek opsiyon zinciri veya implied volatility kullanmaz. ATR + tarihsel volatilite "
-                        "tabanlı fiyat hareketi tahminidir; güven skoru istatistiksel olasılık değil, model uyum göstergesidir."
-                    )
+                model_yorumu = "Güncel ATR, tarihsel volatiliteden daha yüksek; kısa vadede olağandışı hareketlilik yaşanıyor olabilir."
+
+            yon_class = "neutral"
+            yon_title = "Dengeli / İzle"
+            if yon == "ALIM":
+                yon_class = "up"
+                yon_title = "Yükseliş öncelikli"
+            elif yon == "SATIŞ":
+                yon_class = "down"
+                yon_title = "Sermaye koruma öncelikli"
+
+            st.markdown(
+                f"""
+                <div class="iz-direction-card iz-direction-{yon_class}">
+                    <div>
+                        <small>ALGORİTMİK YÖN ÖZETİ</small>
+                        <h3>{yon_title}</h3>
+                    </div>
+                    <p><b>Mevcut sistem sinyali:</b> {html.escape(str(sinyal))}. {html.escape(model_yorumu)} Güven skoru %{proj['guven_skoru']}.</p>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
+
+            st.caption(
+                "Bu bölüm gerçek opsiyon zinciri veya implied volatility kullanmaz. ATR + tarihsel volatilite "
+                "tabanlı fiyat hareketi tahminidir; güven skoru istatistiksel olasılık değil, model uyum göstergesidir."
+            )
+
 
 if aktif_sayfa == "📊 Takip & Performans":
     st.subheader("📊 Takip & Performans")
