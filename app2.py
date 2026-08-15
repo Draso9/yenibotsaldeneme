@@ -5425,66 +5425,36 @@ if aktif_sayfa == "🎯 Projeksiyon & Senaryo":
             al_col, sat_col = st.columns(2, gap="large")
 
             with al_col:
-                st.markdown(
-                    f"""
-                    <div class="iz-scenario-card iz-scenario-up">
-                        <div class="iz-scenario-head">
-                            <span class="iz-scenario-dot"></span>
-                            <div>
-                                <small>POZİTİF SENARYO</small>
-                                <h3>Yükseliş / Alım Senaryosu</h3>
-                            </div>
-                        </div>
-
-                        <div class="iz-scenario-row">
-                            <span>Tetik</span>
-                            <b>{direnc:.2f} üzeri kalıcılık + RSI 50 üstü + MACD yukarı kesişim</b>
-                        </div>
-                        <div class="iz-scenario-row">
-                            <span>Teknik hedefler</span>
-                            <b>{tp1:.2f} → {tp2:.2f}</b>
-                        </div>
-                        <div class="iz-scenario-row">
-                            <span>Karma model üst bantları</span>
-                            <b>{proj['ust_1s']:.2f} → {proj['ust_2s']:.2f}</b>
-                        </div>
-                        <div class="iz-scenario-row">
-                            <span>Risk iptali / stop</span>
-                            <b>{stop:.2f}</b>
-                        </div>
-                    </div>
-                    """,
-                    unsafe_allow_html=True,
+                _up_html = (
+                    f'<div class="iz-scenario-card iz-scenario-up">'
+                    f'<div class="iz-scenario-head"><span class="iz-scenario-dot"></span><div>'
+                    f'<small>POZİTİF SENARYO</small><h3>Yükseliş / Alım Senaryosu</h3></div></div>'
+                    f'<div class="iz-scenario-row"><span>Tetik</span>'
+                    f'<b>{direnc:.2f} üzeri kalıcılık + RSI 50 üstü + MACD yukarı kesişim</b></div>'
+                    f'<div class="iz-scenario-row"><span>Teknik hedefler</span>'
+                    f'<b>{tp1:.2f} → {tp2:.2f}</b></div>'
+                    f'<div class="iz-scenario-row"><span>Karma model üst bantları</span>'
+                    f'<b>{proj["ust_1s"]:.2f} → {proj["ust_2s"]:.2f}</b></div>'
+                    f'<div class="iz-scenario-row"><span>Risk iptali / stop</span>'
+                    f'<b>{stop:.2f}</b></div>'
+                    f'</div>'
                 )
+                st.markdown(_up_html, unsafe_allow_html=True)
 
             with sat_col:
-                st.markdown(
-                    f"""
-                    <div class="iz-scenario-card iz-scenario-down">
-                        <div class="iz-scenario-head">
-                            <span class="iz-scenario-dot"></span>
-                            <div>
-                                <small>NEGATİF SENARYO</small>
-                                <h3>Düşüş / Satış Baskısı</h3>
-                            </div>
-                        </div>
-
-                        <div class="iz-scenario-row">
-                            <span>Tetik</span>
-                            <b>{destek:.2f} altı kapanış + RSI 40 altı veya MACD negatifliğinin güçlenmesi</b>
-                        </div>
-                        <div class="iz-scenario-row">
-                            <span>Karma model aşağı bantları</span>
-                            <b>{proj['alt_1s']:.2f} → {proj['alt_2s']:.2f}</b>
-                        </div>
-                        <div class="iz-scenario-row">
-                            <span>Senaryo geçersizliği</span>
-                            <b>{direnc:.2f} üzeri kalıcılık</b>
-                        </div>
-                    </div>
-                    """,
-                    unsafe_allow_html=True,
+                _down_html = (
+                    f'<div class="iz-scenario-card iz-scenario-down">'
+                    f'<div class="iz-scenario-head"><span class="iz-scenario-dot"></span><div>'
+                    f'<small>NEGATİF SENARYO</small><h3>Düşüş / Satış Baskısı</h3></div></div>'
+                    f'<div class="iz-scenario-row"><span>Tetik</span>'
+                    f'<b>{destek:.2f} altı kapanış + RSI 40 altı veya MACD negatifliğinin güçlenmesi</b></div>'
+                    f'<div class="iz-scenario-row"><span>Karma model aşağı bantları</span>'
+                    f'<b>{proj["alt_1s"]:.2f} → {proj["alt_2s"]:.2f}</b></div>'
+                    f'<div class="iz-scenario-row"><span>Senaryo geçersizliği</span>'
+                    f'<b>{direnc:.2f} üzeri kalıcılık</b></div>'
+                    f'</div>'
                 )
+                st.markdown(_down_html, unsafe_allow_html=True)
 
             yon = sinyal_yonu_belirle(sinyal)
             model_farki = abs(proj['atr_yuzde'] - proj['volatilite_yuzde'])
@@ -5505,18 +5475,14 @@ if aktif_sayfa == "🎯 Projeksiyon & Senaryo":
                 yon_class = "down"
                 yon_title = "Sermaye koruma öncelikli"
 
-            st.markdown(
-                f"""
-                <div class="iz-direction-card iz-direction-{yon_class}">
-                    <div>
-                        <small>ALGORİTMİK YÖN ÖZETİ</small>
-                        <h3>{yon_title}</h3>
-                    </div>
-                    <p><b>Mevcut sistem sinyali:</b> {html.escape(str(sinyal))}. {html.escape(model_yorumu)} Güven skoru %{proj['guven_skoru']}.</p>
-                </div>
-                """,
-                unsafe_allow_html=True,
+            _direction_html = (
+                f'<div class="iz-direction-card iz-direction-{yon_class}">'
+                f'<div><small>ALGORİTMİK YÖN ÖZETİ</small><h3>{yon_title}</h3></div>'
+                f'<p><b>Mevcut sistem sinyali:</b> {html.escape(str(sinyal))}. '
+                f'{html.escape(model_yorumu)} Güven skoru %{proj["guven_skoru"]}.</p>'
+                f'</div>'
             )
+            st.markdown(_direction_html, unsafe_allow_html=True)
 
             st.caption(
                 "Bu bölüm gerçek opsiyon zinciri veya implied volatility kullanmaz. ATR + tarihsel volatilite "
