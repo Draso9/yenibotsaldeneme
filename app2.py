@@ -918,6 +918,71 @@ button[kind="primary"],
     font-weight:650!important;
 }
 
+
+/* v1.7.26 — Tarama tablosu geniş görünüm / focus mode */
+.iz-scan-table-wrap{
+    position:relative;
+    width:100%;
+    overflow-x:auto;
+    border-radius:14px;
+}
+.iz-focus-title{
+    display:flex;
+    align-items:center;
+    min-height:62px;
+}
+.iz-focus-title small{
+    display:block;
+    color:#22d8e2;
+    font-size:8px;
+    font-weight:850;
+    letter-spacing:1.4px;
+    margin-bottom:3px;
+}
+.iz-focus-title h2{
+    margin:0;
+    color:#f2faff;
+    font-size:23px;
+    line-height:1.1;
+}
+.iz-focus-title p{
+    margin:5px 0 0;
+    color:#7898aa;
+    font-size:10px;
+}
+.iz-focus-meta{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    margin:6px 0 12px;
+}
+.iz-focus-meta span{
+    display:inline-flex;
+    padding:6px 9px;
+    border-radius:999px;
+    border:1px solid #1b5068;
+    background:#071a28;
+    color:#8fb7ca;
+    font-size:9px;
+    font-weight:700;
+    letter-spacing:.25px;
+}
+.st-key-scan_table_focus_open button,
+.st-key-scan_table_focus_exit button{
+    min-height:40px!important;
+    border-radius:10px!important;
+    background:linear-gradient(135deg,#092338,#0a3448)!important;
+    color:#dff8fb!important;
+    border:1px solid #1a617a!important;
+    font-weight:760!important;
+}
+.st-key-scan_table_focus_open button:hover,
+.st-key-scan_table_focus_exit button:hover{
+    border-color:#20d8e1!important;
+    background:linear-gradient(135deg,#0b3046,#0d4256)!important;
+    color:#fff!important;
+}
+
 </style>
 """, unsafe_allow_html=True)
 
@@ -5399,9 +5464,98 @@ if aktif_sayfa in ["🏠 Ana Sayfa", "🔎 Akıllı Tarama"]:
                 return [c] * len(row)
 
             if not df_sonuc.empty:
-                st.markdown("### ✦ Akıllı Tarama Sonuçları")
-                st.caption("Ana tablo karar vermeyi kolaylaştıran temel alanları gösterir; ayrıntılı teknik panel aşağıda açılır.")
-                st.markdown(izfin_tarama_tablosu_html(df_sonuc), unsafe_allow_html=True)
+                if "izfin_scan_table_focus" not in st.session_state:
+                    st.session_state.izfin_scan_table_focus = False
+
+                # v1.7.26 — Tarama tablosu odak / geniş ekran modu
+                if st.session_state.izfin_scan_table_focus:
+                    st.markdown(
+                        """
+                        <style>
+                        [data-testid="stSidebar"]{display:none!important;}
+                        [data-testid="stHeader"]{display:none!important;}
+                        [data-testid="stToolbar"]{display:none!important;}
+                        footer{display:none!important;}
+                        .stAppViewContainer .main .block-container{
+                            max-width:100%!important;
+                            width:100%!important;
+                            padding:18px 22px 34px!important;
+                        }
+                        .iz-signals,.iz-scan-table-wrap{
+                            width:100%!important;
+                            max-width:none!important;
+                        }
+                        .iz-scan-table-wrap{
+                            min-height:calc(100vh - 150px)!important;
+                        }
+                        .iz-scan-table-wrap table{
+                            width:100%!important;
+                            font-size:13px!important;
+                        }
+                        </style>
+                        """,
+                        unsafe_allow_html=True,
+                    )
+
+                    focus_h1, focus_h2 = st.columns([6.8, 1.2], vertical_alignment="center")
+                    with focus_h1:
+                        st.markdown(
+                            """
+                            <div class="iz-focus-title">
+                                <div>
+                                    <small>IZFIN SIGNATURE SCAN</small>
+                                    <h2>Akıllı Tarama Sonuçları</h2>
+                                    <p>Geniş tablo görünümü · tüm karar alanları tek ekranda</p>
+                                </div>
+                            </div>
+                            """,
+                            unsafe_allow_html=True,
+                        )
+                    with focus_h2:
+                        if st.button(
+                            "↙ Geniş Görünümden Çık",
+                            key="scan_table_focus_exit",
+                            use_container_width=True,
+                            type="secondary",
+                        ):
+                            st.session_state.izfin_scan_table_focus = False
+                            st.rerun()
+
+                    st.markdown(
+                        f'<div class="iz-focus-meta"><span>{len(df_sonuc)} varlık</span>'
+                        f'<span>{"Yalnızca AL sinyalleri" if sadece_alim_goster else "Tüm merkezi kararlar"}</span></div>',
+                        unsafe_allow_html=True,
+                    )
+
+                    st.markdown(
+                        '<div class="iz-scan-table-wrap">'
+                        + izfin_tarama_tablosu_html(df_sonuc)
+                        + '</div>',
+                        unsafe_allow_html=True,
+                    )
+                    st.stop()
+
+                title_col, action_col = st.columns([5.7, 1.3], vertical_alignment="center")
+                with title_col:
+                    st.markdown("### Akıllı Tarama Sonuçları")
+                    st.caption("Ana tablo karar vermeyi kolaylaştıran temel alanları gösterir; ayrıntılı teknik panel aşağıda açılır.")
+                with action_col:
+                    if st.button(
+                        "⛶ Tabloyu Genişlet",
+                        key="scan_table_focus_open",
+                        use_container_width=True,
+                        type="secondary",
+                        help="Tarama tablosunu dikkat dağıtan paneller olmadan geniş görünümde aç.",
+                    ):
+                        st.session_state.izfin_scan_table_focus = True
+                        st.rerun()
+
+                st.markdown(
+                    '<div class="iz-scan-table-wrap">'
+                    + izfin_tarama_tablosu_html(df_sonuc)
+                    + '</div>',
+                    unsafe_allow_html=True,
+                )
 
                 peg_degerlendirilemeyenler = [
                     str(v) for v in df_sonuc.loc[
