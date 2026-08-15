@@ -363,6 +363,138 @@ hr {border-color:#122a3e!important;}
     .iz-scan-control-head{flex-direction:column;align-items:flex-start}
 }
 
+
+/* v1.7.15 — Canlı hisse autocomplete sonucu */
+.iz-search-result-preview{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:14px;
+    margin:7px 0 10px;
+    padding:11px 13px;
+    border:1px solid #17445f;
+    border-radius:11px;
+    background:linear-gradient(135deg,#071724,#092033);
+}
+.iz-search-result-preview div{
+    display:flex;
+    align-items:baseline;
+    gap:9px;
+    min-width:0;
+}
+.iz-search-result-preview b{
+    color:#19dce4;
+    font-size:13px;
+}
+.iz-search-result-preview span{
+    color:#d7e7f0;
+    font-size:11px;
+    overflow:hidden;
+    text-overflow:ellipsis;
+    white-space:nowrap;
+}
+.iz-search-result-preview small{
+    color:#668da4;
+    font-size:9px;
+    white-space:nowrap;
+}
+
+
+/* v1.7.16 — Scanner UI polish: beyaz yüzeyleri kaldır, IZFIN dark-glass dili */
+.iz-panel-title{
+    display:flex;
+    align-items:center;
+    gap:11px;
+    margin:2px 0 14px;
+    padding:0 2px;
+}
+.iz-panel-icon{
+    width:30px;
+    height:30px;
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    border-radius:9px;
+    border:1px solid #176078;
+    background:linear-gradient(145deg,#082336,#0b3042);
+    color:#19dce4;
+    font-size:18px;
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.04);
+}
+.iz-panel-title div{display:flex;flex-direction:column;gap:1px}
+.iz-panel-title b{font-size:17px;color:#eef8fc;letter-spacing:-.2px}
+.iz-panel-title small{font-size:9px;color:#64869a;letter-spacing:.25px}
+
+/* Kişisel liste expander'ını beyaz Streamlit yüzeyinden çıkar */
+[data-testid="stExpander"]{
+    background:linear-gradient(145deg,rgba(7,22,34,.98),rgba(7,28,42,.94))!important;
+    border:1px solid #173f55!important;
+    border-radius:13px!important;
+    overflow:hidden!important;
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.025)!important;
+}
+[data-testid="stExpander"] details,
+[data-testid="stExpander"] summary{
+    background:transparent!important;
+}
+[data-testid="stExpander"] summary{
+    min-height:46px!important;
+    color:#dcecf4!important;
+}
+[data-testid="stExpander"] summary:hover{
+    background:rgba(17,62,82,.22)!important;
+}
+[data-testid="stExpander"] summary p{
+    color:#dcecf4!important;
+    font-weight:650!important;
+    font-size:12px!important;
+}
+[data-testid="stExpander"] svg{
+    fill:#18cbd7!important;
+    color:#18cbd7!important;
+}
+
+/* Disabled kayıtlı liste de beyaz/gri görünmesin */
+[data-testid="stMultiSelect"] [data-baseweb="select"] > div{
+    background:#071724!important;
+    border-color:#1a455c!important;
+}
+[data-testid="stMultiSelect"] span[data-baseweb="tag"]{
+    background:#0d2a3c!important;
+    border:1px solid #194e67!important;
+    color:#b9d7e5!important;
+}
+[data-testid="stMultiSelect"] span[data-baseweb="tag"] span{
+    color:#b9d7e5!important;
+}
+
+/* Secondary butonlar: beyaz blok yerine koyu IZFIN butonu */
+button[kind="secondary"],
+[data-testid="stBaseButton-secondary"]{
+    background:linear-gradient(135deg,#092033,#0a2a3d)!important;
+    color:#d9edf5!important;
+    border:1px solid #1b536d!important;
+    box-shadow:none!important;
+}
+button[kind="secondary"]:hover,
+[data-testid="stBaseButton-secondary"]:hover{
+    border-color:#19cbd7!important;
+    color:#ffffff!important;
+    background:linear-gradient(135deg,#0b2b40,#0c3549)!important;
+}
+
+/* Ana scanner CTA */
+button[kind="primary"],
+[data-testid="stBaseButton-primary"]{
+    border:1px solid rgba(29,220,229,.68)!important;
+    box-shadow:0 8px 24px rgba(0,173,207,.12)!important;
+}
+
+/* Form label ve yardımcı metin kontrastı */
+[data-testid="stWidgetLabel"] p{
+    color:#7899ad!important;
+}
+
 </style>
 """, unsafe_allow_html=True)
 
@@ -3238,79 +3370,117 @@ def kullanici_listesini_kaydet():
     except Exception as e:
         izfin_hata_logla("kullanici_listesi_yaz", e)
 
-@st.cache_data(ttl=300, show_spinner=False)
+@st.cache_data(ttl=90, show_spinner=False)
 def hisse_onerileri_getir(arama):
-    """Sembol veya şirket adına göre hisse önerileri.
-    Önce yerel evren, sonra Yahoo Search, son olarak Finnhub Search kullanır.
+    """
+    Canlı sembol/şirket araması.
+    Kullanıcı birkaç harf yazdığında Yahoo Finance Search üzerinden dünya piyasalarını arar.
+    Finnhub ikinci kaynak, IZFIN yerel evreni ise son güvenli fallback'tir.
     """
     q = str(arama or "").strip()
-    if not q:
+    if len(q) < 1:
         return []
 
     q_up = q.upper()
-    yerel = []
+    sonuc = []
+    seen = set()
 
-    # Yerel evren: BIST100 + hazır ABD listesi.
-    for sembol in sorted(set(BIST_100 + ABD_HİSSELERİ)):
-        if q_up in sembol.upper():
-            yerel.append({
-                "symbol": sembol,
-                "name": "IZFIN hazır evreni",
-                "exchange": "BIST" if sembol.endswith(".IS") else "US",
-            })
+    def _ekle(symbol, name="", exchange="", quote_type=""):
+        symbol = str(symbol or "").strip().upper()
+        if not symbol or symbol in seen:
+            return
+        seen.add(symbol)
+        sonuc.append({
+            "symbol": symbol,
+            "name": str(name or "").strip(),
+            "exchange": str(exchange or "").strip(),
+            "quote_type": str(quote_type or "").strip(),
+        })
 
-    uzaktan = []
-
-    # Yahoo symbol/company search
+    # 1) Yahoo Finance: şirket adı + sembol + fuzzy search.
     try:
+        headers = {
+            "User-Agent": "Mozilla/5.0",
+            "Accept": "application/json,text/plain,*/*",
+        }
         r = session.get(
-            "https://query1.finance.yahoo.com/v1/finance/search",
+            "https://query2.finance.yahoo.com/v1/finance/search",
             params={
                 "q": q,
-                "quotesCount": 10,
+                "quotesCount": 20,
                 "newsCount": 0,
+                "listsCount": 0,
                 "enableFuzzyQuery": "true",
+                "quotesQueryId": "tss_match_phrase_query",
+                "multiQuoteQueryId": "multi_quote_single_token_query",
             },
-            timeout=5,
+            headers=headers,
+            timeout=6,
         )
         if r.ok:
-            for x in (r.json().get("quotes") or []):
+            payload = r.json() or {}
+            for x in payload.get("quotes", []) or []:
                 qt = str(x.get("quoteType") or "").upper()
-                symbol = str(x.get("symbol") or "").upper().strip()
-                if symbol and qt in {"EQUITY", "ETF", "INDEX"}:
-                    uzaktan.append({
-                        "symbol": symbol,
-                        "name": str(x.get("shortname") or x.get("longname") or ""),
-                        "exchange": str(x.get("exchange") or x.get("exchDisp") or ""),
-                    })
+                # Kullanıcı hisse ekliyor: equity/ETF ağırlıklı sonuçlar.
+                if qt not in {"EQUITY", "ETF", "MUTUALFUND", "INDEX"}:
+                    continue
+                _ekle(
+                    x.get("symbol"),
+                    x.get("shortname") or x.get("longname") or x.get("name"),
+                    x.get("exchDisp") or x.get("exchange"),
+                    qt,
+                )
     except Exception:
         pass
 
-    # Yahoo sonuç vermezse Finnhub symbol search fallback
-    if len(uzaktan) < 3 and FINNHUB_API_KEY:
+    # 2) Finnhub: Yahoo az sonuç verdiyse tamamla.
+    if len(sonuc) < 8 and FINNHUB_API_KEY:
         try:
-            fh = _finnhub_get("search", {"q": q}, timeout=4, max_retry=1) or {}
-            for x in (fh.get("result") or []):
-                symbol = str(x.get("symbol") or "").upper().strip()
-                desc = str(x.get("description") or "")
+            fh = _finnhub_get("search", {"q": q}, timeout=5, max_retry=1) or {}
+            for x in fh.get("result", []) or []:
                 typ = str(x.get("type") or "").upper()
-                if symbol and typ in {"COMMON STOCK", "ADR", "ETP", "REIT", ""}:
-                    uzaktan.append({
-                        "symbol": symbol,
-                        "name": desc,
-                        "exchange": str(x.get("displaySymbol") or ""),
-                    })
+                symbol = str(x.get("symbol") or "").strip()
+                if not symbol:
+                    continue
+                # COMMON STOCK başta olmak üzere yatırım yapılabilir sembolleri göster.
+                if typ and typ not in {
+                    "COMMON STOCK", "ADR", "ETP", "REIT", "PREFERRED STOCK",
+                    "UNIT", "CLOSED-END FUND"
+                }:
+                    continue
+                _ekle(
+                    symbol,
+                    x.get("description"),
+                    x.get("displaySymbol"),
+                    typ,
+                )
         except Exception:
             pass
 
-    sonuc, seen = [], set()
-    for item in yerel + uzaktan:
-        symbol = item["symbol"]
-        if symbol and symbol not in seen:
-            seen.add(symbol)
-            sonuc.append(item)
+    # 3) Yerel evren fallback + yazılan sembolü kaybetmeme.
+    try:
+        local_universe = sorted(set(BIST_100 + ABD_HİSSELERİ + st.session_state.get("custom_tickers", [])))
+    except Exception:
+        local_universe = []
 
-    return sonuc[:12]
+    local_matches = [
+        s for s in local_universe
+        if q_up in str(s).upper()
+    ]
+    for s in local_matches:
+        _ekle(
+            s,
+            "IZFIN evreni",
+            "BIST" if str(s).upper().endswith(".IS") else "US",
+            "EQUITY",
+        )
+
+    # Tam sembol olabilecek girişte kullanıcı manuel eklemeye mecbur kalmasın.
+    if q.replace(".", "").replace("-", "").isalnum() and len(q) <= 15:
+        if not any(x["symbol"] == q_up for x in sonuc):
+            _ekle(q_up, "Sembol olarak ekle", "", "SYMBOL")
+
+    return sonuc[:15]
 
 def get_preset_options():
     return {"Kendi Listem": st.session_state.custom_tickers, "BIST 30": BIST_30, "BIST 100": BIST_100, "ABD Büyük Teknoloji": ABD_HİSSELERİ}
@@ -4065,43 +4235,66 @@ if aktif_sayfa in ["🏠 Ana Sayfa", "🔎 Akıllı Tarama"]:
         scan_left, scan_right = st.columns([1.0, 1.15], gap="large")
 
         with scan_left:
-            st.markdown("#### 🔎 Hisse Ara & Listem")
+            st.markdown("""<div class="iz-panel-title"><span class="iz-panel-icon">⌕</span><div><b>Hisse Ara & Listem</b><small>Piyasalarda ara, kişisel evrenini oluştur</small></div></div>""", unsafe_allow_html=True)
             _arama = st.text_input(
                 "Hisse / şirket ara",
                 key="ek_hisse_arama",
-                placeholder="NVDA, THYAO, Apple, Tesla...",
-                help="Sembol veya şirket adı yazın; eşleşmeler aşağıda görünür.",
+                placeholder="Örn. APP, Apple, NVDA, THYAO...",
+                help="Sembolün veya şirket adının ilk harflerini yazın. Piyasadaki eşleşmeler aşağıda çıkar.",
             )
-            _oneriler = hisse_onerileri_getir(_arama) if _arama.strip() else []
+
+            if _arama.strip():
+                with st.spinner("Piyasalarda aranıyor..."):
+                    _oneriler = hisse_onerileri_getir(_arama)
+            else:
+                _oneriler = []
 
             if _oneriler:
-                _labels = [
-                    f"{x['symbol']}  ·  {x['name'][:38] or 'İsim yok'}"
-                    + (f"  ·  {x['exchange']}" if x.get("exchange") else "")
-                    for x in _oneriler
-                ]
+                st.caption(f"🔎 {len(_oneriler)} eşleşme bulundu")
+                _labels = []
+                for x in _oneriler:
+                    _name = x.get("name") or "Şirket adı yok"
+                    _exchange = x.get("exchange") or ""
+                    _labels.append(
+                        f"{x['symbol']}  —  {_name[:48]}"
+                        + (f"  ·  {_exchange}" if _exchange else "")
+                    )
+
                 _idx = st.selectbox(
-                    "Eşleşen hisseler",
-                    range(len(_oneriler)),
+                    "Arama sonuçları",
+                    options=list(range(len(_oneriler))),
                     format_func=lambda i: _labels[i],
                     key="hisse_oneri_secimi",
+                    help="Eklemek istediğiniz hisseyi seçin.",
                 )
+
+                _chosen = _oneriler[int(_idx)]
+                st.markdown(
+                    f"""<div class="iz-search-result-preview">
+                    <div><b>{_chosen['symbol']}</b><span>{_chosen.get('name') or 'Şirket adı yok'}</span></div>
+                    <small>{_chosen.get('exchange') or 'Piyasa bilgisi yok'}</small>
+                    </div>""",
+                    unsafe_allow_html=True,
+                )
+
                 if st.button(
-                    "＋ Seçili Hisseyi Listeme Ekle",
+                    f"＋ {_chosen['symbol']} Listeme Ekle",
                     use_container_width=True,
                     key="autocomplete_add",
+                    type="primary",
                 ):
-                    _symbol = _oneriler[int(_idx)]["symbol"]
+                    _symbol = _chosen["symbol"]
                     if _symbol not in st.session_state.custom_tickers:
                         st.session_state.custom_tickers.append(_symbol)
                         kullanici_listesini_kaydet()
+                        st.success(f"{_symbol} kişisel listenize eklendi.")
                     st.session_state.aktif_profil = "Kendi Listem"
                     st.session_state.secilen_varliklar = st.session_state.custom_tickers.copy()
                     st.rerun()
             elif _arama.strip():
-                st.caption("Eşleşme bulunamadı. İsterseniz sembolü manuel ekleyebilirsiniz.")
+                st.warning("Bu aramayla eşleşen piyasa sembolü bulunamadı.")
 
-            with st.expander("⭐ Kişisel Listemi Yönet", expanded=True):
+            with st.expander("Kişisel Listemi Yönet", expanded=True):
                 if st.session_state.custom_tickers:
                     st.caption(f"{len(st.session_state.custom_tickers)} kayıtlı varlık")
                     st.multiselect(
@@ -4133,7 +4326,7 @@ if aktif_sayfa in ["🏠 Ana Sayfa", "🔎 Akıllı Tarama"]:
                     )
 
         with scan_right:
-            st.markdown("#### ⚙️ Tarama Evreni")
+            st.markdown("""<div class="iz-panel-title"><span class="iz-panel-icon">◎</span><div><b>Tarama Evreni</b><small>Profilini ve taranacak varlıkları belirle</small></div></div>""", unsafe_allow_html=True)
             st.selectbox(
                 "Profil",
                 list(preset_options.keys()),
@@ -4161,7 +4354,7 @@ if aktif_sayfa in ["🏠 Ana Sayfa", "🔎 Akıllı Tarama"]:
             )
 
             tarama_tetiklendi = st.button(
-                "✦ AKILLI TARAMAYI BAŞLAT",
+                "AKILLI TARAMAYI BAŞLAT",
                 type="primary",
                 use_container_width=True,
                 key="main_signature_scan",
