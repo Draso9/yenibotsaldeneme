@@ -1792,6 +1792,125 @@ button[kind="primary"],
     .iz-wide-quality b,.iz-wide-riskflow b{font-size:8.8px}
 }
 
+
+/* v1.7.45 — Professional Wide Table */
+.izw-shell{
+    width:100%;
+    overflow:hidden;
+    border:1px solid #16465d;
+    border-radius:10px;
+    background:#06131f;
+}
+.izw-table{
+    width:100%;
+    table-layout:fixed;
+    border-collapse:collapse;
+    color:#e6f2f7;
+    font-size:11px;
+}
+.izw-table thead th{
+    height:42px;
+    padding:0 12px;
+    text-align:left;
+    vertical-align:middle;
+    color:#77a8bb;
+    background:#071b29;
+    border-right:1px solid #12394d;
+    border-bottom:1px solid #1c536b;
+    font-size:8px;
+    font-weight:850;
+    letter-spacing:.72px;
+}
+.izw-table thead th:last-child{border-right:0}
+.izw-table tbody tr{height:118px}
+.izw-table tbody td{
+    padding:12px;
+    vertical-align:middle;
+    background:#071522;
+    border-right:1px solid #12394d;
+    border-bottom:1px solid #174258;
+    overflow:hidden;
+}
+.izw-table tbody tr:nth-child(even) td{background:#081a27}
+.izw-table tbody tr:hover td{background:#092332}
+.izw-table tbody td:last-child{border-right:0}
+
+.izw-table th:nth-child(1){width:14%}
+.izw-table th:nth-child(2){width:15%}
+.izw-table th:nth-child(3){width:31%}
+.izw-table th:nth-child(4){width:18%}
+.izw-table th:nth-child(5){width:13%}
+.izw-table th:nth-child(6){width:9%}
+
+.izw-asset-top{display:flex;align-items:center;gap:10px}
+.izw-logo{
+    width:34px;height:34px;min-width:34px;
+    display:inline-flex;align-items:center;justify-content:center;
+    border:1px solid #18506a;border-radius:8px;
+    background:linear-gradient(145deg,#092233,#06131f);
+    color:#eafaff;font-size:15px;font-weight:850;
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.03);
+}
+.izw-asset strong{display:block;font-size:13px;color:#f4fbff;line-height:1.1}
+.izw-asset small{display:block;margin-top:3px;color:#68899a;font-size:7px}
+.izw-price{margin-top:10px;color:#9fc0cd;font-size:10px}
+
+.izw-decision{text-align:center}
+.izw-decision .iz-badge{
+    display:inline-flex!important;align-items:center;justify-content:center;
+    max-width:100%;padding:6px 8px!important;font-size:8.5px!important;
+    white-space:nowrap!important;
+}
+.izw-decision small{display:block;margin-top:7px;color:#668798;font-size:7px}
+
+.izw-quality{padding:10px 12px!important}
+.izw-quality-top{
+    display:grid;grid-template-columns:.8fr .8fr .8fr;gap:6px;
+}
+.izw-quality-top>div,.izw-entry,.izw-rf-grid>div{
+    min-width:0;border:1px solid #16445a;border-radius:6px;background:#071725;
+}
+.izw-quality-top>div{padding:7px 8px}
+.izw-quality span,.izw-riskflow span,.izw-value span{
+    display:block;color:#6690a3;font-size:6.5px;font-weight:850;letter-spacing:.55px;
+}
+.izw-quality b,.izw-riskflow b{
+    display:block;margin-top:4px;color:#f0f8fb;font-size:9px;font-weight:760;
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+.izw-entry{margin-top:6px;padding:7px 8px}
+.izw-entry b{font-size:8.5px}
+
+.izw-rf-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.izw-rf-grid>div{padding:10px 9px;min-height:52px}
+.izw-rf-grid .high b,.izw-value .bad{color:#ff6678}
+.izw-rf-grid .low b,.izw-rf-grid .good b,.izw-value .good{color:#48dda7}
+.izw-rf-grid .mid b,.izw-value .mid{color:#efbf50}
+.izw-rf-grid .bad b{color:#ff6678}
+
+.izw-value b{
+    display:block;margin-top:7px;font-size:10px;font-weight:780;
+    line-height:1.3;white-space:normal;
+}
+.izw-session{text-align:center}
+.izw-moon{display:block;color:#f0bd52;font-size:18px;line-height:1;margin-bottom:6px}
+.izw-session b{
+    display:block;font-size:8.5px;font-weight:700;white-space:normal;line-height:1.35;
+}
+.izw-session b.up{color:#48dda7}
+.izw-session b.down{color:#ff6678}
+.izw-session b.flat{color:#a8c0cb}
+
+@media(max-width:1450px){
+    .izw-table tbody tr{height:110px}
+    .izw-table tbody td{padding:9px}
+    .izw-table thead th{padding:0 9px;font-size:7.5px}
+    .izw-logo{width:30px;height:30px;min-width:30px;font-size:13px}
+    .izw-asset strong{font-size:11.5px}
+    .izw-price{font-size:9px}
+    .izw-quality b,.izw-riskflow b{font-size:8px}
+}
+
 </style>
 """, unsafe_allow_html=True)
 
@@ -5703,67 +5822,126 @@ def izfin_tarama_tablosu_html(df):
 
 
 def izfin_tarama_genis_ozet_html(df):
-    """Geniş görünüm için okunabilir, gruplanmış IZFIN sonuç tablosu."""
+    """Geniş görünüm: hizalı, profesyonel ve okunabilir IZFIN sonuç tablosu."""
     if df is None or df.empty:
         return '<div class="iz-wide-table-empty">Gösterilecek tarama sonucu yok.</div>'
 
-    esc = lambda v: html.escape(str(v if v is not None else "—"))
+    def esc(v):
+        return html.escape(str(v if v not in (None, "") else "—"))
+
+    def pct_color(v):
+        s = str(v or "")
+        if "+" in s:
+            return "up"
+        if "-" in s:
+            return "down"
+        return "flat"
+
+    # Kod içinde güvenli, telifsiz/harici asset gerektirmeyen sembol rozetleri.
+    # Gerçek marka logoları yerine ticker bazlı profesyonel monogram kullanıyoruz;
+    # böylece kırık URL, CORS ve yüklenme problemi oluşmaz.
+    ticker_icons = {
+        "AAPL": "A", "MSFT": "M", "TSLA": "T", "NVDA": "N", "AMZN": "a",
+        "GOOGL": "G", "GOOG": "G", "META": "M", "AMD": "A", "INTC": "I",
+        "AVGO": "B", "AMAT": "A", "LRCX": "L", "KLAC": "K", "MU": "M",
+    }
 
     rows = []
     for _, row in df.iterrows():
-        ticker = esc(row.get("Varlık", "—"))
+        raw_ticker = str(row.get("Varlık", "—"))
+        ticker = esc(raw_ticker)
+        icon = esc(ticker_icons.get(raw_ticker.upper(), raw_ticker[:1].upper() or "•"))
+
         fiyat = esc(row.get("Fiyat", "—"))
-        sinyal = str(row.get("Nihai Sinyal", "—"))
-        sinyal_esc = esc(sinyal)
+        sinyal_raw = str(row.get("Nihai Sinyal", "—"))
+        sinyal = esc(sinyal_raw)
 
         skor = esc(row.get("Gelişmiş Skor", "—"))
         guven = esc(row.get("Güven", "—"))
         mtf = esc(row.get("MTF Uyum", "—"))
-        giris = esc(row.get("🎯 Giriş Kalitesi", "—"))
+        giris_raw = str(row.get("🎯 Giriş Kalitesi", "—"))
+        giris = esc(giris_raw)
 
-        risk = str(row.get("Risk", "—"))
-        risk_esc = esc(risk)
-        para = esc(row.get("Para Akışı", "—"))
-        peg = esc(row.get("PEG / Değerleme", "—"))
-        seans = esc(row.get("Seans Dışı", "—"))
+        risk_raw = str(row.get("Risk", "—"))
+        risk = esc(risk_raw)
+        para_raw = str(row.get("Para Akışı", "—"))
+        para = esc(para_raw)
+        deger_raw = str(row.get("PEG / Değerleme", "—"))
+        deger = esc(deger_raw)
+        seans_raw = str(row.get("Seans Dışı", "—"))
+        seans = esc(seans_raw)
 
-        risk_u = risk.upper()
-        risk_cls = (
-            "risk-high" if ("YÜKSEK" in risk_u or "PANİK" in risk_u)
-            else "risk-low" if ("DÜŞÜK" in risk_u or "SAKİN" in risk_u)
-            else "risk-mid"
-        )
+        risk_u = risk_raw.upper()
+        risk_cls = "high" if "YÜKSEK" in risk_u else "low" if "DÜŞÜK" in risk_u else "mid"
+
+        flow_u = para_raw.upper()
+        flow_cls = "good" if any(x in flow_u for x in ["GİRİŞ", "GÜÇLÜ", "POZİTİF"]) else \
+                   "bad" if any(x in flow_u for x in ["ÇIKIŞ", "ZAYIF", "NEGATİF"]) else "mid"
+
+        val_u = deger_raw.upper()
+        val_cls = "good" if any(x in val_u for x in ["UCUZ", "CAZİP"]) else \
+                  "bad" if any(x in val_u for x in ["YÜKSEK", "PAHALI", "PRİM"]) else "mid"
+
+        session_cls = pct_color(seans_raw)
 
         rows.append(
             "<tr>"
-            f"<td class='iz-wide-asset'><strong>{ticker}</strong><span>{fiyat}</span></td>"
-            f"<td class='iz-wide-decision'><span class='iz-badge {_iz_badge_class(sinyal)}'>{sinyal_esc}</span></td>"
-            "<td class='iz-wide-quality'>"
-                f"<div><span>SKOR</span><b>{skor}</b></div>"
-                f"<div><span>GÜVEN</span><b>{guven}</b></div>"
-                f"<div><span>MTF</span><b>{mtf}</b></div>"
-                f"<div class='iz-wide-entry' title='{giris}'><span>GİRİŞ</span><b>{giris}</b></div>"
-            "</td>"
-            f"<td class='iz-wide-riskflow'><div class='{risk_cls}'><span>RİSK</span><b>{risk_esc}</b></div>"
-                f"<div><span>AKIŞ</span><b title='{para}'>{para}</b></div></td>"
-            f"<td class='iz-wide-value' title='{peg}'>{peg}</td>"
-            f"<td class='iz-wide-session' title='{seans}'>{seans}</td>"
+              "<td class='izw-asset'>"
+                f"<div class='izw-asset-top'><span class='izw-logo'>{icon}</span>"
+                f"<div><strong>{ticker}</strong><small>Varlık</small></div></div>"
+                f"<div class='izw-price'>{fiyat}</div>"
+              "</td>"
+
+              "<td class='izw-decision'>"
+                f"<span class='iz-badge {_iz_badge_class(sinyal_raw)}'>{sinyal}</span>"
+                "<small>Merkezi karar</small>"
+              "</td>"
+
+              "<td class='izw-quality'>"
+                "<div class='izw-quality-top'>"
+                  f"<div><span>SKOR</span><b>{skor}</b></div>"
+                  f"<div><span>GÜVEN</span><b>{guven}</b></div>"
+                  f"<div><span>MTF</span><b>{mtf}</b></div>"
+                "</div>"
+                "<div class='izw-entry'>"
+                  "<span>GİRİŞ KALİTESİ</span>"
+                  f"<b title='{giris}'>{giris}</b>"
+                "</div>"
+              "</td>"
+
+              "<td class='izw-riskflow'>"
+                "<div class='izw-rf-grid'>"
+                  f"<div class='{risk_cls}'><span>RİSK</span><b>{risk}</b></div>"
+                  f"<div class='{flow_cls}'><span>PARA AKIŞI</span><b title='{para}'>{para}</b></div>"
+                "</div>"
+              "</td>"
+
+              "<td class='izw-value'>"
+                "<span>DEĞERLEME</span>"
+                f"<b class='{val_cls}' title='{deger}'>{deger}</b>"
+              "</td>"
+
+              "<td class='izw-session'>"
+                "<span class='izw-moon'>◐</span>"
+                f"<b class='{session_cls}' title='{seans}'>{seans}</b>"
+              "</td>"
             "</tr>"
         )
 
     return (
-        "<div class='iz-wide-table-shell'>"
-        "<table class='iz-wide-table'>"
-        "<thead><tr>"
-        "<th>VARLIK / FİYAT</th>"
-        "<th>IZFIN KARARI</th>"
-        "<th>KALİTE</th>"
-        "<th>RİSK / AKIŞ</th>"
-        "<th>DEĞERLEME</th>"
-        "<th>SEANS DIŞI</th>"
-        "</tr></thead>"
-        "<tbody>" + "".join(rows) + "</tbody>"
-        "</table></div>"
+        "<div class='izw-shell'>"
+          "<table class='izw-table'>"
+            "<thead><tr>"
+              "<th>VARLIK / FİYAT</th>"
+              "<th>IZFIN KARARI</th>"
+              "<th>KALİTE</th>"
+              "<th>RİSK / AKIŞ</th>"
+              "<th>DEĞERLEME</th>"
+              "<th>SEANS DIŞI</th>"
+            "</tr></thead>"
+            "<tbody>" + "".join(rows) + "</tbody>"
+          "</table>"
+        "</div>"
     )
 
 if not st.session_state.get("user_email") or not st.session_state.get("user_uid"):
