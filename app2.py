@@ -229,6 +229,20 @@ hr {border-color:#122a3e!important;}
     font-weight:760!important;
 }
 
+.st-key-google_oauth_native [data-testid="stLinkButton"] a::before,
+.st-key-google_oauth_native a[data-testid="stBaseLinkButton-secondary"]::before {
+    content:""!important;
+    display:inline-block!important;
+    width:19px!important;
+    height:19px!important;
+    flex:0 0 19px!important;
+    margin-right:10px!important;
+    background-repeat:no-repeat!important;
+    background-position:center!important;
+    background-size:19px 19px!important;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 18 18'%3E%3Cpath fill='%234285F4' d='M17.64 9.205c0-.638-.057-1.252-.164-1.841H9v3.482h4.844a4.14 4.14 0 0 1-1.797 2.715v2.258h2.909c1.702-1.567 2.684-3.875 2.684-6.614z'/%3E%3Cpath fill='%2334A853' d='M9 18c2.43 0 4.467-.806 5.956-2.181l-2.909-2.258c-.806.54-1.835.859-3.047.859-2.344 0-4.328-1.585-5.037-3.714H.956v2.332A9 9 0 0 0 9 18z'/%3E%3Cpath fill='%23FBBC05' d='M3.963 10.706A5.41 5.41 0 0 1 3.682 9c0-.592.102-1.167.281-1.706V4.962H.956A9 9 0 0 0 0 9c0 1.452.347 2.827.956 4.038l3.007-2.332z'/%3E%3Cpath fill='%23EA4335' d='M9 3.58c1.321 0 2.507.454 3.44 1.345l2.581-2.582C13.463.891 11.426 0 9 0A9 9 0 0 0 .956 4.962l3.007 2.332C4.672 5.165 6.656 3.58 9 3.58z'/%3E%3C/svg%3E")!important;
+}
+
 /* v1.7.6: Auth switch pasif butonunu IZFIN temasına sabitle. */
 .st-key-auth_switch_login button,
 .st-key-auth_switch_register button {
@@ -3531,7 +3545,7 @@ def _google_login_component():
         return
 
     st.link_button(
-        "G  Google ile devam et",
+        "Google ile devam et",
         auth_url,
         key="google_oauth_native",
         type="secondary",
