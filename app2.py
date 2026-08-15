@@ -1269,42 +1269,43 @@ button[kind="primary"],
 }
 
 
-/* v1.7.34 — klasik fırsat haritası görünümü + gerçek native tıklama */
-.iz-classic-pulse-native{
-    min-height:247px!important;
-}
-.iz-classic-map-head{
+
+/* v1.7.35 — Fırsat Haritası görseli v1.7.33'e geri döndü.
+   Tıklama ayrı, minimal aksiyon katmanında. */
+.iz-heat-actions-head{
     display:flex;
-    align-items:flex-start;
-    justify-content:space-between;
-    gap:8px;
-    margin:0 0 6px;
-    padding:11px 12px;
-    border:1px solid #173f55;
-    border-radius:10px;
-    background:linear-gradient(145deg,#071724,#092536);
-}
-.iz-classic-map-head>span{
-    font-size:8px;
-    color:#4ecfe0;
-    white-space:nowrap;
-}
-.iz-classic-map-empty{
-    min-height:194px;
-    padding:28px 12px;
-    display:flex;
-    flex-direction:column;
     align-items:center;
-    justify-content:center;
-    text-align:center;
-    gap:4px;
-    color:#7891a5;
-    border:1px dashed #1a4059;
-    border-radius:10px;
-    background:#071522;
-    font-size:9px;
+    justify-content:space-between;
+    gap:10px;
+    margin:6px 0 5px;
+    padding:0 2px;
 }
-.iz-classic-map-empty b{color:#b7c9d6}
+.iz-heat-actions-head span{
+    color:#4f7488;
+    font-size:7px;
+    font-weight:850;
+    letter-spacing:.85px;
+}
+.iz-heat-actions-head small{
+    color:#4c6979;
+    font-size:7px;
+}
+[class*="st-key-classic_heat_action_"] button{
+    min-height:27px!important;
+    border-radius:7px!important;
+    background:#071724!important;
+    border:1px solid #173f55!important;
+    color:#90b6c7!important;
+    font-size:8px!important;
+    font-weight:760!important;
+    padding:3px 6px!important;
+    box-shadow:none!important;
+}
+[class*="st-key-classic_heat_action_"] button:hover{
+    background:#092536!important;
+    border-color:#28cad5!important;
+    color:#eefcff!important;
+}
 
 </style>
 """, unsafe_allow_html=True)
@@ -4563,106 +4564,6 @@ def izfin_dashboard_html():
     </div>"""
 
 
-def izfin_dashboard_clickable():
-    """v1.7.28 görünümünü korur; fırsat haritasını gerçek Streamlit butonlarıyla tıklanabilir yapar."""
-    pulse,trend,momentum,flow,risk,kaynak = _iz_panel_metrics()
-    items = _iz_heatmap_items(max_n=20)
-
-    trend_lbl = "GÜÇLÜ" if trend >= 70 else "İYİ" if trend >= 55 else "KARIŞIK"
-    mom_lbl = "GÜÇLÜ" if momentum >= 70 else "İYİ" if momentum >= 55 else "KARIŞIK"
-    flow_lbl = "POZİTİF" if flow >= 60 else "DENGELİ" if flow >= 45 else "ZAYIF"
-    risk_lbl = "DÜŞÜK" if risk < 40 else "ORTA" if risk < 65 else "YÜKSEK"
-
-    st.markdown(
-        '<div class="iz-hero"><div class="iz-section-label">IZFIN SIGNATURE COMMAND CENTER</div>'
-        '<h1>IZFIN Piyasa Merkezi</h1><p>Piyasanın nabzını gör, fırsatı tara, kararın gerekçesini incele ve sonucu ölç.</p></div>',
-        unsafe_allow_html=True,
-    )
-
-    left, right = st.columns([1.38, .82], gap="medium")
-
-    with left:
-        st.markdown(
-            f"""
-            <div class="iz-card iz-classic-pulse-native">
-              <div class="iz-card-head"><div><div class="iz-card-title" style="margin:0">IZFIN PİYASA NABZI</div>
-              <div class="iz-card-kicker">{kaynak}</div></div><span class="iz-badge wait">{_iz_pulse_label(pulse)}</span></div>
-              <div class="iz-pulse">
-                <div class="iz-gauge" style="--pulse:{pulse}%"><div class="iz-gauge-content">
-                  <div class="iz-gauge-num">{pulse}<span style="font-size:12px;color:#7890a3">/100</span></div>
-                  <div class="iz-gauge-label">{_iz_pulse_label(pulse)}</div>
-                </div></div>
-                <div>
-                  <div class="iz-pulse-copy">Trend, momentum, para akışı ve risk tek çerçevede okunur. Tarama sonrası nabız doğrudan IZFIN teknik motorunun analiz ettiği varlıklardan hesaplanır.</div>
-                  <div class="iz-components">
-                    <div class="iz-comp"><div class="iz-comp-name">TREND</div><div class="iz-comp-val">{trend}</div><div class="iz-comp-sub">{trend_lbl}</div></div>
-                    <div class="iz-comp"><div class="iz-comp-name">MOMENTUM</div><div class="iz-comp-val">{momentum}</div><div class="iz-comp-sub">{mom_lbl}</div></div>
-                    <div class="iz-comp"><div class="iz-comp-name">PARA AKIŞI</div><div class="iz-comp-val">{flow}</div><div class="iz-comp-sub">{flow_lbl}</div></div>
-                    <div class="iz-comp"><div class="iz-comp-name">RİSK</div><div class="iz-comp-val">{risk}</div><div class="iz-comp-sub" style="color:#f2b94d">{risk_lbl}</div></div>
-                  </div>
-                </div>
-              </div>
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
-
-    with right:
-        st.markdown(
-            """
-            <div class="iz-classic-map-head">
-              <div><div class="iz-card-title" style="margin:0">IZFIN FIRSAT HARİTASI</div>
-              <div class="iz-card-kicker">RENK = SKOR · ÇERÇEVE = GÜVEN</div></div>
-              <span>SIGNATURE MAP</span>
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
-        if not items:
-            st.markdown(
-                '<div class="iz-classic-map-empty"><b>İlk Akıllı Tarama bekleniyor</b><span>Tarama sonrası renk = IZFIN skoru, çerçeve = algoritma güveni olacak.</span></div>',
-                unsafe_allow_html=True,
-            )
-        else:
-            # Klasik haritanın 4 kolonlu sıkı yapısını native butonlarla birebir taklit eder.
-            for row_i in range(0, len(items), 4):
-                cols=st.columns(4, gap="small")
-                for j,(s,g,t,d) in enumerate(items[row_i:row_i+4]):
-                    with cols[j]:
-                        key=f"classic_map_live_{row_i+j}_{re.sub(r'[^A-Za-z0-9_]+','_',str(t))}"
-                        bg=_iz_heat_color(s).replace("background:","")
-                        chg_color="#31e59c" if d>=0 else "#ff6b78"
-                        border=max(1,int(g/30))
-                        st.markdown(
-                            f"""
-                            <style>
-                            .st-key-{key} button {{
-                                min-height:66px!important;height:66px!important;
-                                padding:7px 8px!important;border-radius:8px!important;
-                                background:{bg}!important;
-                                border:{border}px solid rgba(38,238,220,.13)!important;
-                                box-shadow:inset 0 1px 0 rgba(255,255,255,.025)!important;
-                                color:#eefaff!important;text-align:left!important;
-                                justify-content:flex-start!important;white-space:pre-line!important;
-                                font-size:8px!important;line-height:1.28!important;font-weight:650!important;
-                            }}
-                            .st-key-{key} button:hover {{
-                                border-color:rgba(53,214,224,.65)!important;
-                                filter:brightness(1.08)!important;
-                                transform:translateY(-1px)!important;
-                            }}
-                            </style>
-                            """,
-                            unsafe_allow_html=True,
-                        )
-                        st.button(
-                            f"{t}\\nIZ {int(s)} · Güven {int(g)}%\\n{d:+.2f}%",
-                            key=key,
-                            use_container_width=True,
-                            on_click=_izfin_home_ticker_ac,
-                            args=(t,),
-                        )
-
 def _iz_badge_class(s):
     u = str(s).upper()
     if "GÜÇLÜ AL" in u or ("AL" in u and "ERKEN" not in u): return "buy"
@@ -4761,8 +4662,33 @@ def izfin_mover_clicks(max_n=6):
 
 
 def izfin_heat_clicks(max_n=8):
+    # Eski uyumluluk için tutuluyor.
+    izfin_heat_clicks_compact(max_n=max_n)
+
+
+def izfin_heat_clicks_compact(max_n=8):
+    """Klasik fırsat haritasını bozmadan yalnızca küçük detay aksiyonları gösterir."""
     items = _iz_heatmap_items(max_n=max_n)
-    _izfin_click_strip([t for _,_,t,_ in items], "classic_heat_click")
+    if not items:
+        return
+
+    st.markdown(
+        '<div class="iz-heat-actions-head"><span>FIRSAT HARİTASI DETAYLARI</span><small>Karta ait detayı aç</small></div>',
+        unsafe_allow_html=True,
+    )
+
+    for row_start in range(0, len(items), 4):
+        cols = st.columns(4, gap="small")
+        for j, (_, _, t, _) in enumerate(items[row_start:row_start+4]):
+            with cols[j]:
+                key = f"classic_heat_action_{row_start+j}_{re.sub(r'[^A-Za-z0-9_]+','_',str(t))}"
+                st.button(
+                    f"{t}  ↗",
+                    key=key,
+                    use_container_width=True,
+                    on_click=_izfin_home_ticker_ac,
+                    args=(t,),
+                )
 
 
 def izfin_home_action_html():
@@ -5209,7 +5135,8 @@ if aktif_sayfa in ["🏠 Ana Sayfa", "🔎 Akıllı Tarama"]:
         if _home_msg:
             st.warning(_home_msg)
 
-        izfin_dashboard_clickable()
+        st.markdown(izfin_dashboard_html(), unsafe_allow_html=True)
+        izfin_heat_clicks_compact(max_n=8)
 
         st.markdown('<div class="iz-home-scan-banner"><div class="copy"><strong>✦ Fırsatları tüm evrende tara</strong><span>IZFIN merkezi karar motorunu seçtiğiniz piyasa grubunda çalıştırın.</span></div><span class="iz-badge wait">SIGNATURE SCAN</span></div>', unsafe_allow_html=True)
         if st.button("✦ AKILLI TARAMA MERKEZİNE GİT →", type="primary", use_container_width=True, key="home_scan_primary"):
