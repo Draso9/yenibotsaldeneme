@@ -3369,7 +3369,21 @@ const provider=new firebase.auth.GoogleAuthProvider();provider.setCustomParamete
 document.getElementById('gbtn').onclick=async()=>{{
  const btn=document.getElementById('gbtn'),err=document.getElementById('error');err.textContent='';btn.disabled=true;btn.querySelector('span:last-child').textContent='Google açılıyor…';
  try{{const res=await firebase.auth().signInWithPopup(provider);const tok=await res.user.getIdToken(true);const base=window.parent.location.origin+window.parent.location.pathname;window.parent.location.assign(base+'?izfin_google_token='+encodeURIComponent(tok));}}
- catch(e){{let m='Google ile giriş tamamlanamadı.';if(e&&e.code==='auth/popup-closed-by-user')m='Google penceresi kapatıldı.';if(e&&e.code==='auth/unauthorized-domain')m='Bu Streamlit alan adı Firebase Authorized Domains listesinde değil.';err.textContent=m;btn.disabled=false;btn.querySelector('span:last-child').textContent='Google ile Devam Et';}}
+ catch(e){{
+   let code=(e&&e.code)?e.code:'auth/unknown';
+   let m='Google ile giriş tamamlanamadı.';
+   if(code==='auth/popup-closed-by-user') m='Google penceresi tamamlanmadan kapatıldı.';
+   else if(code==='auth/popup-blocked') m='Tarayıcı Google giriş penceresini engelledi. Bu site için pop-up izni verip tekrar deneyin.';
+   else if(code==='auth/unauthorized-domain') m='Bu Streamlit alan adı Firebase Authorized Domains listesinde değil.';
+   else if(code==='auth/account-exists-with-different-credential') m='Bu e-posta IZFIN’de başka bir giriş yöntemiyle kayıtlı. Önce mevcut e-posta/şifrenizle giriş yapın; Google hesabını aynı hesaba bağlamamız gerekiyor.';
+   else if(code==='auth/operation-not-supported-in-this-environment') m='Google oturumu bu tarayıcı/iframe ortamında başlatılamadı.';
+   else if(code==='auth/cancelled-popup-request') m='Başka bir Google giriş penceresi zaten açık.';
+   else if(code==='auth/network-request-failed') m='Google/Firebase bağlantısı sırasında ağ hatası oluştu.';
+   else if(code==='auth/internal-error') m='Firebase Google oturumunda iç hata oluştu.';
+   err.textContent=m+' ['+code+']';
+   console.error('IZFIN Google Auth', code, e&&e.message?e.message:e);
+   btn.disabled=false;btn.querySelector('span:last-child').textContent='Google ile Devam Et';
+  }}
 }};
 </script></body></html>"""
     components.html(html_doc, height=66, scrolling=False)
