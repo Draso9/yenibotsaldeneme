@@ -1532,6 +1532,208 @@ button[kind="primary"],
     box-shadow:inset 0 1px 0 rgba(255,255,255,.03),0 10px 22px rgba(0,0,0,.14)!important;
 }
 
+
+/* v1.7.32 — Premium home redesign */
+
+.iz-native-map-head{
+    margin-bottom:8px!important;
+    padding:12px 13px!important;
+    border-radius:11px!important;
+    background:linear-gradient(145deg,#071724,#092536)!important;
+    border:1px solid #17445d!important;
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.025)!important;
+}
+.iz-native-map-head .iz-card-title{
+    font-size:12px!important;
+    letter-spacing:.15px!important;
+}
+.iz-native-map-head .iz-card-kicker{
+    font-size:7.5px!important;
+    color:#6d92a5!important;
+}
+.iz-native-map-head>span{
+    font-size:7px!important;
+    letter-spacing:.6px!important;
+    color:#4dcbd7!important;
+}
+
+/* Unified panel headers */
+.iz-home-panel-head{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:14px;
+    margin:16px 0 8px;
+    padding:11px 13px;
+    border:1px solid #17445d;
+    border-radius:11px;
+    background:linear-gradient(145deg,#071724,#092536);
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.025);
+}
+.iz-home-panel-head small{
+    display:block;
+    color:#33cad5;
+    font-size:7px;
+    font-weight:850;
+    letter-spacing:1px;
+    margin-bottom:2px;
+}
+.iz-home-panel-head h3{
+    margin:0;
+    color:#eff9fd;
+    font-size:14px;
+    line-height:1.1;
+    font-weight:760;
+}
+.iz-home-panel-head>span{
+    color:#6e93a6;
+    font-size:7.5px;
+    font-weight:750;
+    letter-spacing:.65px;
+}
+.iz-home-panel-empty{
+    padding:18px 12px;
+    border:1px dashed #1b4359;
+    border-radius:10px;
+    background:#071522;
+    color:#7892a3;
+    font-size:10px;
+}
+
+/* Ticker button language */
+[class*="st-key-home_signal_"] button,
+[class*="st-key-home_mover_"] button{
+    min-height:38px!important;
+    border-radius:8px!important;
+    background:linear-gradient(135deg,#081c2a,#0a2a3b)!important;
+    border:1px solid #184b61!important;
+    color:#edf9fd!important;
+    font-size:10px!important;
+    font-weight:780!important;
+    justify-content:flex-start!important;
+    padding-left:10px!important;
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.025)!important;
+}
+[class*="st-key-home_signal_"] button:hover,
+[class*="st-key-home_mover_"] button:hover{
+    border-color:#28c8d4!important;
+    background:linear-gradient(135deg,#0a2738,#0c3447)!important;
+    transform:translateY(-1px)!important;
+}
+
+/* Signal row pieces */
+.iz-home-price{
+    margin-top:4px;
+    min-height:27px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    border:1px solid #153d50;
+    border-radius:7px;
+    background:#071522;
+    color:#95afbd;
+    font-size:9px;
+}
+.iz-home-signal-main{
+    min-height:69px;
+    display:flex;
+    flex-direction:column;
+    justify-content:center;
+    gap:5px;
+    padding:9px 11px;
+    border:1px solid #153d50;
+    border-radius:9px;
+    background:linear-gradient(145deg,#071522,#081c28);
+}
+.iz-home-signal-main>span{
+    color:#65899c;
+    font-size:7.5px;
+    font-weight:800;
+    letter-spacing:.65px;
+}
+.iz-home-mini-grid{
+    min-height:69px;
+    display:grid;
+    grid-template-columns:repeat(3,1fr);
+    gap:5px;
+    padding:8px;
+    border:1px solid #153d50;
+    border-radius:9px;
+    background:#071522;
+}
+.iz-home-mini-grid>div{
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    gap:3px;
+    border-right:1px solid rgba(28,68,87,.55);
+}
+.iz-home-mini-grid>div:last-child{border-right:none}
+.iz-home-mini-grid span{
+    color:#64899d;
+    font-size:7px;
+    font-weight:800;
+    letter-spacing:.4px;
+}
+.iz-home-mini-grid b{
+    color:#e7f6fb;
+    font-size:11px;
+    font-weight:780;
+}
+.iz-home-risk-chip{
+    min-height:69px;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    gap:3px;
+    border:1px solid #153d50;
+    border-radius:9px;
+    background:#071522;
+}
+.iz-home-risk-chip span{
+    color:#64899d;
+    font-size:7px;
+    font-weight:800;
+    letter-spacing:.5px;
+}
+.iz-home-risk-chip b{
+    color:#dceaf0;
+    font-size:10px;
+}
+
+/* Movers */
+.iz-home-mover-price,
+.iz-home-mover-change{
+    min-height:38px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    border:1px solid #153d50;
+    border-radius:8px;
+    background:#071522;
+    color:#c5d7df;
+    font-size:9.5px;
+    font-weight:700;
+}
+.iz-home-mover-change.up{
+    color:#42dda1;
+    border-color:#1c5c4c;
+    background:linear-gradient(135deg,#071a18,#0b2a22);
+}
+.iz-home-mover-change.down{
+    color:#ff7484;
+    border-color:#5d3340;
+    background:linear-gradient(135deg,#191016,#25151c);
+}
+
+/* Tighten native pulse card for cleaner balance */
+.iz-native-pulse-card{
+    border-radius:13px!important;
+    background:linear-gradient(145deg,#071724,#092536)!important;
+}
+
 </style>
 """, unsafe_allow_html=True)
 
@@ -4902,7 +5104,7 @@ def izfin_render_dashboard_native():
         unsafe_allow_html=True,
     )
 
-    dash_left, dash_right = st.columns([1.15, .85], gap="large")
+    dash_left, dash_right = st.columns([1.42, .58], gap="large")
 
     with dash_left:
         st.markdown(
@@ -4951,59 +5153,61 @@ def izfin_render_dashboard_native():
             unsafe_allow_html=True,
         )
 
-        _items = _iz_heatmap_items(max_n=12)
+        _items = _iz_heatmap_items(max_n=8)
         if not _items:
             st.markdown(
                 '<div class="iz-native-map-empty"><b>İlk Akıllı Tarama bekleniyor</b><span>Tarama sonrası hisseler burada görünecek.</span></div>',
                 unsafe_allow_html=True,
             )
         else:
-            # 3 kolon x en fazla 4 sıra; her kart gerçek Streamlit butonu.
-            for row_start in range(0, len(_items), 3):
-                _cols = st.columns(3, gap="small")
-                for j, (s,g,t,d) in enumerate(_items[row_start:row_start+3]):
+            for row_start in range(0, len(_items), 2):
+                _cols = st.columns(2, gap="small")
+                for j, (s,g,t,d) in enumerate(_items[row_start:row_start+2]):
                     with _cols[j]:
                         _safe_key = re.sub(r"[^A-Za-z0-9_]+", "_", str(t))
                         _k = f"home_map_{_safe_key}_{row_start+j}"
                         _bg = _iz_score_bg(s)
                         _chg = f"{d:+.2f}%"
+
                         st.markdown(
                             f"""
                             <style>
                             .st-key-{_k} button{{
-                                min-height:96px!important;
+                                min-height:74px!important;
                                 width:100%!important;
-                                border-radius:13px!important;
+                                border-radius:10px!important;
                                 background:{_bg}!important;
-                                border:{max(1,int(g/28))}px solid rgba(38,238,220,.24)!important;
-                                color:#f4fbff!important;
+                                border:1px solid rgba(48,203,212,.28)!important;
+                                color:#f2fbff!important;
                                 box-shadow:
                                     inset 0 1px 0 rgba(255,255,255,.05),
-                                    0 10px 24px rgba(0,0,0,.18)!important;
+                                    0 8px 18px rgba(0,0,0,.15)!important;
                                 white-space:pre-line!important;
-                                font-size:11px!important;
-                                line-height:1.45!important;
-                                font-weight:760!important;
                                 text-align:left!important;
                                 justify-content:flex-start!important;
-                                padding:13px 14px!important;
-                                position:relative!important;
+                                align-items:flex-start!important;
+                                padding:10px 11px!important;
+                                font-size:10px!important;
+                                line-height:1.35!important;
+                                font-weight:760!important;
+                                letter-spacing:.05px!important;
+                                transition:all .16s ease!important;
                             }}
                             .st-key-{_k} button:hover{{
-                                transform:translateY(-3px)!important;
-                                filter:brightness(1.1)!important;
-                                border-color:#36d9e2!important;
+                                transform:translateY(-2px)!important;
+                                border-color:#35d4df!important;
+                                filter:brightness(1.06)!important;
                                 box-shadow:
                                     inset 0 1px 0 rgba(255,255,255,.06),
-                                    0 14px 28px rgba(0,0,0,.24),
-                                    0 0 0 1px rgba(54,217,226,.12)!important;
+                                    0 11px 22px rgba(0,0,0,.22),
+                                    0 0 0 1px rgba(53,212,223,.10)!important;
                             }}
                             </style>
                             """,
                             unsafe_allow_html=True,
                         )
                         st.button(
-                            f"{t}\nIZ {int(s)} · Güven {int(g)}%\n{_chg}\nDetayı aç",
+                            f"{t}\nIZ {int(s)}  ·  G {int(g)}%\n{_chg}",
                             key=_k,
                             use_container_width=True,
                             on_click=_izfin_home_ticker_ac,
@@ -5011,7 +5215,8 @@ def izfin_render_dashboard_native():
                         )
 
 
-def izfin_render_top_signals_native(max_n=7):
+
+def izfin_render_top_signals_native(max_n=6):
     sonuclar = st.session_state.get("sonuclar") or []
     paneller = st.session_state.get("teknik_paneller") or {}
     sirali = sorted(
@@ -5022,19 +5227,19 @@ def izfin_render_top_signals_native(max_n=7):
 
     st.markdown(
         """
-        <div class="iz-premium-section-head">
+        <div class="iz-home-panel-head">
             <div>
-                <small>IZFIN SIGNAL BOARD</small>
+                <small>SIGNAL BOARD</small>
                 <h3>Öne Çıkan IZFIN Sinyalleri</h3>
-                <p>Son taramadaki en güçlü skor, güven ve MTF kombinasyonları</p>
             </div>
+            <span>SKOR · GÜVEN · MTF</span>
         </div>
         """,
         unsafe_allow_html=True,
     )
 
     if not sirali:
-        st.markdown('<div class="iz-native-empty">Akıllı Tarama çalıştırıldığında en yüksek skorlu sinyaller burada özetlenecek.</div>', unsafe_allow_html=True)
+        st.markdown('<div class="iz-home-panel-empty">Akıllı Tarama çalıştırıldığında en yüksek skorlu sinyaller burada özetlenecek.</div>', unsafe_allow_html=True)
         return
 
     for idx, r in enumerate(sirali):
@@ -5045,36 +5250,43 @@ def izfin_render_top_signals_native(max_n=7):
         fiyat = r.get("Fiyat","—")
         risk_v = p.get("risk_seviyesi",r.get("Risk","—"))
         mtf = int(float(p.get("mtf_uyum",50) or 50))
-        _k = f"home_signal_{idx}_{re.sub(r'[^A-Za-z0-9_]+','_',t)}"
+        key = f"home_signal_{idx}_{re.sub(r'[^A-Za-z0-9_]+','_',t)}"
 
-        card_left, card_mid, card_right = st.columns([1.45, 2.3, .9], gap="small")
-        with card_left:
+        c1, c2, c3, c4 = st.columns([1.35, 1.8, 1.1, .8], gap="small")
+        with c1:
             st.button(
                 f"{t}  ↗",
-                key=_k,
+                key=key,
                 use_container_width=True,
                 on_click=_izfin_home_ticker_ac,
                 args=(t,),
             )
-            st.markdown(f'<div class="iz-premium-price">{fiyat}</div>', unsafe_allow_html=True)
-
-        with card_mid:
+            st.markdown(f'<div class="iz-home-price">{fiyat}</div>', unsafe_allow_html=True)
+        with c2:
             st.markdown(
                 f"""
-                <div class="iz-premium-signal-body">
-                    <div><span>KARAR</span><b class="iz-badge {_iz_badge_class(sin)}">{sin}</b></div>
-                    <div><span>SKOR</span><strong>{skor}</strong></div>
-                    <div><span>GÜVEN</span><strong>{g}%</strong></div>
-                    <div><span>MTF</span><strong>{mtf}%</strong></div>
+                <div class="iz-home-signal-main">
+                    <span>KARAR</span>
+                    <b class="iz-badge {_iz_badge_class(sin)}">{html.escape(sin)}</b>
                 </div>
                 """,
                 unsafe_allow_html=True,
             )
-
-        with card_right:
+        with c3:
             st.markdown(
                 f"""
-                <div class="iz-premium-risk">
+                <div class="iz-home-mini-grid">
+                    <div><span>SKOR</span><b>{skor}</b></div>
+                    <div><span>GÜVEN</span><b>{g}%</b></div>
+                    <div><span>MTF</span><b>{mtf}%</b></div>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
+        with c4:
+            st.markdown(
+                f"""
+                <div class="iz-home-risk-chip">
                     <span>RİSK</span>
                     <b>{html.escape(str(risk_v))}</b>
                 </div>
@@ -5095,23 +5307,24 @@ def izfin_render_movers_native(max_n=6):
 
     st.markdown(
         """
-        <div class="iz-premium-section-head">
+        <div class="iz-home-panel-head">
             <div>
-                <small>IZFIN MOVEMENT BOARD</small>
+                <small>MOVEMENT BOARD</small>
                 <h3>Listede Dikkat Çekenler</h3>
-                <p>Son tarama evrenindeki en belirgin günlük fiyat hareketleri</p>
             </div>
+            <span>GÜNLÜK HAREKET</span>
         </div>
         """,
         unsafe_allow_html=True,
     )
+
     if not rows:
-        st.markdown('<div class="iz-native-empty">Akıllı Tarama sonrası listedeki dikkat çekici fiyat hareketleri burada görünecek.</div>', unsafe_allow_html=True)
+        st.markdown('<div class="iz-home-panel-empty">Akıllı Tarama sonrası listedeki dikkat çekici fiyat hareketleri burada görünecek.</div>', unsafe_allow_html=True)
         return
 
     for idx, (_,d,t,f) in enumerate(rows[:max_n]):
         k = f"home_mover_{idx}_{re.sub(r'[^A-Za-z0-9_]+','_',t)}"
-        c1,c2,c3 = st.columns([1.55,.9,.8], gap="small")
+        c1,c2,c3 = st.columns([1.6,1.0,.8], gap="small")
         with c1:
             st.button(
                 f"{t}  ↗",
@@ -5122,13 +5335,13 @@ def izfin_render_movers_native(max_n=6):
             )
         with c2:
             st.markdown(
-                f'<div class="iz-premium-mover-price">{f}</div>',
+                f'<div class="iz-home-mover-price">{f}</div>',
                 unsafe_allow_html=True,
             )
         with c3:
-            _cls = "up" if d >= 0 else "down"
+            cls = "up" if d >= 0 else "down"
             st.markdown(
-                f'<div class="iz-premium-mover-change {_cls}">{d:+.2f}%</div>',
+                f'<div class="iz-home-mover-change {cls}">{d:+.2f}%</div>',
                 unsafe_allow_html=True,
             )
 
@@ -5584,7 +5797,7 @@ if aktif_sayfa in ["🏠 Ana Sayfa", "🔎 Akıllı Tarama"]:
 
         izfin_render_top_signals_native()
 
-        hc1, hc2 = st.columns([1.45, .85], gap="large")
+        hc1, hc2 = st.columns([1.6, .7], gap="large")
         with hc1:
             izfin_render_movers_native()
         with hc2:
