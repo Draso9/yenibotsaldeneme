@@ -24,6 +24,19 @@ import extra_streamlit_components as stx
 import streamlit.components.v1 as components
 from pathlib import Path
 
+
+def izfin_css_yukle():
+    """IZFIN merkezi stil dosyasını yükler."""
+    css_path = Path(__file__).resolve().parent / "styles" / "izfin.css"
+    try:
+        css = css_path.read_text(encoding="utf-8")
+        st.markdown(f"<style>{css}</style>", unsafe_allow_html=True)
+    except FileNotFoundError:
+        st.error("IZFIN tema dosyası bulunamadı: styles/izfin.css")
+    except Exception as e:
+        st.error(f"IZFIN tema dosyası yüklenemedi: {e}")
+
+
 # --- 1. SAYFA YAPILANDIRMASI ---
 st.set_page_config(
     page_title="IZFIN",
@@ -271,7 +284,7 @@ STRATEJI_SURUMU = "IZFIN-v1.7.5-auth-switch-fixed"
 PERFORMANS_UFUKLARI = (1, 5, 10, 20, 45)
 
 # --- IZFIN UYGULAMA SÜRÜMÜ / LOG ---
-IZFIN_APP_SURUMU = "v1.7.48 CSS Extraction"
+IZFIN_APP_SURUMU = "v1.7.48 CSS Extraction Fixed"
 logger = logging.getLogger("IZFIN")
 if not logger.handlers:
     logging.basicConfig(level=logging.INFO)
@@ -284,17 +297,6 @@ _FINNHUB_MIN_INTERVAL = 0.10  # yaklaşık 10 istek/sn; 30/sn üst sınırının
 
 
 
-# ============================================================
-# v1.7.48 — CENTRALIZED CSS LOADER
-# ============================================================
-def izfin_css_yukle():
-    """Load the centralized IZFIN stylesheet from the repository."""
-    css_path = Path(__file__).resolve().parent / "styles" / "izfin.css"
-    try:
-        css = css_path.read_text(encoding="utf-8")
-        st.markdown(f"<style>{css}</style>", unsafe_allow_html=True)
-    except Exception as e:
-        st.error(f"IZFIN tema dosyası yüklenemedi: {e}")
 
 def izfin_hata_logla(baglam, hata, ticker=None):
     """Kullanıcıya traceback göstermeden Streamlit Cloud loglarına teknik hata yazar."""
