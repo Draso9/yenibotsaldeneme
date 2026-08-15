@@ -767,6 +767,157 @@ button[kind="primary"],
     .iz-direction-card{grid-template-columns:1fr}
 }
 
+
+/* v1.7.23 — Projection readability / contrast pass */
+
+/* Metric kartları: koyu temada silik gri görünümü kaldır */
+[data-testid="stMetric"]{
+    background:linear-gradient(145deg,rgba(7,23,36,.82),rgba(8,30,45,.72))!important;
+    border:1px solid rgba(31,78,101,.72)!important;
+    border-radius:12px!important;
+    padding:12px 14px!important;
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.025)!important;
+}
+
+[data-testid="stMetricLabel"]{
+    color:#78a8bd!important;
+    opacity:1!important;
+}
+[data-testid="stMetricLabel"] p{
+    color:#78a8bd!important;
+    font-size:11px!important;
+    font-weight:650!important;
+    opacity:1!important;
+}
+
+[data-testid="stMetricValue"]{
+    color:#f1f9fd!important;
+    opacity:1!important;
+}
+[data-testid="stMetricValue"] > div,
+[data-testid="stMetricValue"] p{
+    color:#f1f9fd!important;
+    font-size:30px!important;
+    font-weight:730!important;
+    letter-spacing:-.5px!important;
+    opacity:1!important;
+}
+
+[data-testid="stMetricDelta"]{
+    opacity:1!important;
+}
+[data-testid="stMetricDelta"] > div,
+[data-testid="stMetricDelta"] p{
+    font-size:10px!important;
+    font-weight:700!important;
+    opacity:1!important;
+}
+
+/* Progress alanını daha sofistike ve okunur yap */
+[data-testid="stProgress"] > div > div{
+    background:#0b2637!important;
+    border-radius:999px!important;
+    overflow:hidden!important;
+}
+[data-testid="stProgress"] > div > div > div{
+    background:linear-gradient(90deg,#1479ed,#16c9d5)!important;
+    border-radius:999px!important;
+}
+
+/* Projection sayfasındaki caption / yardımcı metinleri belirginleştir */
+.iz-proj-hero p,
+.iz-proj-model-note span,
+.iz-proj-empty span{
+    color:#88a8b9!important;
+}
+
+.iz-proj-section-title{
+    color:#45c4d6!important;
+    font-size:10px!important;
+    font-weight:850!important;
+    letter-spacing:1.45px!important;
+}
+
+/* Teknik senaryo kartlarını daha tok ve okunur yap */
+.iz-scenario-card{
+    background:linear-gradient(145deg,#081b29,#0a2637)!important;
+    box-shadow:
+        inset 0 1px 0 rgba(255,255,255,.035),
+        0 15px 34px rgba(0,0,0,.15)!important;
+}
+
+.iz-scenario-up{
+    border-color:#1c7b65!important;
+}
+.iz-scenario-down{
+    border-color:#8a3d50!important;
+}
+
+.iz-scenario-head small{
+    color:#6fa9bf!important;
+    font-size:8.5px!important;
+    font-weight:800!important;
+    letter-spacing:1.15px!important;
+}
+.iz-scenario-head h3{
+    color:#f6fbfe!important;
+    font-size:18px!important;
+    font-weight:760!important;
+    letter-spacing:-.2px!important;
+}
+
+.iz-scenario-row{
+    padding:13px 0!important;
+    border-top:1px solid rgba(50,96,117,.52)!important;
+}
+.iz-scenario-row span{
+    color:#72a7bd!important;
+    font-size:9px!important;
+    font-weight:800!important;
+    letter-spacing:.75px!important;
+}
+.iz-scenario-row b{
+    color:#edf7fb!important;
+    font-size:12px!important;
+    line-height:1.6!important;
+    font-weight:700!important;
+}
+
+/* Algoritmik yön özeti */
+.iz-direction-card{
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.025)!important;
+}
+.iz-direction-card small{
+    color:#6fa4b9!important;
+    font-weight:800!important;
+}
+.iz-direction-card h3{
+    color:#f5fbfe!important;
+    font-size:18px!important;
+    font-weight:760!important;
+}
+.iz-direction-card p{
+    color:#d2e4ec!important;
+    font-size:12px!important;
+    line-height:1.72!important;
+}
+.iz-direction-card p b{
+    color:#ffffff!important;
+}
+
+/* Genel Projection sayfası yardımcı metin kontrastı */
+[data-testid="stCaptionContainer"] p{
+    color:#96afbc!important;
+    opacity:1!important;
+    font-size:10.5px!important;
+}
+
+/* Selectbox ve label kontrastı */
+[data-testid="stSelectbox"] label p{
+    color:#87aabd!important;
+    font-weight:650!important;
+}
+
 </style>
 """, unsafe_allow_html=True)
 
