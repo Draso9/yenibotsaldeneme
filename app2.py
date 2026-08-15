@@ -177,24 +177,27 @@ hr {border-color:#122a3e!important;}
 
 /* IZFIN AUTH POLISH — Streamlit varsayılan kırmızı vurguları bastır */
 .stTabs [data-baseweb="tab-list"] {
-  display:grid!important;grid-template-columns:1fr 1fr!important;gap:5px!important;
-  background:#06131f!important;border:1px solid #17384f!important;border-radius:13px!important;
-  padding:5px!important;margin:2px 0 14px!important;box-shadow:inset 0 1px 0 rgba(255,255,255,.02)!important;
+  display:grid!important;grid-template-columns:1fr 1fr!important;gap:7px!important;
+  background:linear-gradient(180deg,#061522,#05101b)!important;border:1px solid #1b425b!important;border-radius:15px!important;
+  padding:6px!important;margin:5px 0 18px!important;box-shadow:inset 0 1px 0 rgba(255,255,255,.025),0 10px 30px rgba(0,0,0,.12)!important;
 }
 .stTabs [data-baseweb="tab"] {
-  width:100%!important;justify-content:center!important;height:44px!important;padding:0 14px!important;
-  border:1px solid transparent!important;border-radius:9px!important;background:transparent!important;
-  color:#7894a8!important;font-weight:650!important;font-size:12px!important;transition:.18s ease!important;
+  width:100%!important;justify-content:center!important;height:50px!important;padding:0 18px!important;
+  border:1px solid rgba(27,66,91,.45)!important;border-radius:11px!important;background:#07131f!important;
+  color:#87a4b8!important;font-weight:720!important;font-size:13px!important;letter-spacing:.15px!important;transition:.18s ease!important;
 }
-.stTabs [data-baseweb="tab"]:hover {background:rgba(21,114,166,.10)!important;color:#dff8ff!important;}
+.stTabs [data-baseweb="tab"]:hover {background:#0a1c2b!important;color:#e6fbff!important;border-color:#216080!important;transform:translateY(-1px)!important;}
 .stTabs [data-baseweb="tab"][aria-selected="true"] {
-  background:linear-gradient(105deg,rgba(18,123,236,.95),rgba(17,204,213,.82))!important;
-  color:#fff!important;border-color:rgba(53,225,236,.52)!important;
-  box-shadow:0 7px 22px rgba(12,140,220,.18),inset 0 1px 0 rgba(255,255,255,.10)!important;
+  background:linear-gradient(105deg,#117be9 0%,#14d0d7 100%)!important;
+  color:#fff!important;border-color:#35e1eb!important;
+  box-shadow:0 10px 28px rgba(12,140,220,.25),0 0 0 1px rgba(49,226,235,.08),inset 0 1px 0 rgba(255,255,255,.14)!important;
+  text-shadow:0 1px 12px rgba(255,255,255,.12)!important;
 }
-.stTabs [data-baseweb="tab-highlight"], .stTabs [role="tablist"] + div, .stTabs [data-baseweb="tab-border"] {
+.stTabs [data-baseweb="tab-highlight"], .stTabs [data-baseweb="tab-border"] {
   background:transparent!important;border-color:transparent!important;height:0!important;display:none!important;
 }
+/* Tab panelini asla gizleme: yalnızca varsayılan highlight/border bastırılır. */
+.stTabs [role="tabpanel"] {display:block!important;visibility:visible!important;opacity:1!important;}
 /* form primary buttons */
 div[data-testid="stFormSubmitButton"] button, div[data-testid="stButton"] button[kind="primary"] {
   min-height:48px!important;border-radius:11px!important;border:1px solid rgba(49,223,235,.58)!important;
@@ -424,7 +427,7 @@ if (not st.session_state.user_email) and saved_session_cookie and not st.session
 VARSAYILAN_TICKERS = ["AAPL", "MSFT", "TSLA", "NVDA", "AMD", "INTC", "THYAO.IS", "FROTO.IS", "TOASO.IS"]
 
 # --- IZFIN STRATEJİ SÜRÜMÜ ---
-STRATEJI_SURUMU = "IZFIN-v1.7.4-premium-auth-polished"
+STRATEJI_SURUMU = "IZFIN-v1.7.5-auth-tabs-fixed"
 PERFORMANS_UFUKLARI = (1, 5, 10, 20, 45)
 
 # --- IZFIN UYGULAMA SÜRÜMÜ / LOG ---
