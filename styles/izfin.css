@@ -2088,3 +2088,68 @@ button[kind="primary"],
     .iz-mover-row span{font-size:8.5px!important;}
 }
 
+/* =========================================================
+   v1.7.51 — LISTEDE DİKKAT ÇEKENLER FULL-COLUMN FILL
+   ========================================================= */
+
+/* Üst ikili alanın kolon içi yatay boşluklarını minimuma indir. */
+.st-key-classic_mover_click_0,
+.st-key-classic_mover_click_1,
+.st-key-classic_mover_click_2,
+.st-key-classic_mover_click_3,
+.st-key-classic_mover_click_4{
+    width:100%!important;
+}
+
+/* Sağ panel ve içindeki bütün ana kapsayıcılar ayrılan kolonun tamamını kullansın. */
+.iz-movers,
+.iz-movers-card,
+.iz-mover-list,
+.iz-mover-row{
+    width:100%!important;
+    max-width:none!important;
+    box-sizing:border-box!important;
+}
+
+/* Kartın içeriğini de sağ sınıra kadar dağıt. */
+.iz-mover-row{
+    display:grid!important;
+    grid-template-columns:minmax(72px,.72fr) minmax(0,1.65fr) auto!important;
+    align-items:center!important;
+    column-gap:12px!important;
+    min-height:62px!important;
+    padding:11px 13px!important;
+}
+
+/* Metin alanlarının gereksiz max-width/min-width kısıtlarını kaldır. */
+.iz-mover-row > *,
+.iz-mover-row div,
+.iz-mover-row strong,
+.iz-mover-row span{
+    max-width:none!important;
+    min-width:0!important;
+}
+.iz-mover-row strong{
+    font-size:12px!important;
+}
+.iz-mover-row span{
+    font-size:9.5px!important;
+}
+
+/* Sağdaki tıklanabilir ticker şeritleri de kolon genişliğini doldursun. */
+[class*="st-key-classic_mover_click_"]{
+    width:100%!important;
+}
+[class*="st-key-classic_mover_click_"] button{
+    width:100%!important;
+    max-width:none!important;
+}
+
+/* Desktop'ta iki panel ekranı dengeli paylaşır; küçük ekranda Streamlit zaten alt alta geçirir. */
+@media(min-width:1200px){
+    .iz-mover-row{
+        padding-left:14px!important;
+        padding-right:14px!important;
+    }
+}
+
