@@ -3662,14 +3662,51 @@ def profil_degisti():
     st.session_state.secilen_varliklar = preset_options[p].copy()
 
 def hisse_ekle_callback():
-    input_val = st.session_state.ek_hisse_input_field
-    if input_val and input_val.strip():
-        for h in [x.strip().upper() for x in input_val.replace(",", " ").split() if x.strip()]:
-            if h not in st.session_state.custom_tickers: st.session_state.custom_tickers.append(h)
-        kullanici_listesini_kaydet()
+    """Manuel hisse ekleme + kullanıcıya net başarı/hata geri bildirimi."""
+    try:
+        raw = str(st.session_state.get("ek_hisse_input_field", "") or "").strip()
+        symbol = raw.upper()
+
+        if not raw:
+            st.session_state["liste_islem_mesaji"] = ("error", "Hisse eklenemedi: Lütfen önce bir hisse sembolü yazın.")
+            return
+
+        if len(symbol) > 20:
+            st.session_state["liste_islem_mesaji"] = ("error", f"{symbol} eklenemedi: Sembol beklenenden uzun görünüyor.")
+            return
+
+        if symbol in st.session_state.custom_tickers:
+            st.session_state["liste_islem_mesaji"] = ("warning", f"{symbol} zaten kişisel listenizde bulunuyor.")
+            return
+
+        # Önce session listesine ekle, ardından Firebase'e kaydet.
+        eski_liste = st.session_state.custom_tickers.copy()
+        st.session_state.custom_tickers.append(symbol)
+
+        try:
+            kullanici_listesini_kaydet()
+        except Exception as firebase_hatasi:
+            # Kalıcı kayıt başarısızsa bellekteki eklemeyi de geri al.
+            st.session_state.custom_tickers = eski_liste
+            st.session_state["liste_islem_mesaji"] = (
+                "error",
+                f"{symbol} listeye eklenemedi: Firebase kaydı tamamlanamadı. {firebase_hatasi}"
+            )
+            return
+
         st.session_state.aktif_profil = "Kendi Listem"
         st.session_state.secilen_varliklar = st.session_state.custom_tickers.copy()
-        st.session_state.ek_hisse_input_field = ""
+        st.session_state["ek_hisse_input_field"] = ""
+        st.session_state["liste_islem_mesaji"] = (
+            "success",
+            f"{symbol} kişisel listenize başarıyla eklendi."
+        )
+
+    except Exception as hata:
+        st.session_state["liste_islem_mesaji"] = (
+            "error",
+            f"Hisse listeye eklenemedi: {hata}"
+        )
 
 def hisse_sil_callback():
     input_val = st.session_state.sil_hisse_input_field
@@ -4467,18 +4504,44 @@ if aktif_sayfa in ["🏠 Ana Sayfa", "🔎 Akıllı Tarama"]:
                     key="autocomplete_add",
                     type="primary",
                 ):
-                    _symbol = _chosen["symbol"]
-                    if _symbol not in st.session_state.custom_tickers:
-                        st.session_state.custom_tickers.append(_symbol)
-                        kullanici_listesini_kaydet()
-                        st.success(f"{_symbol} kişisel listenize eklendi.")
-                    st.session_state.aktif_profil = "Kendi Listem"
-                    st.session_state.secilen_varliklar = st.session_state.custom_tickers.copy()
+                    _symbol = str(_chosen["symbol"]).strip().upper()
+                    if _symbol in st.session_state.custom_tickers:
+                        st.session_state["liste_islem_mesaji"] = (
+                            "warning",
+                            f"{_symbol} zaten kişisel listenizde bulunuyor."
+                        )
+                    else:
+                        _eski_liste = st.session_state.custom_tickers.copy()
+                        try:
+                            st.session_state.custom_tickers.append(_symbol)
+                            kullanici_listesini_kaydet()
+                            st.session_state.aktif_profil = "Kendi Listem"
+                            st.session_state.secilen_varliklar = st.session_state.custom_tickers.copy()
+                            st.session_state["liste_islem_mesaji"] = (
+                                "success",
+                                f"{_symbol} kişisel listenize başarıyla eklendi."
+                            )
+                        except Exception as _ekleme_hatasi:
+                            st.session_state.custom_tickers = _eski_liste
+                            st.session_state["liste_islem_mesaji"] = (
+                                "error",
+                                f"{_symbol} listeye eklenemedi: Firebase kaydı tamamlanamadı. {_ekleme_hatasi}"
+                            )
                     st.rerun()
             elif _arama.strip():
                 st.warning("Bu aramayla eşleşen piyasa sembolü bulunamadı.")
 
             with st.expander("Kişisel Listemi Yönet", expanded=True):
+                _liste_mesaji = st.session_state.pop("liste_islem_mesaji", None)
+                if _liste_mesaji:
+                    _tip, _metin = _liste_mesaji
+                    if _tip == "success":
+                        st.success(_metin)
+                    elif _tip == "warning":
+                        st.warning(_metin)
+                    else:
+                        st.error(_metin)
+
                 if st.session_state.custom_tickers:
                     st.caption(f"{len(st.session_state.custom_tickers)} kayıtlı varlık")
                     _kayitli_html = "".join(
