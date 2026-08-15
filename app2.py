@@ -289,6 +289,35 @@ hr {border-color:#122a3e!important;}
     transform:none!important;
 }
 
+
+/* v1.7.12 — Google ikonunu metnin hemen soluna sabitle */
+.st-key-google_oauth_native [data-testid="stLinkButton"] a,
+.st-key-google_oauth_native a[data-testid="stBaseLinkButton-secondary"] {
+    position:relative!important;
+    justify-content:center!important;
+    padding-left:42px!important;
+    padding-right:42px!important;
+}
+
+.st-key-google_oauth_native [data-testid="stLinkButton"] a::before,
+.st-key-google_oauth_native a[data-testid="stBaseLinkButton-secondary"]::before {
+    position:absolute!important;
+    left:50%!important;
+    top:50%!important;
+    transform:translate(-122px,-50%)!important;
+    margin:0!important;
+    width:19px!important;
+    height:19px!important;
+    flex:none!important;
+}
+
+.st-key-google_oauth_native [data-testid="stLinkButton"] a p,
+.st-key-google_oauth_native a[data-testid="stBaseLinkButton-secondary"] p {
+    margin:0!important;
+    padding:0!important;
+    text-align:center!important;
+}
+
 </style>
 """, unsafe_allow_html=True)
 
