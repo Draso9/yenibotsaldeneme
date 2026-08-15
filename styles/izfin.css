@@ -2007,25 +2007,3 @@ button[kind="primary"],
       .hp-trigger-list{margin:8px 0 0 18px;padding:0;font-size:12px;line-height:1.6}
       @media(max-width:1000px){.hp-grid{grid-template-columns:repeat(2,1fr)}.hp-sections{grid-template-columns:1fr}}
       @media(max-width:600px){.hp-grid{grid-template-columns:1fr}.hp-target{grid-template-columns:1fr}}
-/* =========================================================
-   EXTRACTED FOCUS MODE CSS
-   ========================================================= */
-[data-testid="stSidebar"]{display:none!important;}
-                        [data-testid="stHeader"]{display:none!important;}
-                        [data-testid="stToolbar"]{display:none!important;}
-                        footer{display:none!important;}
-
-                        .stAppViewContainer .main .block-container{
-                            max-width:100%!important;
-                            width:100%!important;
-                            padding:12px 18px 28px!important;
-                        }
-
-                        .iz-scan-table-wrap{
-                            width:100%!important;
-                            max-width:none!important;
-                            overflow-x:hidden!important;
-                        }
-
-                        .iz-focus-title h2{font-size:21px!important;}
-                        .iz-focus-title p{font-size:10px!important;}
