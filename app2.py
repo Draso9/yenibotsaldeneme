@@ -274,6 +274,21 @@ hr {border-color:#122a3e!important;}
 .st-key-auth_switch_register button p {color:inherit!important;font-weight:750!important;}
 
 
+
+/* v1.7.11 — Google ikonu yazının hemen yanında, birlikte merkezde */
+.st-key-google_oauth_native [data-testid="stLinkButton"] a,
+.st-key-google_oauth_native a[data-testid="stBaseLinkButton-secondary"] {
+    gap:0!important;
+    justify-content:center!important;
+}
+.st-key-google_oauth_native [data-testid="stLinkButton"] a::before,
+.st-key-google_oauth_native a[data-testid="stBaseLinkButton-secondary"]::before {
+    margin-left:0!important;
+    margin-right:9px!important;
+    position:static!important;
+    transform:none!important;
+}
+
 </style>
 """, unsafe_allow_html=True)
 
