@@ -4439,12 +4439,6 @@ def izfin_auth_ekrani():
                             st.error(msg)
             with st.expander("Şifremi unuttum", expanded=False):
                 reset_email = st.text_input("Şifre sıfırlama e-postası", key="reset_email").strip().lower()
-                if st.button("Sıfırlama bağlantısı gönder", key="reset_btn", use_container_width=True):
-                    if not reset_email:
-                        st.warning("E-posta adresinizi girin.")
-                    else:
-                        err = _sifre_sifirlama_maili(reset_email)
-                        st.error(err) if err else st.success("Şifre sıfırlama e-postası gönderildi.")
             st.markdown('<div class="iz-google-wrap"><div class="iz-google-caption">veya</div></div>', unsafe_allow_html=True)
             _google_login_component()
             st.markdown('<div class="iz-google-note">Google hesabınız Firebase Authentication üzerinden doğrulanır.</div>', unsafe_allow_html=True)
