@@ -198,6 +198,37 @@ hr {border-color:#122a3e!important;}
 .iz-auth-switch-label{font-size:9px;color:#66889d;letter-spacing:.9px;text-align:center;margin:4px 0 7px;text-transform:uppercase;}
 [data-baseweb="tab-highlight"], [data-baseweb="tab-border"], [role="tab"]::before, [role="tab"]::after, [role="tablist"]::before, [role="tablist"]::after {display:none!important;background:transparent!important;border:0!important;box-shadow:none!important;height:0!important;}
 [data-testid="stHorizontalBlock"] [data-testid="stButton"] button {transition:all .18s ease;}
+
+/* v1.7.9 — Native Google OAuth link button */
+.st-key-google_oauth_native [data-testid="stLinkButton"] a,
+.st-key-google_oauth_native a[data-testid="stBaseLinkButton-secondary"],
+.st-key-google_oauth_native a {
+    min-height:48px!important;
+    width:100%!important;
+    border-radius:12px!important;
+    background:linear-gradient(180deg,#ffffff 0%,#f5f8fb 100%)!important;
+    color:#17222d!important;
+    border:1px solid #cfd9e2!important;
+    font-weight:760!important;
+    font-size:14px!important;
+    display:flex!important;
+    align-items:center!important;
+    justify-content:center!important;
+    text-decoration:none!important;
+    box-shadow:0 7px 20px rgba(0,0,0,.18),inset 0 1px 0 rgba(255,255,255,.95)!important;
+    transition:all .18s ease!important;
+}
+.st-key-google_oauth_native [data-testid="stLinkButton"] a:hover,
+.st-key-google_oauth_native a:hover {
+    transform:translateY(-1px)!important;
+    border-color:#87d9e2!important;
+    box-shadow:0 11px 28px rgba(0,0,0,.24),0 0 0 1px rgba(22,219,228,.10)!important;
+}
+.st-key-google_oauth_native p {
+    color:#17222d!important;
+    font-weight:760!important;
+}
+
 /* v1.7.6: Auth switch pasif butonunu IZFIN temasına sabitle. */
 .st-key-auth_switch_login button,
 .st-key-auth_switch_register button {
@@ -3486,29 +3517,27 @@ def _google_callback_isle():
 
 
 def _google_login_component():
-    """Iframe/popup kullanmadan üst seviye Google OAuth redirect düğmesi."""
+    """Google OAuth'u Streamlit'in native link bileşeniyle tarayıcıda başlatır."""
     if not GOOGLE_OAUTH_CLIENT_ID:
         st.info("Google ile giriş için GOOGLE_OAUTH_CLIENT_ID eksik.")
         return
     if not GOOGLE_OAUTH_CLIENT_SECRET:
         st.info("Google ile giriş için GOOGLE_OAUTH_CLIENT_SECRET Streamlit Secrets'a eklenmeli.")
         return
+
     auth_url = _google_oauth_url()
     if not auth_url:
         st.info("Google OAuth yapılandırması tamamlanamadı.")
         return
-    safe_url = html.escape(auth_url, quote=True)
-    st.markdown(f"""
-    <a class='iz-google-oauth-btn' href='{safe_url}' target='_self' rel='noopener'>
-      <svg class='iz-google-g' viewBox='0 0 18 18' xmlns='http://www.w3.org/2000/svg'>
-        <path fill='#4285F4' d='M17.64 9.205c0-.638-.057-1.252-.164-1.841H9v3.482h4.844a4.14 4.14 0 0 1-1.797 2.715v2.258h2.909c1.702-1.567 2.684-3.875 2.684-6.614z'/>
-        <path fill='#34A853' d='M9 18c2.43 0 4.467-.806 5.956-2.181l-2.909-2.258c-.806.54-1.835.859-3.047.859-2.344 0-4.328-1.585-5.037-3.714H.956v2.332A9 9 0 0 0 9 18z'/>
-        <path fill='#FBBC05' d='M3.963 10.706A5.41 5.41 0 0 1 3.682 9c0-.592.102-1.167.281-1.706V4.962H.956A9 9 0 0 0 0 9c0 1.452.347 2.827.956 4.038l3.007-2.332z'/>
-        <path fill='#EA4335' d='M9 3.58c1.321 0 2.507.454 3.44 1.345l2.581-2.582C13.463.891 11.426 0 9 0A9 9 0 0 0 .956 4.962l3.007 2.332C4.672 5.165 6.656 3.58 9 3.58z'/>
-      </svg>
-      <span>Google ile devam et</span>
-    </a>
-    """, unsafe_allow_html=True)
+
+    st.link_button(
+        "G  Google ile devam et",
+        auth_url,
+        key="google_oauth_native",
+        type="secondary",
+        use_container_width=True,
+        help="Google hesabınızla güvenli şekilde devam edin.",
+    )
 
 def izfin_auth_ekrani():
     callback = _google_callback_isle()
