@@ -192,6 +192,36 @@ hr {border-color:#122a3e!important;}
 .iz-auth-switch-label{font-size:9px;color:#66889d;letter-spacing:.9px;text-align:center;margin:4px 0 7px;text-transform:uppercase;}
 [data-baseweb="tab-highlight"], [data-baseweb="tab-border"], [role="tab"]::before, [role="tab"]::after, [role="tablist"]::before, [role="tablist"]::after {display:none!important;background:transparent!important;border:0!important;box-shadow:none!important;height:0!important;}
 [data-testid="stHorizontalBlock"] [data-testid="stButton"] button {transition:all .18s ease;}
+/* v1.7.6: Auth switch pasif butonunu IZFIN temasına sabitle. */
+.st-key-auth_switch_login button,
+.st-key-auth_switch_register button {
+    min-height:48px!important;
+    border-radius:12px!important;
+    font-weight:750!important;
+    font-size:14px!important;
+    background:#081927!important;
+    color:#9fc3d6!important;
+    border:1px solid #1b4a66!important;
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.025)!important;
+}
+.st-key-auth_switch_login button:hover,
+.st-key-auth_switch_register button:hover {
+    color:#effcff!important;
+    border-color:#1fcbd8!important;
+    background:#0a2030!important;
+}
+.st-key-auth_switch_login button[kind="primary"],
+.st-key-auth_switch_register button[kind="primary"],
+.st-key-auth_switch_login button[data-testid="stBaseButton-primary"],
+.st-key-auth_switch_register button[data-testid="stBaseButton-primary"] {
+    background:linear-gradient(105deg,#1378ed 0%,#18cbd3 100%)!important;
+    color:#fff!important;
+    border:1px solid #28e0e7!important;
+    box-shadow:0 9px 25px rgba(12,153,221,.20),inset 0 1px 0 rgba(255,255,255,.10)!important;
+}
+.st-key-auth_switch_login button p,
+.st-key-auth_switch_register button p {color:inherit!important;font-weight:750!important;}
+
 
 </style>
 """, unsafe_allow_html=True)
