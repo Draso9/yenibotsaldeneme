@@ -1440,6 +1440,184 @@ button[kind="primary"],
     outline:1px solid rgba(50,220,229,.72)!important;
 }
 
+
+/* v1.7.39 — Heatmap rows tighter + pulse explanation */
+.st-key-izfin_heatmap_grid > div[data-testid="stVerticalBlock"],
+.st-key-izfin_heatmap_grid [data-testid="stVerticalBlock"]{
+    gap:2px!important;
+}
+.st-key-izfin_heatmap_grid [data-testid="stHorizontalBlock"]{
+    gap:4px!important;
+    margin:0!important;
+    padding:0!important;
+}
+.st-key-izfin_heatmap_grid{
+    margin:0!important;
+    padding:0!important;
+}
+.iz-heat-overlay-visible{
+    min-height:53px!important;
+    height:53px!important;
+    padding:5px 7px!important;
+}
+.iz-pulse-source{
+    margin:8px 0 9px;
+    padding:8px 10px;
+    border:1px solid #173f55;
+    background:#071522;
+    display:grid;
+    grid-template-columns:auto 1fr;
+    align-items:center;
+    gap:3px 9px;
+}
+.iz-pulse-source span{
+    color:#4fcbd6;
+    font-size:7px;
+    font-weight:850;
+    letter-spacing:.9px;
+}
+.iz-pulse-source b{
+    color:#dff6fb;
+    font-size:9px;
+    font-weight:760;
+}
+.iz-pulse-source small{
+    grid-column:1/-1;
+    color:#7896a6;
+    font-size:7.5px;
+    line-height:1.4;
+}
+.iz-pulse-help{
+    margin-top:8px;
+    padding-top:7px;
+    border-top:1px solid rgba(30,70,91,.6);
+    color:#8faab8;
+    font-size:8.5px;
+    line-height:1.45;
+}
+.iz-pulse-help b{
+    color:#d9edf5;
+    font-weight:760;
+}
+
+
+/* v1.7.40 — IZFIN Karar Merkezi */
+.iz-decision-center{
+    margin:0 0 12px;
+    padding:17px 18px 14px;
+    border:1px solid #17465e;
+    border-radius:11px;
+    background:
+        radial-gradient(circle at 82% 0%,rgba(24,115,139,.12),transparent 30%),
+        linear-gradient(145deg,#071724,#081d2a);
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.025),0 14px 30px rgba(0,0,0,.12);
+}
+.iz-decision-head{
+    display:flex;
+    align-items:flex-start;
+    justify-content:space-between;
+    gap:16px;
+    padding-bottom:12px;
+    border-bottom:1px solid rgba(31,75,96,.62);
+}
+.iz-decision-head small{
+    display:block;color:#42cbd6;font-size:7.5px;font-weight:850;letter-spacing:1.05px;margin-bottom:3px;
+}
+.iz-decision-head h2{
+    margin:0;color:#f0f9fc;font-size:18px;font-weight:780;line-height:1.15;
+}
+.iz-decision-head p{
+    margin:4px 0 0;color:#688b9e;font-size:8px;
+}
+.iz-decision-mode{
+    flex:0 0 auto;
+    padding:7px 10px;
+    border:1px solid;
+    border-radius:4px;
+    font-size:8px;
+    font-weight:850;
+    letter-spacing:.55px;
+}
+.iz-decision-mode.positive{color:#4ce0ad;border-color:#246b59;background:#09231e}
+.iz-decision-mode.neutral{color:#62cddd;border-color:#24566b;background:#09202b}
+.iz-decision-mode.caution{color:#efc15b;border-color:#66512c;background:#251d0d}
+.iz-decision-mode.danger{color:#ff7d8b;border-color:#6b3441;background:#28131a}
+.iz-decision-kpis{
+    display:grid;
+    grid-template-columns:repeat(4,1fr);
+    gap:7px;
+    margin:12px 0 10px;
+}
+.iz-decision-kpis>div{
+    min-height:72px;
+    padding:9px 10px;
+    border:1px solid #163e52;
+    border-radius:5px;
+    background:#071522;
+}
+.iz-decision-kpis span{
+    display:block;color:#63899d;font-size:7px;font-weight:820;letter-spacing:.6px;
+}
+.iz-decision-kpis b{
+    display:block;margin:4px 0 1px;color:#effaff;font-size:20px;font-weight:790;
+}
+.iz-decision-kpis small{color:#617d8d;font-size:7px}
+.iz-decision-lower{
+    display:grid;
+    grid-template-columns:1.15fr .85fr;
+    gap:8px;
+}
+.iz-best-setup-copy{
+    min-height:79px;
+    padding:11px 12px;
+    border:1px solid #1a5369;
+    border-radius:5px;
+    background:linear-gradient(135deg,#082131,#0a2b3b);
+}
+.iz-best-setup-copy small{
+    display:block;color:#42cbd6;font-size:7px;font-weight:850;letter-spacing:.7px;
+}
+.iz-best-setup-copy strong{
+    display:block;margin:3px 0;color:#fff;font-size:21px;font-weight:800;
+}
+.iz-best-setup-copy span{color:#8eafbe;font-size:8px}
+.iz-market-factors{
+    display:grid;grid-template-columns:repeat(4,1fr);gap:4px;
+    min-height:79px;padding:8px;border:1px solid #163e52;border-radius:5px;background:#071522;
+}
+.iz-market-factors>div{
+    display:flex;flex-direction:column;align-items:center;justify-content:center;
+    border-right:1px solid rgba(31,71,90,.55);
+}
+.iz-market-factors>div:last-child{border-right:0}
+.iz-market-factors span{color:#62879a;font-size:6.5px;font-weight:800}
+.iz-market-factors b{margin-top:3px;color:#e5f5fa;font-size:13px}
+.iz-system-comment{
+    display:grid;grid-template-columns:auto 1fr;gap:10px;align-items:center;
+    margin-top:8px;padding:8px 10px;border-left:2px solid #2bc8d3;background:#071522;
+}
+.iz-system-comment span{color:#45cbd6;font-size:7px;font-weight:850;letter-spacing:.65px}
+.iz-system-comment p{margin:0;color:#a4bdc8;font-size:8.5px;line-height:1.4}
+.iz-decision-foot{
+    margin-top:8px;color:#506f80;font-size:7px;line-height:1.35;
+}
+.iz-decision-empty{
+    margin-top:12px;padding:24px 15px;text-align:center;border:1px dashed #1a4059;
+    color:#7894a4;font-size:9px;
+}
+.st-key-decision_center_best_setup button{
+    min-height:34px!important;
+    border-radius:5px!important;
+    background:#082434!important;
+    border:1px solid #1b5a70!important;
+    color:#dff8fc!important;
+    font-size:9px!important;
+    font-weight:760!important;
+}
+.st-key-decision_center_best_setup button:hover{
+    background:#0a3041!important;border-color:#2bcbd6!important;
+}
+
 </style>
 """, unsafe_allow_html=True)
 
@@ -4675,74 +4853,75 @@ def izfin_render_clickable_heatmap_overlay(max_n=16):
         )
         return
 
-    for row_start in range(0, len(items), 4):
-        cols = st.columns(4, gap="small")
-        for j, (s, g, t, d) in enumerate(items[row_start:row_start + 4]):
-            with cols[j]:
-                safe_key = re.sub(r"[^A-Za-z0-9_]+", "_", str(t))
-                container_key = f"heat_overlay_{row_start+j}_{safe_key}"
-                button_key = f"heat_overlay_btn_{row_start+j}_{safe_key}"
-                border_px = max(1, int(g / 30))
-                d_color = "#31e59c" if d >= 0 else "#ff6b78"
+    with st.container(key="izfin_heatmap_grid"):
+        for row_start in range(0, len(items), 4):
+            cols = st.columns(4, gap="small")
+            for j, (s, g, t, d) in enumerate(items[row_start:row_start + 4]):
+                with cols[j]:
+                    safe_key = re.sub(r"[^A-Za-z0-9_]+", "_", str(t))
+                    container_key = f"heat_overlay_{row_start+j}_{safe_key}"
+                    button_key = f"heat_overlay_btn_{row_start+j}_{safe_key}"
+                    border_px = max(1, int(g / 30))
+                    d_color = "#31e59c" if d >= 0 else "#ff6b78"
 
-                with st.container(key=container_key):
-                    _card_html = (
-                        f'<div class="iz-heat iz-heat-overlay-visible" '
-                        f'style="{_iz_heat_color(s)};box-shadow:inset 0 0 0 {border_px}px rgba(38,238,220,.13)">'
-                        f'<strong>{html.escape(str(t))}</strong>'
-                        f'<span>IZ {int(s)} · Güven {int(g)}%</span>'
-                        f'<span style="display:block;color:{d_color};margin-top:2px">{d:+.2f}%</span>'
-                        '</div>'
-                    )
-                    st.markdown(_card_html, unsafe_allow_html=True)
-                    st.button(
-                        "Aç",
-                        key=button_key,
-                        use_container_width=True,
-                        on_click=_izfin_home_ticker_ac,
-                        args=(t,),
-                    )
+                    with st.container(key=container_key):
+                        _card_html = (
+                            f'<div class="iz-heat iz-heat-overlay-visible" '
+                            f'style="{_iz_heat_color(s)};box-shadow:inset 0 0 0 {border_px}px rgba(38,238,220,.13)">'
+                            f'<strong>{html.escape(str(t))}</strong>'
+                            f'<span>IZ {int(s)} · Güven {int(g)}%</span>'
+                            f'<span style="display:block;color:{d_color};margin-top:2px">{d:+.2f}%</span>'
+                            '</div>'
+                        )
+                        st.markdown(_card_html, unsafe_allow_html=True)
+                        st.button(
+                            "Aç",
+                            key=button_key,
+                            use_container_width=True,
+                            on_click=_izfin_home_ticker_ac,
+                            args=(t,),
+                        )
 
-                st.markdown(
-                    f"""
-                    <style>
-                    .st-key-{container_key}{{
-                        position:relative!important;
-                        min-height:61px!important;
-                        margin:0!important;
-                        padding:0!important;
-                    }}
-                    .st-key-{container_key} [data-testid="stVerticalBlock"]{{
-                        gap:0!important;
-                    }}
-                    .st-key-{container_key} .st-key-{button_key}{{
-                        position:absolute!important;
-                        inset:0!important;
-                        z-index:30!important;
-                        margin:0!important;
-                        padding:0!important;
-                    }}
-                    .st-key-{container_key} .st-key-{button_key} button{{
-                        position:absolute!important;
-                        inset:0!important;
-                        width:100%!important;
-                        height:61px!important;
-                        min-height:61px!important;
-                        opacity:0!important;
-                        cursor:pointer!important;
-                        border:0!important;
-                        background:transparent!important;
-                        padding:0!important;
-                    }}
-                    .st-key-{container_key}:hover .iz-heat-overlay-visible{{
-                        transform:translateY(-1px)!important;
-                        filter:brightness(1.07)!important;
-                        outline:1px solid rgba(42,205,216,.40)!important;
-                    }}
-                    </style>
-                    """,
-                    unsafe_allow_html=True,
-                )
+                    st.markdown(
+                        f"""
+                        <style>
+                        .st-key-{container_key}{{
+                            position:relative!important;
+                            min-height:53px!important;
+                            margin:0!important;
+                            padding:0!important;
+                        }}
+                        .st-key-{container_key} [data-testid="stVerticalBlock"]{{
+                            gap:0!important;
+                        }}
+                        .st-key-{container_key} .st-key-{button_key}{{
+                            position:absolute!important;
+                            inset:0!important;
+                            z-index:30!important;
+                            margin:0!important;
+                            padding:0!important;
+                        }}
+                        .st-key-{container_key} .st-key-{button_key} button{{
+                            position:absolute!important;
+                            inset:0!important;
+                            width:100%!important;
+                            height:53px!important;
+                            min-height:53px!important;
+                            opacity:0!important;
+                            cursor:pointer!important;
+                            border:0!important;
+                            background:transparent!important;
+                            padding:0!important;
+                        }}
+                        .st-key-{container_key}:hover .iz-heat-overlay-visible{{
+                            transform:none!important;
+                            filter:brightness(1.10)!important;
+                            outline:1px solid rgba(42,205,216,.52)!important;
+                        }}
+                        </style>
+                        """,
+                        unsafe_allow_html=True,
+                    )
 
 
 def izfin_dashboard_html():
@@ -4791,60 +4970,152 @@ def _iz_badge_class(s):
 
 
 def izfin_render_classic_dashboard_clickable():
+    """Ana sayfa üst alanı: IZFIN Karar Merkezi. Isı haritası kaldırıldı."""
     pulse,trend,momentum,flow,risk,kaynak = _iz_panel_metrics()
-    trend_lbl = "GÜÇLÜ" if trend >= 70 else "İYİ" if trend >= 55 else "KARIŞIK"
-    mom_lbl = "GÜÇLÜ" if momentum >= 70 else "İYİ" if momentum >= 55 else "KARIŞIK"
-    flow_lbl = "POZİTİF" if flow >= 60 else "DENGELİ" if flow >= 45 else "ZAYIF"
-    risk_lbl = "DÜŞÜK" if risk < 40 else "ORTA" if risk < 65 else "YÜKSEK"
+    sonuclar = st.session_state.get("sonuclar") or []
+    paneller = st.session_state.get("teknik_paneller") or {}
 
-    _hero_html = (
-        '<div class="iz-hero">'
-        '<div class="iz-section-label">IZFIN SIGNATURE COMMAND CENTER</div>'
+    # Karar dağılımı
+    guclu_al = 0
+    alim_tarafi = 0
+    teyit = 0
+    yuksek_risk = 0
+    adaylar = []
+
+    for r in sonuclar:
+        t = str(r.get("Varlık",""))
+        p = paneller.get(t,{})
+        sinyal = str(r.get("Nihai Sinyal","") or "").upper()
+        skor = float(p.get("cezali_skor",0) or 0)
+        guven = float(p.get("guven_skoru",50) or 50)
+        mtf = float(p.get("mtf_uyum",50) or 50)
+        risk_txt = str(p.get("risk_seviyesi",r.get("Risk","")) or "").upper()
+
+        if "GÜÇLÜ AL" in sinyal or "KUSURSUZ" in sinyal:
+            guclu_al += 1
+            alim_tarafi += 1
+        elif "AL" in sinyal and "SAT" not in sinyal:
+            alim_tarafi += 1
+        elif any(x in sinyal for x in ["BEKLE", "TEYİT", "ERKEN", "NÖTR"]):
+            teyit += 1
+
+        if "YÜKSEK" in risk_txt or "ÇOK YÜKSEK" in risk_txt:
+            yuksek_risk += 1
+
+        # Öne çıkan setup: skor + güven + MTF; yüksek riskliye küçük ceza.
+        risk_ceza = 10 if "ÇOK YÜKSEK" in risk_txt else 6 if "YÜKSEK" in risk_txt else 0
+        setup_rank = skor * .52 + guven * .30 + mtf * .18 - risk_ceza
+        adaylar.append((setup_rank, t, skor, guven, mtf, risk_txt, sinyal))
+
+    adaylar.sort(reverse=True)
+    best = adaylar[0] if adaylar else None
+
+    # Piyasa modu
+    if pulse >= 72:
+        mod = "GÜÇLÜ POZİTİF"
+        mod_cls = "positive"
+    elif pulse >= 60:
+        mod = "SEÇİCİ POZİTİF"
+        mod_cls = "positive"
+    elif pulse >= 45:
+        mod = "DENGELİ / SEÇİCİ"
+        mod_cls = "neutral"
+    elif pulse >= 32:
+        mod = "TEMKİNLİ"
+        mod_cls = "caution"
+    else:
+        mod = "RİSKTEN KAÇIN"
+        mod_cls = "danger"
+
+    # Dinamik kısa sistem yorumu
+    yorum_parcalari = []
+    if trend >= 70:
+        yorum_parcalari.append("trend güçlü")
+    elif trend < 45:
+        yorum_parcalari.append("trend zayıf")
+    if momentum >= 65:
+        yorum_parcalari.append("momentum destekliyor")
+    elif momentum < 45:
+        yorum_parcalari.append("momentum zayıf")
+    if flow < 45:
+        yorum_parcalari.append("para akışı teyidi zayıf")
+    elif flow >= 60:
+        yorum_parcalari.append("para akışı pozitif")
+    if risk >= 65:
+        yorum_parcalari.append("risk seviyesi yüksek")
+    elif risk < 40:
+        yorum_parcalari.append("risk görece düşük")
+
+    yorum = ", ".join(yorum_parcalari[:4])
+    if yorum:
+        yorum = yorum[0].upper() + yorum[1:] + "."
+    else:
+        yorum = "Teknik bileşenler dengeli; güçlü setup'larda seçici ilerlemek uygun."
+
+    st.markdown(
+        '<div class="iz-hero"><div class="iz-section-label">IZFIN SIGNATURE COMMAND CENTER</div>'
         '<h1>IZFIN Piyasa Merkezi</h1>'
-        '<p>Piyasanın nabzını gör, fırsatı tara, kararın gerekçesini incele ve sonucu ölç.</p>'
+        '<p>Son taramanın karar dağılımını, piyasa modunu ve en güçlü setup’ı tek bakışta gör.</p></div>',
+        unsafe_allow_html=True,
+    )
+
+    if not sonuclar:
+        st.markdown(
+            '<div class="iz-decision-center">'
+            '<div class="iz-decision-head"><div><small>IZFIN KARAR MERKEZİ</small><h2>İlk tarama bekleniyor</h2></div>'
+            '<span class="iz-decision-mode neutral">HAZIR</span></div>'
+            '<div class="iz-decision-empty">Akıllı Tarama çalıştırıldığında karar dağılımı, piyasa modu, en güçlü setup ve sistem yorumu burada oluşacak.</div>'
+            '</div>',
+            unsafe_allow_html=True,
+        )
+        return
+
+    if best:
+        _, bt, bs, bg, bmtf, brisk, bsignal = best
+        best_html = (
+            f'<div class="iz-best-setup-copy"><small>BUGÜNÜN ÖNE ÇIKAN SETUP’I</small>'
+            f'<strong>{html.escape(bt)}</strong>'
+            f'<span>{html.escape(bsignal or "—")} · IZ {int(bs)} · Güven %{int(bg)} · MTF %{int(bmtf)} · Risk {html.escape(brisk or "—")}</span></div>'
+        )
+    else:
+        best_html = '<div class="iz-best-setup-copy"><small>BUGÜNÜN ÖNE ÇIKAN SETUP’I</small><strong>—</strong></div>'
+
+    center_html = (
+        '<div class="iz-decision-center">'
+        '<div class="iz-decision-head">'
+        '<div><small>IZFIN KARAR MERKEZİ</small><h2>Son Tarama Özeti</h2>'
+        f'<p>{html.escape(str(kaynak))} · Son taranan evrene göre</p></div>'
+        f'<span class="iz-decision-mode {mod_cls}">{mod} · {pulse}/100</span>'
+        '</div>'
+        '<div class="iz-decision-kpis">'
+        f'<div><span>ALIM TARAFI</span><b>{alim_tarafi}</b><small>AL / Güçlü AL</small></div>'
+        f'<div><span>GÜÇLÜ SETUP</span><b>{guclu_al}</b><small>yüksek öncelik</small></div>'
+        f'<div><span>TEYİT BEKLEYEN</span><b>{teyit}</b><small>henüz tamamlanmadı</small></div>'
+        f'<div><span>YÜKSEK RİSK</span><b>{yuksek_risk}</b><small>dikkat gerektiriyor</small></div>'
+        '</div>'
+        '<div class="iz-decision-lower">'
+        f'{best_html}'
+        '<div class="iz-market-factors">'
+        f'<div><span>TREND</span><b>{trend}</b></div>'
+        f'<div><span>MOMENTUM</span><b>{momentum}</b></div>'
+        f'<div><span>PARA AKIŞI</span><b>{flow}</b></div>'
+        f'<div><span>RİSK</span><b>{risk}</b></div>'
+        '</div>'
+        '</div>'
+        f'<div class="iz-system-comment"><span>SİSTEM YORUMU</span><p>{html.escape(yorum)}</p></div>'
+        '<div class="iz-decision-foot">Piyasa modu tüm piyasanın resmi breadth göstergesi değildir; IZFIN’in son taramada analiz ettiği listenin teknik bileşiminden üretilir.</div>'
         '</div>'
     )
-    st.markdown(_hero_html, unsafe_allow_html=True)
+    st.markdown(center_html, unsafe_allow_html=True)
 
-    left, right = st.columns([1.35, .85], gap="medium")
-
-    with left:
-        _pulse_html = (
-            '<div class="iz-card iz-pulse-card-standalone">'
-            '<div class="iz-card-head">'
-            '<div><div class="iz-card-title" style="margin:0">IZFIN PİYASA NABZI</div>'
-            f'<div class="iz-card-kicker">{html.escape(str(kaynak))}</div></div>'
-            f'<span class="iz-badge wait">{html.escape(str(_iz_pulse_label(pulse)))}</span>'
-            '</div>'
-            '<div class="iz-pulse">'
-            f'<div class="iz-gauge" style="--pulse:{pulse}%">'
-            '<div class="iz-gauge-content">'
-            f'<div class="iz-gauge-num">{pulse}<span style="font-size:12px;color:#7890a3">/100</span></div>'
-            f'<div class="iz-gauge-label">{html.escape(str(_iz_pulse_label(pulse)))}</div>'
-            '</div></div>'
-            '<div>'
-            '<div class="iz-pulse-copy">Trend, momentum, para akışı ve risk tek çerçevede okunur. '
-            'Tarama sonrası nabız doğrudan IZFIN teknik motorunun analiz ettiği varlıklardan hesaplanır.</div>'
-            '<div class="iz-components">'
-            f'<div class="iz-comp"><div class="iz-comp-name">TREND</div><div class="iz-comp-val">{trend}</div><div class="iz-comp-sub">{trend_lbl}</div></div>'
-            f'<div class="iz-comp"><div class="iz-comp-name">MOMENTUM</div><div class="iz-comp-val">{momentum}</div><div class="iz-comp-sub">{mom_lbl}</div></div>'
-            f'<div class="iz-comp"><div class="iz-comp-name">PARA AKIŞI</div><div class="iz-comp-val">{flow}</div><div class="iz-comp-sub">{flow_lbl}</div></div>'
-            f'<div class="iz-comp"><div class="iz-comp-name">RİSK</div><div class="iz-comp-val">{risk}</div><div class="iz-comp-sub" style="color:#f2b94d">{risk_lbl}</div></div>'
-            '</div></div></div></div>'
+    if best:
+        st.button(
+            f"{bt} detay analizini aç  →",
+            key="decision_center_best_setup",
+            use_container_width=True,
+            on_click=_izfin_home_ticker_ac,
+            args=(bt,),
         )
-        st.markdown(_pulse_html, unsafe_allow_html=True)
-
-    with right:
-        _map_head = (
-            '<div class="iz-map-card-standalone">'
-            '<div class="iz-card-head">'
-            '<div><div class="iz-card-title" style="margin:0">IZFIN FIRSAT HARİTASI</div>'
-            '<div class="iz-card-kicker">RENK = SKOR · ÇERÇEVE = GÜVEN</div></div>'
-            '<span style="font-size:8px;color:#4ecfe0">SIGNATURE MAP</span>'
-            '</div></div>'
-        )
-        st.markdown(_map_head, unsafe_allow_html=True)
-        izfin_render_clickable_heatmap_overlay(max_n=16)
 
 
 def izfin_top_signals_html(max_n=7):
