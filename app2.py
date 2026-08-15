@@ -1330,6 +1330,208 @@ button[kind="primary"],
     color:#fff!important;
 }
 
+
+/* v1.7.31 — Premium home cards + stronger detail header */
+
+.iz-detail-active-stock{
+    margin:8px 0 14px;
+    padding:13px 15px;
+    border:1px solid #1b5e77;
+    border-radius:12px;
+    background:linear-gradient(135deg,#081d2b,#0b3042);
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.03),0 10px 24px rgba(0,0,0,.14);
+}
+.iz-detail-active-stock small{
+    display:block;
+    color:#4fd5df;
+    font-size:8px;
+    font-weight:850;
+    letter-spacing:1px;
+    margin-bottom:3px;
+}
+.iz-detail-active-stock strong{
+    display:block;
+    color:#ffffff;
+    font-size:22px;
+    line-height:1.1;
+    letter-spacing:.2px;
+    font-weight:800;
+}
+.iz-detail-active-stock span{
+    display:block;
+    margin-top:4px;
+    color:#8fb0c0;
+    font-size:10px;
+}
+
+/* selectbox içindeki seçili hisseyi de daha belirgin yap */
+.st-key-detay_hisse_secici [data-baseweb="select"] > div{
+    background:#081c2a!important;
+    border:1px solid #1b6079!important;
+    color:#f4fbff!important;
+    min-height:46px!important;
+}
+.st-key-detay_hisse_secici [data-baseweb="select"] span,
+.st-key-detay_hisse_secici [data-baseweb="select"] div{
+    color:#f4fbff!important;
+    opacity:1!important;
+    font-weight:760!important;
+}
+
+/* Premium section heads */
+.iz-premium-section-head{
+    margin:18px 0 9px;
+    padding:13px 15px;
+    border:1px solid #17445d;
+    border-radius:12px;
+    background:linear-gradient(145deg,#071724,#092536);
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.025);
+}
+.iz-premium-section-head small{
+    display:block;
+    color:#32d3dc;
+    font-size:8px;
+    font-weight:850;
+    letter-spacing:1.1px;
+    margin-bottom:3px;
+}
+.iz-premium-section-head h3{
+    margin:0;
+    color:#effaff;
+    font-size:16px;
+    font-weight:780;
+}
+.iz-premium-section-head p{
+    margin:4px 0 0;
+    color:#7598aa;
+    font-size:9px;
+}
+
+/* Signal board */
+[class*="st-key-home_signal_"] button{
+    min-height:43px!important;
+    border-radius:9px!important;
+    background:linear-gradient(135deg,#0a2334,#0c3144)!important;
+    border:1px solid #1b5870!important;
+    color:#f0fbff!important;
+    font-size:11px!important;
+    font-weight:800!important;
+    justify-content:flex-start!important;
+    padding-left:11px!important;
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.025)!important;
+}
+[class*="st-key-home_signal_"] button:hover{
+    border-color:#2cd1dc!important;
+    background:linear-gradient(135deg,#0c2d41,#0d3d50)!important;
+    transform:translateY(-1px)!important;
+}
+.iz-premium-price{
+    margin-top:4px;
+    padding:6px 9px;
+    border-radius:8px;
+    background:#071522;
+    border:1px solid #173e53;
+    color:#9eb9c7;
+    font-size:10px;
+    text-align:center;
+}
+.iz-premium-signal-body{
+    min-height:73px;
+    display:grid;
+    grid-template-columns:1.8fr .75fr .8fr .7fr;
+    gap:8px;
+    align-items:center;
+    padding:9px 11px;
+    border:1px solid #173e53;
+    border-radius:10px;
+    background:linear-gradient(145deg,#071522,#081c2a);
+}
+.iz-premium-signal-body>div{
+    display:flex;
+    flex-direction:column;
+    gap:3px;
+}
+.iz-premium-signal-body span{
+    color:#648ca1;
+    font-size:8px;
+    font-weight:800;
+    letter-spacing:.55px;
+}
+.iz-premium-signal-body strong{
+    color:#eaf8fc;
+    font-size:12px;
+    font-weight:780;
+}
+.iz-premium-risk{
+    min-height:73px;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    gap:4px;
+    border:1px solid #173e53;
+    border-radius:10px;
+    background:#071522;
+}
+.iz-premium-risk span{
+    color:#648ca1;
+    font-size:8px;
+    font-weight:850;
+    letter-spacing:.6px;
+}
+.iz-premium-risk b{
+    color:#eaf8fc;
+    font-size:11px;
+}
+
+/* Movers board */
+[class*="st-key-home_mover_"] button{
+    min-height:40px!important;
+    border-radius:9px!important;
+    background:linear-gradient(135deg,#0a2334,#0c3144)!important;
+    border:1px solid #1b5870!important;
+    color:#f0fbff!important;
+    font-size:11px!important;
+    font-weight:800!important;
+    justify-content:flex-start!important;
+    padding-left:11px!important;
+}
+[class*="st-key-home_mover_"] button:hover{
+    border-color:#2cd1dc!important;
+    background:linear-gradient(135deg,#0c2d41,#0d3d50)!important;
+}
+.iz-premium-mover-price,
+.iz-premium-mover-change{
+    min-height:40px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    border:1px solid #173e53;
+    border-radius:9px;
+    background:#071522;
+    color:#c9dce5;
+    font-size:10px;
+    font-weight:700;
+}
+.iz-premium-mover-change.up{
+    color:#39dfa0;
+    border-color:#195d4b;
+    background:linear-gradient(135deg,#071c1a,#0b2a22);
+}
+.iz-premium-mover-change.down{
+    color:#ff7080;
+    border-color:#623344;
+    background:linear-gradient(135deg,#1b1117,#26151d);
+}
+
+/* Fırsat haritası başlığı daha güçlü */
+.iz-native-map-head{
+    padding:15px 16px!important;
+    background:linear-gradient(145deg,#071724,#0a2b3d)!important;
+    border-color:#1b5870!important;
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.03),0 10px 22px rgba(0,0,0,.14)!important;
+}
+
 </style>
 """, unsafe_allow_html=True)
 
@@ -4668,6 +4870,7 @@ def _izfin_home_ticker_ac(ticker):
         st.session_state["home_nav_mesaji"] = f"{ticker} için mevcut oturumda tarama detayı bulunamadı."
         return
     st.session_state["izfin_pending_detail_ticker"] = ticker
+    st.session_state["izfin_scroll_to_detail"] = True
     st.session_state.izfin_nav = "🔎 Akıllı Tarama"
 
 
@@ -4768,29 +4971,39 @@ def izfin_render_dashboard_native():
                             f"""
                             <style>
                             .st-key-{_k} button{{
-                                min-height:82px!important;
+                                min-height:96px!important;
                                 width:100%!important;
-                                border-radius:11px!important;
+                                border-radius:13px!important;
                                 background:{_bg}!important;
-                                border:{max(1,int(g/30))}px solid rgba(38,238,220,.18)!important;
+                                border:{max(1,int(g/28))}px solid rgba(38,238,220,.24)!important;
                                 color:#f4fbff!important;
-                                box-shadow:inset 0 1px 0 rgba(255,255,255,.04)!important;
+                                box-shadow:
+                                    inset 0 1px 0 rgba(255,255,255,.05),
+                                    0 10px 24px rgba(0,0,0,.18)!important;
                                 white-space:pre-line!important;
                                 font-size:11px!important;
-                                line-height:1.35!important;
-                                font-weight:700!important;
+                                line-height:1.45!important;
+                                font-weight:760!important;
+                                text-align:left!important;
+                                justify-content:flex-start!important;
+                                padding:13px 14px!important;
+                                position:relative!important;
                             }}
                             .st-key-{_k} button:hover{{
-                                transform:translateY(-2px)!important;
-                                filter:brightness(1.08)!important;
+                                transform:translateY(-3px)!important;
+                                filter:brightness(1.1)!important;
                                 border-color:#36d9e2!important;
+                                box-shadow:
+                                    inset 0 1px 0 rgba(255,255,255,.06),
+                                    0 14px 28px rgba(0,0,0,.24),
+                                    0 0 0 1px rgba(54,217,226,.12)!important;
                             }}
                             </style>
                             """,
                             unsafe_allow_html=True,
                         )
                         st.button(
-                            f"{t}\nIZ {int(s)} · Güven {int(g)}%\n{_chg}",
+                            f"{t}\nIZ {int(s)} · Güven {int(g)}%\n{_chg}\nDetayı aç",
                             key=_k,
                             use_container_width=True,
                             on_click=_izfin_home_ticker_ac,
@@ -4807,14 +5020,22 @@ def izfin_render_top_signals_native(max_n=7):
         reverse=True,
     )[:max_n]
 
-    st.markdown('<div class="iz-native-section-title">ÖNE ÇIKAN IZFIN SİNYALLERİ</div>', unsafe_allow_html=True)
+    st.markdown(
+        """
+        <div class="iz-premium-section-head">
+            <div>
+                <small>IZFIN SIGNAL BOARD</small>
+                <h3>Öne Çıkan IZFIN Sinyalleri</h3>
+                <p>Son taramadaki en güçlü skor, güven ve MTF kombinasyonları</p>
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
     if not sirali:
         st.markdown('<div class="iz-native-empty">Akıllı Tarama çalıştırıldığında en yüksek skorlu sinyaller burada özetlenecek.</div>', unsafe_allow_html=True)
         return
-
-    header = st.columns([1.15,.8,1.65,.65,.75,.6,.65], gap="small")
-    for c, label in zip(header, ["VARLIK","FİYAT","IZFIN KARARI","SKOR","GÜVEN","MTF","RİSK"]):
-        c.markdown(f'<div class="iz-native-th">{label}</div>', unsafe_allow_html=True)
 
     for idx, r in enumerate(sirali):
         t = str(r.get("Varlık","")); p = paneller.get(t,{})
@@ -4824,23 +5045,42 @@ def izfin_render_top_signals_native(max_n=7):
         fiyat = r.get("Fiyat","—")
         risk_v = p.get("risk_seviyesi",r.get("Risk","—"))
         mtf = int(float(p.get("mtf_uyum",50) or 50))
+        _k = f"home_signal_{idx}_{re.sub(r'[^A-Za-z0-9_]+','_',t)}"
 
-        cols = st.columns([1.15,.8,1.65,.65,.75,.6,.65], gap="small")
-        with cols[0]:
+        card_left, card_mid, card_right = st.columns([1.45, 2.3, .9], gap="small")
+        with card_left:
             st.button(
                 f"{t}  ↗",
-                key=f"home_signal_{idx}_{re.sub(r'[^A-Za-z0-9_]+','_',t)}",
+                key=_k,
                 use_container_width=True,
                 on_click=_izfin_home_ticker_ac,
                 args=(t,),
             )
-        cols[1].markdown(f'<div class="iz-native-cell">{fiyat}</div>', unsafe_allow_html=True)
-        cols[2].markdown(f'<div class="iz-native-cell"><span class="iz-badge {_iz_badge_class(sin)}">{sin}</span></div>', unsafe_allow_html=True)
-        cols[3].markdown(f'<div class="iz-native-cell iz-score-cell">{skor}</div>', unsafe_allow_html=True)
-        cols[4].markdown(f'<div class="iz-native-cell">{g}%</div>', unsafe_allow_html=True)
-        cols[5].markdown(f'<div class="iz-native-cell">{mtf}%</div>', unsafe_allow_html=True)
-        cols[6].markdown(f'<div class="iz-native-cell">{risk_v}</div>', unsafe_allow_html=True)
+            st.markdown(f'<div class="iz-premium-price">{fiyat}</div>', unsafe_allow_html=True)
 
+        with card_mid:
+            st.markdown(
+                f"""
+                <div class="iz-premium-signal-body">
+                    <div><span>KARAR</span><b class="iz-badge {_iz_badge_class(sin)}">{sin}</b></div>
+                    <div><span>SKOR</span><strong>{skor}</strong></div>
+                    <div><span>GÜVEN</span><strong>{g}%</strong></div>
+                    <div><span>MTF</span><strong>{mtf}%</strong></div>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
+
+        with card_right:
+            st.markdown(
+                f"""
+                <div class="iz-premium-risk">
+                    <span>RİSK</span>
+                    <b>{html.escape(str(risk_v))}</b>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
 
 def izfin_render_movers_native(max_n=6):
     sonuclar = st.session_state.get("sonuclar") or []
@@ -4854,7 +5094,15 @@ def izfin_render_movers_native(max_n=6):
     rows.sort(reverse=True)
 
     st.markdown(
-        '<div class="iz-card-head"><div><div class="iz-card-title" style="margin:0">LİSTEDE DİKKAT ÇEKENLER</div><div class="iz-card-kicker">SON TARAMA EVRENİNDEKİ BELİRGİN HAREKETLER</div></div></div>',
+        """
+        <div class="iz-premium-section-head">
+            <div>
+                <small>IZFIN MOVEMENT BOARD</small>
+                <h3>Listede Dikkat Çekenler</h3>
+                <p>Son tarama evrenindeki en belirgin günlük fiyat hareketleri</p>
+            </div>
+        </div>
+        """,
         unsafe_allow_html=True,
     )
     if not rows:
@@ -4862,21 +5110,27 @@ def izfin_render_movers_native(max_n=6):
         return
 
     for idx, (_,d,t,f) in enumerate(rows[:max_n]):
-        c1,c2,c3 = st.columns([1.6,.85,.7], gap="small")
+        k = f"home_mover_{idx}_{re.sub(r'[^A-Za-z0-9_]+','_',t)}"
+        c1,c2,c3 = st.columns([1.55,.9,.8], gap="small")
         with c1:
             st.button(
                 f"{t}  ↗",
-                key=f"home_mover_{idx}_{re.sub(r'[^A-Za-z0-9_]+','_',t)}",
+                key=k,
                 use_container_width=True,
                 on_click=_izfin_home_ticker_ac,
                 args=(t,),
             )
-        c2.markdown(f'<div class="iz-native-mover-cell">{f}</div>', unsafe_allow_html=True)
-        c3.markdown(
-            f'<div class="iz-native-mover-cell" style="color:{"#28e69d" if d>=0 else "#ff6673"}">{d:+.2f}%</div>',
-            unsafe_allow_html=True,
-        )
-
+        with c2:
+            st.markdown(
+                f'<div class="iz-premium-mover-price">{f}</div>',
+                unsafe_allow_html=True,
+            )
+        with c3:
+            _cls = "up" if d >= 0 else "down"
+            st.markdown(
+                f'<div class="iz-premium-mover-change {_cls}">{d:+.2f}%</div>',
+                unsafe_allow_html=True,
+            )
 
 def izfin_home_action_html():
     return '''<div class="iz-cta"><div class="iz-section-label">AKILLI TARAMA</div><h3>Fırsatı geniş havuzda keşfet</h3><p>Seçtiğin piyasa grubunu IZFIN karar motoruyla tara; skor, güven, giriş kalitesi, MTF ve risk filtrelerini aynı tabloda karşılaştır.</p></div>'''
@@ -6194,6 +6448,28 @@ if aktif_sayfa in ["🏠 Ana Sayfa", "🔎 Akıllı Tarama"]:
                 )
 
                 if secilen_detay_hisse:
+                    if st.session_state.pop("izfin_scroll_to_detail", False):
+                        components.html(
+                            """
+                            <script>
+                            setTimeout(() => {
+                              const p = window.parent.document.getElementById('izfin-detail-anchor');
+                              if (p) p.scrollIntoView({behavior:'smooth', block:'start'});
+                            }, 180);
+                            </script>
+                            """,
+                            height=0,
+                        )
+                    st.markdown(
+                        f"""
+                        <div class="iz-detail-active-stock">
+                            <small>AKTİF DETAY ANALİZİ</small>
+                            <strong>{html.escape(str(secilen_detay_hisse))}</strong>
+                            <span>Teknik panel · skor · giriş kalitesi · risk · hedefler</span>
+                        </div>
+                        """,
+                        unsafe_allow_html=True,
+                    )
                     panel_verisi = st.session_state.teknik_paneller.get(secilen_detay_hisse)
                     if panel_verisi:
                         st.markdown(gelismis_teknik_panel_olustur(panel_verisi), unsafe_allow_html=True)
