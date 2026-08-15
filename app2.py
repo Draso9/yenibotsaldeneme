@@ -284,7 +284,7 @@ STRATEJI_SURUMU = "IZFIN-v1.7.5-auth-switch-fixed"
 PERFORMANS_UFUKLARI = (1, 5, 10, 20, 45)
 
 # --- IZFIN UYGULAMA SÜRÜMÜ / LOG ---
-IZFIN_APP_SURUMU = "v1.7.50 Home Priority Layout"
+IZFIN_APP_SURUMU = "v1.7.51 Attention Panel Fill"
 logger = logging.getLogger("IZFIN")
 if not logger.handlers:
     logging.basicConfig(level=logging.INFO)
@@ -4065,7 +4065,7 @@ if aktif_sayfa in ["🏠 Ana Sayfa", "🔎 Akıllı Tarama"]:
 
         # Ana sayfanın hisse odaklı iki paneli artık üstte.
         # Sağ panel büyütüldü; "Listede Dikkat Çekenler" daha rahat okunur.
-        home_focus_left, home_focus_right = st.columns([1.08, .92], gap="medium")
+        home_focus_left, home_focus_right = st.columns([1.0, 1.0], gap="small")
 
         with home_focus_left:
             st.markdown(izfin_top_signals_html(), unsafe_allow_html=True)
