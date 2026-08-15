@@ -318,6 +318,51 @@ hr {border-color:#122a3e!important;}
     text-align:center!important;
 }
 
+
+/* v1.7.14 — Akıllı Tarama ana çalışma alanı */
+.iz-scan-control-head{
+    margin:18px 0 12px;
+    padding:17px 19px;
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    gap:18px;
+    background:linear-gradient(135deg,rgba(7,24,38,.96),rgba(8,31,47,.91));
+    border:1px solid #17445f;
+    border-radius:16px;
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.025),0 15px 38px rgba(0,0,0,.16);
+}
+.iz-scan-control-head h3{margin:3px 0 3px;color:#f1f9ff;font-size:19px}
+.iz-scan-control-head p{margin:0;color:#7899ad;font-size:11px}
+.iz-scan-count{
+    white-space:nowrap;
+    font-size:9px;
+    letter-spacing:1px;
+    font-weight:750;
+    color:#13d8e2;
+    border:1px solid #1b566f;
+    background:#071927;
+    border-radius:999px;
+    padding:8px 11px;
+}
+.iz-scan-selection-summary{
+    margin:8px 0 12px;
+    padding:12px 14px;
+    background:#071724;
+    border:1px solid #173e55;
+    border-radius:11px;
+    color:#91afc0;
+    font-size:11px;
+}
+.iz-scan-selection-summary b{
+    color:#19dce4;
+    font-size:17px;
+    margin-right:4px;
+}
+@media(max-width:850px){
+    .iz-scan-control-head{flex-direction:column;align-items:flex-start}
+}
+
 </style>
 """, unsafe_allow_html=True)
 
@@ -3110,26 +3155,78 @@ for _key, _default in _SESSION_DEFAULTS.items():
         st.session_state[_key] = _default.copy() if hasattr(_default, "copy") else _default
 
 # Kullanıcının Firebase'de kayıtlı özel listesini her oturumda yalnızca bir kez yükle.
-# v1.7.2: belge anahtarı e-posta yerine Firebase UID'dir; hesaplar birbirinden ayrılır.
+# v1.7.13: Eski e-posta bazlı listeyi UID belgesi oluşmuş olsa bile güvenli biçimde kurtarır.
+# Eski belge ASLA silinmez; yalnızca yeni UID belgesine kopyalanır/birleştirilir.
 if st.session_state.user_email and db and not st.session_state.kullanici_listesi_yuklendi:
     try:
         _doc_id = _kullanici_liste_doc_id()
-        _liste_doc = db.collection("kullanici_listeleri").document(_doc_id).get()
-        if (not _liste_doc.exists) and st.session_state.get("user_uid"):
-            _legacy = db.collection("kullanici_listeleri").document(st.session_state.user_email).get()
-            if _legacy.exists:
-                _legacy_data = _legacy.to_dict() or {}
-                db.collection("kullanici_listeleri").document(_doc_id).set({"uid": st.session_state.user_uid,"email": st.session_state.user_email,"tickers": _legacy_data.get("tickers", VARSAYILAN_TICKERS.copy()),"guncelleme_zamani": datetime.now().isoformat()}, merge=True)
-                _liste_doc = db.collection("kullanici_listeleri").document(_doc_id).get()
-        if _liste_doc.exists:
-            _kayitli_tickerlar = (_liste_doc.to_dict() or {}).get("tickers", [])
-            if isinstance(_kayitli_tickerlar, list):
-                st.session_state.custom_tickers = [str(x).upper() for x in _kayitli_tickerlar if str(x).strip()]
-        if not st.session_state.custom_tickers:
-            st.session_state.custom_tickers = VARSAYILAN_TICKERS.copy()
+        _email_id = str(st.session_state.user_email or "").strip().lower()
+        _uid_doc = db.collection("kullanici_listeleri").document(_doc_id).get()
+        _legacy_doc = None
+        if _email_id and _email_id != _doc_id:
+            try:
+                _legacy_doc = db.collection("kullanici_listeleri").document(_email_id).get()
+            except Exception:
+                _legacy_doc = None
+
+        _uid_data = (_uid_doc.to_dict() or {}) if _uid_doc.exists else {}
+        _legacy_data = (_legacy_doc.to_dict() or {}) if (_legacy_doc is not None and _legacy_doc.exists) else {}
+
+        _uid_ticks = [
+            str(x).strip().upper()
+            for x in (_uid_data.get("tickers") or [])
+            if str(x).strip()
+        ]
+        _legacy_ticks = [
+            str(x).strip().upper()
+            for x in (_legacy_data.get("tickers") or [])
+            if str(x).strip()
+        ]
+
+        _varsayilan_set = set(str(x).strip().upper() for x in VARSAYILAN_TICKERS)
+        _uid_set = set(_uid_ticks)
+        _legacy_set = set(_legacy_ticks)
+
+        # UID belgesi yoksa legacy doğrudan taşınır.
+        # UID belgesi yalnızca varsayılanlardan oluşuyorsa ama legacy daha zenginse,
+        # eski kişisel listenin üstüne yazılmış olma ihtimaline karşı legacy esas alınır.
+        # Her iki tarafta gerçek kişisel eklemeler varsa kayıp olmaması için union yapılır.
+        _kurtarma_gerekli = False
+        if _legacy_ticks:
+            if not _uid_doc.exists or not _uid_ticks:
+                _final_ticks = _legacy_ticks
+                _kurtarma_gerekli = True
+            elif _uid_set.issubset(_varsayilan_set) and not _legacy_set.issubset(_varsayilan_set):
+                _final_ticks = list(dict.fromkeys(_legacy_ticks + _uid_ticks))
+                _kurtarma_gerekli = True
+            else:
+                # İki listede de kişisel içerik varsa güvenli birleşim.
+                _final_ticks = list(dict.fromkeys(_uid_ticks + _legacy_ticks))
+                if set(_final_ticks) != _uid_set:
+                    _kurtarma_gerekli = True
+        else:
+            _final_ticks = _uid_ticks
+
+        if not _final_ticks:
+            _final_ticks = VARSAYILAN_TICKERS.copy()
+
+        st.session_state.custom_tickers = _final_ticks
+
+        if _kurtarma_gerekli and st.session_state.get("user_uid"):
+            db.collection("kullanici_listeleri").document(_doc_id).set({
+                "uid": st.session_state.user_uid,
+                "email": st.session_state.user_email,
+                "tickers": _final_ticks,
+                "legacy_kurtarildi": True,
+                "guncelleme_zamani": datetime.now().isoformat(),
+            }, merge=True)
+            st.session_state["liste_kurtarma_mesaji"] = True
+
         if st.session_state.aktif_profil == "Kendi Listem":
             st.session_state.secilen_varliklar = st.session_state.custom_tickers.copy()
+
         st.session_state.kullanici_listesi_yuklendi = True
+
     except Exception as _liste_hatasi:
         st.warning(f"Kayıtlı listeniz şu anda yüklenemedi: {_liste_hatasi}")
 
@@ -3141,30 +3238,79 @@ def kullanici_listesini_kaydet():
     except Exception as e:
         izfin_hata_logla("kullanici_listesi_yaz", e)
 
-@st.cache_data(ttl=600, show_spinner=False)
+@st.cache_data(ttl=300, show_spinner=False)
 def hisse_onerileri_getir(arama):
+    """Sembol veya şirket adına göre hisse önerileri.
+    Önce yerel evren, sonra Yahoo Search, son olarak Finnhub Search kullanır.
+    """
     q = str(arama or "").strip()
     if not q:
         return []
-    q_up = q.upper(); yerel=[]
+
+    q_up = q.upper()
+    yerel = []
+
+    # Yerel evren: BIST100 + hazır ABD listesi.
     for sembol in sorted(set(BIST_100 + ABD_HİSSELERİ)):
         if q_up in sembol.upper():
-            yerel.append({"symbol": sembol, "name": "Kayıtlı / hazır evren", "exchange": "BIST" if sembol.endswith(".IS") else "US"})
-    uzaktan=[]
+            yerel.append({
+                "symbol": sembol,
+                "name": "IZFIN hazır evreni",
+                "exchange": "BIST" if sembol.endswith(".IS") else "US",
+            })
+
+    uzaktan = []
+
+    # Yahoo symbol/company search
     try:
-        r=session.get("https://query1.finance.yahoo.com/v1/finance/search",params={"q":q,"quotesCount":8,"newsCount":0},timeout=4)
+        r = session.get(
+            "https://query1.finance.yahoo.com/v1/finance/search",
+            params={
+                "q": q,
+                "quotesCount": 10,
+                "newsCount": 0,
+                "enableFuzzyQuery": "true",
+            },
+            timeout=5,
+        )
         if r.ok:
             for x in (r.json().get("quotes") or []):
-                qt=str(x.get("quoteType") or "").upper(); symbol=str(x.get("symbol") or "").upper().strip()
-                if symbol and qt in {"EQUITY","ETF","INDEX"}:
-                    uzaktan.append({"symbol":symbol,"name":str(x.get("shortname") or x.get("longname") or ""),"exchange":str(x.get("exchange") or "")})
+                qt = str(x.get("quoteType") or "").upper()
+                symbol = str(x.get("symbol") or "").upper().strip()
+                if symbol and qt in {"EQUITY", "ETF", "INDEX"}:
+                    uzaktan.append({
+                        "symbol": symbol,
+                        "name": str(x.get("shortname") or x.get("longname") or ""),
+                        "exchange": str(x.get("exchange") or x.get("exchDisp") or ""),
+                    })
     except Exception:
         pass
-    sonuc=[]; seen=set()
-    for item in yerel+uzaktan:
-        if item["symbol"] not in seen:
-            seen.add(item["symbol"]); sonuc.append(item)
-    return sonuc[:10]
+
+    # Yahoo sonuç vermezse Finnhub symbol search fallback
+    if len(uzaktan) < 3 and FINNHUB_API_KEY:
+        try:
+            fh = _finnhub_get("search", {"q": q}, timeout=4, max_retry=1) or {}
+            for x in (fh.get("result") or []):
+                symbol = str(x.get("symbol") or "").upper().strip()
+                desc = str(x.get("description") or "")
+                typ = str(x.get("type") or "").upper()
+                if symbol and typ in {"COMMON STOCK", "ADR", "ETP", "REIT", ""}:
+                    uzaktan.append({
+                        "symbol": symbol,
+                        "name": desc,
+                        "exchange": str(x.get("displaySymbol") or ""),
+                    })
+        except Exception:
+            pass
+
+    sonuc, seen = [], set()
+    for item in yerel + uzaktan:
+        symbol = item["symbol"]
+        if symbol and symbol not in seen:
+            seen.add(symbol)
+            sonuc.append(item)
+
+    return sonuc[:12]
 
 def get_preset_options():
     return {"Kendi Listem": st.session_state.custom_tickers, "BIST 30": BIST_30, "BIST 100": BIST_100, "ABD Büyük Teknoloji": ABD_HİSSELERİ}
@@ -3869,29 +4015,9 @@ st.sidebar.caption(f"Çalışan sürüm: {IZFIN_APP_SURUMU}")
 if not FINNHUB_API_KEY:
     st.sidebar.caption("ℹ️ Finnhub yok: ABD quote katmanı Yahoo fallback ile devam ediyor.")
 
+# v1.7.14 — Sidebar yalnızca navigasyon ve hesap alanıdır.
 selected_tickers = list(st.session_state.get("secilen_varliklar", []))
 tarama_tetiklendi = False
-if aktif_sayfa == "🔎 Akıllı Tarama":
-    with st.sidebar.expander("📋 Tarama Evreni", expanded=True):
-        _arama=st.text_input("Hisse ara / listeye ekle",key="ek_hisse_arama",placeholder="NVDA, THYAO, Apple...")
-        _oneriler=hisse_onerileri_getir(_arama) if _arama.strip() else []
-        if _oneriler:
-            _labels=[f"{x['symbol']} · {x['name'][:32]} · {x['exchange']}" for x in _oneriler]
-            _idx=st.selectbox("Eşleşen hisseler",range(len(_oneriler)),format_func=lambda i:_labels[i],key="hisse_oneri_secimi")
-            if st.button("＋ Seçili Hisseyi Listeme Ekle",use_container_width=True,key="autocomplete_add"):
-                _symbol=_oneriler[int(_idx)]["symbol"]
-                if _symbol not in st.session_state.custom_tickers: st.session_state.custom_tickers.append(_symbol)
-                kullanici_listesini_kaydet(); st.session_state.aktif_profil="Kendi Listem"; st.session_state.secilen_varliklar=st.session_state.custom_tickers.copy(); st.rerun()
-        elif _arama.strip(): st.caption("Eşleşme bulunamadı. Tam sembolü manuel alandan ekleyebilirsiniz.")
-        with st.expander("Manuel ekleme / silme",expanded=False):
-            st.text_input("Sembol ekle",key="ek_hisse_input_field",placeholder="örn. RKLB")
-            st.button("＋ Manuel Ekle",on_click=hisse_ekle_callback,use_container_width=True)
-            st.text_input("Sembol sil",key="sil_hisse_input_field")
-            st.button("− Kalıcı Sil",on_click=hisse_sil_callback,use_container_width=True)
-        st.selectbox("Profil", list(preset_options.keys()), index=list(preset_options.keys()).index(st.session_state.aktif_profil), key="profil_selectbox_key", on_change=profil_degisti)
-        selected_tickers=st.multiselect("Taranacak Varlıklar",options=sorted(set(tum_varliklar_havuzu+st.session_state.custom_tickers)),key="secilen_varliklar")
-        selected_tickers=list(dict.fromkeys([str(x).strip().upper() for x in selected_tickers if str(x).strip()]))
-    tarama_tetiklendi = st.sidebar.button("✦ AKILLI TARAMAYI BAŞLAT", type="primary", use_container_width=True)
 
 st.sidebar.markdown("---")
 if st.sidebar.button("🚪 Çıkış Yap", use_container_width=True):
@@ -3917,9 +4043,133 @@ if aktif_sayfa in ["🏠 Ana Sayfa", "🔎 Akıllı Tarama"]:
             st.markdown(izfin_home_action_html(), unsafe_allow_html=True)
     else:
         st.markdown('''<div class="iz-scanner-hero"><div><div class="iz-section-label">IZFIN SCANNER</div><h2>Akıllı Tarama Merkezi</h2><p>Varlık evrenini seç, merkezi karar motorunu çalıştır ve sonuçları skor · güven · giriş kalitesi · MTF · risk ekseninde karşılaştır.</p></div><span class="iz-badge wait">SIGNATURE SCAN</span></div>''', unsafe_allow_html=True)
+
+        # --- v1.7.14: Akıllı Tarama ana çalışma alanı ---
+        if st.session_state.pop("liste_kurtarma_mesaji", False):
+            st.success("Eski kişisel listeniz Firebase hesabınıza geri bağlandı.")
+
+        st.markdown(
+            f"""
+            <div class="iz-scan-control-head">
+              <div>
+                <div class="iz-section-label">TARAMA KONTROL PANELİ</div>
+                <h3>Evreni hazırla ve taramayı başlat</h3>
+                <p>Hisse ekleme, kişisel liste, profil ve tarama seçimi artık tek çalışma alanında.</p>
+              </div>
+              <div class="iz-scan-count">KİŞİSEL LİSTE · {len(st.session_state.get("custom_tickers", []))} VARLIK</div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+
+        scan_left, scan_right = st.columns([1.0, 1.15], gap="large")
+
+        with scan_left:
+            st.markdown("#### 🔎 Hisse Ara & Listem")
+            _arama = st.text_input(
+                "Hisse / şirket ara",
+                key="ek_hisse_arama",
+                placeholder="NVDA, THYAO, Apple, Tesla...",
+                help="Sembol veya şirket adı yazın; eşleşmeler aşağıda görünür.",
+            )
+            _oneriler = hisse_onerileri_getir(_arama) if _arama.strip() else []
+
+            if _oneriler:
+                _labels = [
+                    f"{x['symbol']}  ·  {x['name'][:38] or 'İsim yok'}"
+                    + (f"  ·  {x['exchange']}" if x.get("exchange") else "")
+                    for x in _oneriler
+                ]
+                _idx = st.selectbox(
+                    "Eşleşen hisseler",
+                    range(len(_oneriler)),
+                    format_func=lambda i: _labels[i],
+                    key="hisse_oneri_secimi",
+                )
+                if st.button(
+                    "＋ Seçili Hisseyi Listeme Ekle",
+                    use_container_width=True,
+                    key="autocomplete_add",
+                ):
+                    _symbol = _oneriler[int(_idx)]["symbol"]
+                    if _symbol not in st.session_state.custom_tickers:
+                        st.session_state.custom_tickers.append(_symbol)
+                        kullanici_listesini_kaydet()
+                    st.session_state.aktif_profil = "Kendi Listem"
+                    st.session_state.secilen_varliklar = st.session_state.custom_tickers.copy()
+                    st.rerun()
+            elif _arama.strip():
+                st.caption("Eşleşme bulunamadı. İsterseniz sembolü manuel ekleyebilirsiniz.")
+
+            with st.expander("⭐ Kişisel Listemi Yönet", expanded=True):
+                if st.session_state.custom_tickers:
+                    st.caption(f"{len(st.session_state.custom_tickers)} kayıtlı varlık")
+                    st.multiselect(
+                        "Kayıtlı hisselerim",
+                        options=st.session_state.custom_tickers,
+                        default=st.session_state.custom_tickers,
+                        key="kisisel_liste_goruntule",
+                        disabled=True,
+                    )
+                else:
+                    st.caption("Henüz kişisel listenizde varlık yok.")
+
+                m1, m2 = st.columns(2)
+                with m1:
+                    st.text_input("Sembol ekle", key="ek_hisse_input_field", placeholder="örn. RKLB")
+                    st.button(
+                        "＋ Manuel Ekle",
+                        on_click=hisse_ekle_callback,
+                        use_container_width=True,
+                        key="main_manual_add",
+                    )
+                with m2:
+                    st.text_input("Sembol sil", key="sil_hisse_input_field", placeholder="örn. AAPL")
+                    st.button(
+                        "− Kalıcı Sil",
+                        on_click=hisse_sil_callback,
+                        use_container_width=True,
+                        key="main_manual_delete",
+                    )
+
+        with scan_right:
+            st.markdown("#### ⚙️ Tarama Evreni")
+            st.selectbox(
+                "Profil",
+                list(preset_options.keys()),
+                index=list(preset_options.keys()).index(st.session_state.aktif_profil),
+                key="profil_selectbox_key",
+                on_change=profil_degisti,
+                help="Hazır piyasa profili seçebilir veya Kendi Listem ile kişisel listenizi tarayabilirsiniz.",
+            )
+
+            selected_tickers = st.multiselect(
+                "Taranacak Varlıklar",
+                options=sorted(set(tum_varliklar_havuzu + st.session_state.custom_tickers)),
+                key="secilen_varliklar",
+                placeholder="Taramaya dahil edilecek varlıkları seçin",
+            )
+            selected_tickers = list(dict.fromkeys([
+                str(x).strip().upper()
+                for x in selected_tickers
+                if str(x).strip()
+            ]))
+
+            st.markdown(
+                f"""<div class="iz-scan-selection-summary"><b>{len(selected_tickers)}</b><span> varlık taramaya hazır</span></div>""",
+                unsafe_allow_html=True,
+            )
+
+            tarama_tetiklendi = st.button(
+                "✦ AKILLI TARAMAYI BAŞLAT",
+                type="primary",
+                use_container_width=True,
+                key="main_signature_scan",
+            )
+            st.caption("Tarama; IZFIN skor, güven, giriş kalitesi, MTF, risk ve para akışı katmanlarını birlikte çalıştırır.")
     if tarama_tetiklendi:
         if not selected_tickers:
-            st.sidebar.warning("⚠️ Lütfen taranacak en az bir varlık seçin!")
+            st.warning("⚠️ Taramayı başlatmadan önce yukarıdaki Tarama Evreni bölümünden en az bir varlık seçin.")
         else:
             with st.spinner("Piyasa geçmişi ve güncel seans canlı fiyatları çekiliyor..."):
                 st.session_state.opsiyon_sonuclar = None
@@ -4392,7 +4642,7 @@ if aktif_sayfa in ["🏠 Ana Sayfa", "🔎 Akıllı Tarama"]:
                 ))
             
         if not st.session_state.sonuclar:
-            st.error("❌ Veriler çekilemedi. Lütfen sol menüden farklı bir hisse grubu seçip tekrar deneyin.")
+            st.error("❌ Veriler çekilemedi. Yukarıdaki Tarama Evreni bölümünden farklı bir profil veya varlık grubu seçip tekrar deneyin.")
         else:
             col1, col2, col3 = st.columns(3)
             with col1: st.markdown(f"""<div class="kpi-card"><div class="kpi-title">Taranan Varlık</div><div class="kpi-value">{len(st.session_state.sonuclar)}</div></div>""", unsafe_allow_html=True)
