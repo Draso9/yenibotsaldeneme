@@ -1911,6 +1911,96 @@ button[kind="primary"],
     .izw-quality b,.izw-riskflow b{font-size:8px}
 }
 
+
+/* v1.7.46 — sembolsüz, daha okunabilir geniş tablo */
+.izw-table{
+    font-size:13px!important;
+}
+.izw-table thead th{
+    height:46px!important;
+    padding:0 13px!important;
+    font-size:9.5px!important;
+    letter-spacing:.62px!important;
+}
+.izw-table tbody tr{
+    height:124px!important;
+}
+.izw-table tbody td{
+    padding:13px!important;
+}
+.izw-logo{
+    display:none!important;
+}
+.izw-asset-top{
+    gap:0!important;
+}
+.izw-asset strong{
+    font-size:15px!important;
+    letter-spacing:.15px!important;
+}
+.izw-asset small{
+    margin-top:4px!important;
+    font-size:8.5px!important;
+}
+.izw-price{
+    margin-top:11px!important;
+    font-size:11.5px!important;
+}
+.izw-decision .iz-badge{
+    padding:7px 9px!important;
+    font-size:10px!important;
+    line-height:1.2!important;
+}
+.izw-decision small{
+    margin-top:8px!important;
+    font-size:8.5px!important;
+}
+.izw-quality span,
+.izw-riskflow span,
+.izw-value span{
+    font-size:7.8px!important;
+}
+.izw-quality b,
+.izw-riskflow b{
+    margin-top:5px!important;
+    font-size:10.5px!important;
+}
+.izw-entry b{
+    font-size:10px!important;
+}
+.izw-quality-top>div,
+.izw-entry,
+.izw-rf-grid>div{
+    padding:8px 9px!important;
+}
+.izw-value b{
+    margin-top:8px!important;
+    font-size:11px!important;
+}
+.izw-moon{
+    font-size:19px!important;
+}
+.izw-session b{
+    font-size:10px!important;
+    line-height:1.4!important;
+}
+
+/* 1366–1450px ekranlarda da okunabilirliği koru; eski aşırı küçültmeyi ez. */
+@media(max-width:1450px){
+    .izw-table{font-size:11.5px!important}
+    .izw-table thead th{font-size:8.7px!important;padding:0 10px!important}
+    .izw-table tbody tr{height:118px!important}
+    .izw-table tbody td{padding:10px!important}
+    .izw-asset strong{font-size:13.5px!important}
+    .izw-price{font-size:10.5px!important}
+    .izw-decision .iz-badge{font-size:9.2px!important}
+    .izw-quality span,.izw-riskflow span,.izw-value span{font-size:7.2px!important}
+    .izw-quality b,.izw-riskflow b{font-size:9.5px!important}
+    .izw-entry b{font-size:9.2px!important}
+    .izw-value b{font-size:10px!important}
+    .izw-session b{font-size:9px!important}
+}
+
 </style>
 """, unsafe_allow_html=True)
 
@@ -5837,21 +5927,11 @@ def izfin_tarama_genis_ozet_html(df):
             return "down"
         return "flat"
 
-    # Kod içinde güvenli, telifsiz/harici asset gerektirmeyen sembol rozetleri.
-    # Gerçek marka logoları yerine ticker bazlı profesyonel monogram kullanıyoruz;
-    # böylece kırık URL, CORS ve yüklenme problemi oluşmaz.
-    ticker_icons = {
-        "AAPL": "A", "MSFT": "M", "TSLA": "T", "NVDA": "N", "AMZN": "a",
-        "GOOGL": "G", "GOOG": "G", "META": "M", "AMD": "A", "INTC": "I",
-        "AVGO": "B", "AMAT": "A", "LRCX": "L", "KLAC": "K", "MU": "M",
-    }
-
     rows = []
+
     for _, row in df.iterrows():
         raw_ticker = str(row.get("Varlık", "—"))
         ticker = esc(raw_ticker)
-        icon = esc(ticker_icons.get(raw_ticker.upper(), raw_ticker[:1].upper() or "•"))
-
         fiyat = esc(row.get("Fiyat", "—"))
         sinyal_raw = str(row.get("Nihai Sinyal", "—"))
         sinyal = esc(sinyal_raw)
@@ -5887,8 +5967,7 @@ def izfin_tarama_genis_ozet_html(df):
         rows.append(
             "<tr>"
               "<td class='izw-asset'>"
-                f"<div class='izw-asset-top'><span class='izw-logo'>{icon}</span>"
-                f"<div><strong>{ticker}</strong><small>Varlık</small></div></div>"
+                f"<div class='izw-asset-top'><div><strong>{ticker}</strong><small>Varlık</small></div></div>"
                 f"<div class='izw-price'>{fiyat}</div>"
               "</td>"
 
