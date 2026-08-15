@@ -170,47 +170,23 @@ hr {border-color:#122a3e!important;}
 .iz-google-caption {font-size:9px;color:#6d8799;text-align:center;margin:0 0 9px;}
 .iz-google-note {font-size:8.5px;color:#58758a;text-align:center;margin-top:4px;}
 .iz-auth-footer {font-size:8.5px;color:#526e82;margin-top:13px;letter-spacing:.15px;}
-[data-testid="stTextInput"] input {border-radius:10px!important;min-height:42px!important;}
-[data-testid="stCheckbox"] label p {font-size:10px!important;}
-.stTabs [data-baseweb="tab-list"] {border-radius:11px!important;}
+[data-testid="stTextInput"] input {border-radius:11px!important;min-height:44px!important;background:#071522!important;border:1px solid #21435a!important;color:#eef8ff!important;box-shadow:inset 0 1px 0 rgba(255,255,255,.02)!important;}
+[data-testid="stTextInput"] input:focus {border-color:#17dce5!important;box-shadow:0 0 0 1px rgba(23,220,229,.45),0 0 22px rgba(18,185,221,.10)!important;}
+[data-testid="stCheckbox"] label p {font-size:10px!important;color:#bad0df!important;}
+[data-testid="stCheckbox"] input {accent-color:#16dbe4!important;}
+/* AUTH: Giriş / Kayıt sekmeleri IZFIN segmented switch */
+.stTabs [data-baseweb="tab-list"] {gap:6px!important;background:#06131f!important;border:1px solid #173a51!important;border-radius:13px!important;padding:5px!important;margin:8px 0 18px!important;box-shadow:inset 0 1px 0 rgba(255,255,255,.025)!important;}
+.stTabs [data-baseweb="tab"] {flex:1!important;justify-content:center!important;min-height:42px!important;border-radius:9px!important;color:#7897aa!important;font-weight:650!important;background:transparent!important;border:1px solid transparent!important;}
+.stTabs [data-baseweb="tab"] p {font-size:12px!important;font-weight:700!important;}
+.stTabs [data-baseweb="tab"][aria-selected="true"] {color:#f4fcff!important;background:linear-gradient(105deg,rgba(13,101,221,.92),rgba(15,202,214,.70))!important;border:1px solid rgba(37,227,235,.62)!important;box-shadow:0 8px 24px rgba(10,139,220,.15),inset 0 1px 0 rgba(255,255,255,.08)!important;}
+.stTabs [data-baseweb="tab-highlight"], .stTabs [data-baseweb="tab-border"] {display:none!important;}
+/* Streamlit primary submit rengini auth markasına sabitle */
+[data-testid="stFormSubmitButton"] button, [data-testid="stForm"] button[kind="primary"], button[data-testid="stBaseButton-primary"] {min-height:46px!important;border-radius:11px!important;background:linear-gradient(100deg,#0d72e8 0%,#13cbd7 100%)!important;color:#fff!important;border:1px solid #25dfe8!important;font-weight:750!important;box-shadow:0 10px 28px rgba(11,139,224,.18),inset 0 1px 0 rgba(255,255,255,.12)!important;}
+[data-testid="stFormSubmitButton"] button:hover, [data-testid="stForm"] button[kind="primary"]:hover, button[data-testid="stBaseButton-primary"]:hover {transform:translateY(-1px)!important;filter:brightness(1.06)!important;box-shadow:0 13px 32px rgba(12,164,224,.25)!important;}
+.iz-google-wrap {position:relative;margin-top:13px;padding-top:18px;border-top:1px solid rgba(32,73,99,.62);}
+.iz-google-caption {display:inline-block;position:relative;top:-26px;background:#050f1a;padding:0 10px;font-size:9px;color:#7895a8;text-align:center;margin-bottom:-16px;}
+.iz-google-note {font-size:8.5px;color:#58758a;text-align:center;margin-top:4px;}
 @media(max-width:850px){.iz-auth-shell{max-width:94%;margin-top:2vh}.iz-auth-logo img{width:62px;height:62px}.iz-auth-logo .word{font-size:25px}.iz-home-scan-banner{flex-direction:column;align-items:flex-start}}
-
-/* IZFIN AUTH POLISH — Streamlit varsayılan kırmızı vurguları bastır */
-.stTabs [data-baseweb="tab-list"] {
-  display:grid!important;grid-template-columns:1fr 1fr!important;gap:7px!important;
-  background:linear-gradient(180deg,#061522,#05101b)!important;border:1px solid #1b425b!important;border-radius:15px!important;
-  padding:6px!important;margin:5px 0 18px!important;box-shadow:inset 0 1px 0 rgba(255,255,255,.025),0 10px 30px rgba(0,0,0,.12)!important;
-}
-.stTabs [data-baseweb="tab"] {
-  width:100%!important;justify-content:center!important;height:50px!important;padding:0 18px!important;
-  border:1px solid rgba(27,66,91,.45)!important;border-radius:11px!important;background:#07131f!important;
-  color:#87a4b8!important;font-weight:720!important;font-size:13px!important;letter-spacing:.15px!important;transition:.18s ease!important;
-}
-.stTabs [data-baseweb="tab"]:hover {background:#0a1c2b!important;color:#e6fbff!important;border-color:#216080!important;transform:translateY(-1px)!important;}
-.stTabs [data-baseweb="tab"][aria-selected="true"] {
-  background:linear-gradient(105deg,#117be9 0%,#14d0d7 100%)!important;
-  color:#fff!important;border-color:#35e1eb!important;
-  box-shadow:0 10px 28px rgba(12,140,220,.25),0 0 0 1px rgba(49,226,235,.08),inset 0 1px 0 rgba(255,255,255,.14)!important;
-  text-shadow:0 1px 12px rgba(255,255,255,.12)!important;
-}
-.stTabs [data-baseweb="tab-highlight"], .stTabs [data-baseweb="tab-border"] {
-  background:transparent!important;border-color:transparent!important;height:0!important;display:none!important;
-}
-/* Tab panelini asla gizleme: yalnızca varsayılan highlight/border bastırılır. */
-.stTabs [role="tabpanel"] {display:block!important;visibility:visible!important;opacity:1!important;}
-/* form primary buttons */
-div[data-testid="stFormSubmitButton"] button, div[data-testid="stButton"] button[kind="primary"] {
-  min-height:48px!important;border-radius:11px!important;border:1px solid rgba(49,223,235,.58)!important;
-  background:linear-gradient(105deg,#147be9 0%,#11cfd5 100%)!important;color:white!important;
-  font-weight:750!important;letter-spacing:.1px!important;
-  box-shadow:0 10px 26px rgba(12,128,218,.18),inset 0 1px 0 rgba(255,255,255,.13)!important;
-}
-div[data-testid="stFormSubmitButton"] button:hover, div[data-testid="stButton"] button[kind="primary"]:hover {
-  filter:brightness(1.07)!important;transform:translateY(-1px)!important;
-  box-shadow:0 14px 30px rgba(13,161,224,.24),0 0 0 1px rgba(45,232,237,.14)!important;
-}
-/* checkbox accent */
-[data-testid="stCheckbox"] input:checked + div {background-color:#16cbd7!important;border-color:#16cbd7!important;}
 
 </style>
 """, unsafe_allow_html=True)
@@ -427,7 +403,7 @@ if (not st.session_state.user_email) and saved_session_cookie and not st.session
 VARSAYILAN_TICKERS = ["AAPL", "MSFT", "TSLA", "NVDA", "AMD", "INTC", "THYAO.IS", "FROTO.IS", "TOASO.IS"]
 
 # --- IZFIN STRATEJİ SÜRÜMÜ ---
-STRATEJI_SURUMU = "IZFIN-v1.7.5-auth-tabs-fixed"
+STRATEJI_SURUMU = "IZFIN-v1.7.4-premium-auth-polished"
 PERFORMANS_UFUKLARI = (1, 5, 10, 20, 45)
 
 # --- IZFIN UYGULAMA SÜRÜMÜ / LOG ---
@@ -3344,20 +3320,13 @@ def _google_login_component():
 <script src='https://www.gstatic.com/firebasejs/10.12.5/firebase-auth-compat.js'></script>
 <style>
 *{{box-sizing:border-box}}body{{margin:0;background:transparent;font-family:Inter,system-ui,-apple-system,Segoe UI,sans-serif}}
-button{{width:100%;height:48px;border-radius:11px;border:1px solid #cfd9e2;background:linear-gradient(180deg,#ffffff,#f7fafc);color:#17222d;font-size:13px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:11px;transition:.18s ease;box-shadow:0 8px 22px rgba(0,0,0,.16),inset 0 1px 0 rgba(255,255,255,.9)}}
-button:hover{{transform:translateY(-1px);border-color:#9ec7e6;box-shadow:0 12px 28px rgba(0,0,0,.22),0 0 0 2px rgba(30,174,230,.08)}}
-button:active{{transform:translateY(0)}}button:disabled{{opacity:.72;cursor:wait}}
+button{{width:100%;height:46px;border-radius:11px;border:1px solid #cfd9e2;background:linear-gradient(180deg,#ffffff 0%,#f7fafc 100%);color:#17222d;font-size:13px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:11px;transition:.18s;box-shadow:0 7px 20px rgba(0,0,0,.18),inset 0 1px 0 rgba(255,255,255,.95)}}
+button:hover{{transform:translateY(-1px);border-color:#9fb8ca;box-shadow:0 11px 27px rgba(0,0,0,.24)}}
+button:active{{transform:translateY(0)}}
 .gmark{{width:19px;height:19px;display:block;flex:0 0 19px}}
-#error{{font-size:10px;color:#ff8791;text-align:center;margin-top:7px;min-height:12px}}
+#error{{font-size:10px;color:#ff7c87;text-align:center;margin-top:7px;min-height:12px}}
 </style></head><body>
-<button id='gbtn' aria-label='Google ile devam et'>
-<svg class='gmark' viewBox='0 0 18 18' xmlns='http://www.w3.org/2000/svg' aria-hidden='true'>
-<path fill='#4285F4' d='M17.64 9.205c0-.638-.057-1.252-.164-1.841H9v3.482h4.844a4.14 4.14 0 0 1-1.797 2.714v2.258h2.909c1.702-1.567 2.684-3.878 2.684-6.613z'/>
-<path fill='#34A853' d='M9 18c2.43 0 4.468-.806 5.956-2.182l-2.909-2.258c-.806.54-1.835.859-3.047.859-2.344 0-4.328-1.585-5.037-3.714H.956v2.332A9 9 0 0 0 9 18z'/>
-<path fill='#FBBC05' d='M3.963 10.705A5.41 5.41 0 0 1 3.682 9c0-.592.102-1.167.281-1.705V4.963H.956A9 9 0 0 0 0 9c0 1.452.347 2.827.956 4.037l3.007-2.332z'/>
-<path fill='#EA4335' d='M9 3.58c1.321 0 2.507.454 3.441 1.346l2.581-2.581C13.464.891 11.427 0 9 0A9 9 0 0 0 .956 4.963l3.007 2.332C4.672 5.165 6.656 3.58 9 3.58z'/>
-</svg>
-<span>Google ile Devam Et</span></button><div id='error'></div>
+<button id='gbtn' aria-label='Google ile devam et'><svg class='gmark' viewBox='0 0 18 18' xmlns='http://www.w3.org/2000/svg'><path fill='#4285F4' d='M17.64 9.205c0-.638-.057-1.252-.164-1.841H9v3.482h4.844a4.14 4.14 0 0 1-1.797 2.715v2.258h2.909c1.702-1.567 2.684-3.875 2.684-6.614z'/><path fill='#34A853' d='M9 18c2.43 0 4.467-.806 5.956-2.181l-2.909-2.258c-.806.54-1.835.859-3.047.859-2.344 0-4.328-1.585-5.037-3.714H.956v2.332A9 9 0 0 0 9 18z'/><path fill='#FBBC05' d='M3.963 10.706A5.41 5.41 0 0 1 3.682 9c0-.592.102-1.167.281-1.706V4.962H.956A9 9 0 0 0 0 9c0 1.452.347 2.827.956 4.038l3.007-2.332z'/><path fill='#EA4335' d='M9 3.58c1.321 0 2.507.454 3.44 1.345l2.581-2.582C13.463.891 11.426 0 9 0A9 9 0 0 0 .956 4.962l3.007 2.332C4.672 5.165 6.656 3.58 9 3.58z'/></svg><span>Google ile devam et</span></button><div id='error'></div>
 <script>
 const cfg={{apiKey:{FIREBASE_WEB_API_KEY!r},authDomain:{FIREBASE_AUTH_DOMAIN!r},projectId:{FIREBASE_PROJECT_ID!r}}};
 try{{if(!firebase.apps.length) firebase.initializeApp(cfg);}}catch(e){{}}
