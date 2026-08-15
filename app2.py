@@ -1208,6 +1208,33 @@ button[kind="primary"],
     .iz-closed-extremes{justify-content:flex-start}
 }
 
+
+/* v1.7.29 — Ana sayfa tıklanabilir hisse öğeleri */
+.iz-home-stock-link{
+    text-decoration:none!important;color:inherit!important;cursor:pointer!important;
+    position:relative;transition:transform .16s ease,filter .16s ease!important;
+}
+.iz-home-stock-link:hover{
+    transform:translateY(-2px)!important;filter:brightness(1.08)!important;
+    outline:1px solid rgba(32,216,225,.52)!important;
+}
+.iz-open-detail{
+    display:block!important;margin-top:5px!important;color:#80dce5!important;
+    font-size:8px!important;font-weight:750!important;letter-spacing:.25px!important;opacity:.72;
+}
+.iz-home-stock-link:hover .iz-open-detail{opacity:1}
+.iz-ticker-link{
+    display:inline-flex;align-items:center;gap:5px;text-decoration:none!important;
+    color:#dff9fc!important;padding:4px 7px;margin:-4px -7px;border-radius:7px;transition:.15s ease;
+}
+.iz-ticker-link span{color:#3fcbd8;font-size:9px;opacity:.65}
+.iz-ticker-link:hover{background:#0a3042;color:#fff!important}
+.iz-ticker-link:hover span{opacity:1}
+.iz-mover-link{text-decoration:none!important;color:inherit!important;transition:background .15s ease!important}
+.iz-mover-link:hover{background:#0a2636!important}
+.iz-mini-arrow{margin-left:5px;color:#39cbd8;font-size:9px;opacity:.65}
+.iz-mover-link:hover .iz-mini-arrow{opacity:1}
+
 </style>
 """, unsafe_allow_html=True)
 
@@ -4407,6 +4434,11 @@ def _iz_pulse_label(p):
     if p >= 32: return "TEMKİNLİ"
     return "RİSKLİ"
 
+def _iz_detail_href(ticker):
+    ticker = str(ticker or "").strip().upper()
+    return "?" + urlencode({"izfin_detail": ticker}) + "#izfin-detail-anchor"
+
+
 def _iz_heatmap_items(max_n=16):
     sonuclar = st.session_state.get("sonuclar") or []
     paneller = st.session_state.get("teknik_paneller") or {}
@@ -4434,7 +4466,16 @@ def izfin_dashboard_html():
     if items:
         parts = []
         for s,g,t,d in items:
-            parts.append(f'<div class="iz-heat" style="{_iz_heat_color(s)};box-shadow:inset 0 0 0 {max(1,int(g/30))}px rgba(38,238,220,.13)"><strong>{t}</strong><span>IZ {int(s)} · Güven {int(g)}%</span><span style="display:block;color:{"#31e59c" if d>=0 else "#ff6b78"};margin-top:2px">{d:+.2f}%</span></div>')
+            _href = _iz_detail_href(t)
+            _safe_t = html.escape(str(t))
+            parts.append(
+                f'<a class="iz-heat iz-home-stock-link" href="{html.escape(_href, quote=True)}" '
+                f'title="{_safe_t} detay analizine git" '
+                f'style="{_iz_heat_color(s)};box-shadow:inset 0 0 0 {max(1,int(g/30))}px rgba(38,238,220,.13)">'
+                f'<strong>{_safe_t}</strong><span>IZ {int(s)} · Güven {int(g)}%</span>'
+                f'<span style="display:block;color:{"#31e59c" if d>=0 else "#ff6b78"};margin-top:2px">{d:+.2f}%</span>'
+                f'<span class="iz-open-detail">Detayı aç ↗</span></a>'
+            )
         heat = ''.join(parts)
     else:
         heat = '<div style="grid-column:1/-1;padding:34px 15px;text-align:center;color:#7891a5;border:1px dashed #1a4059;border-radius:11px"><b style="color:#b7c9d6">İlk Akıllı Tarama bekleniyor</b><br><span style="font-size:10px">Tarama sonrası renk = IZFIN skoru, çerçeve = algoritma güveni olacak.</span></div>'
@@ -4481,7 +4522,15 @@ def izfin_top_signals_html(max_n=7):
         sin = str(r.get("Nihai Sinyal","—"))
         skor = int(float(p.get("cezali_skor",0) or 0)); g = int(float(p.get("guven_skoru",50) or 50))
         fiyat = r.get("Fiyat","—"); risk = p.get("risk_seviyesi",r.get("Risk","—")); mtf = int(float(p.get("mtf_uyum",50) or 50))
-        rows.append(f'<tr><td><b>{t}</b></td><td>{fiyat}</td><td><span class="iz-badge {_iz_badge_class(sin)}">{sin}</span></td><td><b style="color:#20e69a">{skor}</b></td><td><div class="iz-ring" style="--g:{g}"><span>{g}%</span></div></td><td>{mtf}%</td><td>{risk}</td></tr>')
+        _href = _iz_detail_href(t)
+        _safe_t = html.escape(t)
+        rows.append(
+            f'<tr class="iz-click-row">'
+            f'<td><a class="iz-ticker-link" href="{html.escape(_href, quote=True)}" title="{_safe_t} detay analizine git"><b>{_safe_t}</b><span>↗</span></a></td>'
+            f'<td>{fiyat}</td><td><span class="iz-badge {_iz_badge_class(sin)}">{sin}</span></td>'
+            f'<td><b style="color:#20e69a">{skor}</b></td><td><div class="iz-ring" style="--g:{g}"><span>{g}%</span></div></td>'
+            f'<td>{mtf}%</td><td>{risk}</td></tr>'
+        )
     if not rows:
         return '<div class="iz-signals"><div class="iz-card-title">ÖNE ÇIKAN IZFIN SİNYALLERİ</div><div style="color:#7891a5;padding:18px 0">Derin Tarama çalıştırıldığında en yüksek skorlu sinyaller burada özetlenecek.</div></div>'
     return '<div class="iz-signals"><div class="iz-card-title">ÖNE ÇIKAN IZFIN SİNYALLERİ</div><table><thead><tr><th>VARLIK</th><th>FİYAT</th><th>IZFIN KARARI</th><th>SKOR</th><th>GÜVEN</th><th>MTF</th><th>RİSK</th></tr></thead><tbody>' + ''.join(rows) + '</tbody></table></div>'
@@ -4497,10 +4546,21 @@ def izfin_movers_html(max_n=6):
         rows.append((abs(deg), deg, t, r.get("Fiyat", "—")))
     rows.sort(reverse=True)
     if not rows:
-        body = '<div style="padding:22px 2px;color:#748ea2;font-size:11px">Akıllı Tarama sonrası en çok hareket eden varlıklar burada görünecek.</div>'
+        body = '<div style="padding:22px 2px;color:#748ea2;font-size:11px">Akıllı Tarama sonrası listedeki dikkat çekici fiyat hareketleri burada görünecek.</div>'
     else:
-        body = ''.join([f'<div class="iz-mover-row"><div class="iz-mover-name">{t}</div><div class="iz-mover-price">{f}</div><div class="iz-mover-chg" style="color:{"#28e69d" if d>=0 else "#ff6673"}">{d:+.2f}%</div></div>' for _,d,t,f in rows[:max_n]])
-    return f'<div class="iz-movers"><div class="iz-card-title">PİYASAYI HAREKETLENDİRENLER</div>{body}</div>'
+        _parts = []
+        for _, d, t, f in rows[:max_n]:
+            _href = _iz_detail_href(t)
+            _safe_t = html.escape(str(t))
+            _parts.append(
+                f'<a class="iz-mover-row iz-mover-link" href="{html.escape(_href, quote=True)}" title="{_safe_t} detay analizine git">'
+                f'<div class="iz-mover-name">{_safe_t}<span class="iz-mini-arrow">↗</span></div>'
+                f'<div class="iz-mover-price">{f}</div>'
+                f'<div class="iz-mover-chg" style="color:{"#28e69d" if d>=0 else "#ff6673"}">{d:+.2f}%</div>'
+                f'</a>'
+            )
+        body = ''.join(_parts)
+    return f'<div class="iz-movers"><div class="iz-card-head"><div><div class="iz-card-title" style="margin:0">LİSTEDE DİKKAT ÇEKENLER</div><div class="iz-card-kicker">SON TARAMA EVRENİNDEKİ BELİRGİN HAREKETLER</div></div></div>{body}</div>'
 
 def izfin_home_action_html():
     return '''<div class="iz-cta"><div class="iz-section-label">AKILLI TARAMA</div><h3>Fırsatı geniş havuzda keşfet</h3><p>Seçtiğin piyasa grubunu IZFIN karar motoruyla tara; skor, güven, giriş kalitesi, MTF ve risk filtrelerini aynı tabloda karşılaştır.</p></div>'''
@@ -4906,6 +4966,22 @@ if "izfin_nav" not in st.session_state:
 
 def _izfin_nav_to(hedef):
     st.session_state.izfin_nav = hedef
+
+# Ana sayfadaki hisse öğelerinden Akıllı Tarama detayına geçiş.
+try:
+    _home_detail_ticker = str(st.query_params.get("izfin_detail", "") or "").strip().upper()
+except Exception:
+    _home_detail_ticker = ""
+
+if _home_detail_ticker:
+    _available_panels = st.session_state.get("teknik_paneller") or {}
+    if _home_detail_ticker in _available_panels:
+        st.session_state.izfin_nav = "🔎 Akıllı Tarama"
+        st.session_state["izfin_pending_detail_ticker"] = _home_detail_ticker
+    try:
+        del st.query_params["izfin_detail"]
+    except Exception:
+        pass
 
 st.sidebar.markdown('<div class="iz-nav-label" style="margin-top:14px">NAVİGASYON</div>', unsafe_allow_html=True)
 for _nav_label in ["🏠 Ana Sayfa", "🔎 Akıllı Tarama", "🎯 Projeksiyon & Senaryo", "📊 Takip & Performans", "🧪 Strateji Laboratuvarı"]:
@@ -5795,9 +5871,21 @@ if aktif_sayfa in ["🏠 Ana Sayfa", "🔎 Akıllı Tarama"]:
                         + ". Bu durum teknik analiz ve skorlamayı etkilemez; PEG yalnızca ayrı bir temel değerleme göstergesidir."
                     )
                 
+                st.markdown('<div id="izfin-detail-anchor"></div>', unsafe_allow_html=True)
                 st.markdown("### 📊 Detaylı Teknik Analiz & Gösterge Paneli")
-                secilen_detay_hisse = st.selectbox("İncelemek İçin Varlık Seçin:", options=df_sonuc["Varlık"].tolist(), key="detay_hisse_secici")
-                
+                _detay_options = df_sonuc["Varlık"].tolist()
+                _pending_detail = st.session_state.pop("izfin_pending_detail_ticker", None)
+                if _pending_detail in _detay_options:
+                    st.session_state["detay_hisse_secici"] = _pending_detail
+                elif st.session_state.get("detay_hisse_secici") not in _detay_options and _detay_options:
+                    st.session_state["detay_hisse_secici"] = _detay_options[0]
+
+                secilen_detay_hisse = st.selectbox(
+                    "İncelemek İçin Varlık Seçin:",
+                    options=_detay_options,
+                    key="detay_hisse_secici",
+                )
+
                 if secilen_detay_hisse:
                     panel_verisi = st.session_state.teknik_paneller.get(secilen_detay_hisse)
                     if panel_verisi:
