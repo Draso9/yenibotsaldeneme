@@ -2007,3 +2007,84 @@ button[kind="primary"],
       .hp-trigger-list{margin:8px 0 0 18px;padding:0;font-size:12px;line-height:1.6}
       @media(max-width:1000px){.hp-grid{grid-template-columns:repeat(2,1fr)}.hp-sections{grid-template-columns:1fr}}
       @media(max-width:600px){.hp-grid{grid-template-columns:1fr}.hp-target{grid-template-columns:1fr}}
+
+/* =========================================================
+   v1.7.50 — HOME PRIORITY LAYOUT
+   ========================================================= */
+
+/* Üstteki ikili panel daha dengeli ve okunabilir */
+.iz-home-focus-card,
+.iz-signals,
+.iz-movers{
+    width:100%;
+    box-sizing:border-box;
+}
+
+/* Listede Dikkat Çekenler: daha büyük tipografi ve daha rahat satırlar */
+.iz-mover-row{
+    min-height:58px!important;
+    padding:10px 11px!important;
+    gap:9px!important;
+}
+.iz-mover-row strong{
+    font-size:11.5px!important;
+    line-height:1.2!important;
+}
+.iz-mover-row span{
+    font-size:9px!important;
+    line-height:1.25!important;
+}
+.iz-mover-row small{
+    font-size:7.8px!important;
+}
+
+/* Sol panel de sağ panelle aynı görsel ritmi korusun */
+.iz-signal-row{
+    min-height:58px!important;
+    padding:10px 11px!important;
+}
+.iz-signal-row strong{
+    font-size:11px!important;
+}
+
+/* Karar Merkezi: öne çıkan setup artık en altta */
+.iz-decision-lower-summary{
+    display:block!important;
+}
+.iz-decision-lower-summary .iz-market-factors{
+    width:100%!important;
+}
+.iz-best-setup-bottom{
+    margin-top:8px;
+}
+.iz-best-setup-bottom .iz-best-setup-copy{
+    width:100%!important;
+    min-height:66px!important;
+    box-sizing:border-box!important;
+    display:grid!important;
+    grid-template-columns:1fr auto!important;
+    grid-template-rows:auto auto!important;
+    column-gap:18px!important;
+    align-items:center!important;
+}
+.iz-best-setup-bottom .iz-best-setup-copy small{
+    grid-column:1 / -1;
+}
+.iz-best-setup-bottom .iz-best-setup-copy strong{
+    font-size:19px!important;
+    margin:3px 0 0!important;
+}
+.iz-best-setup-bottom .iz-best-setup-copy span{
+    text-align:right!important;
+    font-size:8.5px!important;
+}
+
+@media(max-width:1200px){
+    .iz-mover-row,.iz-signal-row{
+        min-height:54px!important;
+        padding:8px 9px!important;
+    }
+    .iz-mover-row strong{font-size:10.5px!important;}
+    .iz-mover-row span{font-size:8.5px!important;}
+}
+
