@@ -5691,12 +5691,8 @@ if aktif_sayfa in ["🏠 Ana Sayfa", "🔎 Akıllı Tarama"]:
         st.markdown(izfin_top_signals_html(), unsafe_allow_html=True)
         izfin_top_signal_clicks(max_n=7)
 
-        hc1, hc2 = st.columns([1.45, .85])
-        with hc1:
-            st.markdown(izfin_movers_html(), unsafe_allow_html=True)
-            izfin_mover_clicks(max_n=6)
-        with hc2:
-            st.markdown(izfin_home_action_html(), unsafe_allow_html=True)
+        st.markdown(izfin_movers_html(), unsafe_allow_html=True)
+        izfin_mover_clicks(max_n=6)
     else:
         st.markdown('''<div class="iz-scanner-hero"><div><div class="iz-section-label">IZFIN SCANNER</div><h2>Akıllı Tarama Merkezi</h2><p>Varlık evrenini seç, merkezi karar motorunu çalıştır ve sonuçları skor · güven · giriş kalitesi · MTF · risk ekseninde karşılaştır.</p></div><span class="iz-badge wait">SIGNATURE SCAN</span></div>''', unsafe_allow_html=True)
 
