@@ -188,6 +188,11 @@ hr {border-color:#122a3e!important;}
 .iz-google-note {font-size:8.5px;color:#58758a;text-align:center;margin-top:4px;}
 @media(max-width:850px){.iz-auth-shell{max-width:94%;margin-top:2vh}.iz-auth-logo img{width:62px;height:62px}.iz-auth-logo .word{font-size:25px}.iz-home-scan-banner{flex-direction:column;align-items:flex-start}}
 
+/* v1.7.5 AUTH SWITCH: auth ekranında Streamlit tabs kullanılmaz. */
+.iz-auth-switch-label{font-size:9px;color:#66889d;letter-spacing:.9px;text-align:center;margin:4px 0 7px;text-transform:uppercase;}
+[data-baseweb="tab-highlight"], [data-baseweb="tab-border"], [role="tab"]::before, [role="tab"]::after, [role="tablist"]::before, [role="tablist"]::after {display:none!important;background:transparent!important;border:0!important;box-shadow:none!important;height:0!important;}
+[data-testid="stHorizontalBlock"] [data-testid="stButton"] button {transition:all .18s ease;}
+
 </style>
 """, unsafe_allow_html=True)
 
@@ -403,7 +408,7 @@ if (not st.session_state.user_email) and saved_session_cookie and not st.session
 VARSAYILAN_TICKERS = ["AAPL", "MSFT", "TSLA", "NVDA", "AMD", "INTC", "THYAO.IS", "FROTO.IS", "TOASO.IS"]
 
 # --- IZFIN STRATEJİ SÜRÜMÜ ---
-STRATEJI_SURUMU = "IZFIN-v1.7.4-premium-auth-polished"
+STRATEJI_SURUMU = "IZFIN-v1.7.5-auth-switch-fixed"
 PERFORMANS_UFUKLARI = (1, 5, 10, 20, 45)
 
 # --- IZFIN UYGULAMA SÜRÜMÜ / LOG ---
@@ -3352,6 +3357,9 @@ def izfin_auth_ekrani():
             st.error(msg)
 
     _captcha_hazirla()
+    if "izfin_auth_mode" not in st.session_state:
+        st.session_state.izfin_auth_mode = "login"
+
     st.markdown('<div class="iz-auth-bg"></div>', unsafe_allow_html=True)
     st.markdown(f'''<div class="iz-auth-shell">
       <div class="iz-auth-logo">
@@ -3369,8 +3377,18 @@ def izfin_auth_ekrani():
         if not FIREBASE_WEB_API_KEY:
             st.error("Giriş sistemi yapılandırması eksik: Streamlit Secrets içine FIREBASE_WEB_API_KEY eklenmeli.")
 
-        giris_tab, kayit_tab = st.tabs(["Giriş Yap", "Kayıt Ol"])
-        with giris_tab:
+        st.markdown('<div class="iz-auth-switch-label">HESAP ERİŞİMİ</div>', unsafe_allow_html=True)
+        sw1, sw2 = st.columns(2, gap="small")
+        with sw1:
+            if st.button("Giriş Yap", key="auth_switch_login", type="primary" if st.session_state.izfin_auth_mode == "login" else "secondary", use_container_width=True):
+                st.session_state.izfin_auth_mode = "login"
+                st.rerun()
+        with sw2:
+            if st.button("Kayıt Ol", key="auth_switch_register", type="primary" if st.session_state.izfin_auth_mode == "register" else "secondary", use_container_width=True):
+                st.session_state.izfin_auth_mode = "register"
+                st.rerun()
+
+        if st.session_state.izfin_auth_mode == "login":
             with st.form("izfin_login_form", clear_on_submit=False):
                 email = st.text_input("E-posta", placeholder="ornek@email.com").strip().lower()
                 password = st.text_input("Şifre", type="password", placeholder="Şifreniz")
@@ -3403,7 +3421,7 @@ def izfin_auth_ekrani():
             _google_login_component()
             st.markdown('<div class="iz-google-note">Google hesabınız Firebase Authentication üzerinden doğrulanır.</div>', unsafe_allow_html=True)
 
-        with kayit_tab:
+        else:
             st.caption("Yeni hesabınız kişisel izleme listenizi ve performans geçmişinizi size özel saklar.")
             with st.form("izfin_register_form", clear_on_submit=False):
                 reg_email = st.text_input("E-posta", key="reg_email", placeholder="ornek@email.com").strip().lower()
@@ -3430,14 +3448,15 @@ def izfin_auth_ekrani():
                     if err:
                         st.error(err); _captcha_yenile()
                     else:
-                        st.success("Hesabınız oluşturuldu. Şimdi Giriş Yap sekmesinden oturum açabilirsiniz."); _captcha_yenile()
+                        st.success("Hesabınız oluşturuldu. Giriş Yap bölümünden oturum açabilirsiniz.")
+                        st.session_state.izfin_auth_mode = "login"
+                        _captcha_yenile()
             st.markdown('<div class="iz-google-wrap"><div class="iz-google-caption">şifre oluşturmadan devam et</div></div>', unsafe_allow_html=True)
             _google_login_component()
 
         st.markdown('<div class="iz-auth-security"><span>◈ <b>Firebase Auth</b></span><span>◈ <b>Kişisel veri alanı</b></span><span>◈ <b>14 gün güvenli oturum</b></span></div>', unsafe_allow_html=True)
 
     st.markdown('<div class="iz-auth-shell"><div class="iz-auth-footer">IZFIN · ANALYZE • PREDICT • INVEST &nbsp;·&nbsp; Yatırım karar destek platformu</div></div>', unsafe_allow_html=True)
-
 
 def izfin_tarama_tablosu_html(df):
     if df is None or df.empty:
