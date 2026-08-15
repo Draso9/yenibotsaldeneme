@@ -495,6 +495,25 @@ button[kind="primary"],
     color:#7899ad!important;
 }
 
+
+/* v1.7.17 — Hisse ara butonu */
+.st-key-stock_search_button button{
+    min-height:44px!important;
+    margin-top:0!important;
+    border-radius:11px!important;
+    background:linear-gradient(135deg,#0b2a3e,#0c364a)!important;
+    color:#dff8fb!important;
+    border:1px solid #1a6078!important;
+    font-weight:760!important;
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.03)!important;
+}
+.st-key-stock_search_button button:hover{
+    border-color:#19dce4!important;
+    background:linear-gradient(135deg,#0d344a,#0e4055)!important;
+    color:#ffffff!important;
+    box-shadow:0 7px 18px rgba(11,172,204,.12)!important;
+}
+
 </style>
 """, unsafe_allow_html=True)
 
@@ -4236,14 +4255,33 @@ if aktif_sayfa in ["🏠 Ana Sayfa", "🔎 Akıllı Tarama"]:
 
         with scan_left:
             st.markdown("""<div class="iz-panel-title"><span class="iz-panel-icon">⌕</span><div><b>Hisse Ara & Listem</b><small>Piyasalarda ara, kişisel evrenini oluştur</small></div></div>""", unsafe_allow_html=True)
-            _arama = st.text_input(
-                "Hisse / şirket ara",
-                key="ek_hisse_arama",
-                placeholder="Örn. APP, Apple, NVDA, THYAO...",
-                help="Sembolün veya şirket adının ilk harflerini yazın. Piyasadaki eşleşmeler aşağıda çıkar.",
+            search_col, search_btn_col = st.columns([5.2, 1.0], gap="small")
+            with search_col:
+                _arama = st.text_input(
+                    "Hisse / şirket ara",
+                    key="ek_hisse_arama",
+                    placeholder="Örn. APP, Apple, NVDA, THYAO...",
+                    help="Sembolün veya şirket adının ilk harflerini yazın. Enter'a basabilir veya Ara butonunu kullanabilirsiniz.",
+                )
+            with search_btn_col:
+                st.markdown("<div style='height:28px'></div>", unsafe_allow_html=True)
+                _ara_tiklandi = st.button(
+                    "Ara",
+                    key="stock_search_button",
+                    use_container_width=True,
+                    type="secondary",
+                )
+
+            # Yazı değiştiğinde Streamlit zaten rerun eder; Ara butonu da aynı akışı tetikler.
+            # Böylece hem Enter hem tıklama kullanılabilir.
+            _arama_aktif = bool(_arama.strip()) and (
+                _ara_tiklandi
+                or st.session_state.get("_son_hisse_arama") != _arama.strip()
+                or st.session_state.get("_son_hisse_arama") == _arama.strip()
             )
 
-            if _arama.strip():
+            if _arama_aktif:
+                st.session_state["_son_hisse_arama"] = _arama.strip()
                 with st.spinner("Piyasalarda aranıyor..."):
                     _oneriler = hisse_onerileri_getir(_arama)
             else:
