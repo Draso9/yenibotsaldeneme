@@ -514,6 +514,75 @@ button[kind="primary"],
     box-shadow:0 7px 18px rgba(11,172,204,.12)!important;
 }
 
+
+/* v1.7.18 — Multiselect/tag görünümü: IZFIN dark + cyan */
+[data-testid="stMultiSelect"] [data-baseweb="select"] > div {
+    background:#071724!important;
+    border:1px solid #1a455c!important;
+    border-radius:11px!important;
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.02)!important;
+}
+
+/* Seçili varlık chip'leri: kırmızı Streamlit varsayılanını tamamen kaldır */
+[data-testid="stMultiSelect"] span[data-baseweb="tag"],
+[data-testid="stMultiSelect"] [data-baseweb="tag"] {
+    background:linear-gradient(135deg,#0b2b3d,#0d3a4c)!important;
+    border:1px solid #17637a!important;
+    border-radius:8px!important;
+    color:#dff7fb!important;
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.025)!important;
+    opacity:1!important;
+}
+
+[data-testid="stMultiSelect"] span[data-baseweb="tag"] *,
+[data-testid="stMultiSelect"] [data-baseweb="tag"] * {
+    color:#dff7fb!important;
+    fill:#8fdce5!important;
+    opacity:1!important;
+}
+
+/* Chip içindeki X ikonu */
+[data-testid="stMultiSelect"] [data-baseweb="tag"] button,
+[data-testid="stMultiSelect"] [data-baseweb="tag"] svg {
+    color:#8fdce5!important;
+    fill:#8fdce5!important;
+    opacity:.95!important;
+}
+
+[data-testid="stMultiSelect"] [data-baseweb="tag"]:hover {
+    background:linear-gradient(135deg,#0d3448,#105065)!important;
+    border-color:#20d3dc!important;
+}
+
+/* Sol taraftaki disabled kişisel listeyi silik göstermesin */
+[data-testid="stMultiSelect"] [aria-disabled="true"],
+[data-testid="stMultiSelect"] [data-baseweb="select"][aria-disabled="true"],
+[data-testid="stMultiSelect"] [data-baseweb="select"] [aria-disabled="true"] {
+    opacity:1!important;
+    filter:none!important;
+}
+
+[data-testid="stMultiSelect"] [aria-disabled="true"] [data-baseweb="tag"],
+[data-testid="stMultiSelect"] [data-baseweb="select"][aria-disabled="true"] [data-baseweb="tag"] {
+    opacity:1!important;
+    background:#0b2637!important;
+    border:1px solid #194f66!important;
+    color:#bcdce8!important;
+}
+
+[data-testid="stMultiSelect"] [aria-disabled="true"] [data-baseweb="tag"] *,
+[data-testid="stMultiSelect"] [data-baseweb="select"][aria-disabled="true"] [data-baseweb="tag"] * {
+    color:#bcdce8!important;
+    opacity:1!important;
+}
+
+/* Placeholder ve normal metin kontrastı */
+[data-testid="stMultiSelect"] input,
+[data-testid="stMultiSelect"] input::placeholder {
+    color:#8aaabd!important;
+    opacity:1!important;
+}
+
 </style>
 """, unsafe_allow_html=True)
 
