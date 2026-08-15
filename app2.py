@@ -22,6 +22,7 @@ import firebase_admin
 from firebase_admin import credentials, firestore, auth
 import extra_streamlit_components as stx
 import streamlit.components.v1 as components
+from pathlib import Path
 
 # --- 1. SAYFA YAPILANDIRMASI ---
 st.set_page_config(
@@ -30,1979 +31,10 @@ st.set_page_config(
     layout="wide"
 )
 
+izfin_css_yukle()
+
 # --- CSS: Running yazısı gizlenir, MOBİL MENÜ KESİN OLARAK KORUNUR ---
-st.markdown("""
-<style>
-:root {
-  --iz-bg:#050b14; --iz-panel:#08131f; --iz-panel2:#0b1826; --iz-line:#153047;
-  --iz-cyan:#18e0e8; --iz-blue:#1689ff; --iz-green:#20e69a; --iz-red:#ff5c6c;
-  --iz-amber:#f6bd4b; --iz-text:#edf7ff; --iz-muted:#8298ab;
-}
-html, body, [data-testid="stAppViewContainer"], .stApp {
-  background: radial-gradient(circle at 70% 0%, rgba(22,137,255,.08), transparent 27%), #050b14 !important;
-  color:var(--iz-text);
-}
-[data-testid="stMainBlockContainer"] {max-width:1580px!important;padding-top:1rem!important;padding-bottom:3rem!important;}
-header[data-testid="stHeader"] {background:rgba(5,11,20,.72)!important;backdrop-filter:blur(16px);border-bottom:1px solid rgba(35,83,119,.22);box-shadow:none!important;}
-[data-testid="stStatusWidget"], [data-testid="stToolbarActions"], .stDeployButton, .stAppStatusIndicator {display:none!important;visibility:hidden!important;opacity:0!important;}
-[data-testid="collapsedControl"] {display:flex!important;visibility:visible!important;opacity:1!important;z-index:99999!important;}
-[data-testid="stSidebar"] {background:linear-gradient(180deg,#05101b 0%,#06111d 56%,#040a12 100%)!important;border-right:1px solid #122b40;}
-[data-testid="stSidebar"] > div:first-child {padding-top:.7rem;}
-[data-testid="stSidebar"] label, [data-testid="stSidebar"] p {color:#b9c8d5!important;}
-[data-testid="stSidebar"] .stButton button {border:1px solid #173b56!important;background:#091827!important;color:#dff9ff!important;border-radius:10px!important;}
-[data-testid="stSidebar"] .stButton button[kind="primary"], button[kind="primary"] {background:linear-gradient(105deg,#0d64dd,#10cfd8)!important;color:#fff!important;border:1px solid #23e4ec!important;box-shadow:0 0 24px rgba(13,147,239,.18)!important;}
-.stTabs [data-baseweb="tab-list"] {gap:8px;background:#07121e;border:1px solid #123149;border-radius:13px;padding:6px;}
-.stTabs [data-baseweb="tab"] {height:42px;background:transparent;border-radius:9px;color:#8ba1b3;padding:0 18px;}
-.stTabs [aria-selected="true"] {background:linear-gradient(105deg,rgba(11,91,201,.8),rgba(13,194,207,.35))!important;color:white!important;border:1px solid rgba(31,218,232,.5)!important;}
-[data-testid="stExpander"], [data-testid="stDataFrame"], [data-testid="stMetric"] {border-color:#173249!important;}
-[data-testid="stDataFrame"] {border-radius:14px;overflow:hidden;}
-.stSelectbox > div > div, .stMultiSelect > div > div, .stTextInput > div > div > input {background:#081522!important;border-color:#183951!important;color:#edf7ff!important;}
-hr {border-color:#122a3e!important;}
-.kpi-card {background:linear-gradient(145deg,rgba(12,29,45,.95),rgba(7,20,32,.95));padding:18px;border-radius:14px;text-align:left;border:1px solid #17384f;box-shadow:inset 0 1px 0 rgba(255,255,255,.025);color:var(--iz-text);}
-.kpi-title {font-size:11px;color:#8298ab;text-transform:uppercase;letter-spacing:1.1px;}
-.kpi-value {font-size:28px;font-weight:700;color:#f3fbff;margin-top:5px;}
-.kpi-highlight-green {color:#25e6a0;} .kpi-highlight-fire {color:#5de5ff;}
-.info-box {background:#081522;padding:15px;border-radius:10px;border-left:4px solid #12bfda;margin-bottom:15px;font-size:13px;color:#c8d7e3;line-height:1.6;}
-.dataframe {font-size:12px!important;}
-.iz-brand {display:flex;align-items:center;gap:12px;padding:5px 1px 14px;}
-.iz-brand img {width:48px;height:48px;border-radius:13px;object-fit:cover;box-shadow:0 0 25px rgba(21,206,226,.14);}
-.iz-brand-name {font-size:25px;letter-spacing:6px;font-weight:650;color:#f2f8fc;}
-.iz-brand-tag {font-size:8px;letter-spacing:2px;color:#7691a7;margin-top:3px;}
-.iz-livebar {display:grid;grid-template-columns:repeat(7,minmax(118px,1fr));gap:7px;margin:2px 0 15px;}
-.iz-ticker {background:#07131f;border:1px solid #153047;border-radius:11px;padding:9px 11px;min-height:65px;}
-.iz-ticker .n {font-size:10px;color:#8da2b4;letter-spacing:.4px;}
-.iz-ticker .v {font-size:17px;color:#f2f8fb;margin-top:3px;font-weight:600;}
-.iz-up {color:#1ee5a0!important}.iz-down {color:#ff5c6c!important}
-.iz-dashboard {display:grid;grid-template-columns:1.58fr .92fr;gap:14px;margin:6px 0 14px;}
-.iz-card {background:linear-gradient(145deg,#081522,#07111d);border:1px solid #17354b;border-radius:15px;padding:17px;}
-.iz-card-title {font-size:14px;font-weight:650;letter-spacing:.4px;color:#f2f9ff;margin-bottom:11px;}
-.iz-pulse {display:grid;grid-template-columns:175px 1fr;gap:20px;align-items:center;}
-.iz-gauge {width:145px;height:145px;border-radius:50%;display:grid;place-items:center;background:conic-gradient(#16e1e6 0 var(--pulse),#12416a var(--pulse) 100%);position:relative;box-shadow:0 0 30px rgba(18,191,229,.12);}
-.iz-gauge:after {content:"";position:absolute;inset:10px;border-radius:50%;background:#07131f;border:1px solid #173d57;}
-.iz-gauge-content {z-index:1;text-align:center}.iz-gauge-num {font-size:38px;font-weight:700}.iz-gauge-label {font-size:11px;color:#1fe4c2;letter-spacing:1px;}
-.iz-components {display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:13px;}
-.iz-comp {background:#091a28;border:1px solid #14364e;border-radius:12px;padding:11px;}
-.iz-comp-name {font-size:9px;color:#8ca1b1;letter-spacing:.7px}.iz-comp-val {font-size:21px;font-weight:650;margin-top:4px}.iz-comp-sub {font-size:9px;color:#45d9e6;margin-top:2px;}
-.iz-heat-grid {display:grid;grid-template-columns:repeat(4,1fr);gap:5px;}
-.iz-heat {border-radius:8px;padding:9px 7px;min-height:62px;border:1px solid rgba(255,255,255,.06);}
-.iz-heat strong {display:block;font-size:12px}.iz-heat span {font-size:10px;opacity:.88}
-.iz-signals {margin:13px 0;background:#07131f;border:1px solid #17354b;border-radius:15px;padding:16px;}
-.iz-signals table {width:100%;border-collapse:collapse;font-size:12px}.iz-signals th {color:#728b9f;text-align:left;font-size:9px;padding:8px;border-bottom:1px solid #17354b;letter-spacing:.5px}.iz-signals td {padding:9px 8px;border-bottom:1px solid rgba(23,53,75,.5);}
-.iz-badge {display:inline-block;padding:4px 8px;border-radius:7px;font-size:10px;font-weight:700;border:1px solid;}
-.iz-badge.buy {background:rgba(21,210,129,.11);border-color:#1b9c6c;color:#54f0ac}.iz-badge.early {background:rgba(247,184,50,.10);border-color:#946b1d;color:#ffd36d}.iz-badge.wait {background:rgba(38,138,255,.11);border-color:#2167ac;color:#65b7ff}.iz-badge.risk {background:rgba(255,72,85,.10);border-color:#9d3943;color:#ff7782}
-.iz-ring {display:inline-grid;place-items:center;width:36px;height:36px;border-radius:50%;background:conic-gradient(#1ee0e5 calc(var(--g)*1%),#17354b 0);position:relative;font-size:9px;font-weight:700}
-.iz-ring:after {content:"";position:absolute;inset:4px;background:#07131f;border-radius:50%}.iz-ring span {position:relative;z-index:1}
-.iz-hero {padding:6px 2px 12px}.iz-hero h1 {font-size:31px;margin:0;color:#f3f9fc;letter-spacing:-.5px}.iz-hero p {color:#8099ac;margin:5px 0 0;font-size:13px}
-.iz-section-label {font-size:10px;color:#1bd7e4;letter-spacing:1.6px;font-weight:650;text-transform:uppercase}
-@media(max-width:1100px) {.iz-livebar {grid-template-columns:repeat(3,1fr)}.iz-dashboard {grid-template-columns:1fr}.iz-pulse {grid-template-columns:145px 1fr}}
-@media(max-width:700px) {.iz-livebar {grid-template-columns:repeat(2,1fr)}.iz-components {grid-template-columns:repeat(2,1fr)}.iz-heat-grid {grid-template-columns:repeat(2,1fr)}.iz-pulse {grid-template-columns:1fr}.iz-gauge {margin:auto}}
-
-/* --- IZFIN v1.7.1 Signature refinement --- */
-[data-testid="stMainBlockContainer"] {max-width:1680px!important;padding-left:1.35rem!important;padding-right:1.35rem!important;}
-[data-testid="stSidebar"] {min-width:310px!important;max-width:310px!important;}
-[data-testid="stSidebar"] [data-testid="stExpander"] {background:#07131f!important;border:1px solid #17354b!important;border-radius:12px!important;overflow:hidden;}
-[data-testid="stSidebar"] [data-testid="stExpander"] details summary {background:#07131f!important;color:#dceaf5!important;}
-[data-testid="stSidebar"] [data-testid="stExpander"] details summary:hover {background:#0a1a29!important;}
-.iz-brand {padding:12px 3px 18px!important;gap:13px!important;}
-.iz-brand img {width:62px!important;height:62px!important;border-radius:16px!important;object-fit:cover!important;object-position:center!important;border:1px solid rgba(35,226,234,.24);box-shadow:0 0 28px rgba(22,196,228,.13)!important;}
-.iz-brand-name {font-size:27px!important;letter-spacing:7px!important;}
-.iz-brand-tag {font-size:8px!important;color:#68a4c5!important;letter-spacing:2.35px!important;}
-.iz-nav-label {font-size:9px;color:#25dce8;letter-spacing:1.7px;font-weight:750;margin:3px 0 8px;text-transform:uppercase;}
-.iz-live-shell {display:grid;grid-template-columns:145px 1fr;gap:8px;align-items:stretch;margin:0 0 14px;}
-.iz-live-status {background:linear-gradient(145deg,#071522,#081b2b);border:1px solid #17354b;border-radius:12px;padding:10px 12px;display:flex;flex-direction:column;justify-content:center;}
-.iz-live-status .s1 {font-size:10px;font-weight:750;color:#e9f8ff;letter-spacing:.6px}.iz-live-status .s2 {font-size:10px;color:#25e6a0;margin-top:3px}.iz-live-status .s3 {font-size:8px;color:#718ba0;margin-top:3px;}
-.iz-livebar {margin:0!important;grid-template-columns:repeat(7,minmax(110px,1fr))!important;}
-.iz-ticker {border-radius:12px!important;min-height:70px!important;background:linear-gradient(145deg,#071522,#081725)!important;position:relative;overflow:hidden;}
-.iz-ticker:after {content:"";position:absolute;left:0;right:0;bottom:0;height:2px;background:linear-gradient(90deg,transparent,#18dce7,transparent);opacity:.28;}
-.iz-ticker .v {font-size:18px!important;}
-.iz-dashboard {grid-template-columns:1.62fr .98fr!important;gap:14px!important;}
-.iz-card {box-shadow:inset 0 1px 0 rgba(255,255,255,.025),0 10px 35px rgba(0,0,0,.13);}
-.iz-card-head {display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:12px;}
-.iz-card-kicker {font-size:9px;color:#64859b;letter-spacing:.9px;text-transform:uppercase;}
-.iz-pulse-copy {font-size:13px;color:#a7bbc9;line-height:1.65;margin-bottom:8px;}
-.iz-heat-grid {grid-template-columns:repeat(4,minmax(0,1fr))!important;}
-.iz-heat {transition:transform .15s ease,border-color .15s ease;}
-.iz-heat:hover {transform:translateY(-2px);border-color:#1db7d1;}
-.iz-home-grid {display:grid;grid-template-columns:1.45fr .85fr;gap:14px;margin:13px 0;}
-.iz-movers {background:#07131f;border:1px solid #17354b;border-radius:15px;padding:16px;}
-.iz-mover-row {display:grid;grid-template-columns:1fr 78px 82px;gap:8px;padding:8px 2px;border-bottom:1px solid rgba(23,53,75,.45);font-size:11px;align-items:center;}
-.iz-mover-row:last-child {border-bottom:0}.iz-mover-name {font-weight:700;color:#eaf7ff}.iz-mover-price {color:#9fb3c2;text-align:right}.iz-mover-chg {text-align:right;font-weight:700}
-.iz-cta {background:linear-gradient(105deg,rgba(8,58,112,.62),rgba(7,40,73,.72));border:1px solid #145c8e;border-radius:15px;padding:18px;min-height:100%;display:flex;flex-direction:column;justify-content:center;position:relative;overflow:hidden;}
-.iz-cta:after {content:"";position:absolute;inset:auto -50px -100px auto;width:220px;height:220px;border-radius:50%;background:radial-gradient(circle,rgba(25,224,232,.18),transparent 66%);}
-.iz-cta h3 {margin:0 0 5px;color:#f3fbff;font-size:17px}.iz-cta p {margin:0;color:#8ca7ba;font-size:12px;line-height:1.55}
-.iz-scanner-hero {background:linear-gradient(115deg,#081827,#07121e);border:1px solid #17405c;border-radius:16px;padding:18px 20px;margin:4px 0 14px;display:flex;justify-content:space-between;align-items:center;gap:16px;}
-.iz-scanner-hero h2 {margin:0;color:#f3fbff;font-size:25px}.iz-scanner-hero p {margin:5px 0 0;color:#829db0;font-size:12px}
-.iz-source-note {font-size:9px;color:#638098;margin-top:7px;}
-@media(max-width:1200px){.iz-live-shell{grid-template-columns:1fr}.iz-livebar{grid-template-columns:repeat(4,1fr)!important}.iz-home-grid{grid-template-columns:1fr}.iz-dashboard{grid-template-columns:1fr!important}}
-@media(max-width:800px){[data-testid="stSidebar"]{min-width:unset!important;max-width:unset!important}.iz-livebar{grid-template-columns:repeat(2,1fr)!important}}
-
-/* --- IZFIN v1.7.2 product polish --- */
-[data-testid="stMainBlockContainer"] {padding-top:2.05rem!important;}
-[data-testid="stSidebar"] > div:first-child {padding-top:1.35rem!important;}
-.iz-brand {align-items:center!important;padding:15px 4px 22px!important;overflow:visible!important;}
-.iz-brand img {object-fit:contain!important;object-position:center!important;padding:3px!important;background:#06111d!important;transform:translateY(-2px);overflow:visible!important;}
-.iz-brand-copy {display:flex;flex-direction:column;justify-content:center;min-height:62px;}
-.iz-quickscan {background:linear-gradient(105deg,rgba(12,98,221,.22),rgba(20,207,216,.12));border:1px solid #1c7399;border-radius:14px;padding:12px 13px;margin:2px 0 14px;color:#dff9ff;}
-.iz-quickscan strong {display:block;font-size:12px;color:#f3fbff}.iz-quickscan span{font-size:9px;color:#7da3b9;letter-spacing:.3px}
-.iz-home-scan-banner {background:linear-gradient(110deg,rgba(9,57,111,.82),rgba(7,39,70,.88));border:1px solid #147db1;border-radius:15px;padding:15px 18px;margin:13px 0;display:flex;align-items:center;justify-content:space-between;gap:16px;box-shadow:0 0 32px rgba(14,145,209,.08)}
-.iz-home-scan-banner .copy strong{font-size:15px;color:#f4fbff}.iz-home-scan-banner .copy span{display:block;color:#8eadc1;font-size:11px;margin-top:3px}
-.iz-table-wrap {width:100%;overflow-x:auto;border:1px solid #17354b;border-radius:15px;background:#07131f;margin:10px 0 16px;}
-.iz-table {width:100%;border-collapse:separate;border-spacing:0;min-width:1180px;font-size:11px;color:#dcecf7;}
-.iz-table thead th {position:sticky;top:0;background:#091725;color:#7092a8;text-align:left;font-size:9px;letter-spacing:.65px;padding:11px 12px;border-bottom:1px solid #1a3c55;white-space:nowrap;z-index:1;}
-.iz-table tbody td {padding:11px 12px;border-bottom:1px solid rgba(23,53,75,.58);vertical-align:middle;white-space:nowrap;background:#07131f;}
-.iz-table tbody tr:hover td {background:#0a1b2a;}
-.iz-table tbody tr:last-child td {border-bottom:0;}
-.iz-table .ticker {font-weight:800;color:#f2f9ff}.iz-table .score{font-weight:800;color:#26e2a2}.iz-table .muted{color:#8ca4b6}.iz-table .risk-high{color:#ff7f8b;font-weight:700}.iz-table .risk-mid{color:#ffd06a;font-weight:700}.iz-table .risk-low{color:#55e9b0;font-weight:700}
-.iz-auth-bg {position:fixed;inset:0;pointer-events:none;z-index:0;background:radial-gradient(circle at 50% 22%,rgba(13,191,218,.12),transparent 28%),radial-gradient(circle at 15% 85%,rgba(16,111,238,.10),transparent 27%),radial-gradient(circle at 88% 72%,rgba(18,225,217,.06),transparent 23%),linear-gradient(180deg,#030a12 0%,#05101b 55%,#030911 100%);}
-.iz-auth-bg:before {content:"";position:absolute;inset:0;opacity:.22;background-image:linear-gradient(rgba(31,119,163,.08) 1px,transparent 1px),linear-gradient(90deg,rgba(31,119,163,.08) 1px,transparent 1px);background-size:46px 46px;mask-image:linear-gradient(to bottom,transparent 0%,black 45%,black 100%);}
-.iz-auth-bg:after {content:"";position:absolute;left:8%;right:8%;bottom:4%;height:210px;opacity:.7;background:radial-gradient(ellipse at 50% 100%,rgba(11,174,218,.16),transparent 55%);border-top:1px solid rgba(23,128,173,.09);transform:perspective(480px) rotateX(68deg);}
-.iz-auth-shell {position:relative;z-index:1;max-width:590px;margin:3.2vh auto 0;text-align:center;}
-.iz-auth-logo {display:flex;align-items:center;justify-content:center;gap:15px;margin-bottom:14px;}
-.iz-auth-logo img {width:72px;height:72px;object-fit:contain;border-radius:19px;background:#06131f;border:1px solid rgba(29,225,231,.30);padding:3px;box-shadow:0 0 38px rgba(13,202,225,.13);}
-.iz-auth-logo .word {font-size:30px;letter-spacing:8px;color:#f5fbff;font-weight:720;line-height:1;}
-.iz-auth-logo .tag {font-size:7.5px;letter-spacing:2.35px;color:#67a8c5;margin-top:7px;text-align:left;}
-.iz-auth-kicker {font-size:9px;letter-spacing:2.1px;color:#16dbe4;text-transform:uppercase;font-weight:700;margin-bottom:8px;}
-.iz-auth-title {font-size:28px;font-weight:750;color:#f2f9ff;margin:0 0 6px;letter-spacing:-.4px;}
-.iz-auth-sub {font-size:11px;color:#7794a8;margin-bottom:18px;}
-.iz-auth-card {background:linear-gradient(160deg,rgba(8,23,36,.97),rgba(5,14,24,.98));border:1px solid #17435d;border-radius:20px;padding:14px 17px 8px;box-shadow:0 28px 85px rgba(0,0,0,.36),0 0 44px rgba(12,187,213,.055),inset 0 1px 0 rgba(255,255,255,.025);margin-bottom:-4px;}
-.iz-auth-card-head {display:flex;align-items:center;justify-content:space-between;}
-.iz-auth-card-head strong {color:#eef9ff;font-size:13px}.iz-auth-card-head span{color:#69899f;font-size:9px;}
-.iz-auth-security {display:flex;justify-content:center;gap:18px;margin:15px 0 0;color:#64869b;font-size:9px;flex-wrap:wrap;}
-.iz-auth-security b{color:#84b7ca;font-weight:600;}
-.iz-google-wrap {margin-top:10px;padding-top:12px;border-top:1px solid rgba(28,65,89,.65);}
-.iz-google-caption {font-size:9px;color:#6d8799;text-align:center;margin:0 0 9px;}
-.iz-google-note {font-size:8.5px;color:#58758a;text-align:center;margin-top:4px;}
-.iz-google-oauth-btn{width:100%;height:46px;border-radius:11px;border:1px solid #cfd9e2;background:linear-gradient(180deg,#fff 0%,#f7fafc 100%);color:#17222d!important;font-size:13px;font-weight:700;text-decoration:none!important;display:flex;align-items:center;justify-content:center;gap:11px;transition:.18s;box-shadow:0 7px 20px rgba(0,0,0,.18),inset 0 1px 0 rgba(255,255,255,.95);}
-.iz-google-oauth-btn:hover{transform:translateY(-1px);border-color:#9fb8ca;color:#101c27!important;box-shadow:0 11px 27px rgba(0,0,0,.24);}
-.iz-google-g{width:19px;height:19px;display:block;flex:0 0 19px;}
-.iz-auth-footer {font-size:8.5px;color:#526e82;margin-top:13px;letter-spacing:.15px;}
-[data-testid="stTextInput"] input {border-radius:11px!important;min-height:44px!important;background:#071522!important;border:1px solid #21435a!important;color:#eef8ff!important;box-shadow:inset 0 1px 0 rgba(255,255,255,.02)!important;}
-[data-testid="stTextInput"] input:focus {border-color:#17dce5!important;box-shadow:0 0 0 1px rgba(23,220,229,.45),0 0 22px rgba(18,185,221,.10)!important;}
-[data-testid="stCheckbox"] label p {font-size:10px!important;color:#bad0df!important;}
-[data-testid="stCheckbox"] input {accent-color:#16dbe4!important;}
-/* AUTH: Giriş / Kayıt sekmeleri IZFIN segmented switch */
-.stTabs [data-baseweb="tab-list"] {gap:6px!important;background:#06131f!important;border:1px solid #173a51!important;border-radius:13px!important;padding:5px!important;margin:8px 0 18px!important;box-shadow:inset 0 1px 0 rgba(255,255,255,.025)!important;}
-.stTabs [data-baseweb="tab"] {flex:1!important;justify-content:center!important;min-height:42px!important;border-radius:9px!important;color:#7897aa!important;font-weight:650!important;background:transparent!important;border:1px solid transparent!important;}
-.stTabs [data-baseweb="tab"] p {font-size:12px!important;font-weight:700!important;}
-.stTabs [data-baseweb="tab"][aria-selected="true"] {color:#f4fcff!important;background:linear-gradient(105deg,rgba(13,101,221,.92),rgba(15,202,214,.70))!important;border:1px solid rgba(37,227,235,.62)!important;box-shadow:0 8px 24px rgba(10,139,220,.15),inset 0 1px 0 rgba(255,255,255,.08)!important;}
-.stTabs [data-baseweb="tab-highlight"], .stTabs [data-baseweb="tab-border"] {display:none!important;}
-/* Streamlit primary submit rengini auth markasına sabitle */
-[data-testid="stFormSubmitButton"] button, [data-testid="stForm"] button[kind="primary"], button[data-testid="stBaseButton-primary"] {min-height:46px!important;border-radius:11px!important;background:linear-gradient(100deg,#0d72e8 0%,#13cbd7 100%)!important;color:#fff!important;border:1px solid #25dfe8!important;font-weight:750!important;box-shadow:0 10px 28px rgba(11,139,224,.18),inset 0 1px 0 rgba(255,255,255,.12)!important;}
-[data-testid="stFormSubmitButton"] button:hover, [data-testid="stForm"] button[kind="primary"]:hover, button[data-testid="stBaseButton-primary"]:hover {transform:translateY(-1px)!important;filter:brightness(1.06)!important;box-shadow:0 13px 32px rgba(12,164,224,.25)!important;}
-.iz-google-wrap {position:relative;margin-top:13px;padding-top:18px;border-top:1px solid rgba(32,73,99,.62);}
-.iz-google-caption {display:inline-block;position:relative;top:-26px;background:#050f1a;padding:0 10px;font-size:9px;color:#7895a8;text-align:center;margin-bottom:-16px;}
-.iz-google-note {font-size:8.5px;color:#58758a;text-align:center;margin-top:4px;}
-@media(max-width:850px){.iz-auth-shell{max-width:94%;margin-top:2vh}.iz-auth-logo img{width:62px;height:62px}.iz-auth-logo .word{font-size:25px}.iz-home-scan-banner{flex-direction:column;align-items:flex-start}}
-
-/* v1.7.5 AUTH SWITCH: auth ekranında Streamlit tabs kullanılmaz. */
-.iz-auth-switch-label{font-size:9px;color:#66889d;letter-spacing:.9px;text-align:center;margin:4px 0 7px;text-transform:uppercase;}
-[data-baseweb="tab-highlight"], [data-baseweb="tab-border"], [role="tab"]::before, [role="tab"]::after, [role="tablist"]::before, [role="tablist"]::after {display:none!important;background:transparent!important;border:0!important;box-shadow:none!important;height:0!important;}
-[data-testid="stHorizontalBlock"] [data-testid="stButton"] button {transition:all .18s ease;}
-
-/* v1.7.9 — Native Google OAuth link button */
-.st-key-google_oauth_native [data-testid="stLinkButton"] a,
-.st-key-google_oauth_native a[data-testid="stBaseLinkButton-secondary"],
-.st-key-google_oauth_native a {
-    min-height:48px!important;
-    width:100%!important;
-    border-radius:12px!important;
-    background:linear-gradient(180deg,#ffffff 0%,#f5f8fb 100%)!important;
-    color:#17222d!important;
-    border:1px solid #cfd9e2!important;
-    font-weight:760!important;
-    font-size:14px!important;
-    display:flex!important;
-    align-items:center!important;
-    justify-content:center!important;
-    text-decoration:none!important;
-    box-shadow:0 7px 20px rgba(0,0,0,.18),inset 0 1px 0 rgba(255,255,255,.95)!important;
-    transition:all .18s ease!important;
-}
-.st-key-google_oauth_native [data-testid="stLinkButton"] a:hover,
-.st-key-google_oauth_native a:hover {
-    transform:translateY(-1px)!important;
-    border-color:#87d9e2!important;
-    box-shadow:0 11px 28px rgba(0,0,0,.24),0 0 0 1px rgba(22,219,228,.10)!important;
-}
-.st-key-google_oauth_native p {
-    color:#17222d!important;
-    font-weight:760!important;
-}
-
-.st-key-google_oauth_native [data-testid="stLinkButton"] a::before,
-.st-key-google_oauth_native a[data-testid="stBaseLinkButton-secondary"]::before {
-    content:""!important;
-    display:inline-block!important;
-    width:19px!important;
-    height:19px!important;
-    flex:0 0 19px!important;
-    margin-right:10px!important;
-    background-repeat:no-repeat!important;
-    background-position:center!important;
-    background-size:19px 19px!important;
-    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 18 18'%3E%3Cpath fill='%234285F4' d='M17.64 9.205c0-.638-.057-1.252-.164-1.841H9v3.482h4.844a4.14 4.14 0 0 1-1.797 2.715v2.258h2.909c1.702-1.567 2.684-3.875 2.684-6.614z'/%3E%3Cpath fill='%2334A853' d='M9 18c2.43 0 4.467-.806 5.956-2.181l-2.909-2.258c-.806.54-1.835.859-3.047.859-2.344 0-4.328-1.585-5.037-3.714H.956v2.332A9 9 0 0 0 9 18z'/%3E%3Cpath fill='%23FBBC05' d='M3.963 10.706A5.41 5.41 0 0 1 3.682 9c0-.592.102-1.167.281-1.706V4.962H.956A9 9 0 0 0 0 9c0 1.452.347 2.827.956 4.038l3.007-2.332z'/%3E%3Cpath fill='%23EA4335' d='M9 3.58c1.321 0 2.507.454 3.44 1.345l2.581-2.582C13.463.891 11.426 0 9 0A9 9 0 0 0 .956 4.962l3.007 2.332C4.672 5.165 6.656 3.58 9 3.58z'/%3E%3C/svg%3E")!important;
-}
-
-/* v1.7.6: Auth switch pasif butonunu IZFIN temasına sabitle. */
-.st-key-auth_switch_login button,
-.st-key-auth_switch_register button {
-    min-height:48px!important;
-    border-radius:12px!important;
-    font-weight:750!important;
-    font-size:14px!important;
-    background:#081927!important;
-    color:#9fc3d6!important;
-    border:1px solid #1b4a66!important;
-    box-shadow:inset 0 1px 0 rgba(255,255,255,.025)!important;
-}
-.st-key-auth_switch_login button:hover,
-.st-key-auth_switch_register button:hover {
-    color:#effcff!important;
-    border-color:#1fcbd8!important;
-    background:#0a2030!important;
-}
-.st-key-auth_switch_login button[kind="primary"],
-.st-key-auth_switch_register button[kind="primary"],
-.st-key-auth_switch_login button[data-testid="stBaseButton-primary"],
-.st-key-auth_switch_register button[data-testid="stBaseButton-primary"] {
-    background:linear-gradient(105deg,#1378ed 0%,#18cbd3 100%)!important;
-    color:#fff!important;
-    border:1px solid #28e0e7!important;
-    box-shadow:0 9px 25px rgba(12,153,221,.20),inset 0 1px 0 rgba(255,255,255,.10)!important;
-}
-.st-key-auth_switch_login button p,
-.st-key-auth_switch_register button p {color:inherit!important;font-weight:750!important;}
-
-
-
-/* v1.7.11 — Google ikonu yazının hemen yanında, birlikte merkezde */
-.st-key-google_oauth_native [data-testid="stLinkButton"] a,
-.st-key-google_oauth_native a[data-testid="stBaseLinkButton-secondary"] {
-    gap:0!important;
-    justify-content:center!important;
-}
-.st-key-google_oauth_native [data-testid="stLinkButton"] a::before,
-.st-key-google_oauth_native a[data-testid="stBaseLinkButton-secondary"]::before {
-    margin-left:0!important;
-    margin-right:9px!important;
-    position:static!important;
-    transform:none!important;
-}
-
-
-/* v1.7.12 — Google ikonunu metnin hemen soluna sabitle */
-.st-key-google_oauth_native [data-testid="stLinkButton"] a,
-.st-key-google_oauth_native a[data-testid="stBaseLinkButton-secondary"] {
-    position:relative!important;
-    justify-content:center!important;
-    padding-left:42px!important;
-    padding-right:42px!important;
-}
-
-.st-key-google_oauth_native [data-testid="stLinkButton"] a::before,
-.st-key-google_oauth_native a[data-testid="stBaseLinkButton-secondary"]::before {
-    position:absolute!important;
-    left:50%!important;
-    top:50%!important;
-    transform:translate(-122px,-50%)!important;
-    margin:0!important;
-    width:19px!important;
-    height:19px!important;
-    flex:none!important;
-}
-
-.st-key-google_oauth_native [data-testid="stLinkButton"] a p,
-.st-key-google_oauth_native a[data-testid="stBaseLinkButton-secondary"] p {
-    margin:0!important;
-    padding:0!important;
-    text-align:center!important;
-}
-
-
-/* v1.7.14 — Akıllı Tarama ana çalışma alanı */
-.iz-scan-control-head{
-    margin:18px 0 12px;
-    padding:17px 19px;
-    display:flex;
-    justify-content:space-between;
-    align-items:center;
-    gap:18px;
-    background:linear-gradient(135deg,rgba(7,24,38,.96),rgba(8,31,47,.91));
-    border:1px solid #17445f;
-    border-radius:16px;
-    box-shadow:inset 0 1px 0 rgba(255,255,255,.025),0 15px 38px rgba(0,0,0,.16);
-}
-.iz-scan-control-head h3{margin:3px 0 3px;color:#f1f9ff;font-size:19px}
-.iz-scan-control-head p{margin:0;color:#7899ad;font-size:11px}
-.iz-scan-count{
-    white-space:nowrap;
-    font-size:9px;
-    letter-spacing:1px;
-    font-weight:750;
-    color:#13d8e2;
-    border:1px solid #1b566f;
-    background:#071927;
-    border-radius:999px;
-    padding:8px 11px;
-}
-.iz-scan-selection-summary{
-    margin:8px 0 12px;
-    padding:12px 14px;
-    background:#071724;
-    border:1px solid #173e55;
-    border-radius:11px;
-    color:#91afc0;
-    font-size:11px;
-}
-.iz-scan-selection-summary b{
-    color:#19dce4;
-    font-size:17px;
-    margin-right:4px;
-}
-@media(max-width:850px){
-    .iz-scan-control-head{flex-direction:column;align-items:flex-start}
-}
-
-
-/* v1.7.15 — Canlı hisse autocomplete sonucu */
-.iz-search-result-preview{
-    display:flex;
-    align-items:center;
-    justify-content:space-between;
-    gap:14px;
-    margin:7px 0 10px;
-    padding:11px 13px;
-    border:1px solid #17445f;
-    border-radius:11px;
-    background:linear-gradient(135deg,#071724,#092033);
-}
-.iz-search-result-preview div{
-    display:flex;
-    align-items:baseline;
-    gap:9px;
-    min-width:0;
-}
-.iz-search-result-preview b{
-    color:#19dce4;
-    font-size:13px;
-}
-.iz-search-result-preview span{
-    color:#d7e7f0;
-    font-size:11px;
-    overflow:hidden;
-    text-overflow:ellipsis;
-    white-space:nowrap;
-}
-.iz-search-result-preview small{
-    color:#668da4;
-    font-size:9px;
-    white-space:nowrap;
-}
-
-
-/* v1.7.16 — Scanner UI polish: beyaz yüzeyleri kaldır, IZFIN dark-glass dili */
-.iz-panel-title{
-    display:flex;
-    align-items:center;
-    gap:11px;
-    margin:2px 0 14px;
-    padding:0 2px;
-}
-.iz-panel-icon{
-    width:30px;
-    height:30px;
-    display:inline-flex;
-    align-items:center;
-    justify-content:center;
-    border-radius:9px;
-    border:1px solid #176078;
-    background:linear-gradient(145deg,#082336,#0b3042);
-    color:#19dce4;
-    font-size:18px;
-    box-shadow:inset 0 1px 0 rgba(255,255,255,.04);
-}
-.iz-panel-title div{display:flex;flex-direction:column;gap:1px}
-.iz-panel-title b{font-size:17px;color:#eef8fc;letter-spacing:-.2px}
-.iz-panel-title small{font-size:9px;color:#64869a;letter-spacing:.25px}
-
-/* Kişisel liste expander'ını beyaz Streamlit yüzeyinden çıkar */
-[data-testid="stExpander"]{
-    background:linear-gradient(145deg,rgba(7,22,34,.98),rgba(7,28,42,.94))!important;
-    border:1px solid #173f55!important;
-    border-radius:13px!important;
-    overflow:hidden!important;
-    box-shadow:inset 0 1px 0 rgba(255,255,255,.025)!important;
-}
-[data-testid="stExpander"] details,
-[data-testid="stExpander"] summary{
-    background:transparent!important;
-}
-[data-testid="stExpander"] summary{
-    min-height:46px!important;
-    color:#dcecf4!important;
-}
-[data-testid="stExpander"] summary:hover{
-    background:rgba(17,62,82,.22)!important;
-}
-[data-testid="stExpander"] summary p{
-    color:#dcecf4!important;
-    font-weight:650!important;
-    font-size:12px!important;
-}
-[data-testid="stExpander"] svg{
-    fill:#18cbd7!important;
-    color:#18cbd7!important;
-}
-
-/* Disabled kayıtlı liste de beyaz/gri görünmesin */
-[data-testid="stMultiSelect"] [data-baseweb="select"] > div{
-    background:#071724!important;
-    border-color:#1a455c!important;
-}
-[data-testid="stMultiSelect"] span[data-baseweb="tag"]{
-    background:#0d2a3c!important;
-    border:1px solid #194e67!important;
-    color:#b9d7e5!important;
-}
-[data-testid="stMultiSelect"] span[data-baseweb="tag"] span{
-    color:#b9d7e5!important;
-}
-
-/* Secondary butonlar: beyaz blok yerine koyu IZFIN butonu */
-button[kind="secondary"],
-[data-testid="stBaseButton-secondary"]{
-    background:linear-gradient(135deg,#092033,#0a2a3d)!important;
-    color:#d9edf5!important;
-    border:1px solid #1b536d!important;
-    box-shadow:none!important;
-}
-button[kind="secondary"]:hover,
-[data-testid="stBaseButton-secondary"]:hover{
-    border-color:#19cbd7!important;
-    color:#ffffff!important;
-    background:linear-gradient(135deg,#0b2b40,#0c3549)!important;
-}
-
-/* Ana scanner CTA */
-button[kind="primary"],
-[data-testid="stBaseButton-primary"]{
-    border:1px solid rgba(29,220,229,.68)!important;
-    box-shadow:0 8px 24px rgba(0,173,207,.12)!important;
-}
-
-/* Form label ve yardımcı metin kontrastı */
-[data-testid="stWidgetLabel"] p{
-    color:#7899ad!important;
-}
-
-
-/* v1.7.17 — Hisse ara butonu */
-.st-key-stock_search_button button{
-    min-height:44px!important;
-    margin-top:0!important;
-    border-radius:11px!important;
-    background:linear-gradient(135deg,#0b2a3e,#0c364a)!important;
-    color:#dff8fb!important;
-    border:1px solid #1a6078!important;
-    font-weight:760!important;
-    box-shadow:inset 0 1px 0 rgba(255,255,255,.03)!important;
-}
-.st-key-stock_search_button button:hover{
-    border-color:#19dce4!important;
-    background:linear-gradient(135deg,#0d344a,#0e4055)!important;
-    color:#ffffff!important;
-    box-shadow:0 7px 18px rgba(11,172,204,.12)!important;
-}
-
-
-/* v1.7.18 — Multiselect/tag görünümü: IZFIN dark + cyan */
-[data-testid="stMultiSelect"] [data-baseweb="select"] > div {
-    background:#071724!important;
-    border:1px solid #1a455c!important;
-    border-radius:11px!important;
-    box-shadow:inset 0 1px 0 rgba(255,255,255,.02)!important;
-}
-
-/* Seçili varlık chip'leri: kırmızı Streamlit varsayılanını tamamen kaldır */
-[data-testid="stMultiSelect"] span[data-baseweb="tag"],
-[data-testid="stMultiSelect"] [data-baseweb="tag"] {
-    background:linear-gradient(135deg,#0b2b3d,#0d3a4c)!important;
-    border:1px solid #17637a!important;
-    border-radius:8px!important;
-    color:#dff7fb!important;
-    box-shadow:inset 0 1px 0 rgba(255,255,255,.025)!important;
-    opacity:1!important;
-}
-
-[data-testid="stMultiSelect"] span[data-baseweb="tag"] *,
-[data-testid="stMultiSelect"] [data-baseweb="tag"] * {
-    color:#dff7fb!important;
-    fill:#8fdce5!important;
-    opacity:1!important;
-}
-
-/* Chip içindeki X ikonu */
-[data-testid="stMultiSelect"] [data-baseweb="tag"] button,
-[data-testid="stMultiSelect"] [data-baseweb="tag"] svg {
-    color:#8fdce5!important;
-    fill:#8fdce5!important;
-    opacity:.95!important;
-}
-
-[data-testid="stMultiSelect"] [data-baseweb="tag"]:hover {
-    background:linear-gradient(135deg,#0d3448,#105065)!important;
-    border-color:#20d3dc!important;
-}
-
-/* Sol taraftaki disabled kişisel listeyi silik göstermesin */
-[data-testid="stMultiSelect"] [aria-disabled="true"],
-[data-testid="stMultiSelect"] [data-baseweb="select"][aria-disabled="true"],
-[data-testid="stMultiSelect"] [data-baseweb="select"] [aria-disabled="true"] {
-    opacity:1!important;
-    filter:none!important;
-}
-
-[data-testid="stMultiSelect"] [aria-disabled="true"] [data-baseweb="tag"],
-[data-testid="stMultiSelect"] [data-baseweb="select"][aria-disabled="true"] [data-baseweb="tag"] {
-    opacity:1!important;
-    background:#0b2637!important;
-    border:1px solid #194f66!important;
-    color:#bcdce8!important;
-}
-
-[data-testid="stMultiSelect"] [aria-disabled="true"] [data-baseweb="tag"] *,
-[data-testid="stMultiSelect"] [data-baseweb="select"][aria-disabled="true"] [data-baseweb="tag"] * {
-    color:#bcdce8!important;
-    opacity:1!important;
-}
-
-/* Placeholder ve normal metin kontrastı */
-[data-testid="stMultiSelect"] input,
-[data-testid="stMultiSelect"] input::placeholder {
-    color:#8aaabd!important;
-    opacity:1!important;
-}
-
-
-/* v1.7.19 — Streamlit tag stilinden bağımsız IZFIN liste tasarımı */
-.iz-saved-list-label{
-    margin:8px 0 7px;
-    color:#78a8be;
-    font-size:11px;
-}
-.iz-static-chip-wrap{
-    display:flex;
-    flex-wrap:wrap;
-    gap:7px;
-}
-.iz-saved-list-box{
-    padding:12px;
-    min-height:48px;
-    border:1px solid #17465d;
-    border-radius:11px;
-    background:#071724;
-}
-.iz-static-chip{
-    display:inline-flex;
-    align-items:center;
-    padding:6px 9px;
-    border-radius:7px;
-    border:1px solid #1a5c72;
-    background:linear-gradient(135deg,#0b293a,#0d3949);
-    color:#d9f3f7!important;
-    font-size:11px;
-    line-height:1;
-    font-weight:650;
-    letter-spacing:.15px;
-    box-shadow:inset 0 1px 0 rgba(255,255,255,.025);
-}
-.iz-active-universe{
-    margin:7px 0 10px;
-    padding:14px;
-    border:1px solid #19516a;
-    border-radius:12px;
-    background:linear-gradient(145deg,#071925,#09283a);
-}
-.iz-active-universe-top{
-    display:flex;
-    align-items:center;
-    justify-content:space-between;
-    gap:12px;
-    margin-bottom:11px;
-}
-.iz-active-universe-top div{
-    display:flex;
-    flex-direction:column;
-    gap:2px;
-}
-.iz-active-universe-top small{
-    color:#5f899e;
-    font-size:8px;
-    letter-spacing:1px;
-    font-weight:750;
-}
-.iz-active-universe-top strong{
-    color:#effaff;
-    font-size:14px;
-}
-.iz-active-universe-top > span{
-    color:#18d5df;
-    font-size:9px;
-    font-weight:800;
-    letter-spacing:.7px;
-    border:1px solid #1b6077;
-    background:#082333;
-    border-radius:999px;
-    padding:6px 9px;
-}
-.iz-empty-list{
-    color:#66899a;
-    font-size:10px;
-}
-
-
-/* v1.7.21 — Projection & Scenario standalone workspace */
-.iz-proj-hero{
-    display:flex;
-    justify-content:space-between;
-    align-items:center;
-    gap:20px;
-    padding:22px 24px;
-    margin:0 0 18px;
-    border:1px solid #17445f;
-    border-radius:17px;
-    background:linear-gradient(135deg,#071826,#09283a);
-    box-shadow:0 18px 44px rgba(0,0,0,.18),inset 0 1px 0 rgba(255,255,255,.025);
-}
-.iz-proj-hero h2{margin:4px 0 5px;color:#f3fbff;font-size:25px}
-.iz-proj-hero p{margin:0;color:#7595a8;font-size:11px;max-width:760px}
-.iz-proj-empty{
-    padding:28px;
-    border:1px dashed #23536b;
-    border-radius:15px;
-    background:#071724;
-    display:flex;
-    flex-direction:column;
-    align-items:center;
-    gap:6px;
-    text-align:center;
-}
-.iz-proj-empty b{color:#edf9fd;font-size:15px}
-.iz-proj-empty span{color:#6f91a5;font-size:10px}
-.iz-proj-model-note{
-    min-height:73px;
-    padding:12px 14px;
-    border:1px solid #17445f;
-    border-radius:12px;
-    background:#071724;
-    display:flex;
-    flex-direction:column;
-    justify-content:center;
-}
-.iz-proj-model-note small{font-size:8px;letter-spacing:1px;color:#13d8e2}
-.iz-proj-model-note b{color:#eaf8fd;font-size:12px;margin:2px 0}
-.iz-proj-model-note span{color:#66899d;font-size:9px}
-.iz-proj-section-title{
-    margin:20px 0 10px;
-    font-size:10px;
-    font-weight:800;
-    letter-spacing:1.25px;
-    color:#5fa9c6;
-    text-transform:uppercase;
-}
-.iz-scenario-card{
-    min-height:294px;
-    padding:18px;
-    border-radius:15px;
-    background:linear-gradient(145deg,#071724,#092333);
-    border:1px solid #17445f;
-    box-shadow:inset 0 1px 0 rgba(255,255,255,.025);
-}
-.iz-scenario-up{border-color:#176456}
-.iz-scenario-down{border-color:#6a3342}
-.iz-scenario-head{
-    display:flex;
-    align-items:center;
-    gap:10px;
-    margin-bottom:16px;
-}
-.iz-scenario-dot{
-    width:11px;height:11px;border-radius:50%;
-    box-shadow:0 0 15px currentColor;
-}
-.iz-scenario-up .iz-scenario-dot{background:#31d59a;color:#31d59a}
-.iz-scenario-down .iz-scenario-dot{background:#ff6177;color:#ff6177}
-.iz-scenario-head small{
-    display:block;font-size:8px;letter-spacing:1px;color:#6f91a5;margin-bottom:2px
-}
-.iz-scenario-head h3{margin:0;color:#f3fbff;font-size:17px}
-.iz-scenario-row{
-    display:flex;
-    flex-direction:column;
-    gap:4px;
-    padding:11px 0;
-    border-top:1px solid rgba(35,77,99,.58);
-}
-.iz-scenario-row span{color:#6e91a5;font-size:9px;text-transform:uppercase;letter-spacing:.55px}
-.iz-scenario-row b{color:#dceef5;font-size:11px;line-height:1.55;font-weight:650}
-.iz-direction-card{
-    margin-top:18px;
-    padding:17px 19px;
-    border-radius:14px;
-    background:#071724;
-    border:1px solid #20465a;
-    display:grid;
-    grid-template-columns:220px 1fr;
-    gap:18px;
-    align-items:center;
-}
-.iz-direction-card small{font-size:8px;letter-spacing:1px;color:#678da1}
-.iz-direction-card h3{margin:3px 0 0;color:#f1f9fd;font-size:17px}
-.iz-direction-card p{margin:0;color:#bcd4df;font-size:11px;line-height:1.65}
-.iz-direction-up{border-color:#176456;background:linear-gradient(135deg,#071b24,#092a2c)}
-.iz-direction-down{border-color:#6a3342;background:linear-gradient(135deg,#1b1118,#21141c)}
-.iz-direction-neutral{border-color:#28556c}
-@media(max-width:850px){
-    .iz-proj-hero{flex-direction:column;align-items:flex-start}
-    .iz-direction-card{grid-template-columns:1fr}
-}
-
-
-/* v1.7.23 — Projection readability / contrast pass */
-
-/* Metric kartları: koyu temada silik gri görünümü kaldır */
-[data-testid="stMetric"]{
-    background:linear-gradient(145deg,rgba(7,23,36,.82),rgba(8,30,45,.72))!important;
-    border:1px solid rgba(31,78,101,.72)!important;
-    border-radius:12px!important;
-    padding:12px 14px!important;
-    box-shadow:inset 0 1px 0 rgba(255,255,255,.025)!important;
-}
-
-[data-testid="stMetricLabel"]{
-    color:#78a8bd!important;
-    opacity:1!important;
-}
-[data-testid="stMetricLabel"] p{
-    color:#78a8bd!important;
-    font-size:11px!important;
-    font-weight:650!important;
-    opacity:1!important;
-}
-
-[data-testid="stMetricValue"]{
-    color:#f1f9fd!important;
-    opacity:1!important;
-}
-[data-testid="stMetricValue"] > div,
-[data-testid="stMetricValue"] p{
-    color:#f1f9fd!important;
-    font-size:30px!important;
-    font-weight:730!important;
-    letter-spacing:-.5px!important;
-    opacity:1!important;
-}
-
-[data-testid="stMetricDelta"]{
-    opacity:1!important;
-}
-[data-testid="stMetricDelta"] > div,
-[data-testid="stMetricDelta"] p{
-    font-size:10px!important;
-    font-weight:700!important;
-    opacity:1!important;
-}
-
-/* Progress alanını daha sofistike ve okunur yap */
-[data-testid="stProgress"] > div > div{
-    background:#0b2637!important;
-    border-radius:999px!important;
-    overflow:hidden!important;
-}
-[data-testid="stProgress"] > div > div > div{
-    background:linear-gradient(90deg,#1479ed,#16c9d5)!important;
-    border-radius:999px!important;
-}
-
-/* Projection sayfasındaki caption / yardımcı metinleri belirginleştir */
-.iz-proj-hero p,
-.iz-proj-model-note span,
-.iz-proj-empty span{
-    color:#88a8b9!important;
-}
-
-.iz-proj-section-title{
-    color:#45c4d6!important;
-    font-size:10px!important;
-    font-weight:850!important;
-    letter-spacing:1.45px!important;
-}
-
-/* Teknik senaryo kartlarını daha tok ve okunur yap */
-.iz-scenario-card{
-    background:linear-gradient(145deg,#081b29,#0a2637)!important;
-    box-shadow:
-        inset 0 1px 0 rgba(255,255,255,.035),
-        0 15px 34px rgba(0,0,0,.15)!important;
-}
-
-.iz-scenario-up{
-    border-color:#1c7b65!important;
-}
-.iz-scenario-down{
-    border-color:#8a3d50!important;
-}
-
-.iz-scenario-head small{
-    color:#6fa9bf!important;
-    font-size:8.5px!important;
-    font-weight:800!important;
-    letter-spacing:1.15px!important;
-}
-.iz-scenario-head h3{
-    color:#f6fbfe!important;
-    font-size:18px!important;
-    font-weight:760!important;
-    letter-spacing:-.2px!important;
-}
-
-.iz-scenario-row{
-    padding:13px 0!important;
-    border-top:1px solid rgba(50,96,117,.52)!important;
-}
-.iz-scenario-row span{
-    color:#72a7bd!important;
-    font-size:9px!important;
-    font-weight:800!important;
-    letter-spacing:.75px!important;
-}
-.iz-scenario-row b{
-    color:#edf7fb!important;
-    font-size:12px!important;
-    line-height:1.6!important;
-    font-weight:700!important;
-}
-
-/* Algoritmik yön özeti */
-.iz-direction-card{
-    box-shadow:inset 0 1px 0 rgba(255,255,255,.025)!important;
-}
-.iz-direction-card small{
-    color:#6fa4b9!important;
-    font-weight:800!important;
-}
-.iz-direction-card h3{
-    color:#f5fbfe!important;
-    font-size:18px!important;
-    font-weight:760!important;
-}
-.iz-direction-card p{
-    color:#d2e4ec!important;
-    font-size:12px!important;
-    line-height:1.72!important;
-}
-.iz-direction-card p b{
-    color:#ffffff!important;
-}
-
-/* Genel Projection sayfası yardımcı metin kontrastı */
-[data-testid="stCaptionContainer"] p{
-    color:#96afbc!important;
-    opacity:1!important;
-    font-size:10.5px!important;
-}
-
-/* Selectbox ve label kontrastı */
-[data-testid="stSelectbox"] label p{
-    color:#87aabd!important;
-    font-weight:650!important;
-}
-
-
-/* v1.7.26 — Tarama tablosu geniş görünüm / focus mode */
-.iz-scan-table-wrap{
-    position:relative;
-    width:100%;
-    overflow-x:auto;
-    border-radius:14px;
-}
-.iz-focus-title{
-    display:flex;
-    align-items:center;
-    min-height:62px;
-}
-.iz-focus-title small{
-    display:block;
-    color:#22d8e2;
-    font-size:8px;
-    font-weight:850;
-    letter-spacing:1.4px;
-    margin-bottom:3px;
-}
-.iz-focus-title h2{
-    margin:0;
-    color:#f2faff;
-    font-size:23px;
-    line-height:1.1;
-}
-.iz-focus-title p{
-    margin:5px 0 0;
-    color:#7898aa;
-    font-size:10px;
-}
-.iz-focus-meta{
-    display:flex;
-    align-items:center;
-    gap:8px;
-    margin:6px 0 12px;
-}
-.iz-focus-meta span{
-    display:inline-flex;
-    padding:6px 9px;
-    border-radius:999px;
-    border:1px solid #1b5068;
-    background:#071a28;
-    color:#8fb7ca;
-    font-size:9px;
-    font-weight:700;
-    letter-spacing:.25px;
-}
-.st-key-scan_table_focus_open button,
-.st-key-scan_table_focus_exit button{
-    min-height:40px!important;
-    border-radius:10px!important;
-    background:linear-gradient(135deg,#092338,#0a3448)!important;
-    color:#dff8fb!important;
-    border:1px solid #1a617a!important;
-    font-weight:760!important;
-}
-.st-key-scan_table_focus_open button:hover,
-.st-key-scan_table_focus_exit button:hover{
-    border-color:#20d8e1!important;
-    background:linear-gradient(135deg,#0b3046,#0d4256)!important;
-    color:#fff!important;
-}
-
-
-/* v1.7.27 — Kapanmış Pozisyon Geçmişi: IZFIN native table */
-.iz-closed-kpis{
-    display:grid;
-    grid-template-columns:repeat(4,minmax(0,1fr));
-    gap:9px;
-    margin:4px 0 12px;
-}
-.iz-closed-kpis>div{
-    padding:11px 12px;
-    border:1px solid #17445d;
-    border-radius:11px;
-    background:linear-gradient(145deg,#071724,#092536);
-    box-shadow:inset 0 1px 0 rgba(255,255,255,.025);
-}
-.iz-closed-kpis small{
-    display:block;
-    color:#648ca1;
-    font-size:8px;
-    font-weight:800;
-    letter-spacing:.85px;
-    margin-bottom:4px;
-}
-.iz-closed-kpis b{
-    color:#edf9fd;
-    font-size:15px;
-    font-weight:760;
-}
-.iz-closed-kpis b.pos{color:#43d9a0}
-.iz-closed-kpis b.neg{color:#ff7181}
-
-.iz-closed-table-shell{
-    width:100%;
-    border:1px solid #17445d;
-    border-radius:13px;
-    overflow:hidden;
-    background:#06131f;
-    box-shadow:0 14px 34px rgba(0,0,0,.16),inset 0 1px 0 rgba(255,255,255,.02);
-}
-.iz-closed-table-scroll{
-    width:100%;
-    overflow-x:auto;
-    max-height:500px;
-    overflow-y:auto;
-}
-.iz-closed-table{
-    width:100%;
-    min-width:1550px;
-    border-collapse:separate;
-    border-spacing:0;
-    font-size:11px;
-    color:#d8e8f0;
-}
-.iz-closed-table thead th{
-    position:sticky;
-    top:0;
-    z-index:3;
-    padding:10px 11px;
-    text-align:left;
-    white-space:nowrap;
-    color:#74a7bd;
-    background:#081a28;
-    border-bottom:1px solid #1d4d64;
-    font-size:8.5px;
-    letter-spacing:.6px;
-    text-transform:uppercase;
-    font-weight:850;
-}
-.iz-closed-table tbody td{
-    padding:10px 11px;
-    border-bottom:1px solid rgba(30,70,91,.52);
-    background:#071522;
-    white-space:nowrap;
-    vertical-align:middle;
-}
-.iz-closed-table tbody tr:nth-child(even) td{
-    background:#081927;
-}
-.iz-closed-table tbody tr:hover td{
-    background:#0a2434;
-}
-.iz-closed-table td.num{
-    text-align:right;
-    font-variant-numeric:tabular-nums;
-}
-.iz-closed-table td.center{text-align:center}
-.iz-closed-table td.date{color:#8ca8b8;font-size:10px}
-.iz-closed-table td.pos{color:#43d9a0;font-weight:800}
-.iz-closed-table td.neg{color:#ff7181;font-weight:800}
-.iz-closed-table td.neu{color:#a5bbc7}
-.iz-closed-table td.pos-soft{color:#72dcb4}
-.iz-closed-table td.neg-soft{color:#f18b98}
-
-.iz-ticker-chip{
-    display:inline-flex;
-    padding:5px 8px;
-    border-radius:7px;
-    color:#dff9fc;
-    background:#0b3143;
-    border:1px solid #1b6479;
-    font-weight:800;
-    letter-spacing:.2px;
-}
-.iz-signal-chip{
-    display:inline-flex;
-    max-width:180px;
-    overflow:hidden;
-    text-overflow:ellipsis;
-    padding:5px 7px;
-    border-radius:7px;
-    background:#0d2636;
-    border:1px solid #244d61;
-    color:#b8d8e5;
-    font-weight:650;
-}
-.iz-close-reason{
-    display:inline-flex;
-    max-width:210px;
-    overflow:hidden;
-    text-overflow:ellipsis;
-    padding:5px 7px;
-    border-radius:7px;
-    background:#251923;
-    border:1px solid #653748;
-    color:#f2c2cb;
-    font-weight:650;
-}
-@media(max-width:850px){
-    .iz-closed-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}
-}
-
-
-/* v1.7.28 — Closed history insights */
-.iz-closed-kpis-wide{
-    grid-template-columns:repeat(4,minmax(0,1fr));
-}
-.iz-closed-insight-card{
-    margin:0 0 13px;
-    padding:15px 17px;
-    border:1px solid #1a5068;
-    border-radius:13px;
-    background:linear-gradient(145deg,#071824,#0a2637);
-    box-shadow:inset 0 1px 0 rgba(255,255,255,.025);
-}
-.iz-closed-insight-head{
-    display:flex;
-    align-items:flex-start;
-    justify-content:space-between;
-    gap:18px;
-    margin-bottom:10px;
-}
-.iz-closed-insight-head small{
-    display:block;
-    color:#23d4de;
-    font-size:8px;
-    font-weight:850;
-    letter-spacing:1.15px;
-    margin-bottom:3px;
-}
-.iz-closed-insight-head h4{
-    margin:0;
-    color:#f1faff;
-    font-size:16px;
-}
-.iz-closed-extremes{
-    display:flex;
-    flex-wrap:wrap;
-    justify-content:flex-end;
-    gap:6px;
-}
-.iz-closed-extremes span{
-    padding:6px 8px;
-    border-radius:7px;
-    border:1px solid #1e4c61;
-    background:#071522;
-    color:#9bb9c8;
-    font-size:9px;
-    white-space:nowrap;
-}
-.iz-closed-extremes b{color:#dceef5}
-.iz-closed-insight-card ul{
-    margin:0;
-    padding-left:18px;
-    color:#c6dce6;
-    font-size:11px;
-    line-height:1.72;
-}
-.iz-closed-insight-card li{margin:3px 0}
-.iz-close-reason-summary{
-    margin:10px 0 3px;
-    padding:10px 12px;
-    border:1px solid #173f55;
-    border-radius:10px;
-    background:#071522;
-}
-.iz-close-reason-summary>small{
-    display:block;
-    color:#648ca1;
-    font-size:8px;
-    font-weight:850;
-    letter-spacing:.85px;
-    margin-bottom:7px;
-}
-.iz-close-reason-summary>div{
-    display:flex;
-    flex-wrap:wrap;
-    gap:6px;
-}
-.iz-close-reason-summary span{
-    display:inline-flex;
-    gap:5px;
-    padding:5px 7px;
-    border-radius:7px;
-    border:1px solid #244b5f;
-    background:#0a1d2b;
-    color:#8caaba;
-    font-size:9px;
-}
-.iz-close-reason-summary b{color:#d6e8ef}
-@media(max-width:900px){
-    .iz-closed-kpis-wide{grid-template-columns:repeat(2,minmax(0,1fr))}
-    .iz-closed-insight-head{flex-direction:column}
-    .iz-closed-extremes{justify-content:flex-start}
-}
-
-
-/* v1.7.33 — Klasik görünümü koruyan minimal interaktif katman */
-.iz-click-strip-label{
-    margin:5px 0 4px;
-    color:#4f7285;
-    font-size:7px;
-    font-weight:800;
-    letter-spacing:.85px;
-}
-[class*="st-key-classic_signal_click_"] button,
-[class*="st-key-classic_mover_click_"] button,
-[class*="st-key-classic_heat_click_"] button{
-    min-height:27px!important;
-    border-radius:7px!important;
-    background:#071724!important;
-    border:1px solid #173f55!important;
-    color:#8fb3c4!important;
-    font-size:8px!important;
-    font-weight:760!important;
-    padding:3px 5px!important;
-    box-shadow:none!important;
-}
-[class*="st-key-classic_signal_click_"] button:hover,
-[class*="st-key-classic_mover_click_"] button:hover,
-[class*="st-key-classic_heat_click_"] button:hover{
-    background:#092536!important;
-    border-color:#27cbd6!important;
-    color:#effcff!important;
-}
-.iz-detail-stock-classic{
-    margin:7px 0 13px;
-    padding:10px 13px;
-    border:1px solid #1b5b73;
-    border-radius:10px;
-    background:linear-gradient(135deg,#081b29,#0a2b3d);
-}
-.iz-detail-stock-classic small{
-    display:block;
-    color:#46d1dc;
-    font-size:7px;
-    font-weight:850;
-    letter-spacing:.9px;
-}
-.iz-detail-stock-classic strong{
-    display:block;
-    margin-top:2px;
-    color:#fff;
-    font-size:20px;
-    font-weight:800;
-}
-.st-key-detay_hisse_secici [data-baseweb="select"] > div{
-    background:#081a27!important;
-    border:1px solid #1a5970!important;
-}
-.st-key-detay_hisse_secici [data-baseweb="select"] *{
-    color:#f4fbff!important;
-    opacity:1!important;
-    font-weight:720!important;
-}
-
-
-
-/* v1.7.35 — Fırsat Haritası görseli v1.7.33'e geri döndü.
-   Tıklama ayrı, minimal aksiyon katmanında. */
-.iz-heat-actions-head{
-    display:flex;
-    align-items:center;
-    justify-content:space-between;
-    gap:10px;
-    margin:6px 0 5px;
-    padding:0 2px;
-}
-.iz-heat-actions-head span{
-    color:#4f7488;
-    font-size:7px;
-    font-weight:850;
-    letter-spacing:.85px;
-}
-.iz-heat-actions-head small{
-    color:#4c6979;
-    font-size:7px;
-}
-[class*="st-key-classic_heat_action_"] button{
-    min-height:27px!important;
-    border-radius:7px!important;
-    background:#071724!important;
-    border:1px solid #173f55!important;
-    color:#90b6c7!important;
-    font-size:8px!important;
-    font-weight:760!important;
-    padding:3px 6px!important;
-    box-shadow:none!important;
-}
-[class*="st-key-classic_heat_action_"] button:hover{
-    background:#092536!important;
-    border-color:#28cad5!important;
-    color:#eefcff!important;
-}
-
-
-/* v1.7.36 — klasik görünüm + şeffaf tıklama overlay */
-.iz-pulse-card-standalone{
-    min-height:255px!important;
-}
-.iz-map-card-standalone{
-    padding-bottom:10px!important;
-    margin-bottom:7px!important;
-}
-.iz-heat-overlay-visible{
-    min-height:68px!important;
-    height:68px!important;
-    border-radius:8px!important;
-    padding:8px 9px!important;
-    transition:all .15s ease!important;
-    overflow:hidden!important;
-}
-.iz-heat-overlay-visible strong{
-    display:block!important;
-    color:#f2fbff!important;
-    font-size:10px!important;
-    line-height:1.15!important;
-    margin-bottom:4px!important;
-}
-.iz-heat-overlay-visible span{
-    color:#aac4d0!important;
-    font-size:7.5px!important;
-    line-height:1.2!important;
-}
-
-
-/* v1.7.37 — Pulse HTML fix + compact classic heatmap */
-.iz-pulse-card-standalone{
-    min-height:244px!important;
-}
-.iz-map-card-standalone{
-    margin:0 0 6px!important;
-    padding:12px 13px!important;
-    border:1px solid #173f55!important;
-    border-radius:11px!important;
-    background:linear-gradient(145deg,#071724,#092536)!important;
-    box-shadow:inset 0 1px 0 rgba(255,255,255,.025)!important;
-}
-.iz-map-card-standalone .iz-card-head{
-    margin:0!important;
-}
-.iz-heat-overlay-visible{
-    min-height:61px!important;
-    height:61px!important;
-    border-radius:8px!important;
-    padding:7px 8px!important;
-    margin:0!important;
-    transition:all .14s ease!important;
-    overflow:hidden!important;
-    display:flex!important;
-    flex-direction:column!important;
-    justify-content:center!important;
-}
-.iz-heat-overlay-visible strong{
-    display:block!important;
-    color:#f2fbff!important;
-    font-size:9px!important;
-    line-height:1.1!important;
-    margin:0 0 3px!important;
-    white-space:nowrap!important;
-    overflow:hidden!important;
-    text-overflow:ellipsis!important;
-}
-.iz-heat-overlay-visible span{
-    display:block!important;
-    color:#a9c3cf!important;
-    font-size:6.8px!important;
-    line-height:1.15!important;
-    white-space:nowrap!important;
-}
-.iz-classic-map-empty{
-    min-height:190px;
-    display:flex;
-    flex-direction:column;
-    align-items:center;
-    justify-content:center;
-    gap:4px;
-    padding:20px;
-    border:1px dashed #1a4059;
-    border-radius:10px;
-    background:#071522;
-    color:#7891a5;
-    text-align:center;
-    font-size:9px;
-}
-.iz-classic-map-empty b{color:#b7c9d6}
-
-
-/* v1.7.38 — daha sıkı ve keskin Fırsat Haritası */
-.iz-map-card-standalone{
-    border-radius:3px!important;
-    margin-bottom:4px!important;
-    padding:10px 11px!important;
-}
-.iz-heat-overlay-visible{
-    min-height:53px!important;
-    height:53px!important;
-    border-radius:1px!important;
-    padding:5px 7px!important;
-    margin:0!important;
-    box-shadow:none!important;
-}
-.iz-heat-overlay-visible strong{
-    font-size:9px!important;
-    margin-bottom:2px!important;
-    letter-spacing:.15px!important;
-}
-.iz-heat-overlay-visible span{
-    font-size:6.5px!important;
-    line-height:1.08!important;
-}
-[class*="st-key-heat_overlay_"]{
-    min-height:53px!important;
-}
-[class*="st-key-heat_overlay_"] [data-testid="stVerticalBlock"]{
-    gap:0!important;
-}
-[class*="st-key-heat_overlay_btn_"] button{
-    height:53px!important;
-    min-height:53px!important;
-    border-radius:1px!important;
-}
-[class*="st-key-heat_overlay_"]:hover .iz-heat-overlay-visible{
-    transform:none!important;
-    filter:brightness(1.12)!important;
-    outline:1px solid rgba(50,220,229,.72)!important;
-}
-
-
-/* v1.7.39 — Heatmap rows tighter + pulse explanation */
-.st-key-izfin_heatmap_grid > div[data-testid="stVerticalBlock"],
-.st-key-izfin_heatmap_grid [data-testid="stVerticalBlock"]{
-    gap:2px!important;
-}
-.st-key-izfin_heatmap_grid [data-testid="stHorizontalBlock"]{
-    gap:4px!important;
-    margin:0!important;
-    padding:0!important;
-}
-.st-key-izfin_heatmap_grid{
-    margin:0!important;
-    padding:0!important;
-}
-.iz-heat-overlay-visible{
-    min-height:53px!important;
-    height:53px!important;
-    padding:5px 7px!important;
-}
-.iz-pulse-source{
-    margin:8px 0 9px;
-    padding:8px 10px;
-    border:1px solid #173f55;
-    background:#071522;
-    display:grid;
-    grid-template-columns:auto 1fr;
-    align-items:center;
-    gap:3px 9px;
-}
-.iz-pulse-source span{
-    color:#4fcbd6;
-    font-size:7px;
-    font-weight:850;
-    letter-spacing:.9px;
-}
-.iz-pulse-source b{
-    color:#dff6fb;
-    font-size:9px;
-    font-weight:760;
-}
-.iz-pulse-source small{
-    grid-column:1/-1;
-    color:#7896a6;
-    font-size:7.5px;
-    line-height:1.4;
-}
-.iz-pulse-help{
-    margin-top:8px;
-    padding-top:7px;
-    border-top:1px solid rgba(30,70,91,.6);
-    color:#8faab8;
-    font-size:8.5px;
-    line-height:1.45;
-}
-.iz-pulse-help b{
-    color:#d9edf5;
-    font-weight:760;
-}
-
-
-/* v1.7.40 — IZFIN Karar Merkezi */
-.iz-decision-center{
-    margin:0 0 12px;
-    padding:17px 18px 14px;
-    border:1px solid #17465e;
-    border-radius:11px;
-    background:
-        radial-gradient(circle at 82% 0%,rgba(24,115,139,.12),transparent 30%),
-        linear-gradient(145deg,#071724,#081d2a);
-    box-shadow:inset 0 1px 0 rgba(255,255,255,.025),0 14px 30px rgba(0,0,0,.12);
-}
-.iz-decision-head{
-    display:flex;
-    align-items:flex-start;
-    justify-content:space-between;
-    gap:16px;
-    padding-bottom:12px;
-    border-bottom:1px solid rgba(31,75,96,.62);
-}
-.iz-decision-head small{
-    display:block;color:#42cbd6;font-size:7.5px;font-weight:850;letter-spacing:1.05px;margin-bottom:3px;
-}
-.iz-decision-head h2{
-    margin:0;color:#f0f9fc;font-size:18px;font-weight:780;line-height:1.15;
-}
-.iz-decision-head p{
-    margin:4px 0 0;color:#688b9e;font-size:8px;
-}
-.iz-decision-mode{
-    flex:0 0 auto;
-    padding:7px 10px;
-    border:1px solid;
-    border-radius:4px;
-    font-size:8px;
-    font-weight:850;
-    letter-spacing:.55px;
-}
-.iz-decision-mode.positive{color:#4ce0ad;border-color:#246b59;background:#09231e}
-.iz-decision-mode.neutral{color:#62cddd;border-color:#24566b;background:#09202b}
-.iz-decision-mode.caution{color:#efc15b;border-color:#66512c;background:#251d0d}
-.iz-decision-mode.danger{color:#ff7d8b;border-color:#6b3441;background:#28131a}
-.iz-decision-kpis{
-    display:grid;
-    grid-template-columns:repeat(4,1fr);
-    gap:7px;
-    margin:12px 0 10px;
-}
-.iz-decision-kpis>div{
-    min-height:72px;
-    padding:9px 10px;
-    border:1px solid #163e52;
-    border-radius:5px;
-    background:#071522;
-}
-.iz-decision-kpis span{
-    display:block;color:#63899d;font-size:7px;font-weight:820;letter-spacing:.6px;
-}
-.iz-decision-kpis b{
-    display:block;margin:4px 0 1px;color:#effaff;font-size:20px;font-weight:790;
-}
-.iz-decision-kpis small{color:#617d8d;font-size:7px}
-.iz-decision-lower{
-    display:grid;
-    grid-template-columns:1.15fr .85fr;
-    gap:8px;
-}
-.iz-best-setup-copy{
-    min-height:79px;
-    padding:11px 12px;
-    border:1px solid #1a5369;
-    border-radius:5px;
-    background:linear-gradient(135deg,#082131,#0a2b3b);
-}
-.iz-best-setup-copy small{
-    display:block;color:#42cbd6;font-size:7px;font-weight:850;letter-spacing:.7px;
-}
-.iz-best-setup-copy strong{
-    display:block;margin:3px 0;color:#fff;font-size:21px;font-weight:800;
-}
-.iz-best-setup-copy span{color:#8eafbe;font-size:8px}
-.iz-market-factors{
-    display:grid;grid-template-columns:repeat(4,1fr);gap:4px;
-    min-height:79px;padding:8px;border:1px solid #163e52;border-radius:5px;background:#071522;
-}
-.iz-market-factors>div{
-    display:flex;flex-direction:column;align-items:center;justify-content:center;
-    border-right:1px solid rgba(31,71,90,.55);
-}
-.iz-market-factors>div:last-child{border-right:0}
-.iz-market-factors span{color:#62879a;font-size:6.5px;font-weight:800}
-.iz-market-factors b{margin-top:3px;color:#e5f5fa;font-size:13px}
-.iz-system-comment{
-    display:grid;grid-template-columns:auto 1fr;gap:10px;align-items:center;
-    margin-top:8px;padding:8px 10px;border-left:2px solid #2bc8d3;background:#071522;
-}
-.iz-system-comment span{color:#45cbd6;font-size:7px;font-weight:850;letter-spacing:.65px}
-.iz-system-comment p{margin:0;color:#a4bdc8;font-size:8.5px;line-height:1.4}
-.iz-decision-foot{
-    margin-top:8px;color:#506f80;font-size:7px;line-height:1.35;
-}
-.iz-decision-empty{
-    margin-top:12px;padding:24px 15px;text-align:center;border:1px dashed #1a4059;
-    color:#7894a4;font-size:9px;
-}
-.st-key-decision_center_best_setup button{
-    min-height:34px!important;
-    border-radius:5px!important;
-    background:#082434!important;
-    border:1px solid #1b5a70!important;
-    color:#dff8fc!important;
-    font-size:9px!important;
-    font-weight:760!important;
-}
-.st-key-decision_center_best_setup button:hover{
-    background:#0a3041!important;border-color:#2bcbd6!important;
-}
-
-
-/* v1.7.42 — Ana sayfa kompakt iki kolon */
-.iz-home-focus-left,
-.iz-home-focus-right{
-    min-width:0;
-}
-
-/* Alt ana sayfa kartlarını biraz sıkılaştır */
-.iz-signal-row{
-    padding-top:7px!important;
-    padding-bottom:7px!important;
-}
-.iz-mover-row{
-    padding-top:6px!important;
-    padding-bottom:6px!important;
-}
-
-/* Sağ kolon dar olduğundan mover metinlerini taşırma */
-.iz-mover-row strong,
-.iz-mover-row span{
-    white-space:nowrap!important;
-    overflow:hidden!important;
-    text-overflow:ellipsis!important;
-}
-
-/* Tıklama şeritleri de daha az yer kaplasın */
-.iz-click-strip-label{
-    margin-top:4px!important;
-    margin-bottom:3px!important;
-}
-[class*="st-key-classic_signal_click_"] button,
-[class*="st-key-classic_mover_click_"] button{
-    min-height:25px!important;
-    padding:2px 5px!important;
-}
-
-
-/* v1.7.43 — Fit-to-screen table support */
-.iz-scan-table-wrap table{
-    box-sizing:border-box;
-}
-.iz-scan-table-wrap th,
-.iz-scan-table-wrap td{
-    box-sizing:border-box;
-}
-
-
-/* v1.7.44 — Okunabilir geniş tablo */
-.iz-wide-table-shell{
-    width:100%;
-    overflow:hidden;
-    border:1px solid #17465d;
-    border-radius:10px;
-    background:#06131f;
-    box-shadow:0 12px 28px rgba(0,0,0,.14);
-}
-.iz-wide-table{
-    width:100%;
-    table-layout:fixed;
-    border-collapse:collapse;
-    color:#dcebf2;
-    font-size:11px;
-}
-.iz-wide-table th{
-    padding:10px 10px;
-    text-align:left;
-    background:#081a28;
-    color:#72a7bd;
-    border-bottom:1px solid #1d4d64;
-    font-size:8.5px;
-    font-weight:850;
-    letter-spacing:.6px;
-}
-.iz-wide-table td{
-    padding:10px 10px;
-    border-bottom:1px solid rgba(30,70,91,.48);
-    background:#071522;
-    vertical-align:middle;
-    overflow:hidden;
-}
-.iz-wide-table tr:nth-child(even) td{background:#081927}
-.iz-wide-table tr:hover td{background:#0a2434}
-
-.iz-wide-table th:nth-child(1){width:12%}
-.iz-wide-table th:nth-child(2){width:16%}
-.iz-wide-table th:nth-child(3){width:31%}
-.iz-wide-table th:nth-child(4){width:18%}
-.iz-wide-table th:nth-child(5){width:12%}
-.iz-wide-table th:nth-child(6){width:11%}
-
-.iz-wide-asset strong{
-    display:block;
-    color:#f4fbff;
-    font-size:12px;
-    font-weight:800;
-}
-.iz-wide-asset span{
-    display:block;
-    margin-top:3px;
-    color:#87a6b6;
-    font-size:9px;
-}
-.iz-wide-decision .iz-badge{
-    display:inline-flex!important;
-    max-width:100%!important;
-    font-size:9px!important;
-    padding:5px 7px!important;
-    white-space:normal!important;
-    line-height:1.2!important;
-}
-
-.iz-wide-quality{
-    display:grid!important;
-    grid-template-columns:.7fr .75fr .65fr 2.1fr;
-    gap:5px;
-}
-.iz-wide-quality>div,
-.iz-wide-riskflow>div{
-    min-width:0;
-    padding:6px 7px;
-    border:1px solid #173d51;
-    border-radius:6px;
-    background:#071522;
-}
-.iz-wide-quality span,
-.iz-wide-riskflow span{
-    display:block;
-    color:#62899d;
-    font-size:6.8px;
-    font-weight:850;
-    letter-spacing:.45px;
-    margin-bottom:2px;
-}
-.iz-wide-quality b,
-.iz-wide-riskflow b{
-    display:block;
-    color:#e7f6fb;
-    font-size:9.5px;
-    font-weight:760;
-    white-space:nowrap;
-    overflow:hidden;
-    text-overflow:ellipsis;
-}
-.iz-wide-entry b{
-    white-space:nowrap;
-    overflow:hidden;
-    text-overflow:ellipsis;
-}
-
-.iz-wide-riskflow{
-    display:grid!important;
-    grid-template-columns:.8fr 1.2fr;
-    gap:5px;
-}
-.iz-wide-riskflow .risk-high b{color:#ff7b88}
-.iz-wide-riskflow .risk-low b{color:#46dca5}
-.iz-wide-riskflow .risk-mid b{color:#edc25e}
-
-.iz-wide-value,
-.iz-wide-session{
-    color:#a8bec9;
-    font-size:9.5px;
-    white-space:nowrap;
-    overflow:hidden;
-    text-overflow:ellipsis;
-}
-
-@media(max-width:1400px){
-    .iz-wide-table{font-size:10px}
-    .iz-wide-table th{font-size:8px;padding:8px 7px}
-    .iz-wide-table td{padding:8px 7px}
-    .iz-wide-quality b,.iz-wide-riskflow b{font-size:8.8px}
-}
-
-
-/* v1.7.45 — Professional Wide Table */
-.izw-shell{
-    width:100%;
-    overflow:hidden;
-    border:1px solid #16465d;
-    border-radius:10px;
-    background:#06131f;
-}
-.izw-table{
-    width:100%;
-    table-layout:fixed;
-    border-collapse:collapse;
-    color:#e6f2f7;
-    font-size:11px;
-}
-.izw-table thead th{
-    height:42px;
-    padding:0 12px;
-    text-align:left;
-    vertical-align:middle;
-    color:#77a8bb;
-    background:#071b29;
-    border-right:1px solid #12394d;
-    border-bottom:1px solid #1c536b;
-    font-size:8px;
-    font-weight:850;
-    letter-spacing:.72px;
-}
-.izw-table thead th:last-child{border-right:0}
-.izw-table tbody tr{height:118px}
-.izw-table tbody td{
-    padding:12px;
-    vertical-align:middle;
-    background:#071522;
-    border-right:1px solid #12394d;
-    border-bottom:1px solid #174258;
-    overflow:hidden;
-}
-.izw-table tbody tr:nth-child(even) td{background:#081a27}
-.izw-table tbody tr:hover td{background:#092332}
-.izw-table tbody td:last-child{border-right:0}
-
-.izw-table th:nth-child(1){width:14%}
-.izw-table th:nth-child(2){width:15%}
-.izw-table th:nth-child(3){width:31%}
-.izw-table th:nth-child(4){width:18%}
-.izw-table th:nth-child(5){width:13%}
-.izw-table th:nth-child(6){width:9%}
-
-.izw-asset-top{display:flex;align-items:center;gap:10px}
-.izw-logo{
-    width:34px;height:34px;min-width:34px;
-    display:inline-flex;align-items:center;justify-content:center;
-    border:1px solid #18506a;border-radius:8px;
-    background:linear-gradient(145deg,#092233,#06131f);
-    color:#eafaff;font-size:15px;font-weight:850;
-    box-shadow:inset 0 1px 0 rgba(255,255,255,.03);
-}
-.izw-asset strong{display:block;font-size:13px;color:#f4fbff;line-height:1.1}
-.izw-asset small{display:block;margin-top:3px;color:#68899a;font-size:7px}
-.izw-price{margin-top:10px;color:#9fc0cd;font-size:10px}
-
-.izw-decision{text-align:center}
-.izw-decision .iz-badge{
-    display:inline-flex!important;align-items:center;justify-content:center;
-    max-width:100%;padding:6px 8px!important;font-size:8.5px!important;
-    white-space:nowrap!important;
-}
-.izw-decision small{display:block;margin-top:7px;color:#668798;font-size:7px}
-
-.izw-quality{padding:10px 12px!important}
-.izw-quality-top{
-    display:grid;grid-template-columns:.8fr .8fr .8fr;gap:6px;
-}
-.izw-quality-top>div,.izw-entry,.izw-rf-grid>div{
-    min-width:0;border:1px solid #16445a;border-radius:6px;background:#071725;
-}
-.izw-quality-top>div{padding:7px 8px}
-.izw-quality span,.izw-riskflow span,.izw-value span{
-    display:block;color:#6690a3;font-size:6.5px;font-weight:850;letter-spacing:.55px;
-}
-.izw-quality b,.izw-riskflow b{
-    display:block;margin-top:4px;color:#f0f8fb;font-size:9px;font-weight:760;
-    white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
-}
-.izw-entry{margin-top:6px;padding:7px 8px}
-.izw-entry b{font-size:8.5px}
-
-.izw-rf-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px}
-.izw-rf-grid>div{padding:10px 9px;min-height:52px}
-.izw-rf-grid .high b,.izw-value .bad{color:#ff6678}
-.izw-rf-grid .low b,.izw-rf-grid .good b,.izw-value .good{color:#48dda7}
-.izw-rf-grid .mid b,.izw-value .mid{color:#efbf50}
-.izw-rf-grid .bad b{color:#ff6678}
-
-.izw-value b{
-    display:block;margin-top:7px;font-size:10px;font-weight:780;
-    line-height:1.3;white-space:normal;
-}
-.izw-session{text-align:center}
-.izw-moon{display:block;color:#f0bd52;font-size:18px;line-height:1;margin-bottom:6px}
-.izw-session b{
-    display:block;font-size:8.5px;font-weight:700;white-space:normal;line-height:1.35;
-}
-.izw-session b.up{color:#48dda7}
-.izw-session b.down{color:#ff6678}
-.izw-session b.flat{color:#a8c0cb}
-
-@media(max-width:1450px){
-    .izw-table tbody tr{height:110px}
-    .izw-table tbody td{padding:9px}
-    .izw-table thead th{padding:0 9px;font-size:7.5px}
-    .izw-logo{width:30px;height:30px;min-width:30px;font-size:13px}
-    .izw-asset strong{font-size:11.5px}
-    .izw-price{font-size:9px}
-    .izw-quality b,.izw-riskflow b{font-size:8px}
-}
-
-
-/* v1.7.46 — sembolsüz, daha okunabilir geniş tablo */
-.izw-table{
-    font-size:13px!important;
-}
-.izw-table thead th{
-    height:46px!important;
-    padding:0 13px!important;
-    font-size:9.5px!important;
-    letter-spacing:.62px!important;
-}
-.izw-table tbody tr{
-    height:124px!important;
-}
-.izw-table tbody td{
-    padding:13px!important;
-}
-.izw-logo{
-    display:none!important;
-}
-.izw-asset-top{
-    gap:0!important;
-}
-.izw-asset strong{
-    font-size:15px!important;
-    letter-spacing:.15px!important;
-}
-.izw-asset small{
-    margin-top:4px!important;
-    font-size:8.5px!important;
-}
-.izw-price{
-    margin-top:11px!important;
-    font-size:11.5px!important;
-}
-.izw-decision .iz-badge{
-    padding:7px 9px!important;
-    font-size:10px!important;
-    line-height:1.2!important;
-}
-.izw-decision small{
-    margin-top:8px!important;
-    font-size:8.5px!important;
-}
-.izw-quality span,
-.izw-riskflow span,
-.izw-value span{
-    font-size:7.8px!important;
-}
-.izw-quality b,
-.izw-riskflow b{
-    margin-top:5px!important;
-    font-size:10.5px!important;
-}
-.izw-entry b{
-    font-size:10px!important;
-}
-.izw-quality-top>div,
-.izw-entry,
-.izw-rf-grid>div{
-    padding:8px 9px!important;
-}
-.izw-value b{
-    margin-top:8px!important;
-    font-size:11px!important;
-}
-.izw-moon{
-    font-size:19px!important;
-}
-.izw-session b{
-    font-size:10px!important;
-    line-height:1.4!important;
-}
-
-/* 1366–1450px ekranlarda da okunabilirliği koru; eski aşırı küçültmeyi ez. */
-@media(max-width:1450px){
-    .izw-table{font-size:11.5px!important}
-    .izw-table thead th{font-size:8.7px!important;padding:0 10px!important}
-    .izw-table tbody tr{height:118px!important}
-    .izw-table tbody td{padding:10px!important}
-    .izw-asset strong{font-size:13.5px!important}
-    .izw-price{font-size:10.5px!important}
-    .izw-decision .iz-badge{font-size:9.2px!important}
-    .izw-quality span,.izw-riskflow span,.izw-value span{font-size:7.2px!important}
-    .izw-quality b,.izw-riskflow b{font-size:9.5px!important}
-    .izw-entry b{font-size:9.2px!important}
-    .izw-value b{font-size:10px!important}
-    .izw-session b{font-size:9px!important}
-}
-
-</style>
-""", unsafe_allow_html=True)
+# CSS block #1 moved to styles/izfin.css
 
 # --- ÖNBELLEKSİZ ÖZEL HTTP OTURUMU ---
 session = requests.Session()
@@ -2193,7 +225,9 @@ def _kayit_ol(email, password):
 
 def _sifre_sifirlama_maili(email):
     _, err = _firebase_auth_post("sendOobCode", {"requestType": "PASSWORD_RESET", "email": email})
-    return err
+    if err:
+        return False, err
+    return True, None
 
 def _captcha_yenile():
     st.session_state.captcha_a = pysecrets.randbelow(8) + 2
@@ -2237,7 +271,7 @@ STRATEJI_SURUMU = "IZFIN-v1.7.5-auth-switch-fixed"
 PERFORMANS_UFUKLARI = (1, 5, 10, 20, 45)
 
 # --- IZFIN UYGULAMA SÜRÜMÜ / LOG ---
-IZFIN_APP_SURUMU = "v1.7.2 Signature UI"
+IZFIN_APP_SURUMU = "v1.7.48 CSS Extraction"
 logger = logging.getLogger("IZFIN")
 if not logger.handlers:
     logging.basicConfig(level=logging.INFO)
@@ -2248,6 +282,19 @@ _FINNHUB_RATE_LOCK = Lock()
 _FINNHUB_LAST_CALL = 0.0
 _FINNHUB_MIN_INTERVAL = 0.10  # yaklaşık 10 istek/sn; 30/sn üst sınırının oldukça altında
 
+
+
+# ============================================================
+# v1.7.48 — CENTRALIZED CSS LOADER
+# ============================================================
+def izfin_css_yukle():
+    """Load the centralized IZFIN stylesheet from the repository."""
+    css_path = Path(__file__).resolve().parent / "styles" / "izfin.css"
+    try:
+        css = css_path.read_text(encoding="utf-8")
+        st.markdown(f"<style>{css}</style>", unsafe_allow_html=True)
+    except Exception as e:
+        st.error(f"IZFIN tema dosyası yüklenemedi: {e}")
 
 def izfin_hata_logla(baglam, hata, ticker=None):
     """Kullanıcıya traceback göstermeden Streamlit Cloud loglarına teknik hata yazar."""
@@ -3886,35 +1933,6 @@ def gelismis_teknik_panel_olustur(d):
     kisa_yorum = "EMA 21 üzerinde" if ema9 > ema21 else "EMA 21 altında"
 
     return f"""
-    <style>
-      .hp-wrap{{margin-top:14px;padding:18px;border:1px solid rgba(128,128,128,.28);border-radius:14px;background:var(--secondary-background-color);color:var(--text-color);font-family:inherit}}
-      .hp-head{{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap;margin-bottom:14px}}
-      .hp-title{{font-size:22px;font-weight:750;line-height:1.25}} .hp-sub{{font-size:12px;opacity:.68;margin-top:4px}}
-      .hp-source{{font-size:12px;padding:5px 9px;border:1px solid rgba(49,130,206,.35);border-radius:999px;background:rgba(49,130,206,.08)}}
-      .hp-grid{{display:grid;grid-template-columns:repeat(4,minmax(150px,1fr));gap:10px}}
-      .hp-card{{padding:13px;border:1px solid rgba(128,128,128,.22);border-radius:10px;background:var(--background-color);min-height:104px}}
-      .hp-card-head{{display:flex;gap:7px;align-items:center;font-size:12px;font-weight:650;opacity:.78}}
-      .hp-card-value{{font-size:23px;font-weight:750;margin:8px 0 7px;letter-spacing:-.3px}}
-      .hp-pill{{display:inline-block;font-size:11px;padding:4px 8px;border-radius:999px;background:rgba(128,128,128,.12)}}
-      .hp-pill.pozitif,.hp-positive{{color:#1f9d55;background:rgba(31,157,85,.11)}}
-      .hp-pill.negatif,.hp-negative{{color:#d64545;background:rgba(214,69,69,.10)}}
-      .hp-pill.uyari,.hp-warning{{color:#b7791f;background:rgba(183,121,31,.12)}}
-      .hp-pill.notr{{opacity:.75}}
-      .hp-sections{{display:grid;grid-template-columns:1.05fr 1fr 1fr;gap:10px;margin-top:10px}}
-      .hp-section{{padding:14px;border:1px solid rgba(128,128,128,.22);border-radius:10px;background:var(--background-color)}}
-      .hp-section h4{{font-size:13px;margin:0 0 10px;opacity:.82}}
-      .hp-row{{display:flex;justify-content:space-between;gap:12px;padding:6px 0;border-bottom:1px solid rgba(128,128,128,.13);font-size:13px}}
-      .hp-row:last-child{{border-bottom:none}} .hp-row b{{white-space:nowrap}}
-      .hp-target{{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:8px}}
-      .hp-target-card{{padding:10px;border-radius:8px;background:rgba(128,128,128,.07);text-align:center}}
-      .hp-target-card strong{{display:block;font-size:18px;margin:4px 0}} .hp-stars{{font-size:12px;color:#b7791f;letter-spacing:1px}}
-      .hp-comment{{margin-top:10px;padding:14px;border-left:4px solid #3182ce;border-radius:8px;background:rgba(49,130,206,.07);font-size:13px;line-height:1.65}}
-      .hp-decision{{margin-top:10px;padding:14px;border:1px solid rgba(128,128,128,.22);border-radius:10px;background:var(--background-color)}}
-      .hp-decision-title{{font-size:18px;font-weight:750;margin-bottom:5px}} .hp-small{{font-size:12px;opacity:.7}}
-      .hp-trigger-list{{margin:8px 0 0 18px;padding:0;font-size:12px;line-height:1.6}}
-      @media(max-width:1000px){{.hp-grid{{grid-template-columns:repeat(2,1fr)}}.hp-sections{{grid-template-columns:1fr}}}}
-      @media(max-width:600px){{.hp-grid{{grid-template-columns:1fr}}.hp-target{{grid-template-columns:1fr}}}}
-    </style>
     <div class="hp-wrap">
       <div class="hp-head"><div><div class="hp-title">📋 {ticker} — Detaylı Teknik Analiz</div><div class="hp-sub">Göstergeler, seviyeler ve nihai karar tek görünümde{seans_notu}</div></div><div class="hp-source">🔌 {veri_kaynagi}</div></div>
       <div class="hp-grid">{cards}</div>
@@ -4868,13 +2886,35 @@ if st.session_state.user_email and db and not st.session_state.kullanici_listesi
     except Exception as _liste_hatasi:
         st.warning(f"Kayıtlı listeniz şu anda yüklenemedi: {_liste_hatasi}")
 
-def kullanici_listesini_kaydet():
-    if not db or not st.session_state.get("user_email"):
-        return
+def kullanici_listesini_kaydet(raise_on_error=False):
+    """Kişisel listeyi Firestore'a yazar ve gerçek başarı durumunu döndürür.
+
+    Eski sürüm Firestore hatasını içeride yuttuğu için çağıran kod yanlışlıkla
+    "başarıyla eklendi" diyebiliyordu. Bu sürümde yazma sonucu gözlemlenebilir.
+    """
+    if not db:
+        hata = RuntimeError("Firebase veritabanı bağlantısı kullanılamıyor.")
+        if raise_on_error:
+            raise hata
+        return False, str(hata)
+    if not st.session_state.get("user_email"):
+        hata = RuntimeError("Kullanıcı oturumu bulunamadı.")
+        if raise_on_error:
+            raise hata
+        return False, str(hata)
     try:
-        db.collection("kullanici_listeleri").document(_kullanici_liste_doc_id()).set({"uid": st.session_state.get("user_uid"),"email": st.session_state.user_email,"tickers": list(dict.fromkeys(st.session_state.custom_tickers)),"guncelleme_zamani": datetime.now().isoformat()}, merge=True)
+        db.collection("kullanici_listeleri").document(_kullanici_liste_doc_id()).set({
+            "uid": st.session_state.get("user_uid"),
+            "email": st.session_state.user_email,
+            "tickers": list(dict.fromkeys(st.session_state.custom_tickers)),
+            "guncelleme_zamani": datetime.now().isoformat(),
+        }, merge=True)
+        return True, None
     except Exception as e:
         izfin_hata_logla("kullanici_listesi_yaz", e)
+        if raise_on_error:
+            raise RuntimeError("Firebase liste kaydı tamamlanamadı.") from e
+        return False, "Firebase liste kaydı tamamlanamadı."
 
 @st.cache_data(ttl=90, show_spinner=False)
 def hisse_onerileri_getir(arama):
@@ -5002,62 +3042,76 @@ def profil_degisti():
     st.session_state.aktif_profil = p
     st.session_state.secilen_varliklar = preset_options[p].copy()
 
+def _ticker_girdisini_dogrula(raw):
+    """Kullanıcı ticker girişini normalize eder; HTML/bozuk karakterleri engeller."""
+    symbol = str(raw or "").strip().upper()
+    if not symbol:
+        return None, "Lütfen önce bir hisse sembolü yazın."
+    if len(symbol) > 20:
+        return None, "Sembol beklenenden uzun görünüyor."
+    # AAPL, BRK-B, THYAO.IS, ^IXIC, BTC-USD, ES=F benzeri yaygın sembolleri destekler.
+    if not re.fullmatch(r"[A-Z0-9.\^=_-]+", symbol):
+        return None, "Sembol yalnızca harf, rakam ve . - _ ^ = karakterlerini içerebilir."
+    return symbol, None
+
 def hisse_ekle_callback():
-    """Manuel hisse ekleme + kullanıcıya net başarı/hata geri bildirimi."""
+    """Manuel hisse ekleme + doğrulama + gerçek kalıcı kayıt geri bildirimi."""
     try:
-        raw = str(st.session_state.get("ek_hisse_input_field", "") or "").strip()
-        symbol = raw.upper()
-
-        if not raw:
-            st.session_state["liste_islem_mesaji"] = ("error", "Hisse eklenemedi: Lütfen önce bir hisse sembolü yazın.")
-            return
-
-        if len(symbol) > 20:
-            st.session_state["liste_islem_mesaji"] = ("error", f"{symbol} eklenemedi: Sembol beklenenden uzun görünüyor.")
+        symbol, hata = _ticker_girdisini_dogrula(st.session_state.get("ek_hisse_input_field", ""))
+        if hata:
+            st.session_state["liste_islem_mesaji"] = ("error", f"Hisse eklenemedi: {hata}")
             return
 
         if symbol in st.session_state.custom_tickers:
             st.session_state["liste_islem_mesaji"] = ("warning", f"{symbol} zaten kişisel listenizde bulunuyor.")
             return
 
-        # Önce session listesine ekle, ardından Firebase'e kaydet.
         eski_liste = st.session_state.custom_tickers.copy()
         st.session_state.custom_tickers.append(symbol)
-
         try:
-            kullanici_listesini_kaydet()
+            kullanici_listesini_kaydet(raise_on_error=True)
         except Exception as firebase_hatasi:
-            # Kalıcı kayıt başarısızsa bellekteki eklemeyi de geri al.
             st.session_state.custom_tickers = eski_liste
             st.session_state["liste_islem_mesaji"] = (
-                "error",
-                f"{symbol} listeye eklenemedi: Firebase kaydı tamamlanamadı. {firebase_hatasi}"
+                "error", f"{symbol} listeye eklenemedi: {firebase_hatasi}"
             )
             return
 
         st.session_state.aktif_profil = "Kendi Listem"
         st.session_state.secilen_varliklar = st.session_state.custom_tickers.copy()
         st.session_state["ek_hisse_input_field"] = ""
-        st.session_state["liste_islem_mesaji"] = (
-            "success",
-            f"{symbol} kişisel listenize başarıyla eklendi."
-        )
-
+        st.session_state["liste_islem_mesaji"] = ("success", f"{symbol} kişisel listenize başarıyla eklendi.")
     except Exception as hata:
-        st.session_state["liste_islem_mesaji"] = (
-            "error",
-            f"Hisse listeye eklenemedi: {hata}"
-        )
+        izfin_hata_logla("manuel_liste_ekleme", hata)
+        st.session_state["liste_islem_mesaji"] = ("error", "Hisse listeye eklenemedi: beklenmeyen bir işlem hatası oluştu.")
 
 def hisse_sil_callback():
-    input_val = st.session_state.sil_hisse_input_field
-    if input_val and input_val.strip():
-        for h in [x.strip().upper() for x in input_val.replace(",", " ").split() if x.strip()]:
-            if h in st.session_state.custom_tickers: st.session_state.custom_tickers.remove(h)
-        kullanici_listesini_kaydet()
-        st.session_state.aktif_profil = "Kendi Listem"
-        st.session_state.secilen_varliklar = st.session_state.custom_tickers.copy()
-        st.session_state.sil_hisse_input_field = ""
+    raw = st.session_state.get("sil_hisse_input_field", "")
+    semboller = [x.strip().upper() for x in str(raw).replace(",", " ").split() if x.strip()]
+    if not semboller:
+        st.session_state["liste_islem_mesaji"] = ("error", "Silinecek bir sembol yazın.")
+        return
+
+    bulunan = [h for h in semboller if h in st.session_state.custom_tickers]
+    bulunamayan = [h for h in semboller if h not in st.session_state.custom_tickers]
+    if not bulunan:
+        st.session_state["liste_islem_mesaji"] = ("warning", f"Listede bulunamadı: {', '.join(bulunamayan)}")
+        return
+
+    eski_liste = st.session_state.custom_tickers.copy()
+    st.session_state.custom_tickers = [h for h in st.session_state.custom_tickers if h not in bulunan]
+    try:
+        kullanici_listesini_kaydet(raise_on_error=True)
+    except Exception as e:
+        st.session_state.custom_tickers = eski_liste
+        st.session_state["liste_islem_mesaji"] = ("error", f"Silme işlemi kaydedilemedi: {e}")
+        return
+
+    st.session_state.aktif_profil = "Kendi Listem"
+    st.session_state.secilen_varliklar = st.session_state.custom_tickers.copy()
+    st.session_state.sil_hisse_input_field = ""
+    ek = f" Listede bulunamayan: {', '.join(bulunamayan)}." if bulunamayan else ""
+    st.session_state["liste_islem_mesaji"] = ("success", f"{', '.join(bulunan)} kişisel listenizden silindi.{ek}")
 
 
 # --- IZFIN SIGNATURE UI ---
@@ -5200,150 +3254,6 @@ def _iz_pulse_label(p):
     if p >= 32: return "TEMKİNLİ"
     return "RİSKLİ"
 
-def _iz_heatmap_items(max_n=16):
-    sonuclar = st.session_state.get("sonuclar") or []
-    paneller = st.session_state.get("teknik_paneller") or {}
-    items = []
-    for r in sonuclar:
-        t = str(r.get("Varlık",""))
-        p = paneller.get(t,{})
-        skor = float(p.get("cezali_skor", p.get("nihai_skor",50)) or 50)
-        guven = float(p.get("guven_skoru",50) or 50)
-        d = float(p.get("gunluk_degisim",0) or 0)
-        items.append((skor,guven,t,d))
-    items.sort(reverse=True)
-    return items[:max_n]
-
-def _iz_heat_color(skor):
-    if skor >= 78: return "background:linear-gradient(145deg,#0b684e,#075743)"
-    if skor >= 66: return "background:linear-gradient(145deg,#0b514a,#0a3f40)"
-    if skor >= 55: return "background:linear-gradient(145deg,#123b45,#102f3b)"
-    if skor >= 45: return "background:linear-gradient(145deg,#263842,#1e2d37)"
-    return "background:linear-gradient(145deg,#5b202a,#421b23)"
-
-
-def izfin_render_clickable_heatmap_overlay(max_n=16):
-    """
-    Klasik IZFIN fırsat haritasını görsel olarak korur.
-    Kartların tamamı görünmez native buton overlay ile tıklanabilir.
-    """
-    items = _iz_heatmap_items(max_n=max_n)
-    if not items:
-        st.markdown(
-            '<div class="iz-classic-map-empty"><b>İlk Akıllı Tarama bekleniyor</b>'
-            '<span>Tarama sonrası renk = IZFIN skoru, çerçeve = algoritma güveni olacak.</span></div>',
-            unsafe_allow_html=True,
-        )
-        return
-
-    with st.container(key="izfin_heatmap_grid"):
-        for row_start in range(0, len(items), 4):
-            cols = st.columns(4, gap="small")
-            for j, (s, g, t, d) in enumerate(items[row_start:row_start + 4]):
-                with cols[j]:
-                    safe_key = re.sub(r"[^A-Za-z0-9_]+", "_", str(t))
-                    container_key = f"heat_overlay_{row_start+j}_{safe_key}"
-                    button_key = f"heat_overlay_btn_{row_start+j}_{safe_key}"
-                    border_px = max(1, int(g / 30))
-                    d_color = "#31e59c" if d >= 0 else "#ff6b78"
-
-                    with st.container(key=container_key):
-                        _card_html = (
-                            f'<div class="iz-heat iz-heat-overlay-visible" '
-                            f'style="{_iz_heat_color(s)};box-shadow:inset 0 0 0 {border_px}px rgba(38,238,220,.13)">'
-                            f'<strong>{html.escape(str(t))}</strong>'
-                            f'<span>IZ {int(s)} · Güven {int(g)}%</span>'
-                            f'<span style="display:block;color:{d_color};margin-top:2px">{d:+.2f}%</span>'
-                            '</div>'
-                        )
-                        st.markdown(_card_html, unsafe_allow_html=True)
-                        st.button(
-                            "Aç",
-                            key=button_key,
-                            use_container_width=True,
-                            on_click=_izfin_home_ticker_ac,
-                            args=(t,),
-                        )
-
-                    st.markdown(
-                        f"""
-                        <style>
-                        .st-key-{container_key}{{
-                            position:relative!important;
-                            min-height:53px!important;
-                            margin:0!important;
-                            padding:0!important;
-                        }}
-                        .st-key-{container_key} [data-testid="stVerticalBlock"]{{
-                            gap:0!important;
-                        }}
-                        .st-key-{container_key} .st-key-{button_key}{{
-                            position:absolute!important;
-                            inset:0!important;
-                            z-index:30!important;
-                            margin:0!important;
-                            padding:0!important;
-                        }}
-                        .st-key-{container_key} .st-key-{button_key} button{{
-                            position:absolute!important;
-                            inset:0!important;
-                            width:100%!important;
-                            height:53px!important;
-                            min-height:53px!important;
-                            opacity:0!important;
-                            cursor:pointer!important;
-                            border:0!important;
-                            background:transparent!important;
-                            padding:0!important;
-                        }}
-                        .st-key-{container_key}:hover .iz-heat-overlay-visible{{
-                            transform:none!important;
-                            filter:brightness(1.10)!important;
-                            outline:1px solid rgba(42,205,216,.52)!important;
-                        }}
-                        </style>
-                        """,
-                        unsafe_allow_html=True,
-                    )
-
-
-def izfin_dashboard_html():
-    pulse,trend,momentum,flow,risk,kaynak = _iz_panel_metrics()
-    items = _iz_heatmap_items(max_n=20)
-    if items:
-        parts = []
-        for s,g,t,d in items:
-            parts.append(f'<div class="iz-heat" style="{_iz_heat_color(s)};box-shadow:inset 0 0 0 {max(1,int(g/30))}px rgba(38,238,220,.13)"><strong>{t}</strong><span>IZ {int(s)} · Güven {int(g)}%</span><span style="display:block;color:{"#31e59c" if d>=0 else "#ff6b78"};margin-top:2px">{d:+.2f}%</span></div>')
-        heat = ''.join(parts)
-    else:
-        heat = '<div style="grid-column:1/-1;padding:34px 15px;text-align:center;color:#7891a5;border:1px dashed #1a4059;border-radius:11px"><b style="color:#b7c9d6">İlk Akıllı Tarama bekleniyor</b><br><span style="font-size:10px">Tarama sonrası renk = IZFIN skoru, çerçeve = algoritma güveni olacak.</span></div>'
-    trend_lbl = "GÜÇLÜ" if trend >= 70 else "İYİ" if trend >= 55 else "KARIŞIK"
-    mom_lbl = "GÜÇLÜ" if momentum >= 70 else "İYİ" if momentum >= 55 else "KARIŞIK"
-    flow_lbl = "POZİTİF" if flow >= 60 else "DENGELİ" if flow >= 45 else "ZAYIF"
-    risk_lbl = "DÜŞÜK" if risk < 40 else "ORTA" if risk < 65 else "YÜKSEK"
-    return f"""
-    <div class="iz-hero"><div class="iz-section-label">IZFIN SIGNATURE COMMAND CENTER</div><h1>IZFIN Piyasa Merkezi</h1><p>Piyasanın nabzını gör, fırsatı tara, kararın gerekçesini incele ve sonucu ölç.</p></div>
-    <div class="iz-dashboard">
-      <div class="iz-card">
-        <div class="iz-card-head"><div><div class="iz-card-title" style="margin:0">IZFIN PİYASA NABZI</div><div class="iz-card-kicker">{kaynak}</div></div><span class="iz-badge wait">{_iz_pulse_label(pulse)}</span></div>
-        <div class="iz-pulse">
-          <div class="iz-gauge" style="--pulse:{pulse}%"><div class="iz-gauge-content"><div class="iz-gauge-num">{pulse}<span style="font-size:12px;color:#7890a3">/100</span></div><div class="iz-gauge-label">{_iz_pulse_label(pulse)}</div></div></div>
-          <div><div class="iz-pulse-copy">Trend, momentum, para akışı ve risk tek çerçevede okunur. Tarama sonrası nabız doğrudan IZFIN teknik motorunun analiz ettiği varlıklardan hesaplanır.</div>
-          <div class="iz-components">
-            <div class="iz-comp"><div class="iz-comp-name">TREND</div><div class="iz-comp-val">{trend}</div><div class="iz-comp-sub">{trend_lbl}</div></div>
-            <div class="iz-comp"><div class="iz-comp-name">MOMENTUM</div><div class="iz-comp-val">{momentum}</div><div class="iz-comp-sub">{mom_lbl}</div></div>
-            <div class="iz-comp"><div class="iz-comp-name">PARA AKIŞI</div><div class="iz-comp-val">{flow}</div><div class="iz-comp-sub">{flow_lbl}</div></div>
-            <div class="iz-comp"><div class="iz-comp-name">RİSK</div><div class="iz-comp-val">{risk}</div><div class="iz-comp-sub" style="color:#f2b94d">{risk_lbl}</div></div>
-          </div></div>
-        </div>
-      </div>
-      <div class="iz-card">
-        <div class="iz-card-head"><div><div class="iz-card-title" style="margin:0">IZFIN FIRSAT HARİTASI</div><div class="iz-card-kicker">RENK = SKOR · ÇERÇEVE = GÜVEN</div></div><span style="font-size:9px;color:#4ecfe0">SIGNATURE MAP</span></div>
-        <div class="iz-heat-grid">{heat}</div>
-      </div>
-    </div>"""
-
-
 def _iz_badge_class(s):
     u = str(s).upper()
     if "GÜÇLÜ AL" in u or ("AL" in u and "ERKEN" not in u): return "buy"
@@ -5374,21 +3284,24 @@ def izfin_render_classic_dashboard_clickable():
         mtf = float(p.get("mtf_uyum",50) or 50)
         risk_txt = str(p.get("risk_seviyesi",r.get("Risk","")) or "").upper()
 
-        if "GÜÇLÜ AL" in sinyal or "KUSURSUZ" in sinyal:
-            guclu_al += 1
+        yon = sinyal_yonu_belirle(sinyal)
+        if yon == "ALIM":
             alim_tarafi += 1
-        elif "AL" in sinyal and "SAT" not in sinyal:
-            alim_tarafi += 1
-        elif any(x in sinyal for x in ["BEKLE", "TEYİT", "ERKEN", "NÖTR"]):
+            if "GÜÇLÜ AL" in sinyal or "KUSURSUZ" in sinyal:
+                guclu_al += 1
+        elif yon == "NÖTR" and any(x in sinyal for x in ["BEKLE", "TEYİT", "ERKEN", "NÖTR", "İZLE"]):
             teyit += 1
 
-        if "YÜKSEK" in risk_txt or "ÇOK YÜKSEK" in risk_txt:
+        if "YÜKSEK" in risk_txt:
             yuksek_risk += 1
 
-        # Öne çıkan setup: skor + güven + MTF; yüksek riskliye küçük ceza.
+        # Öne çıkan setup satış/kaçın sinyali olamaz. Alım yönü önceliklidir;
+        # alım yoksa yalnızca nötr/teyit adayları değerlendirilir.
         risk_ceza = 10 if "ÇOK YÜKSEK" in risk_txt else 6 if "YÜKSEK" in risk_txt else 0
-        setup_rank = skor * .52 + guven * .30 + mtf * .18 - risk_ceza
-        adaylar.append((setup_rank, t, skor, guven, mtf, risk_txt, sinyal))
+        yon_bonus = 18 if yon == "ALIM" else (0 if yon == "NÖTR" else -100)
+        setup_rank = skor * .52 + guven * .30 + mtf * .18 - risk_ceza + yon_bonus
+        if yon != "SATIŞ":
+            adaylar.append((setup_rank, t, skor, guven, mtf, risk_txt, sinyal))
 
     adaylar.sort(reverse=True)
     best = adaylar[0] if adaylar else None
@@ -5511,7 +3424,7 @@ def izfin_top_signals_html(max_n=7):
         sin = str(r.get("Nihai Sinyal","—"))
         skor = int(float(p.get("cezali_skor",0) or 0)); g = int(float(p.get("guven_skoru",50) or 50))
         fiyat = r.get("Fiyat","—"); risk = p.get("risk_seviyesi",r.get("Risk","—")); mtf = int(float(p.get("mtf_uyum",50) or 50))
-        rows.append(f'<tr><td><b>{t}</b></td><td>{fiyat}</td><td><span class="iz-badge {_iz_badge_class(sin)}">{sin}</span></td><td><b style="color:#20e69a">{skor}</b></td><td><div class="iz-ring" style="--g:{g}"><span>{g}%</span></div></td><td>{mtf}%</td><td>{risk}</td></tr>')
+        rows.append(f'<tr><td><b>{html.escape(t)}</b></td><td>{html.escape(str(fiyat))}</td><td><span class="iz-badge {_iz_badge_class(sin)}">{html.escape(sin)}</span></td><td><b style="color:#20e69a">{skor}</b></td><td><div class="iz-ring" style="--g:{g}"><span>{g}%</span></div></td><td>{mtf}%</td><td>{html.escape(str(risk))}</td></tr>')
     if not rows:
         return '<div class="iz-signals"><div class="iz-card-title">GÜNÜN DİKKAT ÇEKENİ</div><div style="color:#7891a5;padding:18px 0">Derin Tarama çalıştırıldığında en yüksek skorlu sinyaller burada özetlenecek.</div></div>'
     return '<div class="iz-signals"><div class="iz-card-title">GÜNÜN DİKKAT ÇEKENİ</div><table><thead><tr><th>VARLIK</th><th>FİYAT</th><th>IZFIN KARARI</th><th>SKOR</th><th>GÜVEN</th><th>MTF</th><th>RİSK</th></tr></thead><tbody>' + ''.join(rows) + '</tbody></table></div>'
@@ -5529,7 +3442,7 @@ def izfin_movers_html(max_n=6):
     if not rows:
         body = '<div style="padding:22px 2px;color:#748ea2;font-size:11px">Akıllı Tarama sonrası listedeki dikkat çekici fiyat hareketleri burada görünecek.</div>'
     else:
-        body = ''.join([f'<div class="iz-mover-row"><div class="iz-mover-name">{t}</div><div class="iz-mover-price">{f}</div><div class="iz-mover-chg" style="color:{"#28e69d" if d>=0 else "#ff6673"}">{d:+.2f}%</div></div>' for _,d,t,f in rows[:max_n]])
+        body = ''.join([f'<div class="iz-mover-row"><div class="iz-mover-name">{html.escape(str(t))}</div><div class="iz-mover-price">{html.escape(str(f))}</div><div class="iz-mover-chg" style="color:{"#28e69d" if d>=0 else "#ff6673"}">{d:+.2f}%</div></div>' for _,d,t,f in rows[:max_n]])
     return f'<div class="iz-movers"><div class="iz-card-title">LİSTEDE DİKKAT ÇEKENLER</div>{body}</div>'
 
 
@@ -5590,39 +3503,6 @@ def izfin_mover_clicks(max_n=6):
     rows.sort(reverse=True)
     _izfin_click_strip([t for _,t in rows[:max_n]], "classic_mover_click")
 
-
-def izfin_heat_clicks(max_n=8):
-    # Eski uyumluluk için tutuluyor.
-    izfin_heat_clicks_compact(max_n=max_n)
-
-
-def izfin_heat_clicks_compact(max_n=8):
-    """Klasik fırsat haritasını bozmadan yalnızca küçük detay aksiyonları gösterir."""
-    items = _iz_heatmap_items(max_n=max_n)
-    if not items:
-        return
-
-    st.markdown(
-        '<div class="iz-heat-actions-head"><span>FIRSAT HARİTASI DETAYLARI</span><small>Karta ait detayı aç</small></div>',
-        unsafe_allow_html=True,
-    )
-
-    for row_start in range(0, len(items), 4):
-        cols = st.columns(4, gap="small")
-        for j, (_, _, t, _) in enumerate(items[row_start:row_start+4]):
-            with cols[j]:
-                key = f"classic_heat_action_{row_start+j}_{re.sub(r'[^A-Za-z0-9_]+','_',str(t))}"
-                st.button(
-                    f"{t}  ↗",
-                    key=key,
-                    use_container_width=True,
-                    on_click=_izfin_home_ticker_ac,
-                    args=(t,),
-                )
-
-
-def izfin_home_action_html():
-    return '''<div class="iz-cta"><div class="iz-section-label">AKILLI TARAMA</div><h3>Fırsatı geniş havuzda keşfet</h3><p>Seçtiğin piyasa grubunu IZFIN karar motoruyla tara; skor, güven, giriş kalitesi, MTF ve risk filtrelerini aynı tabloda karşılaştır.</p></div>'''
 
 def _google_state_uret():
     """OAuth state'i Streamlit session'a bağımlı olmadan imzalar (10 dk geçerli)."""
@@ -5848,6 +3728,16 @@ def izfin_auth_ekrani():
                             st.error(msg)
             with st.expander("Şifremi unuttum", expanded=False):
                 reset_email = st.text_input("Şifre sıfırlama e-postası", key="reset_email").strip().lower()
+                reset_btn = st.button("Şifre Sıfırlama Bağlantısı Gönder", key="password_reset_send", use_container_width=True)
+                if reset_btn:
+                    if "@" not in reset_email or "." not in reset_email.split("@")[-1]:
+                        st.error("Geçerli bir e-posta adresi girin.")
+                    else:
+                        ok, msg = _sifre_sifirlama_maili(reset_email)
+                        if ok:
+                            st.success("Şifre sıfırlama bağlantısı e-posta adresinize gönderildi.")
+                        else:
+                            st.error(msg)
             st.markdown('<div class="iz-google-wrap"><div class="iz-google-caption">veya</div></div>', unsafe_allow_html=True)
             _google_login_component()
             st.markdown('<div class="iz-google-note">Google hesabınız Firebase Authentication üzerinden doğrulanır.</div>', unsafe_allow_html=True)
@@ -6294,7 +4184,7 @@ if aktif_sayfa in ["🏠 Ana Sayfa", "🔎 Akıllı Tarama"]:
                         _eski_liste = st.session_state.custom_tickers.copy()
                         try:
                             st.session_state.custom_tickers.append(_symbol)
-                            kullanici_listesini_kaydet()
+                            kullanici_listesini_kaydet(raise_on_error=True)
                             st.session_state.aktif_profil = "Kendi Listem"
                             st.session_state.secilen_varliklar = st.session_state.custom_tickers.copy()
                             st.session_state["liste_islem_mesaji"] = (
@@ -6935,32 +4825,7 @@ if aktif_sayfa in ["🏠 Ana Sayfa", "🔎 Akıllı Tarama"]:
 
                 # v1.7.26 — Tarama tablosu odak / geniş ekran modu
                 if st.session_state.izfin_scan_table_focus:
-                    st.markdown(
-                        """
-                        <style>
-                        [data-testid="stSidebar"]{display:none!important;}
-                        [data-testid="stHeader"]{display:none!important;}
-                        [data-testid="stToolbar"]{display:none!important;}
-                        footer{display:none!important;}
-
-                        .stAppViewContainer .main .block-container{
-                            max-width:100%!important;
-                            width:100%!important;
-                            padding:12px 18px 28px!important;
-                        }
-
-                        .iz-scan-table-wrap{
-                            width:100%!important;
-                            max-width:none!important;
-                            overflow-x:hidden!important;
-                        }
-
-                        .iz-focus-title h2{font-size:21px!important;}
-                        .iz-focus-title p{font-size:10px!important;}
-                        </style>
-                        """,
-                        unsafe_allow_html=True,
-                    )
+                    # Focus-mode CSS moved to styles/izfin.css
 
                     focus_h1, focus_h2 = st.columns([6.8, 1.2], vertical_alignment="center")
                     with focus_h1:
@@ -7580,12 +5445,12 @@ if aktif_sayfa == "📊 Takip & Performans":
                     _tp1_rate = np.nan
                     if "TP1" in _kg.columns:
                         _tp1_vals = _kg["TP1"].astype(str).str.upper()
-                        _tp1_rate = float(_tp1_vals.isin(["EVET", "TRUE", "1", "✓"]).mean() * 100)
+                        _tp1_rate = float(_tp1_vals.isin(["EVET", "TRUE", "1", "✓", "✅"]).mean() * 100)
 
                     _stop_rate = np.nan
                     if "Stop" in _kg.columns:
                         _stop_vals = _kg["Stop"].astype(str).str.upper()
-                        _stop_rate = float(_stop_vals.isin(["EVET", "TRUE", "1", "✓"]).mean() * 100)
+                        _stop_rate = float(_stop_vals.isin(["EVET", "TRUE", "1", "✓", "✅"]).mean() * 100)
 
                     _best_txt = "—"
                     _worst_txt = "—"
