@@ -18,6 +18,7 @@ from threading import Lock
 import firebase_admin
 from firebase_admin import credentials, firestore, auth
 import extra_streamlit_components as stx
+import streamlit.components.v1 as components
 
 # --- 1. SAYFA YAPILANDIRMASI ---
 st.set_page_config(
@@ -149,14 +150,30 @@ hr {border-color:#122a3e!important;}
 .iz-table tbody tr:hover td {background:#0a1b2a;}
 .iz-table tbody tr:last-child td {border-bottom:0;}
 .iz-table .ticker {font-weight:800;color:#f2f9ff}.iz-table .score{font-weight:800;color:#26e2a2}.iz-table .muted{color:#8ca4b6}.iz-table .risk-high{color:#ff7f8b;font-weight:700}.iz-table .risk-mid{color:#ffd06a;font-weight:700}.iz-table .risk-low{color:#55e9b0;font-weight:700}
-.iz-auth-shell {max-width:1040px;margin:5vh auto 0;}
-.iz-auth-hero {display:grid;grid-template-columns:1.05fr .95fr;background:linear-gradient(135deg,#071522,#07101b);border:1px solid #183b54;border-radius:22px;overflow:hidden;box-shadow:0 35px 90px rgba(0,0,0,.28)}
-.iz-auth-brand {padding:42px;background:radial-gradient(circle at 30% 20%,rgba(21,220,230,.11),transparent 35%),linear-gradient(145deg,#071725,#06101b);min-height:520px;display:flex;flex-direction:column;justify-content:space-between}
-.iz-auth-brand-top {display:flex;align-items:center;gap:16px}.iz-auth-brand-top img{width:78px;height:78px;object-fit:contain;border:1px solid rgba(35,226,234,.24);border-radius:20px;padding:4px;background:#06111d}.iz-auth-brand-top b{font-size:31px;letter-spacing:8px}.iz-auth-brand-top small{display:block;color:#70a8c6;letter-spacing:2.3px;font-size:8px;margin-top:5px}
-.iz-auth-copy h1{font-size:35px;margin:0 0 12px;color:#f2f9ff}.iz-auth-copy p{color:#91aabd;line-height:1.7;max-width:440px}.iz-auth-pill{display:inline-block;border:1px solid #155178;background:rgba(20,116,172,.14);border-radius:999px;padding:6px 10px;color:#67dce7;font-size:9px;letter-spacing:1px;margin-bottom:14px}
-.iz-auth-form {padding:38px 38px 34px;background:#060e18}.iz-auth-form h2{margin:0 0 5px;color:#f3f9ff}.iz-auth-form .sub{color:#7895a9;font-size:12px;margin-bottom:18px}
-.iz-account-chip {background:#071522;border:1px solid #17384f;border-radius:12px;padding:10px 12px;margin:8px 0 14px}.iz-account-chip b{color:#eaf8ff;font-size:11px}.iz-account-chip span{display:block;color:#7391a5;font-size:9px;margin-top:2px}
-@media(max-width:850px){.iz-auth-hero{grid-template-columns:1fr}.iz-auth-brand{min-height:auto;padding:28px}.iz-auth-form{padding:28px}.iz-home-scan-banner{flex-direction:column;align-items:flex-start}}
+.iz-auth-bg {position:fixed;inset:0;pointer-events:none;z-index:0;background:radial-gradient(circle at 50% 22%,rgba(13,191,218,.12),transparent 28%),radial-gradient(circle at 15% 85%,rgba(16,111,238,.10),transparent 27%),radial-gradient(circle at 88% 72%,rgba(18,225,217,.06),transparent 23%),linear-gradient(180deg,#030a12 0%,#05101b 55%,#030911 100%);}
+.iz-auth-bg:before {content:"";position:absolute;inset:0;opacity:.22;background-image:linear-gradient(rgba(31,119,163,.08) 1px,transparent 1px),linear-gradient(90deg,rgba(31,119,163,.08) 1px,transparent 1px);background-size:46px 46px;mask-image:linear-gradient(to bottom,transparent 0%,black 45%,black 100%);}
+.iz-auth-bg:after {content:"";position:absolute;left:8%;right:8%;bottom:4%;height:210px;opacity:.7;background:radial-gradient(ellipse at 50% 100%,rgba(11,174,218,.16),transparent 55%);border-top:1px solid rgba(23,128,173,.09);transform:perspective(480px) rotateX(68deg);}
+.iz-auth-shell {position:relative;z-index:1;max-width:590px;margin:3.2vh auto 0;text-align:center;}
+.iz-auth-logo {display:flex;align-items:center;justify-content:center;gap:15px;margin-bottom:14px;}
+.iz-auth-logo img {width:72px;height:72px;object-fit:contain;border-radius:19px;background:#06131f;border:1px solid rgba(29,225,231,.30);padding:3px;box-shadow:0 0 38px rgba(13,202,225,.13);}
+.iz-auth-logo .word {font-size:30px;letter-spacing:8px;color:#f5fbff;font-weight:720;line-height:1;}
+.iz-auth-logo .tag {font-size:7.5px;letter-spacing:2.35px;color:#67a8c5;margin-top:7px;text-align:left;}
+.iz-auth-kicker {font-size:9px;letter-spacing:2.1px;color:#16dbe4;text-transform:uppercase;font-weight:700;margin-bottom:8px;}
+.iz-auth-title {font-size:28px;font-weight:750;color:#f2f9ff;margin:0 0 6px;letter-spacing:-.4px;}
+.iz-auth-sub {font-size:11px;color:#7794a8;margin-bottom:18px;}
+.iz-auth-card {background:linear-gradient(160deg,rgba(8,23,36,.97),rgba(5,14,24,.98));border:1px solid #17435d;border-radius:20px;padding:14px 17px 8px;box-shadow:0 28px 85px rgba(0,0,0,.36),0 0 44px rgba(12,187,213,.055),inset 0 1px 0 rgba(255,255,255,.025);margin-bottom:-4px;}
+.iz-auth-card-head {display:flex;align-items:center;justify-content:space-between;}
+.iz-auth-card-head strong {color:#eef9ff;font-size:13px}.iz-auth-card-head span{color:#69899f;font-size:9px;}
+.iz-auth-security {display:flex;justify-content:center;gap:18px;margin:15px 0 0;color:#64869b;font-size:9px;flex-wrap:wrap;}
+.iz-auth-security b{color:#84b7ca;font-weight:600;}
+.iz-google-wrap {margin-top:10px;padding-top:12px;border-top:1px solid rgba(28,65,89,.65);}
+.iz-google-caption {font-size:9px;color:#6d8799;text-align:center;margin:0 0 9px;}
+.iz-google-note {font-size:8.5px;color:#58758a;text-align:center;margin-top:4px;}
+.iz-auth-footer {font-size:8.5px;color:#526e82;margin-top:13px;letter-spacing:.15px;}
+[data-testid="stTextInput"] input {border-radius:10px!important;min-height:42px!important;}
+[data-testid="stCheckbox"] label p {font-size:10px!important;}
+.stTabs [data-baseweb="tab-list"] {border-radius:11px!important;}
+@media(max-width:850px){.iz-auth-shell{max-width:94%;margin-top:2vh}.iz-auth-logo img{width:62px;height:62px}.iz-auth-logo .word{font-size:25px}.iz-home-scan-banner{flex-direction:column;align-items:flex-start}}
 
 </style>
 """, unsafe_allow_html=True)
@@ -217,6 +234,19 @@ def _firebase_web_api_key():
 
 FIREBASE_WEB_API_KEY = _firebase_web_api_key()
 FIREBASE_AUTH_BASE = "https://identitytoolkit.googleapis.com/v1"
+
+
+def _firebase_project_id():
+    try:
+        if "firebase" in st.secrets:
+            return str(dict(st.secrets["firebase"]).get("project_id", "") or "").strip()
+    except Exception:
+        pass
+    return str(os.getenv("FIREBASE_PROJECT_ID", "") or "").strip()
+
+FIREBASE_PROJECT_ID = _firebase_project_id()
+FIREBASE_AUTH_DOMAIN = f"{FIREBASE_PROJECT_ID}.firebaseapp.com" if FIREBASE_PROJECT_ID else ""
+
 
 def _firebase_auth_hata_mesaji(kod):
     kod = str(kod or "").split(" : ")[0].strip()
@@ -360,7 +390,7 @@ if (not st.session_state.user_email) and saved_session_cookie and not st.session
 VARSAYILAN_TICKERS = ["AAPL", "MSFT", "TSLA", "NVDA", "AMD", "INTC", "THYAO.IS", "FROTO.IS", "TOASO.IS"]
 
 # --- IZFIN STRATEJİ SÜRÜMÜ ---
-STRATEJI_SURUMU = "IZFIN-v1.7.2-signature-ui-auth-personal"
+STRATEJI_SURUMU = "IZFIN-v1.7.3-premium-auth-google"
 PERFORMANS_UFUKLARI = (1, 5, 10, 20, 45)
 
 # --- IZFIN UYGULAMA SÜRÜMÜ / LOG ---
@@ -3249,65 +3279,151 @@ def izfin_movers_html(max_n=6):
 def izfin_home_action_html():
     return '''<div class="iz-cta"><div class="iz-section-label">AKILLI TARAMA</div><h3>Fırsatı geniş havuzda keşfet</h3><p>Seçtiğin piyasa grubunu IZFIN karar motoruyla tara; skor, güven, giriş kalitesi, MTF ve risk filtrelerini aynı tabloda karşılaştır.</p></div>'''
 
+def _google_callback_isle():
+    try:
+        token = str(st.query_params.get("izfin_google_token", "") or "").strip()
+    except Exception:
+        token = ""
+    if not token:
+        return None
+    try:
+        try:
+            st.query_params.clear()
+        except Exception:
+            pass
+        ok, msg = _oturum_ac({"idToken": token}, beni_hatirla=True)
+        return (ok, msg)
+    except Exception as e:
+        izfin_hata_logla("google_callback", e)
+        return (False, "Google oturumu tamamlanamadı. Lütfen tekrar deneyin.")
+
+
+def _google_login_component():
+    if not FIREBASE_WEB_API_KEY or not FIREBASE_AUTH_DOMAIN or not FIREBASE_PROJECT_ID:
+        st.info("Google ile giriş için Firebase Web yapılandırması tamamlanmalı.")
+        return
+    html_doc = f"""<!doctype html><html><head><meta charset='utf-8'>
+<script src='https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js'></script>
+<script src='https://www.gstatic.com/firebasejs/10.12.5/firebase-auth-compat.js'></script>
+<style>
+*{{box-sizing:border-box}}body{{margin:0;background:transparent;font-family:Inter,system-ui,-apple-system,Segoe UI,sans-serif}}
+button{{width:100%;height:44px;border-radius:10px;border:1px solid #d8e0e7;background:#fff;color:#17222d;font-size:13px;font-weight:650;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:10px;transition:.18s;box-shadow:0 5px 18px rgba(0,0,0,.16)}}
+button:hover{{transform:translateY(-1px);box-shadow:0 8px 24px rgba(0,0,0,.23)}}
+.g{{width:18px;height:18px;border-radius:50%;font-weight:800;font-size:15px;display:grid;place-items:center;color:#4285F4}}
+#error{{font-size:10px;color:#ff7c87;text-align:center;margin-top:7px;min-height:12px}}
+</style></head><body>
+<button id='gbtn'><span class='g'>G</span><span>Google ile Devam Et</span></button><div id='error'></div>
+<script>
+const cfg={{apiKey:{FIREBASE_WEB_API_KEY!r},authDomain:{FIREBASE_AUTH_DOMAIN!r},projectId:{FIREBASE_PROJECT_ID!r}}};
+try{{if(!firebase.apps.length) firebase.initializeApp(cfg);}}catch(e){{}}
+const provider=new firebase.auth.GoogleAuthProvider();provider.setCustomParameters({{prompt:'select_account'}});
+document.getElementById('gbtn').onclick=async()=>{{
+ const btn=document.getElementById('gbtn'),err=document.getElementById('error');err.textContent='';btn.disabled=true;btn.querySelector('span:last-child').textContent='Google açılıyor…';
+ try{{const res=await firebase.auth().signInWithPopup(provider);const tok=await res.user.getIdToken(true);const base=window.parent.location.origin+window.parent.location.pathname;window.parent.location.assign(base+'?izfin_google_token='+encodeURIComponent(tok));}}
+ catch(e){{let m='Google ile giriş tamamlanamadı.';if(e&&e.code==='auth/popup-closed-by-user')m='Google penceresi kapatıldı.';if(e&&e.code==='auth/unauthorized-domain')m='Bu Streamlit alan adı Firebase Authorized Domains listesinde değil.';err.textContent=m;btn.disabled=false;btn.querySelector('span:last-child').textContent='Google ile Devam Et';}}
+}};
+</script></body></html>"""
+    components.html(html_doc, height=66, scrolling=False)
+
+
 def izfin_auth_ekrani():
+    callback = _google_callback_isle()
+    if callback:
+        ok, msg = callback
+        if ok:
+            st.success("Google hesabınızla giriş yapıldı.")
+            time.sleep(.15)
+            st.rerun()
+        elif msg:
+            st.error(msg)
+
     _captcha_hazirla()
-    st.markdown('<div class="iz-auth-shell"></div>', unsafe_allow_html=True)
-    left, right = st.columns([1.05, .95], gap="large")
-    with left:
-        st.markdown(f'''<div class="iz-auth-brand" style="border:1px solid #183b54;border-radius:22px;min-height:570px"><div class="iz-auth-brand-top"><img src="data:image/png;base64,{IZFIN_LOGO_B64}"><div><b>IZFIN</b><small>ANALYZE • PREDICT • INVEST</small></div></div><div class="iz-auth-copy"><span class="iz-auth-pill">SIGNATURE INTELLIGENCE</span><h1>Piyasayı izle.<br>Kararı sistemleştir.</h1><p>Akıllı tarama, kişisel izleme listeleri, sinyal performansı ve strateji doğrulama tek güvenli hesap altında birleşir.</p></div><div style="color:#607f94;font-size:10px">Kişisel listeler ve takip kayıtları hesabınıza özel saklanır.</div></div>''', unsafe_allow_html=True)
-    with right:
-        st.markdown('<div class="iz-auth-form" style="border:1px solid #183b54;border-radius:22px 22px 0 0"><h2>IZFIN hesabınız</h2><div class="sub">Devam etmek için giriş yapın veya yeni hesap oluşturun.</div></div>', unsafe_allow_html=True)
+    st.markdown('<div class="iz-auth-bg"></div>', unsafe_allow_html=True)
+    st.markdown(f'''<div class="iz-auth-shell">
+      <div class="iz-auth-logo">
+        <img src="data:image/png;base64,{IZFIN_LOGO_B64}" alt="IZFIN">
+        <div><div class="word">IZFIN</div><div class="tag">ANALYZE • PREDICT • INVEST</div></div>
+      </div>
+      <div class="iz-auth-kicker">SIGNATURE INTELLIGENCE</div>
+      <div class="iz-auth-title">Hoş Geldiniz</div>
+      <div class="iz-auth-sub">Piyasayı analiz et, fırsatları filtrele, kararını tek merkezden yönet.</div>
+    </div>''', unsafe_allow_html=True)
+
+    _, center, _ = st.columns([1.15, 1.55, 1.15])
+    with center:
+        st.markdown('<div class="iz-auth-card"><div class="iz-auth-card-head"><strong>IZFIN Hesabı</strong><span>GÜVENLİ OTURUM</span></div></div>', unsafe_allow_html=True)
         if not FIREBASE_WEB_API_KEY:
             st.error("Giriş sistemi yapılandırması eksik: Streamlit Secrets içine FIREBASE_WEB_API_KEY eklenmeli.")
+
         giris_tab, kayit_tab = st.tabs(["Giriş Yap", "Kayıt Ol"])
         with giris_tab:
             with st.form("izfin_login_form", clear_on_submit=False):
                 email = st.text_input("E-posta", placeholder="ornek@email.com").strip().lower()
-                password = st.text_input("Şifre", type="password")
+                password = st.text_input("Şifre", type="password", placeholder="Şifreniz")
                 remember = st.checkbox("Beni hatırla", value=True)
-                login_btn = st.form_submit_button("IZFIN'e Giriş Yap", type="primary", use_container_width=True)
+                login_btn = st.form_submit_button("Giriş Yap", type="primary", use_container_width=True)
             if login_btn:
                 if not email or not password:
                     st.error("E-posta ve şifre gerekli.")
                 else:
                     data, err = _firebase_auth_post("signInWithPassword", {"email": email, "password": password, "returnSecureToken": True})
-                    if err: st.error(err)
+                    if err:
+                        st.error(err)
                     else:
                         ok, msg = _oturum_ac(data, beni_hatirla=remember)
                         if ok:
-                            st.success("Giriş başarılı."); time.sleep(.2); st.rerun()
-                        else: st.error(msg)
+                            st.success("Giriş başarılı.")
+                            time.sleep(.2)
+                            st.rerun()
+                        else:
+                            st.error(msg)
             with st.expander("Şifremi unuttum", expanded=False):
                 reset_email = st.text_input("Şifre sıfırlama e-postası", key="reset_email").strip().lower()
                 if st.button("Sıfırlama bağlantısı gönder", key="reset_btn", use_container_width=True):
-                    if not reset_email: st.warning("E-posta adresinizi girin.")
+                    if not reset_email:
+                        st.warning("E-posta adresinizi girin.")
                     else:
-                        err=_sifre_sifirlama_maili(reset_email); st.error(err) if err else st.success("Şifre sıfırlama e-postası gönderildi.")
+                        err = _sifre_sifirlama_maili(reset_email)
+                        st.error(err) if err else st.success("Şifre sıfırlama e-postası gönderildi.")
+            st.markdown('<div class="iz-google-wrap"><div class="iz-google-caption">veya</div></div>', unsafe_allow_html=True)
+            _google_login_component()
+            st.markdown('<div class="iz-google-note">Google hesabınız Firebase Authentication üzerinden doğrulanır.</div>', unsafe_allow_html=True)
+
         with kayit_tab:
+            st.caption("Yeni hesabınız kişisel izleme listenizi ve performans geçmişinizi size özel saklar.")
             with st.form("izfin_register_form", clear_on_submit=False):
-                reg_email=st.text_input("E-posta",key="reg_email",placeholder="ornek@email.com").strip().lower()
-                reg_pass=st.text_input("Şifre",key="reg_pass",type="password",help="En az 8 karakter; büyük harf, küçük harf ve rakam içersin.")
-                reg_pass2=st.text_input("Şifre Tekrar",key="reg_pass2",type="password")
+                reg_email = st.text_input("E-posta", key="reg_email", placeholder="ornek@email.com").strip().lower()
+                reg_pass = st.text_input("Şifre", key="reg_pass", type="password", help="En az 8 karakter; büyük harf, küçük harf ve rakam içersin.")
+                reg_pass2 = st.text_input("Şifre Tekrar", key="reg_pass2", type="password")
                 st.caption(f"İnsan doğrulaması: {st.session_state.captcha_a} + {st.session_state.captcha_b} = ?")
-                captcha=st.text_input("Doğrulama sonucu",key=f"captcha_{st.session_state.captcha_nonce}")
-                terms=st.checkbox("Kullanım koşullarını ve gizlilik bilgilendirmesini okudum.",key="reg_terms")
-                register_btn=st.form_submit_button("Hesabımı Oluştur",type="primary",use_container_width=True)
+                captcha = st.text_input("Doğrulama sonucu", key=f"captcha_{st.session_state.captcha_nonce}")
+                terms = st.checkbox("Kullanım koşullarını ve gizlilik bilgilendirmesini okudum.", key="reg_terms")
+                register_btn = st.form_submit_button("Hesabımı Oluştur", type="primary", use_container_width=True)
             if register_btn:
-                errors=[]
+                errors = []
                 if "@" not in reg_email or "." not in reg_email.split("@")[-1]: errors.append("Geçerli bir e-posta girin.")
                 if reg_pass != reg_pass2: errors.append("Şifreler eşleşmiyor.")
-                if len(reg_pass)<8 or not re.search(r"[A-ZÇĞİÖŞÜ]",reg_pass) or not re.search(r"[a-zçğıöşü]",reg_pass) or not re.search(r"\d",reg_pass): errors.append("Şifre en az 8 karakter, büyük/küçük harf ve rakam içermeli.")
-                try: captcha_ok=int(captcha.strip())==int(st.session_state.captcha_a+st.session_state.captcha_b)
-                except Exception: captcha_ok=False
+                if len(reg_pass) < 8 or not re.search(r"[A-ZÇĞİÖŞÜ]", reg_pass) or not re.search(r"[a-zçğıöşü]", reg_pass) or not re.search(r"\d", reg_pass): errors.append("Şifre en az 8 karakter, büyük/küçük harf ve rakam içermeli.")
+                try: captcha_ok = int(captcha.strip()) == int(st.session_state.captcha_a + st.session_state.captcha_b)
+                except Exception: captcha_ok = False
                 if not captcha_ok: errors.append("Doğrulama işlemi yanlış.")
                 if not terms: errors.append("Kullanım koşulları onaylanmalı.")
                 if errors:
                     for e in errors: st.error(e)
                     _captcha_yenile()
                 else:
-                    data,err=_kayit_ol(reg_email,reg_pass)
-                    if err: st.error(err); _captcha_yenile()
-                    else: st.success("Hesabınız oluşturuldu. Şimdi Giriş Yap sekmesinden oturum açabilirsiniz."); _captcha_yenile()
+                    data, err = _kayit_ol(reg_email, reg_pass)
+                    if err:
+                        st.error(err); _captcha_yenile()
+                    else:
+                        st.success("Hesabınız oluşturuldu. Şimdi Giriş Yap sekmesinden oturum açabilirsiniz."); _captcha_yenile()
+            st.markdown('<div class="iz-google-wrap"><div class="iz-google-caption">şifre oluşturmadan devam et</div></div>', unsafe_allow_html=True)
+            _google_login_component()
+
+        st.markdown('<div class="iz-auth-security"><span>◈ <b>Firebase Auth</b></span><span>◈ <b>Kişisel veri alanı</b></span><span>◈ <b>14 gün güvenli oturum</b></span></div>', unsafe_allow_html=True)
+
+    st.markdown('<div class="iz-auth-shell"><div class="iz-auth-footer">IZFIN · ANALYZE • PREDICT • INVEST &nbsp;·&nbsp; Yatırım karar destek platformu</div></div>', unsafe_allow_html=True)
+
 
 def izfin_tarama_tablosu_html(df):
     if df is None or df.empty:
