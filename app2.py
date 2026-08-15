@@ -4617,9 +4617,6 @@ if "izfin_nav" not in st.session_state:
 def _izfin_nav_to(hedef):
     st.session_state.izfin_nav = hedef
 
-st.sidebar.markdown('<div class="iz-quickscan"><strong>✦ Akıllı Tarama Merkezi</strong><span>Skor · güven · giriş kalitesi · MTF · risk</span></div>', unsafe_allow_html=True)
-if st.sidebar.button("✦ TARAMA MERKEZİNE GİT", type="primary", use_container_width=True, key="quick_scan_nav"):
-    _izfin_nav_to("🔎 Akıllı Tarama"); st.rerun()
 st.sidebar.markdown('<div class="iz-nav-label" style="margin-top:14px">NAVİGASYON</div>', unsafe_allow_html=True)
 for _nav_label in ["🏠 Ana Sayfa", "🔎 Akıllı Tarama", "🎯 Projeksiyon & Senaryo", "📊 Takip & Performans", "🧪 Strateji Laboratuvarı"]:
     st.sidebar.button(
