@@ -1654,6 +1654,16 @@ button[kind="primary"],
     padding:2px 5px!important;
 }
 
+
+/* v1.7.43 — Fit-to-screen table support */
+.iz-scan-table-wrap table{
+    box-sizing:border-box;
+}
+.iz-scan-table-wrap th,
+.iz-scan-table-wrap td{
+    box-sizing:border-box;
+}
+
 </style>
 """, unsafe_allow_html=True)
 
@@ -6482,21 +6492,89 @@ if aktif_sayfa in ["🏠 Ana Sayfa", "🔎 Akıllı Tarama"]:
                         [data-testid="stHeader"]{display:none!important;}
                         [data-testid="stToolbar"]{display:none!important;}
                         footer{display:none!important;}
+
                         .stAppViewContainer .main .block-container{
                             max-width:100%!important;
                             width:100%!important;
-                            padding:18px 22px 34px!important;
+                            padding:10px 12px 24px!important;
                         }
+
                         .iz-signals,.iz-scan-table-wrap{
                             width:100%!important;
                             max-width:none!important;
                         }
+
                         .iz-scan-table-wrap{
-                            min-height:calc(100vh - 150px)!important;
+                            width:100%!important;
+                            min-height:calc(100vh - 118px)!important;
+                            overflow-x:hidden!important;
                         }
+
                         .iz-scan-table-wrap table{
                             width:100%!important;
-                            font-size:13px!important;
+                            max-width:100%!important;
+                            min-width:0!important;
+                            table-layout:fixed!important;
+                            font-size:9px!important;
+                            border-collapse:collapse!important;
+                        }
+
+                        .iz-scan-table-wrap th{
+                            padding:6px 4px!important;
+                            font-size:7px!important;
+                            line-height:1.15!important;
+                            white-space:normal!important;
+                            word-break:break-word!important;
+                            overflow-wrap:anywhere!important;
+                        }
+
+                        .iz-scan-table-wrap td{
+                            padding:5px 4px!important;
+                            font-size:8px!important;
+                            line-height:1.18!important;
+                            white-space:nowrap!important;
+                            overflow:hidden!important;
+                            text-overflow:ellipsis!important;
+                            max-width:0!important;
+                        }
+
+                        .iz-scan-table-wrap td *,
+                        .iz-scan-table-wrap th *{
+                            max-width:100%!important;
+                            font-size:inherit!important;
+                        }
+
+                        .iz-scan-table-wrap .iz-badge{
+                            padding:3px 5px!important;
+                            font-size:6.5px!important;
+                            letter-spacing:0!important;
+                            white-space:nowrap!important;
+                        }
+
+                        .iz-scan-table-wrap .iz-ring{
+                            width:28px!important;
+                            height:28px!important;
+                            min-width:28px!important;
+                        }
+
+                        .iz-scan-table-wrap .iz-ring span{
+                            font-size:6.5px!important;
+                        }
+
+                        .iz-focus-title h2{
+                            font-size:19px!important;
+                        }
+
+                        .iz-focus-title p,
+                        .iz-focus-meta{
+                            font-size:8px!important;
+                        }
+
+                        @media (max-width:1400px){
+                            .iz-scan-table-wrap table{font-size:8px!important;}
+                            .iz-scan-table-wrap th{font-size:6.5px!important;padding:5px 3px!important;}
+                            .iz-scan-table-wrap td{font-size:7px!important;padding:4px 3px!important;}
+                            .iz-scan-table-wrap .iz-badge{font-size:6px!important;padding:2px 4px!important;}
                         }
                         </style>
                         """,
