@@ -284,7 +284,7 @@ STRATEJI_SURUMU = "IZFIN-v1.7.5-auth-switch-fixed"
 PERFORMANS_UFUKLARI = (1, 5, 10, 20, 45)
 
 # --- IZFIN UYGULAMA SÜRÜMÜ / LOG ---
-IZFIN_APP_SURUMU = "v1.7.49 CSS Scope Fix"
+IZFIN_APP_SURUMU = "v1.7.50 Home Priority Layout"
 logger = logging.getLogger("IZFIN")
 if not logger.handlers:
     logging.basicConfig(level=logging.INFO)
@@ -3366,7 +3366,7 @@ def izfin_render_classic_dashboard_clickable():
             '</div>',
             unsafe_allow_html=True,
         )
-        return
+        return None
 
     if best:
         _, bt, bs, bg, bmtf, brisk, bsignal = best
@@ -3391,8 +3391,7 @@ def izfin_render_classic_dashboard_clickable():
         f'<div><span>TEYİT BEKLEYEN</span><b>{teyit}</b><small>henüz tamamlanmadı</small></div>'
         f'<div><span>YÜKSEK RİSK</span><b>{yuksek_risk}</b><small>dikkat gerektiriyor</small></div>'
         '</div>'
-        '<div class="iz-decision-lower">'
-        f'{best_html}'
+        '<div class="iz-decision-lower iz-decision-lower-summary">'
         '<div class="iz-market-factors">'
         f'<div><span>TREND</span><b>{trend}</b></div>'
         f'<div><span>MOMENTUM</span><b>{momentum}</b></div>'
@@ -3401,19 +3400,13 @@ def izfin_render_classic_dashboard_clickable():
         '</div>'
         '</div>'
         f'<div class="iz-system-comment"><span>SİSTEM YORUMU</span><p>{html.escape(yorum)}</p></div>'
+        f'<div class="iz-best-setup-bottom">{best_html}</div>'
         '<div class="iz-decision-foot">Piyasa modu tüm piyasanın resmi breadth göstergesi değildir; IZFIN’in son taramada analiz ettiği listenin teknik bileşiminden üretilir.</div>'
         '</div>'
     )
     st.markdown(center_html, unsafe_allow_html=True)
 
-    if best:
-        st.button(
-            f"{bt} detay analizini aç  →",
-            key="decision_center_best_setup",
-            use_container_width=True,
-            on_click=_izfin_home_ticker_ac,
-            args=(bt,),
-        )
+    return bt if best else None
 
 
 def izfin_top_signals_html(max_n=7):
@@ -4070,13 +4063,9 @@ if aktif_sayfa in ["🏠 Ana Sayfa", "🔎 Akıllı Tarama"]:
         if _home_msg:
             st.warning(_home_msg)
 
-        izfin_render_classic_dashboard_clickable()
-
-        st.markdown('<div class="iz-home-scan-banner"><div class="copy"><strong>✦ Fırsatları tüm evrende tara</strong><span>IZFIN merkezi karar motorunu seçtiğiniz piyasa grubunda çalıştırın.</span></div><span class="iz-badge wait">SIGNATURE SCAN</span></div>', unsafe_allow_html=True)
-        if st.button("✦ AKILLI TARAMA MERKEZİNE GİT →", type="primary", use_container_width=True, key="home_scan_primary"):
-            _izfin_nav_to("🔎 Akıllı Tarama"); st.rerun()
-
-        home_focus_left, home_focus_right = st.columns([1.28, .72], gap="large")
+        # Ana sayfanın hisse odaklı iki paneli artık üstte.
+        # Sağ panel büyütüldü; "Listede Dikkat Çekenler" daha rahat okunur.
+        home_focus_left, home_focus_right = st.columns([1.08, .92], gap="medium")
 
         with home_focus_left:
             st.markdown(izfin_top_signals_html(), unsafe_allow_html=True)
@@ -4085,6 +4074,20 @@ if aktif_sayfa in ["🏠 Ana Sayfa", "🔎 Akıllı Tarama"]:
         with home_focus_right:
             st.markdown(izfin_movers_html(), unsafe_allow_html=True)
             izfin_mover_clicks(max_n=5)
+
+        _home_best_ticker = izfin_render_classic_dashboard_clickable()
+        if _home_best_ticker:
+            st.button(
+                f"{_home_best_ticker} detay analizini aç  →",
+                key="decision_center_best_setup",
+                use_container_width=True,
+                on_click=_izfin_home_ticker_ac,
+                args=(_home_best_ticker,),
+            )
+
+        st.markdown('<div class="iz-home-scan-banner"><div class="copy"><strong>✦ Fırsatları tüm evrende tara</strong><span>IZFIN merkezi karar motorunu seçtiğiniz piyasa grubunda çalıştırın.</span></div><span class="iz-badge wait">SIGNATURE SCAN</span></div>', unsafe_allow_html=True)
+        if st.button("✦ AKILLI TARAMA MERKEZİNE GİT →", type="primary", use_container_width=True, key="home_scan_primary"):
+            _izfin_nav_to("🔎 Akıllı Tarama"); st.rerun()
     else:
         st.markdown('''<div class="iz-scanner-hero"><div><div class="iz-section-label">IZFIN SCANNER</div><h2>Akıllı Tarama Merkezi</h2><p>Varlık evrenini seç, merkezi karar motorunu çalıştır ve sonuçları skor · güven · giriş kalitesi · MTF · risk ekseninde karşılaştır.</p></div><span class="iz-badge wait">SIGNATURE SCAN</span></div>''', unsafe_allow_html=True)
 
