@@ -3919,7 +3919,7 @@ def izfin_tarama_genis_ozet_html(df):
                   "bad" if any(x in val_u for x in ["YÜKSEK", "PAHALI", "PRİM"]) else "mid"
 
         session_cls = pct_color(seans_raw)
-        _sort_ticker=raw_ticker.lower(); _sort_signal=_iz_sort_signal(sinyal_raw); _sort_score=_iz_sort_num(skor)
+        _sort_ticker=raw_ticker.lower(); _sort_signal=_iz_sort_signal(sinyal_raw); _sort_score=_iz_sort_num(skor); _sort_confidence=_iz_sort_num(guven)
         _sort_risk=_iz_sort_risk(risk_raw); _sort_value=_iz_sort_num(deger_raw); _sort_session=_iz_sort_num(seans_raw,last_percent=True)
 
         rows.append(
@@ -3938,13 +3938,17 @@ def izfin_tarama_genis_ozet_html(df):
               f"<td class='izw-quality' data-sort='{_sort_score}'>"
                 "<div class='izw-quality-top'>"
                   f"<div><span>SKOR</span><b>{skor}</b></div>"
-                  f"<div><span>GÜVEN</span><b>{guven}</b></div>"
                   f"<div><span>MTF</span><b>{mtf}</b></div>"
                 "</div>"
                 "<div class='izw-entry'>"
                   "<span>GİRİŞ KALİTESİ</span>"
                   f"<b title='{giris}'>{giris}</b>"
                 "</div>"
+              "</td>"
+
+              f"<td class='izw-confidence' data-sort='{_sort_confidence}'>"
+                "<span>GÜVEN SKORU</span>"
+                f"<b title='{guven}'>{guven}</b>"
               "</td>"
 
               f"<td class='izw-riskflow' data-sort='{_sort_risk}'>"
@@ -3973,9 +3977,10 @@ def izfin_tarama_genis_ozet_html(df):
               "<th class='iz-sortable-th' data-col='0' data-type='text'>VARLIK / FİYAT<span class='iz-sort-icon'>↕</span></th>"
               "<th class='iz-sortable-th' data-col='1' data-type='number'>IZFIN KARARI<span class='iz-sort-icon'>↕</span></th>"
               "<th class='iz-sortable-th' data-col='2' data-type='number'>KALİTE<span class='iz-sort-icon'>↕</span></th>"
-              "<th class='iz-sortable-th' data-col='3' data-type='number'>RİSK / AKIŞ<span class='iz-sort-icon'>↕</span></th>"
-              "<th class='iz-sortable-th' data-col='4' data-type='number'>DEĞERLEME<span class='iz-sort-icon'>↕</span></th>"
-              "<th class='iz-sortable-th' data-col='5' data-type='number'>SEANS DIŞI<span class='iz-sort-icon'>↕</span></th>"
+              "<th class='iz-sortable-th' data-col='3' data-type='number'>GÜVEN SKORU<span class='iz-sort-icon'>↕</span></th>"
+              "<th class='iz-sortable-th' data-col='4' data-type='number'>RİSK / AKIŞ<span class='iz-sort-icon'>↕</span></th>"
+              "<th class='iz-sortable-th' data-col='5' data-type='number'>DEĞERLEME<span class='iz-sort-icon'>↕</span></th>"
+              "<th class='iz-sortable-th' data-col='6' data-type='number'>SEANS DIŞI<span class='iz-sort-icon'>↕</span></th>"
             "</tr></thead>"
             "<tbody>" + "".join(rows) + "</tbody>"
           "</table>"
