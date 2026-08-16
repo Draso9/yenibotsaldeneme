@@ -1810,12 +1810,13 @@ button[kind="primary"],
 .izw-table tbody tr:hover td{background:#092332}
 .izw-table tbody td:last-child{border-right:0}
 
-.izw-table th:nth-child(1){width:14%}
-.izw-table th:nth-child(2){width:15%}
-.izw-table th:nth-child(3){width:31%}
-.izw-table th:nth-child(4){width:18%}
-.izw-table th:nth-child(5){width:13%}
-.izw-table th:nth-child(6){width:9%}
+.izw-table th:nth-child(1){width:13%}
+.izw-table th:nth-child(2){width:14%}
+.izw-table th:nth-child(3){width:23%}
+.izw-table th:nth-child(4){width:10%}
+.izw-table th:nth-child(5){width:18%}
+.izw-table th:nth-child(6){width:13%}
+.izw-table th:nth-child(7){width:9%}
 
 .izw-asset-top{display:flex;align-items:center;gap:10px}
 .izw-logo{
@@ -1840,7 +1841,7 @@ button[kind="primary"],
 
 .izw-quality{padding:10px 12px!important}
 .izw-quality-top{
-    display:grid;grid-template-columns:.8fr .8fr .8fr;gap:6px;
+    display:grid;grid-template-columns:1fr 1fr;gap:6px;
 }
 .izw-quality-top>div,.izw-entry,.izw-rf-grid>div{
     min-width:0;border:1px solid #16445a;border-radius:6px;background:#071725;
@@ -1855,6 +1856,15 @@ button[kind="primary"],
 }
 .izw-entry{margin-top:6px;padding:7px 8px}
 .izw-entry b{font-size:8.5px}
+
+.izw-confidence{text-align:center}
+.izw-confidence span{
+    display:block;color:#6690a3;font-size:6.5px;font-weight:850;letter-spacing:.55px;
+}
+.izw-confidence b{
+    display:block;margin-top:8px;color:#54d6de;font-size:15px;font-weight:820;
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
 
 .izw-rf-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px}
 .izw-rf-grid>div{padding:10px 9px;min-height:52px}
@@ -1932,13 +1942,18 @@ button[kind="primary"],
 }
 .izw-quality span,
 .izw-riskflow span,
-.izw-value span{
+.izw-value span,
+.izw-confidence span{
     font-size:7.8px!important;
 }
 .izw-quality b,
 .izw-riskflow b{
     margin-top:5px!important;
     font-size:10.5px!important;
+}
+.izw-confidence b{
+    margin-top:8px!important;
+    font-size:15px!important;
 }
 .izw-entry b{
     font-size:10px!important;
@@ -1969,8 +1984,9 @@ button[kind="primary"],
     .izw-asset strong{font-size:13.5px!important}
     .izw-price{font-size:10.5px!important}
     .izw-decision .iz-badge{font-size:9.2px!important}
-    .izw-quality span,.izw-riskflow span,.izw-value span{font-size:7.2px!important}
+    .izw-quality span,.izw-riskflow span,.izw-value span,.izw-confidence span{font-size:7.2px!important}
     .izw-quality b,.izw-riskflow b{font-size:9.5px!important}
+    .izw-confidence b{font-size:13px!important}
     .izw-entry b{font-size:9.2px!important}
     .izw-value b{font-size:10px!important}
     .izw-session b{font-size:9px!important}
@@ -2291,7 +2307,8 @@ button[kind="primary"],
     }
     .izw-quality span,
     .izw-riskflow span,
-    .izw-value span{
+    .izw-value span,
+    .izw-confidence span{
         font-size:7.5px!important;
         white-space:nowrap!important;
     }
@@ -2324,13 +2341,21 @@ button[kind="primary"],
         padding:9px!important;
     }
 
-    /* Alt satır: değerleme + seans dışı */
-    .izw-value{
+    /* Alt alan: güven ve değerleme yan yana, seans dışı tam genişlik */
+    .izw-confidence{
         grid-column:1 / 2!important;
+        text-align:left!important;
+    }
+    .izw-value{
+        grid-column:2 / 3!important;
     }
     .izw-session{
-        grid-column:2 / 3!important;
+        grid-column:1 / -1!important;
         text-align:left!important;
+    }
+    .izw-confidence b{
+        font-size:13px!important;
+        overflow:visible!important;
     }
     .izw-value b,
     .izw-session b{
@@ -2373,6 +2398,7 @@ button[kind="primary"],
     .izw-asset,
     .izw-decision,
     .izw-quality,
+    .izw-confidence,
     .izw-riskflow,
     .izw-value,
     .izw-session{
