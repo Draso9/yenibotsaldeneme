@@ -2688,3 +2688,34 @@ button[kind="primary"],
 .iz-scan-lock-note{margin-top:15px;padding-top:11px;border-top:1px solid rgba(29,72,91,.64);color:#587787;font-size:8px;text-align:center}
 @media(max-width:600px){.iz-scan-lock-overlay{padding:14px}.iz-scan-lock-card{width:100%;padding:20px 18px 17px;border-radius:10px}.iz-scan-lock-card h2{font-size:20px}.iz-scan-lock-card p{font-size:10px;margin-bottom:14px}.iz-scan-lock-meta{align-items:flex-start;flex-direction:column;gap:3px}.iz-scan-lock-meta span{text-align:left;font-size:8px}}
 
+/* =========================================================
+   v1.7.57 — SORTABLE SCAN TABLE
+   Streamlit dataframe theme harmonization
+   ========================================================= */
+
+[data-testid="stDataFrame"]{
+    border:1px solid #16465d!important;
+    border-radius:9px!important;
+    overflow:hidden!important;
+    background:#06131f!important;
+    box-shadow:0 10px 24px rgba(0,0,0,.12)!important;
+}
+[data-testid="stDataFrame"] [role="columnheader"]{
+    background:#071b29!important;
+    color:#85b1c2!important;
+    font-weight:800!important;
+}
+[data-testid="stDataFrame"] [role="gridcell"]{
+    color:#dcecf2!important;
+}
+[data-testid="stDataFrame"] canvas{
+    border-radius:0!important;
+}
+
+/* Mobilde tablo kullanımı: yatay kaydırma doğal kalsın, font aşırı küçülmesin. */
+@media(max-width:768px){
+    [data-testid="stDataFrame"]{
+        font-size:10px!important;
+    }
+}
+
