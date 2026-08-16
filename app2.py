@@ -284,7 +284,7 @@ STRATEJI_SURUMU = "IZFIN-v1.7.5-auth-switch-fixed"
 PERFORMANS_UFUKLARI = (1, 5, 10, 20, 45)
 
 # --- IZFIN UYGULAMA SÜRÜMÜ / LOG ---
-IZFIN_APP_SURUMU = "v1.7.54 Profile Filters"
+IZFIN_APP_SURUMU = "v1.7.56 Home Labels"
 logger = logging.getLogger("IZFIN")
 if not logger.handlers:
     logging.basicConfig(level=logging.INFO)
@@ -3421,8 +3421,8 @@ def izfin_top_signals_html(max_n=7):
         fiyat = r.get("Fiyat","—"); risk = p.get("risk_seviyesi",r.get("Risk","—")); mtf = int(float(p.get("mtf_uyum",50) or 50))
         rows.append(f'<tr><td><b>{html.escape(t)}</b></td><td>{html.escape(str(fiyat))}</td><td><span class="iz-badge {_iz_badge_class(sin)}">{html.escape(sin)}</span></td><td><b style="color:#20e69a">{skor}</b></td><td><div class="iz-ring" style="--g:{g}"><span>{g}%</span></div></td><td>{mtf}%</td><td>{html.escape(str(risk))}</td></tr>')
     if not rows:
-        return '<div class="iz-signals"><div class="iz-card-title">GÜNÜN DİKKAT ÇEKENİ</div><div style="color:#7891a5;padding:18px 0">Derin Tarama çalıştırıldığında en yüksek skorlu sinyaller burada özetlenecek.</div></div>'
-    return '<div class="iz-signals"><div class="iz-card-title">GÜNÜN DİKKAT ÇEKENİ</div><table><thead><tr><th>VARLIK</th><th>FİYAT</th><th>IZFIN KARARI</th><th>SKOR</th><th>GÜVEN</th><th>MTF</th><th>RİSK</th></tr></thead><tbody>' + ''.join(rows) + '</tbody></table></div>'
+        return '<div class="iz-signals"><div class="iz-card-title">LİSTENİN DİKKAT ÇEKENLERİ</div><div style="color:#7891a5;padding:18px 0">Derin Tarama çalıştırıldığında en yüksek skorlu sinyaller burada özetlenecek.</div></div>'
+    return '<div class="iz-signals"><div class="iz-card-title">LİSTENİN DİKKAT ÇEKENLERİ</div><table><thead><tr><th>VARLIK</th><th>FİYAT</th><th>IZFIN KARARI</th><th>SKOR</th><th>GÜVEN</th><th>MTF</th><th>RİSK</th></tr></thead><tbody>' + ''.join(rows) + '</tbody></table></div>'
 
 def izfin_movers_html(max_n=6):
     sonuclar = st.session_state.get("sonuclar") or []
@@ -3438,7 +3438,7 @@ def izfin_movers_html(max_n=6):
         body = '<div style="padding:22px 2px;color:#748ea2;font-size:11px">Akıllı Tarama sonrası listedeki dikkat çekici fiyat hareketleri burada görünecek.</div>'
     else:
         body = ''.join([f'<div class="iz-mover-row"><div class="iz-mover-name">{html.escape(str(t))}</div><div class="iz-mover-price">{html.escape(str(f))}</div><div class="iz-mover-chg" style="color:{"#28e69d" if d>=0 else "#ff6673"}">{d:+.2f}%</div></div>' for _,d,t,f in rows[:max_n]])
-    return f'<div class="iz-movers"><div class="iz-card-title">LİSTEDE DİKKAT ÇEKENLER</div>{body}</div>'
+    return f'<div class="iz-movers"><div class="iz-card-title">BÜYÜK HAREKETLER</div>{body}</div>'
 
 
 def _izfin_home_ticker_ac(ticker):
@@ -4067,6 +4067,26 @@ if st.sidebar.button("🚪 Çıkış Yap", use_container_width=True):
     st.session_state.kullanici_listesi_yuklendi=False; st.session_state.logout_triggered=True
     time.sleep(.2); st.rerun()
 
+
+def izfin_tarama_overlay_html(yuzde=0, baslik="IZFIN tarıyor", durum="Hazırlanıyor…", detay=""):
+    try:
+        pct = int(max(0, min(100, round(float(yuzde)))))
+    except Exception:
+        pct = 0
+    return (
+        '<div class="iz-scan-lock-overlay"><div class="iz-scan-lock-card">'
+        '<div class="iz-scan-lock-brand"><span class="iz-scan-lock-pulse"></span><small>IZFIN SMART SCAN</small></div>'
+        f'<h2>{html.escape(str(baslik))}</h2>'
+        f'<p>{html.escape(str(durum))}</p>'
+        '<div class="iz-scan-lock-progress">'
+        f'<div class="iz-scan-lock-progress-fill" style="width:{pct}%"></div></div>'
+        '<div class="iz-scan-lock-meta">'
+        f'<strong>%{pct}</strong><span>{html.escape(str(detay))}</span></div>'
+        '<div class="iz-scan-lock-note">Tarama tamamlanana kadar ekran geçici olarak kilitlendi.</div>'
+        '</div></div>'
+    )
+
+
 if aktif_sayfa in ["🏠 Ana Sayfa", "🔎 Akıllı Tarama"]:
     if aktif_sayfa == "🏠 Ana Sayfa":
         _home_msg = st.session_state.pop("home_nav_mesaji", None)
@@ -4074,7 +4094,7 @@ if aktif_sayfa in ["🏠 Ana Sayfa", "🔎 Akıllı Tarama"]:
             st.warning(_home_msg)
 
         # Ana sayfanın hisse odaklı iki paneli artık üstte.
-        # Sağ panel büyütüldü; "Listede Dikkat Çekenler" daha rahat okunur.
+        # Sağ panel büyütüldü; "Büyük Hareketler" daha rahat okunur.
         home_focus_left, home_focus_right = st.columns([1.0, 1.0], gap="small")
 
         with home_focus_left:
@@ -4342,6 +4362,16 @@ if aktif_sayfa in ["🏠 Ana Sayfa", "🔎 Akıllı Tarama"]:
         if not selected_tickers:
             st.warning("⚠️ Taramayı başlatmadan önce yukarıdaki Tarama Evreni bölümünden en az bir varlık seçin.")
         else:
+            tarama_overlay = st.empty()
+            tarama_overlay.markdown(
+                izfin_tarama_overlay_html(
+                    4,
+                    "Akıllı Tarama başladı",
+                    "Piyasa geçmişi ve güncel seans verileri hazırlanıyor…",
+                    f"{len(selected_tickers)} varlık sıraya alındı",
+                ),
+                unsafe_allow_html=True,
+            )
             with st.spinner("Piyasa geçmişi ve güncel seans canlı fiyatları çekiliyor..."):
                 st.session_state.opsiyon_sonuclar = None
                 st.session_state.taramada_hatalar = []
@@ -4355,6 +4385,16 @@ if aktif_sayfa in ["🏠 Ana Sayfa", "🔎 Akıllı Tarama"]:
                 # 6 saat önbelleğe alınır ve hisseler paralel sorgulanır.
                 peg_haritasi = peg_verilerini_paralel_cek(list(selected_tickers))
                 
+                tarama_overlay.markdown(
+                    izfin_tarama_overlay_html(
+                        12,
+                        "Veriler hazır",
+                        "Teknik motor ve piyasa referansları hazırlanıyor…",
+                        "Trend · momentum · MTF · risk · para akışı",
+                    ),
+                    unsafe_allow_html=True,
+                )
+
                 gecici_sonuclar = []
                 gecici_sozlu_analizler = {}
                 gecici_teknik_paneller = {}
@@ -4390,6 +4430,16 @@ if aktif_sayfa in ["🏠 Ana Sayfa", "🔎 Akıllı Tarama"]:
                 toplam_ticker = max(len(selected_tickers), 1)
                 for sira, ticker in enumerate(selected_tickers, start=1):
                     ilerleme.progress((sira - 1) / toplam_ticker, text=f"{ticker} analiz ediliyor ({sira}/{toplam_ticker})")
+                    _overlay_pct = 15 + int(((sira - 1) / toplam_ticker) * 77)
+                    tarama_overlay.markdown(
+                        izfin_tarama_overlay_html(
+                            _overlay_pct,
+                            f"{ticker} analiz ediliyor",
+                            "IZFIN karar motoru göstergeleri değerlendiriyor…",
+                            f"{sira}/{toplam_ticker} varlık · skor · güven · MTF · risk",
+                        ),
+                        unsafe_allow_html=True,
+                    )
                     try:
                         df_long = gunluk_toplu_veriden_ticker_ayir(
                             toplu_df, ticker, len(selected_tickers)
@@ -4791,11 +4841,34 @@ if aktif_sayfa in ["🏠 Ana Sayfa", "🔎 Akıllı Tarama"]:
                 st.session_state.boga_sayisi = boga_sayisi
                 st.session_state.alim_firsati = alim_firsati
                 st.session_state.tarama_durumu = True
+
+                tarama_overlay.markdown(
+                    izfin_tarama_overlay_html(
+                        96,
+                        "Tarama tamamlanıyor",
+                        "Sonuçlar ve performans kayıtları hazırlanıyor…",
+                        f"{len(gecici_sonuclar)} başarılı · {len(basarisi_cekilemeyen_varliklar)} atlanan",
+                    ),
+                    unsafe_allow_html=True,
+                )
+
                 try:
                     sinyal_kayitlarini_firestore_yaz(gecici_sonuclar, gecici_teknik_paneller)
                     performans_cache_gecersiz_kil()
                 except Exception as e:
                     izfin_hata_logla("sinyal_firestore_yaz", e)
+
+                tarama_overlay.markdown(
+                    izfin_tarama_overlay_html(
+                        100,
+                        "Tarama tamamlandı",
+                        "Sonuçlar hazır.",
+                        f"{len(gecici_sonuclar)} varlık analiz edildi",
+                    ),
+                    unsafe_allow_html=True,
+                )
+                time.sleep(0.35)
+                tarama_overlay.empty()
 
     if aktif_sayfa == "🔎 Akıllı Tarama" and st.session_state.tarama_durumu:
         if st.session_state.basarisiz_taramalar:
