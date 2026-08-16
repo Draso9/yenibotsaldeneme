@@ -2153,3 +2153,519 @@ button[kind="primary"],
     }
 }
 
+/* =========================================================
+   v1.7.52 — MOBILE WIDE VIEW
+   Desktop: mevcut geniş tablo korunur.
+   Mobile: her satır okunabilir bir hisse kartına dönüşür.
+   ========================================================= */
+@media (max-width: 768px){
+
+    /* Geniş görünüm üst alanı */
+    .iz-focus-title{
+        min-height:auto!important;
+        padding:2px 0!important;
+    }
+    .iz-focus-title h2{
+        font-size:18px!important;
+        line-height:1.18!important;
+        margin-bottom:4px!important;
+    }
+    .iz-focus-title p{
+        font-size:9px!important;
+        line-height:1.4!important;
+    }
+    .iz-focus-meta{
+        flex-wrap:wrap!important;
+        gap:5px!important;
+        margin:5px 0 9px!important;
+    }
+    .iz-focus-meta span{
+        font-size:8px!important;
+        padding:5px 7px!important;
+    }
+
+    /* Shell mobilde kart listesine dönüşür */
+    .izw-shell{
+        border:0!important;
+        background:transparent!important;
+        box-shadow:none!important;
+        overflow:visible!important;
+    }
+
+    .izw-table,
+    .izw-table tbody{
+        display:block!important;
+        width:100%!important;
+    }
+
+    .izw-table thead{
+        display:none!important;
+    }
+
+    .izw-table tbody tr{
+        display:grid!important;
+        grid-template-columns:1fr 1fr!important;
+        gap:8px!important;
+        width:100%!important;
+        height:auto!important;
+        min-height:0!important;
+        margin:0 0 11px!important;
+        padding:11px!important;
+        border:1px solid #17485f!important;
+        border-radius:10px!important;
+        background:
+            linear-gradient(145deg,#071724,#081d2a)!important;
+        box-shadow:
+            inset 0 1px 0 rgba(255,255,255,.025),
+            0 8px 20px rgba(0,0,0,.12)!important;
+    }
+
+    .izw-table tbody tr:hover td{
+        background:inherit!important;
+    }
+
+    .izw-table tbody td{
+        display:block!important;
+        width:auto!important;
+        min-width:0!important;
+        max-width:none!important;
+        height:auto!important;
+        padding:8px!important;
+        margin:0!important;
+        border:1px solid #143c50!important;
+        border-radius:7px!important;
+        background:#071522!important;
+        overflow:visible!important;
+        white-space:normal!important;
+    }
+
+    /* Varlık + karar ilk satır */
+    .izw-asset{
+        grid-column:1 / 2!important;
+    }
+    .izw-decision{
+        grid-column:2 / 3!important;
+        display:flex!important;
+        flex-direction:column!important;
+        align-items:flex-start!important;
+        justify-content:center!important;
+        text-align:left!important;
+    }
+
+    .izw-asset strong{
+        font-size:16px!important;
+        line-height:1.1!important;
+    }
+    .izw-asset small{
+        font-size:8px!important;
+        margin-top:3px!important;
+    }
+    .izw-price{
+        font-size:12px!important;
+        margin-top:8px!important;
+    }
+
+    .izw-decision .iz-badge{
+        font-size:10px!important;
+        line-height:1.25!important;
+        padding:6px 8px!important;
+        white-space:normal!important;
+        text-align:left!important;
+    }
+    .izw-decision small{
+        margin-top:5px!important;
+        font-size:8px!important;
+    }
+
+    /* Kalite tam genişlik */
+    .izw-quality{
+        grid-column:1 / -1!important;
+    }
+    .izw-quality-top{
+        grid-template-columns:repeat(3,1fr)!important;
+        gap:6px!important;
+    }
+    .izw-quality-top>div{
+        min-height:50px!important;
+        padding:8px!important;
+    }
+    .izw-quality span,
+    .izw-riskflow span,
+    .izw-value span{
+        font-size:7.5px!important;
+        white-space:nowrap!important;
+    }
+    .izw-quality b,
+    .izw-riskflow b{
+        font-size:10px!important;
+        line-height:1.25!important;
+        white-space:normal!important;
+        overflow:visible!important;
+        text-overflow:clip!important;
+    }
+    .izw-entry{
+        padding:8px!important;
+    }
+    .izw-entry b{
+        font-size:9.5px!important;
+        white-space:normal!important;
+    }
+
+    /* Risk / Akış tam genişlik */
+    .izw-riskflow{
+        grid-column:1 / -1!important;
+    }
+    .izw-rf-grid{
+        grid-template-columns:1fr 1fr!important;
+        gap:6px!important;
+    }
+    .izw-rf-grid>div{
+        min-height:54px!important;
+        padding:9px!important;
+    }
+
+    /* Alt satır: değerleme + seans dışı */
+    .izw-value{
+        grid-column:1 / 2!important;
+    }
+    .izw-session{
+        grid-column:2 / 3!important;
+        text-align:left!important;
+    }
+    .izw-value b,
+    .izw-session b{
+        font-size:10px!important;
+        line-height:1.35!important;
+        white-space:normal!important;
+        overflow:visible!important;
+        text-overflow:clip!important;
+    }
+    .izw-moon{
+        display:inline-block!important;
+        margin:0 5px 0 0!important;
+        font-size:14px!important;
+        vertical-align:middle!important;
+    }
+
+    /* Mobilde ana Streamlit iç boşluğunu azalt */
+    .stAppViewContainer .main .block-container{
+        padding-left:9px!important;
+        padding-right:9px!important;
+        padding-top:8px!important;
+    }
+
+    /* Exit butonu mobilde okunabilir */
+    .st-key-scan_table_focus_exit button{
+        min-height:36px!important;
+        font-size:9px!important;
+        padding:6px 8px!important;
+    }
+}
+
+/* Çok dar telefonlar */
+@media (max-width: 430px){
+    .izw-table tbody tr{
+        grid-template-columns:1fr!important;
+        gap:6px!important;
+        padding:9px!important;
+    }
+
+    .izw-asset,
+    .izw-decision,
+    .izw-quality,
+    .izw-riskflow,
+    .izw-value,
+    .izw-session{
+        grid-column:1 / -1!important;
+    }
+
+    .izw-decision{
+        align-items:flex-start!important;
+    }
+
+    .izw-quality-top{
+        grid-template-columns:repeat(3,minmax(0,1fr))!important;
+    }
+
+    .izw-rf-grid{
+        grid-template-columns:1fr 1fr!important;
+    }
+
+    .izw-asset strong{
+        font-size:17px!important;
+    }
+}
+
+/* =========================================================
+   v1.7.53 — MOBILE DETAILED TECHNICAL PANEL
+   Telefonda Detaylı Teknik Analiz paneli sıkışmak yerine
+   responsive kart düzenine dönüşür.
+   ========================================================= */
+@media (max-width: 768px){
+
+    .hp-wrap{
+        width:100%!important;
+        max-width:100%!important;
+        box-sizing:border-box!important;
+        margin-top:10px!important;
+        padding:12px!important;
+        border-radius:10px!important;
+        overflow:hidden!important;
+    }
+
+    .hp-head{
+        display:flex!important;
+        flex-direction:column!important;
+        align-items:flex-start!important;
+        gap:8px!important;
+        margin-bottom:11px!important;
+    }
+
+    .hp-title{
+        width:100%!important;
+        font-size:18px!important;
+        line-height:1.25!important;
+        word-break:normal!important;
+        overflow-wrap:break-word!important;
+        white-space:normal!important;
+    }
+
+    .hp-sub{
+        font-size:10px!important;
+        line-height:1.45!important;
+        word-break:normal!important;
+        overflow-wrap:break-word!important;
+    }
+
+    .hp-source{
+        align-self:flex-start!important;
+        max-width:100%!important;
+        font-size:9px!important;
+        padding:5px 8px!important;
+        white-space:normal!important;
+        word-break:normal!important;
+        overflow-wrap:break-word!important;
+    }
+
+    /* Ana gösterge kartları: telefonda 2 kolon */
+    .hp-grid{
+        display:grid!important;
+        grid-template-columns:repeat(2,minmax(0,1fr))!important;
+        gap:7px!important;
+        width:100%!important;
+    }
+
+    .hp-card{
+        min-width:0!important;
+        min-height:96px!important;
+        padding:10px!important;
+        border-radius:8px!important;
+        overflow:hidden!important;
+    }
+
+    .hp-card-head{
+        font-size:9px!important;
+        line-height:1.3!important;
+        white-space:normal!important;
+        word-break:normal!important;
+        overflow-wrap:break-word!important;
+    }
+
+    .hp-card-value{
+        font-size:19px!important;
+        line-height:1.15!important;
+        margin:7px 0 6px!important;
+        white-space:normal!important;
+        word-break:normal!important;
+        overflow-wrap:break-word!important;
+    }
+
+    .hp-pill{
+        display:inline-flex!important;
+        max-width:100%!important;
+        font-size:8.5px!important;
+        line-height:1.3!important;
+        padding:4px 6px!important;
+        white-space:normal!important;
+        word-break:normal!important;
+        overflow-wrap:break-word!important;
+    }
+
+    /* Trend / seviyeler / risk bölümleri tek kolon */
+    .hp-sections{
+        display:grid!important;
+        grid-template-columns:1fr!important;
+        gap:8px!important;
+        margin-top:8px!important;
+        width:100%!important;
+    }
+
+    .hp-section{
+        width:100%!important;
+        min-width:0!important;
+        box-sizing:border-box!important;
+        padding:11px!important;
+        border-radius:8px!important;
+        overflow:hidden!important;
+    }
+
+    .hp-section h4{
+        font-size:11px!important;
+        line-height:1.35!important;
+        margin:0 0 8px!important;
+        white-space:normal!important;
+        word-break:normal!important;
+    }
+
+    .hp-row{
+        display:grid!important;
+        grid-template-columns:minmax(0,1fr) auto!important;
+        align-items:start!important;
+        gap:8px!important;
+        padding:7px 0!important;
+        font-size:10px!important;
+        line-height:1.35!important;
+    }
+
+    .hp-row span,
+    .hp-row b{
+        min-width:0!important;
+        max-width:100%!important;
+        white-space:normal!important;
+        word-break:normal!important;
+        overflow-wrap:break-word!important;
+    }
+
+    .hp-row b{
+        text-align:right!important;
+    }
+
+    /* TP kartları: telefonda da 3 kolon ama okunabilir */
+    .hp-target{
+        display:grid!important;
+        grid-template-columns:repeat(3,minmax(0,1fr))!important;
+        gap:5px!important;
+        width:100%!important;
+    }
+
+    .hp-target-card{
+        min-width:0!important;
+        padding:8px 5px!important;
+        border-radius:7px!important;
+    }
+
+    .hp-target-card strong{
+        font-size:14px!important;
+        line-height:1.15!important;
+        white-space:normal!important;
+    }
+
+    .hp-target-card span,
+    .hp-target-card small{
+        font-size:7.5px!important;
+        line-height:1.25!important;
+        white-space:normal!important;
+        word-break:normal!important;
+    }
+
+    /* İçeride hiçbir metin harf-harf aşağı kırılmasın */
+    .hp-wrap *{
+        writing-mode:horizontal-tb!important;
+        text-orientation:mixed!important;
+    }
+}
+
+/* Çok dar telefonlarda gösterge kartlarını tek kolona indir */
+@media (max-width: 420px){
+
+    .hp-grid{
+        grid-template-columns:1fr!important;
+    }
+
+    .hp-card{
+        min-height:84px!important;
+    }
+
+    .hp-target{
+        grid-template-columns:1fr 1fr 1fr!important;
+    }
+
+    .hp-title{
+        font-size:17px!important;
+    }
+}
+
+/* =========================================================
+   v1.7.54 — TECHNICAL PROFILE + RESULT FILTERS
+   ========================================================= */
+.iz-signal-stack{
+    display:flex;
+    flex-direction:column;
+    align-items:flex-start;
+    gap:5px;
+    min-width:0;
+}
+.iz-signal-profile{
+    display:block;
+    max-width:100%;
+    color:#7697a8;
+    font-size:7.8px;
+    line-height:1.3;
+    font-weight:650;
+    white-space:normal;
+}
+.iz-signal-profile.long-term{
+    color:#f2c75d;
+    font-weight:780;
+}
+.izw-profile{
+    margin-top:7px;
+    color:#7899a9;
+    font-size:7.5px;
+    line-height:1.3;
+    font-weight:650;
+    white-space:normal;
+}
+.izw-profile.long-term{
+    color:#f2c75d;
+    font-weight:780;
+}
+[data-testid="stRadio"]{
+    margin-top:2px;
+    margin-bottom:4px;
+}
+[data-testid="stRadio"] > label{
+    color:#7ca0b1!important;
+    font-size:9px!important;
+    font-weight:760!important;
+}
+[data-testid="stRadio"] [role="radiogroup"]{
+    gap:7px!important;
+    flex-wrap:wrap!important;
+}
+[data-testid="stRadio"] [role="radiogroup"] label{
+    padding:6px 9px!important;
+    border:1px solid #17475e!important;
+    border-radius:6px!important;
+    background:#071724!important;
+}
+[data-testid="stRadio"] [role="radiogroup"] label:hover{
+    border-color:#26c8d4!important;
+    background:#092536!important;
+}
+@media(max-width:768px){
+    [data-testid="stRadio"] [role="radiogroup"]{
+        display:grid!important;
+        grid-template-columns:1fr 1fr!important;
+        width:100%!important;
+    }
+    [data-testid="stRadio"] [role="radiogroup"] label{
+        width:100%!important;
+        box-sizing:border-box!important;
+        font-size:9px!important;
+    }
+    .iz-signal-profile,.izw-profile{
+        font-size:8.5px!important;
+    }
+}
+
