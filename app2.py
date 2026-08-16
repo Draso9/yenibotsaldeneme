@@ -284,7 +284,7 @@ STRATEJI_SURUMU = "IZFIN-v1.7.5-auth-switch-fixed"
 PERFORMANS_UFUKLARI = (1, 5, 10, 20, 45)
 
 # --- IZFIN UYGULAMA SÜRÜMÜ / LOG ---
-IZFIN_APP_SURUMU = "v1.7.51 Attention Panel Fill"
+IZFIN_APP_SURUMU = "v1.7.54 Profile Filters"
 logger = logging.getLogger("IZFIN")
 if not logger.handlers:
     logging.basicConfig(level=logging.INFO)
@@ -3782,15 +3782,24 @@ def izfin_tarama_tablosu_html(df):
     esc=lambda v: html.escape(str(v if v is not None else "—"))
     heads=''.join(f'<th>{esc(c)}</th>' for c in cols); body=[]
     for _,row in df.iterrows():
+        profil=str(row.get("Teknik Profil","") or "").strip()
         tds=[]
         for c in cols:
             s=str(row.get(c,"—")); cls=''; rendered=esc(s)
-            if c=="Varlık": cls='ticker'
-            elif c=="Gelişmiş Skor": cls='score'
-            elif c=="Nihai Sinyal": rendered=f'<span class="iz-badge {_iz_badge_class(s)}">{esc(s)}</span>'
+            if c=="Varlık":
+                cls='ticker'
+            elif c=="Gelişmiş Skor":
+                cls='score'
+            elif c=="Nihai Sinyal":
+                profil_html=""
+                if profil:
+                    profil_cls="long-term" if "UZUN VADELİ ADAY" in profil.upper() else "profile"
+                    profil_html=f'<span class="iz-signal-profile {profil_cls}">Profil: {esc(profil)}</span>'
+                rendered=f'<div class="iz-signal-stack"><span class="iz-badge {_iz_badge_class(s)}">{esc(s)}</span>{profil_html}</div>'
             elif c=="Risk":
                 u=s.upper(); cls='risk-high' if ('YÜKSEK' in u or 'PANİK' in u) else ('risk-low' if ('DÜŞÜK' in u or 'SAKİN' in u) else 'risk-mid')
-            elif c in ["PEG / Değerleme","Seans Dışı","Para Akışı"]: cls='muted'
+            elif c in ["PEG / Değerleme","Seans Dışı","Para Akışı"]:
+                cls='muted'
             tds.append(f'<td class="{cls}">{rendered}</td>')
         body.append('<tr>'+''.join(tds)+'</tr>')
     return f'<div class="iz-table-wrap"><table class="iz-table"><thead><tr>{heads}</tr></thead><tbody>{"".join(body)}</tbody></table></div>'
@@ -3859,6 +3868,7 @@ def izfin_tarama_genis_ozet_html(df):
               "<td class='izw-decision'>"
                 f"<span class='iz-badge {_iz_badge_class(sinyal_raw)}'>{sinyal}</span>"
                 "<small>Merkezi karar</small>"
+                f"<div class='izw-profile {'long-term' if 'UZUN VADELİ ADAY' in str(row.get('Teknik Profil','')).upper() else ''}'>{esc(row.get('Teknik Profil','—'))}</div>"
               "</td>"
 
               "<td class='izw-quality'>"
@@ -4811,12 +4821,40 @@ if aktif_sayfa in ["🏠 Ana Sayfa", "🔎 Akıllı Tarama"]:
             with col3: st.markdown(f"""<div class="kpi-card"><div class="kpi-title">Alım Fırsatları & Kırılımlar</div><div class="kpi-value kpi-highlight-fire">{"🔥 " + str(st.session_state.alim_firsati)}</div></div>""", unsafe_allow_html=True)
             
             st.markdown("<br>", unsafe_allow_html=True)
-            sadece_alim_goster = st.checkbox("🎯 Sadece Merkezi Motorun AL Sinyallerini Göster", value=False)
-            
+            sonuc_filtresi = st.radio(
+                "Gösterilecek sonuçlar",
+                options=["Tümü", "AL Sinyalleri", "Uzun Vadeli Adaylar", "Teyit Bekleyenler"],
+                horizontal=True,
+                key="sonuc_gosterim_filtresi",
+                help=(
+                    "AL Sinyalleri merkezi karar motorunun AL yönündeki sonuçlarını; "
+                    "Uzun Vadeli Adaylar teknik profili gerçekten UZUN VADELİ ADAY olanları; "
+                    "Teyit Bekleyenler ise merkezi kararı teyit/izle olanları gösterir."
+                ),
+            )
+
             df_sonuc = pd.DataFrame(st.session_state.sonuclar)
-            if sadece_alim_goster:
-                df_sonuc = df_sonuc[df_sonuc["Nihai Sinyal"].apply(lambda x: sinyal_yonu_belirle(x) == "ALIM")]
-            
+
+            if sonuc_filtresi == "AL Sinyalleri":
+                df_sonuc = df_sonuc[
+                    df_sonuc["Nihai Sinyal"].apply(lambda x: sinyal_yonu_belirle(x) == "ALIM")
+                ]
+            elif sonuc_filtresi == "Uzun Vadeli Adaylar":
+                if "Teknik Profil" in df_sonuc.columns:
+                    df_sonuc = df_sonuc[
+                        df_sonuc["Teknik Profil"].astype(str).str.upper().str.contains("UZUN VADELİ ADAY", na=False)
+                    ]
+                else:
+                    df_sonuc = df_sonuc.iloc[0:0]
+            elif sonuc_filtresi == "Teyit Bekleyenler":
+                df_sonuc = df_sonuc[
+                    df_sonuc["Nihai Sinyal"].astype(str).str.upper().apply(
+                        lambda s: ("TEYİT" in s) or ("İZLE" in s) or ("BEKLE" in s)
+                    )
+                ]
+
+            st.caption(f"{len(df_sonuc)} sonuç gösteriliyor · Filtre: {sonuc_filtresi}")
+
             def color_df(row):
                 c = ''
                 if any(x in str(row['Nihai Sinyal']) for x in ['🟢', '🔵', '🚀', '🌟']): c = 'background-color: rgba(39, 174, 96, 0.15)'
@@ -4882,7 +4920,7 @@ if aktif_sayfa in ["🏠 Ana Sayfa", "🔎 Akıllı Tarama"]:
 
                     st.markdown(
                         f'<div class="iz-focus-meta"><span>{len(df_sonuc)} varlık</span>'
-                        f'<span>{"Yalnızca AL sinyalleri" if sadece_alim_goster else "Tüm merkezi kararlar"}</span></div>',
+                        f'<span>{html.escape(str(sonuc_filtresi))}</span></div>',
                         unsafe_allow_html=True,
                     )
 
