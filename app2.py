@@ -284,7 +284,7 @@ STRATEJI_SURUMU = "IZFIN-v1.7.5-auth-switch-fixed"
 PERFORMANS_UFUKLARI = (1, 5, 10, 20, 45)
 
 # --- IZFIN UYGULAMA SÜRÜMÜ / LOG ---
-IZFIN_APP_SURUMU = "v1.7.56 Home Labels"
+IZFIN_APP_SURUMU = "v1.7.57 Sortable Scan Table"
 logger = logging.getLogger("IZFIN")
 if not logger.handlers:
     logging.basicConfig(level=logging.INFO)
@@ -3774,6 +3774,127 @@ def izfin_auth_ekrani():
 
     st.markdown('<div class="iz-auth-shell"><div class="iz-auth-footer">IZFIN · ANALYZE • PREDICT • INVEST &nbsp;·&nbsp; Yatırım karar destek platformu</div></div>', unsafe_allow_html=True)
 
+
+def izfin_interaktif_tablo_df(df):
+    """
+    Akıllı Tarama sonuçlarını Streamlit'in gerçek sıralanabilir tablosuna hazırlar.
+    Görsel metinlerden sayısal değerleri ayırır; böylece kolon başlığına tıklanınca
+    100 > 90 > 8 şeklinde gerçek sayısal sıralama yapılır.
+    """
+    if df is None or df.empty:
+        return pd.DataFrame()
+
+    out = pd.DataFrame(index=df.index)
+
+    def _num(v):
+        if v is None:
+            return np.nan
+        s = str(v).replace(",", ".")
+        m = re.search(r"[-+]?\d+(?:\.\d+)?", s)
+        if not m:
+            return np.nan
+        try:
+            return float(m.group(0))
+        except Exception:
+            return np.nan
+
+    def _score(v):
+        return _num(v)
+
+    def _pct(v):
+        return _num(v)
+
+    def _entry_score(v):
+        s = str(v or "")
+        # Öncelik 0-100 giriş puanı gibi "72/100" ifadelerinde ilk sayıdır.
+        m = re.search(r"(\d+(?:\.\d+)?)\s*/\s*100", s)
+        if m:
+            try:
+                return float(m.group(1))
+            except Exception:
+                pass
+        return _num(v)
+
+    # Ana kimlik alanları
+    out["Varlık"] = df.get("Varlık", pd.Series(index=df.index, dtype=str)).astype(str)
+
+    if "Fiyat" in df.columns:
+        out["Fiyat"] = df["Fiyat"].apply(_num)
+
+    # Karar + profil ayrı kolonlarda; profil artık görünür ve filtrelenebilir.
+    if "Nihai Sinyal" in df.columns:
+        out["IZFIN Kararı"] = df["Nihai Sinyal"].astype(str)
+    if "Teknik Profil" in df.columns:
+        out["Teknik Profil"] = df["Teknik Profil"].astype(str)
+
+    # Gerçek sayısal kolonlar
+    if "Gelişmiş Skor" in df.columns:
+        out["Gelişmiş Skor"] = df["Gelişmiş Skor"].apply(_score)
+    if "Güven" in df.columns:
+        out["Güven %"] = df["Güven"].apply(_pct)
+    if "MTF Uyum" in df.columns:
+        out["MTF %"] = df["MTF Uyum"].apply(_pct)
+    if "🎯 Giriş Kalitesi" in df.columns:
+        out["Giriş Puanı"] = df["🎯 Giriş Kalitesi"].apply(_entry_score)
+
+    # Açıklayıcı alanlar
+    for kaynak, hedef in [
+        ("Risk", "Risk"),
+        ("Para Akışı", "Para Akışı"),
+        ("PEG / Değerleme", "PEG / Değerleme"),
+        ("Seans Dışı", "Seans Dışı"),
+    ]:
+        if kaynak in df.columns:
+            out[hedef] = df[kaynak].astype(str)
+
+    return out.reset_index(drop=True)
+
+
+def izfin_interaktif_tablo_goster(df):
+    """Normal tarama görünümünde kolon başlığına tıklanarak sıralanabilen tablo."""
+    tablo = izfin_interaktif_tablo_df(df)
+    if tablo.empty:
+        st.info("Gösterilecek tarama sonucu yok.")
+        return
+
+    column_config = {
+        "Varlık": st.column_config.TextColumn("Varlık", width="small"),
+        "Fiyat": st.column_config.NumberColumn("Fiyat", format="%.2f", width="small"),
+        "IZFIN Kararı": st.column_config.TextColumn("IZFIN Kararı", width="medium"),
+        "Teknik Profil": st.column_config.TextColumn("Teknik Profil", width="medium"),
+        "Gelişmiş Skor": st.column_config.ProgressColumn(
+            "Gelişmiş Skor",
+            min_value=0,
+            max_value=100,
+            format="%.0f",
+            width="medium",
+        ),
+        "Güven %": st.column_config.NumberColumn("Güven %", format="%.0f%%", width="small"),
+        "MTF %": st.column_config.NumberColumn("MTF %", format="%.0f%%", width="small"),
+        "Giriş Puanı": st.column_config.NumberColumn("Giriş Puanı", format="%.0f", width="small"),
+        "Risk": st.column_config.TextColumn("Risk", width="small"),
+        "Para Akışı": st.column_config.TextColumn("Para Akışı", width="medium"),
+        "PEG / Değerleme": st.column_config.TextColumn("PEG / Değerleme", width="medium"),
+        "Seans Dışı": st.column_config.TextColumn("Seans Dışı", width="medium"),
+    }
+
+    # Yalnızca gerçekten var olan kolonları config'e bırak.
+    column_config = {k: v for k, v in column_config.items() if k in tablo.columns}
+
+    st.dataframe(
+        tablo,
+        use_container_width=True,
+        hide_index=True,
+        column_config=column_config,
+        height=min(640, 56 + max(1, len(tablo)) * 38),
+        key="izfin_sortable_scan_table",
+    )
+    st.caption(
+        "💡 Kolon başlığına tıklayarak sıralayabilirsiniz. "
+        "Aynı başlığa tekrar tıklamak sıralama yönünü değiştirir."
+    )
+
+
 def izfin_tarama_tablosu_html(df):
     if df is None or df.empty:
         return '<div class="iz-table-wrap"><div style="padding:22px;color:#7895a9">Gösterilecek tarama sonucu yok.</div></div>'
@@ -5023,12 +5144,7 @@ if aktif_sayfa in ["🏠 Ana Sayfa", "🔎 Akıllı Tarama"]:
                         st.session_state.izfin_scan_table_focus = True
                         st.rerun()
 
-                st.markdown(
-                    '<div class="iz-scan-table-wrap">'
-                    + izfin_tarama_tablosu_html(df_sonuc)
-                    + '</div>',
-                    unsafe_allow_html=True,
-                )
+                izfin_interaktif_tablo_goster(df_sonuc)
 
                 peg_degerlendirilemeyenler = [
                     str(v) for v in df_sonuc.loc[
