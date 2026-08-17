@@ -284,7 +284,7 @@ STRATEJI_SURUMU = "IZFIN-v1.7.5-auth-switch-fixed"
 PERFORMANS_UFUKLARI = (1, 5, 10, 20, 45)
 
 # --- IZFIN UYGULAMA SÜRÜMÜ / LOG ---
-IZFIN_APP_SURUMU = "v1.7.61 Premium Home Empty States"
+IZFIN_APP_SURUMU = "v1.7.62 Premium Market Center"
 logger = logging.getLogger("IZFIN")
 if not logger.handlers:
     logging.basicConfig(level=logging.INFO)
@@ -3351,18 +3351,32 @@ def izfin_render_classic_dashboard_clickable():
         yorum = "Teknik bileşenler dengeli; güçlü setup'larda seçici ilerlemek uygun."
 
     st.markdown(
-        '<div class="iz-hero"><div class="iz-section-label">IZFIN SIGNATURE COMMAND CENTER</div>'
-        '<h1>IZFIN Piyasa Merkezi</h1>'
-        '<p>Son taramanın karar dağılımını, piyasa modunu ve en güçlü setup’ı tek bakışta gör.</p></div>',
+        '<div class="iz-hero iz-market-hero">'
+          '<div class="iz-market-hero-kicker"><span class="iz-market-hero-dot"></span>IZFIN SIGNATURE COMMAND CENTER</div>'
+          '<div class="iz-market-hero-main">'
+            '<div>'
+              '<h1>IZFIN Piyasa Merkezi</h1>'
+              '<p>Son taramanın karar dağılımını, piyasa modunu ve en güçlü setup’ı tek bakışta gör.</p>'
+            '</div>'
+            '<div class="iz-market-hero-mark">IZ</div>'
+          '</div>'
+        '</div>',
         unsafe_allow_html=True,
     )
 
     if not sonuclar:
         st.markdown(
-            '<div class="iz-decision-center">'
-            '<div class="iz-decision-head"><div><small>IZFIN KARAR MERKEZİ</small><h2>İlk tarama bekleniyor</h2></div>'
-            '<span class="iz-decision-mode neutral">HAZIR</span></div>'
-            '<div class="iz-decision-empty">Akıllı Tarama çalıştırıldığında karar dağılımı, piyasa modu, en güçlü setup ve sistem yorumu burada oluşacak.</div>'
+            '<div class="iz-decision-center iz-decision-center-premium">'
+              '<div class="iz-decision-head">'
+                '<div><small>IZFIN KARAR MERKEZİ</small><h2>İlk tarama bekleniyor</h2>'
+                '<p>Karar dağılımı, piyasa modu ve öne çıkan setup bu alanda oluşacak.</p></div>'
+                '<span class="iz-decision-mode neutral">HAZIR</span>'
+              '</div>'
+              '<div class="iz-decision-empty iz-decision-empty-premium">'
+                '<div class="iz-decision-empty-icon">◫</div>'
+                '<b>Henüz piyasa özeti oluşmadı</b>'
+                '<span>Akıllı Tarama çalıştırıldığında trend, momentum, para akışı ve risk bileşenleri burada birleşir.</span>'
+              '</div>'
             '</div>',
             unsafe_allow_html=True,
         )
@@ -3379,7 +3393,7 @@ def izfin_render_classic_dashboard_clickable():
         best_html = '<div class="iz-best-setup-copy"><small>BUGÜNÜN ÖNE ÇIKAN SETUP’I</small><strong>—</strong></div>'
 
     center_html = (
-        '<div class="iz-decision-center">'
+        '<div class="iz-decision-center iz-decision-center-premium">'
         '<div class="iz-decision-head">'
         '<div><small>IZFIN KARAR MERKEZİ</small><h2>Son Tarama Özeti</h2>'
         f'<p>{html.escape(str(kaynak))} · Son taranan evrene göre</p></div>'
