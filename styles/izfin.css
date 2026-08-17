@@ -4078,3 +4078,121 @@ h3:has(+ [data-testid="stDataFrame"]){
     }
 }
 
+
+/* =========================================================
+   v1.7.68 — FEATURED STOCK EMPHASIS
+   Günün öne çıkan hissesi gerçekten öne çıkar.
+   ========================================================= */
+
+.iz-best-setup-feature{
+    min-height:168px!important;
+    padding:20px 22px!important;
+}
+
+.iz-best-feature-label{
+    font-size:10px!important;
+    letter-spacing:1px!important;
+    margin-bottom:2px!important;
+}
+.iz-best-feature-label span{
+    font-size:15px!important;
+}
+
+.iz-best-feature-main{
+    display:flex!important;
+    align-items:center!important;
+    justify-content:flex-start!important;
+    gap:14px!important;
+    margin-top:12px!important;
+    width:100%!important;
+}
+
+.iz-best-feature-main strong{
+    margin:0!important;
+    padding:0!important;
+    color:#ffffff!important;
+    font-size:40px!important;
+    line-height:1!important;
+    font-weight:950!important;
+    letter-spacing:.4px!important;
+    text-align:left!important;
+    flex:0 0 auto!important;
+}
+
+.iz-best-feature-signal{
+    width:auto!important;
+    max-width:none!important;
+    padding:8px 11px!important;
+    font-size:11px!important;
+    line-height:1.15!important;
+    font-weight:900!important;
+    text-align:left!important;
+    flex:0 0 auto!important;
+}
+
+.iz-best-feature-meta{
+    grid-template-columns:repeat(4,minmax(0,1fr))!important;
+    gap:10px!important;
+    margin-top:18px!important;
+}
+
+.iz-best-feature-meta>span{
+    min-height:58px!important;
+    padding:10px 12px!important;
+    justify-content:center!important;
+    gap:5px!important;
+    font-size:15px!important;
+    line-height:1.15!important;
+    font-weight:900!important;
+    color:#f2fbff!important;
+}
+
+.iz-best-feature-meta b{
+    font-size:8px!important;
+    line-height:1!important;
+    letter-spacing:.7px!important;
+    color:#76a4b8!important;
+    font-weight:900!important;
+}
+
+/* Eski rule'ların ticker'ı sağa yaslamasını tamamen etkisizleştir */
+.iz-best-setup-feature .iz-best-feature-main,
+.iz-best-setup-feature .iz-best-feature-main strong,
+.iz-best-setup-feature .iz-best-feature-main span{
+    text-align:left!important;
+}
+
+/* Tablet / mobil */
+@media(max-width:900px){
+    .iz-best-feature-main strong{
+        font-size:34px!important;
+    }
+    .iz-best-feature-meta{
+        grid-template-columns:1fr 1fr!important;
+    }
+}
+
+@media(max-width:520px){
+    .iz-best-setup-feature{
+        padding:16px!important;
+    }
+    .iz-best-feature-label{
+        font-size:9px!important;
+    }
+    .iz-best-feature-main{
+        flex-direction:column!important;
+        align-items:flex-start!important;
+        gap:8px!important;
+    }
+    .iz-best-feature-main strong{
+        font-size:31px!important;
+    }
+    .iz-best-feature-signal{
+        font-size:10px!important;
+    }
+    .iz-best-feature-meta>span{
+        min-height:54px!important;
+        font-size:13px!important;
+    }
+}
+
