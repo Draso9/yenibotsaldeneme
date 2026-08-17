@@ -6,3 +6,4 @@ yfinance
 firebase-admin
 extra-streamlit-components
 plotly
+sentry-sdk
