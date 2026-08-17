@@ -25,6 +25,54 @@ import streamlit.components.v1 as components
 from pathlib import Path
 
 
+
+def izfin_dataframe_tema(obj):
+    """Native Streamlit dataframe'lerinde IZFIN koyu tema tutarlılığı sağlar."""
+    try:
+        styler = obj.style if isinstance(obj, pd.DataFrame) else obj
+        styler = styler.set_properties(**{
+            "background-color": "#07131f",
+            "color": "#dcecf7",
+            "border-color": "#17354b",
+            "font-size": "12px",
+        })
+        styler = styler.set_table_styles([
+            {
+                "selector": "table",
+                "props": [
+                    ("background-color", "#07131f"),
+                    ("color", "#dcecf7"),
+                    ("border-collapse", "collapse"),
+                ],
+            },
+            {
+                "selector": "thead th",
+                "props": [
+                    ("background-color", "#091725"),
+                    ("color", "#8fb1c4"),
+                    ("font-weight", "800"),
+                    ("border-bottom", "1px solid #1a3c55"),
+                    ("white-space", "nowrap"),
+                ],
+            },
+            {
+                "selector": "tbody td",
+                "props": [
+                    ("background-color", "#07131f"),
+                    ("color", "#dcecf7"),
+                    ("border-bottom", "1px solid rgba(23,53,75,.55)"),
+                ],
+            },
+            {
+                "selector": "tbody tr:hover td",
+                "props": [("background-color", "#0a1b2a")],
+            },
+        ], overwrite=False)
+        return styler
+    except Exception:
+        return obj
+
+
 def izfin_css_yukle():
     """IZFIN merkezi stil dosyasını yükler."""
     css_path = Path(__file__).resolve().parent / "styles" / "izfin.css"
@@ -284,7 +332,7 @@ STRATEJI_SURUMU = "IZFIN-v1.7.5-auth-switch-fixed"
 PERFORMANS_UFUKLARI = (1, 5, 10, 20, 45)
 
 # --- IZFIN UYGULAMA SÜRÜMÜ / LOG ---
-IZFIN_APP_SURUMU = "v1.7.66 Home Table Larger Type"
+IZFIN_APP_SURUMU = "v1.7.67 Full Audit UI Consistency"
 logger = logging.getLogger("IZFIN")
 if not logger.handlers:
     logging.basicConfig(level=logging.INFO)
@@ -3385,9 +3433,19 @@ def izfin_render_classic_dashboard_clickable():
     if best:
         _, bt, bs, bg, bmtf, brisk, bsignal = best
         best_html = (
-            f'<div class="iz-best-setup-copy"><small>BUGÜNÜN ÖNE ÇIKAN SETUP’I</small>'
-            f'<strong>{html.escape(bt)}</strong>'
-            f'<span>{html.escape(bsignal or "—")} · IZ {int(bs)} · Güven %{int(bg)} · MTF %{int(bmtf)} · Risk {html.escape(brisk or "—")}</span></div>'
+            '<div class="iz-best-setup-copy iz-best-setup-feature">'
+              '<div class="iz-best-feature-label"><span>✦</span> BUGÜNÜN ÖNE ÇIKAN HİSSESİ</div>'
+              '<div class="iz-best-feature-main">'
+                f'<strong>{html.escape(bt)}</strong>'
+                f'<span class="iz-best-feature-signal">{html.escape(bsignal or "—")}</span>'
+              '</div>'
+              '<div class="iz-best-feature-meta">'
+                f'<span><b>IZFIN SKOR</b>{int(bs)}</span>'
+                f'<span><b>GÜVEN</b>%{int(bg)}</span>'
+                f'<span><b>MTF</b>%{int(bmtf)}</span>'
+                f'<span><b>RİSK</b>{html.escape(brisk or "—")}</span>'
+              '</div>'
+            '</div>'
         )
     else:
         best_html = '<div class="iz-best-setup-copy"><small>BUGÜNÜN ÖNE ÇIKAN SETUP’I</small><strong>—</strong></div>'
@@ -5664,7 +5722,7 @@ if aktif_sayfa == "📊 Takip & Performans":
                     "Durum": "🟢 Açık",
                 })
                 st.dataframe(
-                    tablo_stili(aktif_gorunum),
+                    izfin_dataframe_tema(tablo_stili(aktif_gorunum)),
                     use_container_width=True,
                     height=min(440, 82 + 36 * len(aktif_gorunum)),
                     hide_index=True,
@@ -6036,12 +6094,14 @@ if aktif_sayfa == "📊 Takip & Performans":
                 )
 
                 st.dataframe(
-                    gorunum.style.format({
-                        "Sinyal Sayısı": "{:.0f}",
-                        "Başarı Oranı %": "{:.1f}%",
-                        f"+{ufuk_secimi}G Medyan Getiri %": "{:+.2f}%",
-                        "Medyan Benchmark Farkı %": "{:+.2f}%",
-                    }, na_rep="—"),
+                    izfin_dataframe_tema(
+                        gorunum.style.format({
+                            "Sinyal Sayısı": "{:.0f}",
+                            "Başarı Oranı %": "{:.1f}%",
+                            f"+{ufuk_secimi}G Medyan Getiri %": "{:+.2f}%",
+                            "Medyan Benchmark Farkı %": "{:+.2f}%",
+                        }, na_rep="—")
+                    ),
                     use_container_width=True,
                     hide_index=True,
                 )
@@ -6068,12 +6128,14 @@ if aktif_sayfa == "📊 Takip & Performans":
                         if c in detay.columns and not detay[c].isna().all()
                     ]
                     st.dataframe(
-                        detay[detay_kolonlari].sort_values(
-                            f"+{ufuk_secimi}G Getiri %", ascending=False
-                        ).style.format({
-                            f"+{ufuk_secimi}G Getiri %": "{:+.2f}%",
-                            "Benchmark Farkı %": "{:+.2f}%",
-                        }, na_rep="—"),
+                        izfin_dataframe_tema(
+                            detay[detay_kolonlari].sort_values(
+                                f"+{ufuk_secimi}G Getiri %", ascending=False
+                            ).style.format({
+                                f"+{ufuk_secimi}G Getiri %": "{:+.2f}%",
+                                "Benchmark Farkı %": "{:+.2f}%",
+                            }, na_rep="—")
+                        ),
                         use_container_width=True,
                         hide_index=True,
                     )
@@ -6195,7 +6257,7 @@ if aktif_sayfa == "🧪 Strateji Laboratuvarı":
                 "45G Kârda %": "{:.1f}%",
                 "45G Ort. %": "{:+.2f}%",
             }, na_rep="-")
-            st.dataframe(ozet_stil, use_container_width=True, hide_index=True)
+            st.dataframe(izfin_dataframe_tema(ozet_stil), use_container_width=True, hide_index=True)
 
             with st.expander("🔬 Geçmiş IZFIN kararlarını incele", expanded=False):
                 detay_kolonlar = [
@@ -6209,11 +6271,13 @@ if aktif_sayfa == "🧪 Strateji Laboratuvarı":
                     if tarih_col in detay_bt:
                         detay_bt[tarih_col] = pd.to_datetime(detay_bt[tarih_col], errors="coerce").dt.strftime("%Y-%m-%d")
                 st.dataframe(
-                    detay_bt.style.format({
-                        "Hibrit Skor": "{:.0f}", "Güven %": "{:.0f}", "Daily MTF %": "{:.0f}",
-                        "Giriş Proxy": "{:.0f}", "Giriş": "{:.2f}", "İlk Stop": "{:.2f}", "İlk TP1": "{:.2f}",
-                        "İşlem Sonucu %": "{:+.2f}%", "20G %": "{:+.2f}%", "45G %": "{:+.2f}%",
-                    }, na_rep="-"),
+                    izfin_dataframe_tema(
+                        detay_bt.style.format({
+                            "Hibrit Skor": "{:.0f}", "Güven %": "{:.0f}", "Daily MTF %": "{:.0f}",
+                            "Giriş Proxy": "{:.0f}", "Giriş": "{:.2f}", "İlk Stop": "{:.2f}", "İlk TP1": "{:.2f}",
+                            "İşlem Sonucu %": "{:+.2f}%", "20G %": "{:+.2f}%", "45G %": "{:+.2f}%",
+                        }, na_rep="-")
+                    ),
                     use_container_width=True, hide_index=True,
                     height=min(520, 82 + 35 * len(detay_bt)),
                 )
