@@ -284,7 +284,7 @@ STRATEJI_SURUMU = "IZFIN-v1.7.5-auth-switch-fixed"
 PERFORMANS_UFUKLARI = (1, 5, 10, 20, 45)
 
 # --- IZFIN UYGULAMA SÜRÜMÜ / LOG ---
-IZFIN_APP_SURUMU = "v1.7.62 Premium Market Center"
+IZFIN_APP_SURUMU = "v1.7.65 Home Table Readability"
 logger = logging.getLogger("IZFIN")
 if not logger.handlers:
     logging.basicConfig(level=logging.INFO)
@@ -3455,7 +3455,7 @@ def izfin_top_signals_html(max_n=7):
                 '</div>'
                 '<b>Henüz veri yok</b>'
                 '<span>Akıllı Tarama ile listenizdeki fırsatları keşfedin.</span>'
-                '<a class="iz-feature-cta iz-feature-cta-cyan" href="?izfin_go=scan" target="_self">AKILLI TARAMAYI BAŞLAT <em>→</em></a>'
+                '<div class="iz-feature-cta-slot"></div>'
               '</div>'
             '</div>'
         )
@@ -3481,7 +3481,7 @@ def izfin_movers_html(max_n=6):
               '</div>'
               '<b>Henüz veri yok</b>'
               '<span>Akıllı Tarama ile gün içindeki büyük hareketleri görün.</span>'
-              '<a class="iz-feature-cta iz-feature-cta-purple" href="?izfin_go=scan" target="_self">AKILLI TARAMAYI BAŞLAT <em>→</em></a>'
+              '<div class="iz-feature-cta-slot"></div>'
             '</div>'
         )
     else:
@@ -4098,30 +4098,10 @@ def izfin_sortable_table_js():
 
 
 
-def _izfin_home_scan_cta_isle():
-    """Ana sayfa HTML kartlarındaki CTA linkinden Akıllı Tarama'ya geç."""
-    try:
-        hedef = str(st.query_params.get("izfin_go", "") or "").strip().lower()
-    except Exception:
-        hedef = ""
-
-    if hedef == "scan":
-        st.session_state.izfin_nav = "🔎 Akıllı Tarama"
-        try:
-            st.query_params.pop("izfin_go")
-        except Exception:
-            try:
-                st.query_params.clear()
-            except Exception:
-                pass
-        st.rerun()
-
 
 if not st.session_state.get("user_email") or not st.session_state.get("user_uid"):
     izfin_auth_ekrani()
     st.stop()
-
-_izfin_home_scan_cta_isle()
 
 st.sidebar.markdown(izfin_brand_html(), unsafe_allow_html=True)
 st.markdown(izfin_market_bar_html(izfin_piyasa_bandi_verisi()), unsafe_allow_html=True)
@@ -4299,11 +4279,30 @@ if aktif_sayfa in ["🏠 Ana Sayfa", "🔎 Akıllı Tarama"]:
         home_focus_left, home_focus_right = st.columns([1.0, 1.0], gap="small")
 
         with home_focus_left:
-            st.markdown(izfin_top_signals_html(), unsafe_allow_html=True)
+            _home_scan_empty = not bool(st.session_state.get("sonuclar"))
+            st.markdown(izfin_top_signals_html(max_n=5), unsafe_allow_html=True)
+            if _home_scan_empty:
+                st.button(
+                    "AKILLI TARAMAYI BAŞLAT  →",
+                    key="home_empty_scan_left",
+                    use_container_width=True,
+                    type="secondary",
+                    on_click=_izfin_nav_to,
+                    args=("🔎 Akıllı Tarama",),
+                )
             izfin_top_signal_clicks(max_n=5)
 
         with home_focus_right:
-            st.markdown(izfin_movers_html(), unsafe_allow_html=True)
+            st.markdown(izfin_movers_html(max_n=5), unsafe_allow_html=True)
+            if _home_scan_empty:
+                st.button(
+                    "AKILLI TARAMAYI BAŞLAT  →",
+                    key="home_empty_scan_right",
+                    use_container_width=True,
+                    type="secondary",
+                    on_click=_izfin_nav_to,
+                    args=("🔎 Akıllı Tarama",),
+                )
             izfin_mover_clicks(max_n=5)
 
         _home_best_ticker = izfin_render_classic_dashboard_clickable()
@@ -4317,8 +4316,14 @@ if aktif_sayfa in ["🏠 Ana Sayfa", "🔎 Akıllı Tarama"]:
             )
 
         st.markdown('<div class="iz-home-scan-banner"><div class="copy"><strong>✦ Fırsatları tüm evrende tara</strong><span>IZFIN merkezi karar motorunu seçtiğiniz piyasa grubunda çalıştırın.</span></div><span class="iz-badge wait">SIGNATURE SCAN</span></div>', unsafe_allow_html=True)
-        if st.button("✦ AKILLI TARAMA MERKEZİNE GİT →", type="primary", use_container_width=True, key="home_scan_primary"):
-            _izfin_nav_to("🔎 Akıllı Tarama"); st.rerun()
+        st.button(
+            "✦ AKILLI TARAMA MERKEZİNE GİT →",
+            type="primary",
+            use_container_width=True,
+            key="home_scan_primary",
+            on_click=_izfin_nav_to,
+            args=("🔎 Akıllı Tarama",),
+        )
     else:
         st.markdown('''<div class="iz-scanner-hero"><div><div class="iz-section-label">IZFIN SCANNER</div><h2>Akıllı Tarama Merkezi</h2><p>Varlık evrenini seç, merkezi karar motorunu çalıştır ve sonuçları skor · güven · giriş kalitesi · MTF · risk ekseninde karşılaştır.</p></div><span class="iz-badge wait">SIGNATURE SCAN</span></div>''', unsafe_allow_html=True)
 
