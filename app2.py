@@ -27,7 +27,7 @@ import sentry_sdk
 
 
 # --- IZFIN UYGULAMA SÜRÜMÜ ---
-IZFIN_APP_SURUMU = "v1.7.62 Symbol Mapping + YFinance Noise Guard"
+IZFIN_APP_SURUMU = "v1.7.63 Home Scan CTA Top"
 
 
 def _secret_string(ad, varsayilan=""):
@@ -4691,8 +4691,25 @@ if aktif_sayfa in ["🏠 Ana Sayfa", "🔎 Akıllı Tarama"]:
         if _home_msg:
             st.warning(_home_msg)
 
-        # Ana sayfanın hisse odaklı iki paneli artık üstte.
-        # Sağ panel büyütüldü; "Büyük Hareketler" daha rahat okunur.
+        # Ana CTA: Akıllı Tarama erişimi sayfanın ilk görünümünde olmalı.
+        # Kullanıcı aşağı kaydırmadan tarama merkezine geçebilsin.
+        st.markdown(
+            '<div class="iz-home-scan-banner">'
+            '<div class="copy"><strong>✦ Akıllı Tarama ile fırsatları tara</strong>'
+            '<span>IZFIN merkezi karar motorunu seçtiğiniz piyasa grubunda çalıştırın.</span></div>'
+            '<span class="iz-badge wait">SIGNATURE SCAN</span></div>',
+            unsafe_allow_html=True,
+        )
+        if st.button(
+            "✦ AKILLI TARAMA MERKEZİNE GİT →",
+            type="primary",
+            use_container_width=True,
+            key="home_scan_primary",
+        ):
+            _izfin_nav_to("🔎 Akıllı Tarama")
+            st.rerun()
+
+        # Ana sayfanın hisse odaklı iki paneli.
         home_focus_left, home_focus_right = st.columns([1.0, 1.0], gap="small")
 
         with home_focus_left:
@@ -4713,9 +4730,6 @@ if aktif_sayfa in ["🏠 Ana Sayfa", "🔎 Akıllı Tarama"]:
                 args=(_home_best_ticker,),
             )
 
-        st.markdown('<div class="iz-home-scan-banner"><div class="copy"><strong>✦ Fırsatları tüm evrende tara</strong><span>IZFIN merkezi karar motorunu seçtiğiniz piyasa grubunda çalıştırın.</span></div><span class="iz-badge wait">SIGNATURE SCAN</span></div>', unsafe_allow_html=True)
-        if st.button("✦ AKILLI TARAMA MERKEZİNE GİT →", type="primary", use_container_width=True, key="home_scan_primary"):
-            _izfin_nav_to("🔎 Akıllı Tarama"); st.rerun()
     else:
         st.markdown('''<div class="iz-scanner-hero"><div><div class="iz-section-label">IZFIN SCANNER</div><h2>Akıllı Tarama Merkezi</h2><p>Varlık evrenini seç, merkezi karar motorunu çalıştır ve sonuçları skor · güven · giriş kalitesi · MTF · risk ekseninde karşılaştır.</p></div><span class="iz-badge wait">SIGNATURE SCAN</span></div>''', unsafe_allow_html=True)
 
