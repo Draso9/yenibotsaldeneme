@@ -3807,3 +3807,274 @@ button[kind="primary"],
     }
 }
 
+
+/* =========================================================
+   v1.7.67 — FULL UI CONSISTENCY AUDIT
+   ========================================================= */
+
+/* ---------- Native Streamlit dataframe consistency ---------- */
+[data-testid="stDataFrame"]{
+    border:1px solid #17354b!important;
+    border-radius:10px!important;
+    overflow:hidden!important;
+    background:#07131f!important;
+    box-shadow:0 10px 28px rgba(0,0,0,.12)!important;
+}
+[data-testid="stDataFrame"] > div,
+[data-testid="stDataFrame"] iframe,
+[data-testid="stDataFrame"] canvas{
+    background:#07131f!important;
+}
+[data-testid="stDataFrame"] button{
+    color:#8fb1c4!important;
+}
+
+/* ---------- HOME: populated top panels — stronger typography ---------- */
+@media (min-width:769px){
+    .iz-signals:not(.iz-home-feature-card),
+    .iz-movers:not(.iz-home-feature-card){
+        min-height:372px!important;
+        padding:18px 18px 16px!important;
+    }
+
+    .iz-signals:not(.iz-home-feature-card) .iz-card-title,
+    .iz-movers:not(.iz-home-feature-card) .iz-card-title{
+        height:32px!important;
+        min-height:32px!important;
+        margin-bottom:11px!important;
+        font-size:15.5px!important;
+        line-height:1.2!important;
+        font-weight:900!important;
+        letter-spacing:.15px!important;
+        color:#f3fbff!important;
+    }
+
+    .iz-signals:not(.iz-home-feature-card) th{
+        height:38px!important;
+        padding:8px 10px!important;
+        font-size:10.2px!important;
+        line-height:1.15!important;
+        font-weight:850!important;
+        color:#7fa6b9!important;
+        letter-spacing:.28px!important;
+    }
+
+    .iz-signals:not(.iz-home-feature-card) td{
+        height:52px!important;
+        padding:9px 10px!important;
+        font-size:12.2px!important;
+        line-height:1.22!important;
+        font-weight:680!important;
+        color:#dcecf7!important;
+    }
+
+    .iz-signals:not(.iz-home-feature-card) td:first-child{
+        font-size:13.2px!important;
+        font-weight:920!important;
+        color:#f6fbff!important;
+    }
+
+    .iz-signals:not(.iz-home-feature-card) td:nth-child(2){
+        font-size:12px!important;
+        font-weight:790!important;
+    }
+
+    .iz-signals:not(.iz-home-feature-card) .iz-badge{
+        font-size:10.4px!important;
+        line-height:1.1!important;
+        font-weight:880!important;
+        padding:7px 9px!important;
+    }
+
+    .iz-signals:not(.iz-home-feature-card) .iz-ring{
+        transform:scale(1.08)!important;
+        transform-origin:center!important;
+    }
+
+    .iz-movers:not(.iz-home-feature-card) .iz-mover-row{
+        min-height:56px!important;
+        height:56px!important;
+        padding:9px 12px!important;
+        grid-template-columns:minmax(72px,.72fr) minmax(150px,1.55fr) minmax(70px,.55fr)!important;
+        gap:12px!important;
+    }
+
+    .iz-movers:not(.iz-home-feature-card) .iz-mover-name{
+        font-size:13px!important;
+        font-weight:920!important;
+        color:#f4fbff!important;
+    }
+    .iz-movers:not(.iz-home-feature-card) .iz-mover-price{
+        font-size:11.5px!important;
+        font-weight:760!important;
+        color:#b9cfda!important;
+    }
+    .iz-movers:not(.iz-home-feature-card) .iz-mover-chg{
+        font-size:11.8px!important;
+        font-weight:920!important;
+    }
+
+    div[data-testid="stMarkdownContainer"]:has(.iz-signals:not(.iz-home-feature-card)),
+    div[data-testid="stMarkdownContainer"]:has(.iz-movers:not(.iz-home-feature-card)),
+    div[data-testid="stMarkdown"]:has(.iz-signals:not(.iz-home-feature-card)),
+    div[data-testid="stMarkdown"]:has(.iz-movers:not(.iz-home-feature-card)),
+    div[data-testid="stElementContainer"]:has(.iz-signals:not(.iz-home-feature-card)),
+    div[data-testid="stElementContainer"]:has(.iz-movers:not(.iz-home-feature-card)){
+        min-height:372px!important;
+        height:auto!important;
+        overflow:visible!important;
+    }
+}
+
+/* ---------- HOME: Son Tarama Özeti / featured stock ---------- */
+.iz-decision-center-premium{
+    border-color:rgba(37,129,151,.58)!important;
+    box-shadow:
+        0 20px 50px rgba(0,0,0,.16),
+        inset 0 1px 0 rgba(255,255,255,.03)!important;
+}
+
+.iz-best-setup-bottom{
+    margin-top:13px!important;
+}
+
+.iz-best-setup-feature{
+    position:relative!important;
+    overflow:hidden!important;
+    min-height:132px!important;
+    padding:16px 18px!important;
+    border:1px solid rgba(117,88,241,.74)!important;
+    border-left:4px solid #8b70ff!important;
+    border-radius:10px!important;
+    background:
+        radial-gradient(circle at 88% 14%,rgba(123,92,255,.15),transparent 34%),
+        linear-gradient(135deg,#0a1827,#0b1930)!important;
+    box-shadow:
+        0 12px 30px rgba(71,49,171,.13),
+        inset 0 1px 0 rgba(255,255,255,.035)!important;
+}
+
+.iz-best-setup-feature:after{
+    content:"";
+    position:absolute;
+    width:140px;
+    height:140px;
+    right:-56px;
+    bottom:-82px;
+    border:1px solid rgba(125,97,255,.14);
+    border-radius:50%;
+}
+
+.iz-best-feature-label{
+    display:flex;
+    align-items:center;
+    gap:7px;
+    color:#a690ff;
+    font-size:8.5px;
+    line-height:1;
+    font-weight:900;
+    letter-spacing:.9px;
+}
+.iz-best-feature-label span{
+    color:#52dfe5;
+    font-size:13px;
+}
+
+.iz-best-feature-main{
+    display:flex;
+    align-items:center;
+    gap:12px;
+    margin-top:9px;
+}
+.iz-best-feature-main strong{
+    margin:0!important;
+    color:#f7fbff!important;
+    font-size:30px!important;
+    line-height:1!important;
+    font-weight:930!important;
+    letter-spacing:.2px!important;
+}
+.iz-best-feature-signal{
+    display:inline-flex!important;
+    align-items:center;
+    width:auto!important;
+    padding:6px 9px!important;
+    border:1px solid rgba(58,196,209,.52)!important;
+    border-radius:6px!important;
+    color:#67e1e6!important;
+    background:rgba(23,128,142,.12)!important;
+    font-size:9.5px!important;
+    font-weight:850!important;
+    text-align:left!important;
+}
+
+.iz-best-feature-meta{
+    display:grid;
+    grid-template-columns:repeat(4,minmax(0,1fr));
+    gap:7px;
+    margin-top:13px;
+}
+.iz-best-feature-meta>span{
+    display:flex!important;
+    flex-direction:column!important;
+    gap:4px!important;
+    padding:8px 9px!important;
+    border:1px solid rgba(39,78,102,.68)!important;
+    border-radius:7px!important;
+    background:#071724!important;
+    color:#e2f2f8!important;
+    font-size:11px!important;
+    font-weight:820!important;
+    text-align:left!important;
+}
+.iz-best-feature-meta b{
+    color:#6f95a6!important;
+    font-size:6.8px!important;
+    letter-spacing:.55px!important;
+    font-weight:850!important;
+}
+
+/* Active positions heading also visually belongs to current theme */
+h3:has(+ [data-testid="stDataFrame"]){
+    color:#edfaff!important;
+}
+
+/* ---------- Mobile ---------- */
+@media(max-width:768px){
+    .iz-signals:not(.iz-home-feature-card){
+        overflow-x:auto!important;
+    }
+    .iz-signals:not(.iz-home-feature-card) table{
+        min-width:700px!important;
+    }
+    .iz-signals:not(.iz-home-feature-card) th{
+        font-size:9.5px!important;
+    }
+    .iz-signals:not(.iz-home-feature-card) td{
+        font-size:11px!important;
+    }
+    .iz-signals:not(.iz-home-feature-card) td:first-child{
+        font-size:12px!important;
+    }
+
+    .iz-movers:not(.iz-home-feature-card) .iz-mover-name{
+        font-size:12px!important;
+    }
+    .iz-movers:not(.iz-home-feature-card) .iz-mover-price,
+    .iz-movers:not(.iz-home-feature-card) .iz-mover-chg{
+        font-size:10.5px!important;
+    }
+
+    .iz-best-feature-main{
+        align-items:flex-start;
+        flex-direction:column;
+        gap:7px;
+    }
+    .iz-best-feature-main strong{
+        font-size:26px!important;
+    }
+    .iz-best-feature-meta{
+        grid-template-columns:1fr 1fr;
+    }
+}
+
