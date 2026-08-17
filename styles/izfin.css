@@ -3369,3 +3369,245 @@ button[kind="primary"],
     }
 }
 
+
+/* =========================================================
+   v1.7.63 — INSTANT HOME SCAN CTA
+   HTML href yerine native Streamlit butonu:
+   session korunur, URL reload olmaz.
+   ========================================================= */
+.iz-feature-cta-slot{
+    height:54px;
+    width:100%;
+}
+
+/* Native butonları kartın alt CTA alanına görsel olarak taşı */
+.st-key-home_empty_scan_left,
+.st-key-home_empty_scan_right{
+    position:relative!important;
+    z-index:8!important;
+    width:205px!important;
+    max-width:calc(100% - 36px)!important;
+    margin:-68px auto 22px!important;
+}
+
+.st-key-home_empty_scan_left button,
+.st-key-home_empty_scan_right button{
+    min-height:42px!important;
+    height:42px!important;
+    border-radius:7px!important;
+    font-size:10px!important;
+    font-weight:850!important;
+    letter-spacing:.12px!important;
+    box-shadow:none!important;
+    transition:transform .16s ease,background .16s ease,border-color .16s ease!important;
+}
+
+.st-key-home_empty_scan_left button{
+    color:#2de0e7!important;
+    border:1px solid rgba(28,197,209,.65)!important;
+    background:linear-gradient(180deg,rgba(15,76,91,.42),rgba(7,34,45,.52))!important;
+}
+.st-key-home_empty_scan_left button:hover{
+    color:#48edf1!important;
+    border-color:rgba(40,221,229,.82)!important;
+    background:linear-gradient(180deg,rgba(17,97,111,.54),rgba(8,43,53,.64))!important;
+    transform:translateY(-1px)!important;
+}
+
+.st-key-home_empty_scan_right button{
+    color:#a88fff!important;
+    border:1px solid rgba(121,91,239,.68)!important;
+    background:linear-gradient(180deg,rgba(61,48,117,.43),rgba(29,24,67,.55))!important;
+}
+.st-key-home_empty_scan_right button:hover{
+    color:#b9a5ff!important;
+    border-color:rgba(143,111,255,.84)!important;
+    background:linear-gradient(180deg,rgba(75,58,143,.55),rgba(37,29,83,.66))!important;
+    transform:translateY(-1px)!important;
+}
+
+@media(max-width:768px){
+    .st-key-home_empty_scan_left,
+    .st-key-home_empty_scan_right{
+        width:min(270px,calc(100% - 30px))!important;
+        max-width:none!important;
+        margin:-66px auto 20px!important;
+    }
+    .st-key-home_empty_scan_left button,
+    .st-key-home_empty_scan_right button{
+        font-size:9.5px!important;
+        min-height:40px!important;
+        height:40px!important;
+    }
+}
+
+
+/* =========================================================
+   v1.7.64 — POPULATED HOME CARDS FIX
+   Boş premium kartları etkilemez.
+   Tarama sonrası sabit 128px wrapper zorlamasını kaldırır.
+   ========================================================= */
+
+@media (min-width:769px){
+
+    /* DOLU kartlar: doğal içerik yüksekliği + eşit minimum yükseklik */
+    .iz-signals:not(.iz-home-feature-card),
+    .iz-movers:not(.iz-home-feature-card){
+        height:auto!important;
+        min-height:286px!important;
+        max-height:none!important;
+        margin:0!important;
+        padding:14px 16px!important;
+        overflow:hidden!important;
+        box-sizing:border-box!important;
+        display:block!important;
+    }
+
+    /* Eski v1.7.59 / v1.7.60 dış-wrapper 128px zorlamalarını dolu kartta iptal et */
+    div[data-testid="stMarkdownContainer"]:has(.iz-signals:not(.iz-home-feature-card)),
+    div[data-testid="stMarkdownContainer"]:has(.iz-movers:not(.iz-home-feature-card)),
+    div[data-testid="stMarkdown"]:has(.iz-signals:not(.iz-home-feature-card)),
+    div[data-testid="stMarkdown"]:has(.iz-movers:not(.iz-home-feature-card)),
+    div[data-testid="stElementContainer"]:has(.iz-signals:not(.iz-home-feature-card)),
+    div[data-testid="stElementContainer"]:has(.iz-movers:not(.iz-home-feature-card)){
+        height:auto!important;
+        min-height:286px!important;
+        max-height:none!important;
+        margin-top:0!important;
+        margin-bottom:0!important;
+        padding-top:0!important;
+        padding-bottom:0!important;
+        overflow:visible!important;
+        box-sizing:border-box!important;
+    }
+
+    /* İki kolon aynı üst çizgiden başlasın */
+    div[data-testid="stColumn"]:has(.iz-signals:not(.iz-home-feature-card)),
+    div[data-testid="stColumn"]:has(.iz-movers:not(.iz-home-feature-card)){
+        align-self:flex-start!important;
+        padding-top:0!important;
+    }
+
+    /* Başlıklar aynı ritimde */
+    .iz-signals:not(.iz-home-feature-card) .iz-card-title,
+    .iz-movers:not(.iz-home-feature-card) .iz-card-title{
+        min-height:24px!important;
+        height:24px!important;
+        margin:0 0 8px!important;
+        display:flex!important;
+        align-items:center!important;
+        box-sizing:border-box!important;
+    }
+
+    /* Sol tablo kartın içinde taşmasın */
+    .iz-signals:not(.iz-home-feature-card) table{
+        width:100%!important;
+        table-layout:fixed!important;
+        border-collapse:collapse!important;
+    }
+    .iz-signals:not(.iz-home-feature-card) th{
+        height:28px!important;
+        padding:5px 7px!important;
+        font-size:7px!important;
+        white-space:nowrap!important;
+    }
+    .iz-signals:not(.iz-home-feature-card) td{
+        height:40px!important;
+        padding:6px 7px!important;
+        font-size:8px!important;
+        vertical-align:middle!important;
+        overflow:hidden!important;
+        text-overflow:ellipsis!important;
+        white-space:nowrap!important;
+    }
+    .iz-signals:not(.iz-home-feature-card) .iz-badge{
+        max-width:100%!important;
+        font-size:7.5px!important;
+        padding:5px 6px!important;
+        white-space:nowrap!important;
+    }
+    .iz-signals:not(.iz-home-feature-card) .iz-ring{
+        transform:scale(.82)!important;
+        transform-origin:center!important;
+    }
+
+    /* Sağ büyük hareketler: 5 düzgün satır */
+    .iz-movers:not(.iz-home-feature-card) .iz-mover-row{
+        min-height:44px!important;
+        height:44px!important;
+        padding:7px 10px!important;
+        margin:0!important;
+        display:grid!important;
+        grid-template-columns:minmax(65px,.8fr) minmax(120px,1.35fr) minmax(58px,.55fr)!important;
+        align-items:center!important;
+        gap:10px!important;
+        border-bottom:1px solid rgba(24,65,84,.48)!important;
+        box-sizing:border-box!important;
+    }
+    .iz-movers:not(.iz-home-feature-card) .iz-mover-row:last-child{
+        border-bottom:0!important;
+    }
+    .iz-movers:not(.iz-home-feature-card) .iz-mover-name,
+    .iz-movers:not(.iz-home-feature-card) .iz-mover-price,
+    .iz-movers:not(.iz-home-feature-card) .iz-mover-chg{
+        min-width:0!important;
+        overflow:hidden!important;
+        text-overflow:ellipsis!important;
+        white-space:nowrap!important;
+    }
+    .iz-movers:not(.iz-home-feature-card) .iz-mover-name{
+        font-size:9px!important;
+        font-weight:820!important;
+    }
+    .iz-movers:not(.iz-home-feature-card) .iz-mover-price{
+        font-size:8px!important;
+        text-align:right!important;
+    }
+    .iz-movers:not(.iz-home-feature-card) .iz-mover-chg{
+        font-size:8px!important;
+        font-weight:820!important;
+        text-align:right!important;
+    }
+
+    /* Detay ticker şeritleri artık kartların ALTINDA normal akışta */
+    div[data-testid="stColumn"]:has(.iz-signals:not(.iz-home-feature-card)) .iz-click-strip-label,
+    div[data-testid="stColumn"]:has(.iz-movers:not(.iz-home-feature-card)) .iz-click-strip-label{
+        margin:8px 0 4px!important;
+        position:relative!important;
+        z-index:1!important;
+    }
+
+    [class*="st-key-classic_signal_click_"],
+    [class*="st-key-classic_mover_click_"]{
+        position:relative!important;
+        z-index:1!important;
+        margin-top:0!important;
+        margin-bottom:0!important;
+    }
+}
+
+/* Mobilde dolu paneller doğal şekilde alt alta büyüsün */
+@media(max-width:768px){
+    .iz-signals:not(.iz-home-feature-card),
+    .iz-movers:not(.iz-home-feature-card),
+    div[data-testid="stMarkdownContainer"]:has(.iz-signals:not(.iz-home-feature-card)),
+    div[data-testid="stMarkdownContainer"]:has(.iz-movers:not(.iz-home-feature-card)),
+    div[data-testid="stMarkdown"]:has(.iz-signals:not(.iz-home-feature-card)),
+    div[data-testid="stMarkdown"]:has(.iz-movers:not(.iz-home-feature-card)),
+    div[data-testid="stElementContainer"]:has(.iz-signals:not(.iz-home-feature-card)),
+    div[data-testid="stElementContainer"]:has(.iz-movers:not(.iz-home-feature-card)){
+        height:auto!important;
+        min-height:0!important;
+        max-height:none!important;
+        overflow:visible!important;
+    }
+
+    .iz-signals:not(.iz-home-feature-card){
+        overflow-x:auto!important;
+    }
+
+    .iz-signals:not(.iz-home-feature-card) table{
+        min-width:650px!important;
+    }
+}
+
