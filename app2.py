@@ -284,7 +284,7 @@ STRATEJI_SURUMU = "IZFIN-v1.7.5-auth-switch-fixed"
 PERFORMANS_UFUKLARI = (1, 5, 10, 20, 45)
 
 # --- IZFIN UYGULAMA SÜRÜMÜ / LOG ---
-IZFIN_APP_SURUMU = "v1.7.58 Sort Fix Preserve Design"
+IZFIN_APP_SURUMU = "v1.7.57 Sortable Scan Table"
 logger = logging.getLogger("IZFIN")
 if not logger.handlers:
     logging.basicConfig(level=logging.INFO)
@@ -3774,7 +3774,8 @@ def izfin_auth_ekrani():
 
     st.markdown('<div class="iz-auth-shell"><div class="iz-auth-footer">IZFIN · ANALYZE • PREDICT • INVEST &nbsp;·&nbsp; Yatırım karar destek platformu</div></div>', unsafe_allow_html=True)
 
-def _iz_sort_num(value, default=-999999.0, last_percent=False):
+def _iz_sort_number(value, default=-999999.0, last_percent=False):
+    """Tablo sıralaması için görünür metinden sayısal değer çıkarır."""
     try:
         s = str(value or "").replace(",", ".")
         if last_percent:
@@ -3786,6 +3787,7 @@ def _iz_sort_num(value, default=-999999.0, last_percent=False):
     except Exception:
         return float(default)
 
+
 def _iz_sort_risk(value):
     u = str(value or "").upper()
     if "ÇOK YÜKSEK" in u: return 4
@@ -3793,6 +3795,7 @@ def _iz_sort_risk(value):
     if "ORTA" in u: return 2
     if "DÜŞÜK" in u: return 1
     return 0
+
 
 def _iz_sort_signal(value):
     u = str(value or "").upper()
@@ -3805,6 +3808,7 @@ def _iz_sort_signal(value):
     if "SAT" in u or "KAÇIN" in u or "UZAK DUR" in u: return 0
     return 2
 
+
 def _iz_sort_flow(value):
     u = str(value or "").upper()
     if "GÜÇLÜ" in u and ("GİRİŞ" in u or "POZİTİF" in u): return 5
@@ -3814,57 +3818,126 @@ def _iz_sort_flow(value):
     if "ÇIKIŞ" in u or "NEGATİF" in u: return 1
     return 0
 
+
 def izfin_tarama_tablosu_html(df):
     if df is None or df.empty:
         return '<div class="iz-table-wrap"><div style="padding:22px;color:#7895a9">Gösterilecek tarama sonucu yok.</div></div>'
-    ana_cols=["Varlık","Fiyat","Nihai Sinyal","Gelişmiş Skor","Güven","🎯 Giriş Kalitesi","MTF Uyum","Risk","Para Akışı","PEG / Değerleme","Seans Dışı"]
-    cols=[c for c in ana_cols if c in df.columns]
-    esc=lambda v: html.escape(str(v if v is not None else "—"))
-    sortable={"Varlık":"text","Fiyat":"number","Nihai Sinyal":"number","Gelişmiş Skor":"number","Güven":"number","🎯 Giriş Kalitesi":"number","MTF Uyum":"number","Risk":"number","Para Akışı":"number","PEG / Değerleme":"number","Seans Dışı":"number"}
-    heads=''.join(
-        f'<th class="iz-sortable-th" data-col="{i}" data-type="{sortable[c]}" title="Sıralamak için tıklayın">{esc(c)}<span class="iz-sort-icon">↕</span></th>'
-        for i,c in enumerate(cols)
-    )
-    body=[]
-    paneller=st.session_state.get("teknik_paneller") or {}
-    for _,row in df.iterrows():
-        profil=str(row.get("Teknik Profil","") or "").strip()
-        ticker=str(row.get("Varlık","") or "")
-        panel=paneller.get(ticker,{})
-        tds=[]
+
+    ana_cols = [
+        "Varlık","Fiyat","Nihai Sinyal","Gelişmiş Skor","Güven",
+        "🎯 Giriş Kalitesi","MTF Uyum","Risk","Para Akışı",
+        "PEG / Değerleme","Seans Dışı"
+    ]
+    cols = [c for c in ana_cols if c in df.columns]
+    esc = lambda v: html.escape(str(v if v is not None else "—"))
+    paneller = st.session_state.get("teknik_paneller") or {}
+
+    sortable = {
+        "Varlık": "text",
+        "Fiyat": "number",
+        "Nihai Sinyal": "number",
+        "Gelişmiş Skor": "number",
+        "Güven": "number",
+        "🎯 Giriş Kalitesi": "number",
+        "MTF Uyum": "number",
+        "Risk": "number",
+        "Para Akışı": "number",
+        "PEG / Değerleme": "number",
+        "Seans Dışı": "number",
+    }
+
+    heads = []
+    for idx, c in enumerate(cols):
+        if c in sortable:
+            heads.append(
+                f'<th class="iz-sortable-th" data-col="{idx}" data-type="{sortable[c]}" '
+                f'title="Sıralamak için tıklayın">{esc(c)}'
+                f'<span class="iz-sort-icon">↕</span></th>'
+            )
+        else:
+            heads.append(f'<th>{esc(c)}</th>')
+
+    body = []
+    for _, row in df.iterrows():
+        ticker_raw = str(row.get("Varlık", "") or "")
+        panel = paneller.get(ticker_raw, {})
+        profil = str(row.get("Teknik Profil", "") or "").strip()
+        tds = []
+
         for c in cols:
-            s=str(row.get(c,"—")); cls=''; rendered=esc(s); sort_val=s.lower()
-            if c=="Varlık":
-                cls='ticker'; sort_val=ticker.lower()
-            elif c=="Fiyat":
-                sort_val=_iz_sort_num(s)
-            elif c=="Gelişmiş Skor":
-                cls='score'; sort_val=float(panel.get("cezali_skor",_iz_sort_num(s)) or 0)
-            elif c=="Güven":
-                sort_val=float(panel.get("guven_skoru",_iz_sort_num(s)) or 0)
-            elif c=="🎯 Giriş Kalitesi":
-                sort_val=float(panel.get("giris_puani",panel.get("tetik_puani",_iz_sort_num(s))) or 0)
-            elif c=="MTF Uyum":
-                sort_val=float(panel.get("mtf_uyum",_iz_sort_num(s)) or 0)
-            elif c=="Nihai Sinyal":
-                sort_val=_iz_sort_signal(s)
-                profil_html=""
+            s = str(row.get(c, "—"))
+            cls = ""
+            rendered = esc(s)
+            sort_val = s.lower()
+
+            if c == "Varlık":
+                cls = "ticker"
+                sort_val = ticker_raw.lower()
+
+            elif c == "Fiyat":
+                sort_val = _iz_sort_number(s)
+
+            elif c == "Nihai Sinyal":
+                sort_val = _iz_sort_signal(s)
+                profil_html = ""
                 if profil:
-                    profil_cls="long-term" if "UZUN VADELİ ADAY" in profil.upper() else "profile"
-                    profil_html=f'<span class="iz-signal-profile {profil_cls}">Profil: {esc(profil)}</span>'
-                rendered=f'<div class="iz-signal-stack"><span class="iz-badge {_iz_badge_class(s)}">{esc(s)}</span>{profil_html}</div>'
-            elif c=="Risk":
-                sort_val=_iz_sort_risk(s)
-                u=s.upper(); cls='risk-high' if ('YÜKSEK' in u or 'PANİK' in u) else ('risk-low' if ('DÜŞÜK' in u or 'SAKİN' in u) else 'risk-mid')
-            elif c=="Para Akışı":
-                cls='muted'; sort_val=_iz_sort_flow(s)
-            elif c=="PEG / Değerleme":
-                cls='muted'; sort_val=_iz_sort_num(s)
-            elif c=="Seans Dışı":
-                cls='muted'; sort_val=_iz_sort_num(s,last_percent=True)
-            tds.append(f'<td class="{cls}" data-sort="{html.escape(str(sort_val),quote=True)}">{rendered}</td>')
-        body.append('<tr>'+''.join(tds)+'</tr>')
-    return f'<div class="iz-table-wrap"><table class="iz-table iz-client-sortable"><thead><tr>{heads}</tr></thead><tbody>{"".join(body)}</tbody></table></div>'
+                    profil_cls = "long-term" if "UZUN VADELİ ADAY" in profil.upper() else "profile"
+                    profil_html = (
+                        f'<span class="iz-signal-profile {profil_cls}">'
+                        f'Profil: {esc(profil)}</span>'
+                    )
+                rendered = (
+                    f'<div class="iz-signal-stack">'
+                    f'<span class="iz-badge {_iz_badge_class(s)}">{esc(s)}</span>'
+                    f'{profil_html}</div>'
+                )
+
+            elif c == "Gelişmiş Skor":
+                cls = "score"
+                sort_val = float(panel.get("cezali_skor", _iz_sort_number(s)) or 0)
+
+            elif c == "Güven":
+                sort_val = float(panel.get("guven_skoru", _iz_sort_number(s)) or 0)
+
+            elif c == "🎯 Giriş Kalitesi":
+                sort_val = float(panel.get("giris_puani", panel.get("tetik_puani", _iz_sort_number(s))) or 0)
+
+            elif c == "MTF Uyum":
+                sort_val = float(panel.get("mtf_uyum", _iz_sort_number(s)) or 0)
+
+            elif c == "Risk":
+                u = s.upper()
+                cls = "risk-high" if ("YÜKSEK" in u or "PANİK" in u) else (
+                    "risk-low" if ("DÜŞÜK" in u or "SAKİN" in u) else "risk-mid"
+                )
+                sort_val = _iz_sort_risk(s)
+
+            elif c == "Para Akışı":
+                cls = "muted"
+                sort_val = _iz_sort_flow(s)
+
+            elif c == "PEG / Değerleme":
+                cls = "muted"
+                sort_val = _iz_sort_number(s)
+
+            elif c == "Seans Dışı":
+                cls = "muted"
+                sort_val = _iz_sort_number(s, last_percent=True)
+
+            tds.append(
+                f'<td class="{cls}" data-sort="{html.escape(str(sort_val), quote=True)}">'
+                f'{rendered}</td>'
+            )
+
+        body.append('<tr>' + ''.join(tds) + '</tr>')
+
+    return (
+        '<div class="iz-table-wrap iz-sortable-table-wrap">'
+        '<table class="iz-table iz-client-sortable">'
+        f'<thead><tr>{"".join(heads)}</tr></thead>'
+        f'<tbody>{"".join(body)}</tbody></table></div>'
+    )
+
 
 
 def izfin_tarama_genis_ozet_html(df):
@@ -3919,8 +3992,14 @@ def izfin_tarama_genis_ozet_html(df):
                   "bad" if any(x in val_u for x in ["YÜKSEK", "PAHALI", "PRİM"]) else "mid"
 
         session_cls = pct_color(seans_raw)
-        _sort_ticker=raw_ticker.lower(); _sort_signal=_iz_sort_signal(sinyal_raw); _sort_score=_iz_sort_num(skor); _sort_confidence=_iz_sort_num(guven)
-        _sort_risk=_iz_sort_risk(risk_raw); _sort_value=_iz_sort_num(deger_raw); _sort_session=_iz_sort_num(seans_raw,last_percent=True)
+
+        _sort_ticker = raw_ticker.lower()
+        _sort_price = _iz_sort_number(fiyat)
+        _sort_signal = _iz_sort_signal(sinyal_raw)
+        _sort_score = _iz_sort_number(skor)
+        _sort_risk = _iz_sort_risk(risk_raw)
+        _sort_value = _iz_sort_number(deger_raw)
+        _sort_session = _iz_sort_number(seans_raw, last_percent=True)
 
         rows.append(
             "<tr>"
@@ -3938,17 +4017,13 @@ def izfin_tarama_genis_ozet_html(df):
               f"<td class='izw-quality' data-sort='{_sort_score}'>"
                 "<div class='izw-quality-top'>"
                   f"<div><span>SKOR</span><b>{skor}</b></div>"
+                  f"<div><span>GÜVEN</span><b>{guven}</b></div>"
                   f"<div><span>MTF</span><b>{mtf}</b></div>"
                 "</div>"
                 "<div class='izw-entry'>"
                   "<span>GİRİŞ KALİTESİ</span>"
                   f"<b title='{giris}'>{giris}</b>"
                 "</div>"
-              "</td>"
-
-              f"<td class='izw-confidence' data-sort='{_sort_confidence}'>"
-                "<span>GÜVEN SKORU</span>"
-                f"<b title='{guven}'>{guven}</b>"
               "</td>"
 
               f"<td class='izw-riskflow' data-sort='{_sort_risk}'>"
@@ -3971,16 +4046,15 @@ def izfin_tarama_genis_ozet_html(df):
         )
 
     return (
-        "<div class='izw-shell'>"
+        "<div class='izw-shell iz-sortable-table-wrap'>"
           "<table class='izw-table iz-client-sortable'>"
             "<thead><tr>"
               "<th class='iz-sortable-th' data-col='0' data-type='text'>VARLIK / FİYAT<span class='iz-sort-icon'>↕</span></th>"
               "<th class='iz-sortable-th' data-col='1' data-type='number'>IZFIN KARARI<span class='iz-sort-icon'>↕</span></th>"
-              "<th class='iz-sortable-th' data-col='2' data-type='number'>KALİTE<span class='iz-sort-icon'>↕</span></th>"
-              "<th class='iz-sortable-th' data-col='3' data-type='number'>GÜVEN SKORU<span class='iz-sort-icon'>↕</span></th>"
-              "<th class='iz-sortable-th' data-col='4' data-type='number'>RİSK / AKIŞ<span class='iz-sort-icon'>↕</span></th>"
-              "<th class='iz-sortable-th' data-col='5' data-type='number'>DEĞERLEME<span class='iz-sort-icon'>↕</span></th>"
-              "<th class='iz-sortable-th' data-col='6' data-type='number'>SEANS DIŞI<span class='iz-sort-icon'>↕</span></th>"
+              "<th class='iz-sortable-th' data-col='2' data-type='number'>KALİTE · SKOR<span class='iz-sort-icon'>↕</span></th>"
+              "<th class='iz-sortable-th' data-col='3' data-type='number'>RİSK / AKIŞ<span class='iz-sort-icon'>↕</span></th>"
+              "<th class='iz-sortable-th' data-col='4' data-type='number'>DEĞERLEME<span class='iz-sort-icon'>↕</span></th>"
+              "<th class='iz-sortable-th' data-col='5' data-type='number'>SEANS DIŞI<span class='iz-sort-icon'>↕</span></th>"
             "</tr></thead>"
             "<tbody>" + "".join(rows) + "</tbody>"
           "</table>"
@@ -3988,55 +4062,105 @@ def izfin_tarama_genis_ozet_html(df):
     )
 
 def izfin_sortable_table_js():
+    """Mevcut HTML tablolarına client-side başlık sıralaması bağlar."""
     components.html(
         """
         <script>
         (() => {
           const doc = window.parent.document;
-          function bind(table){
-            if(!table || table.dataset.izSortBound==="1") return;
-            table.dataset.izSortBound="1";
-            const tbody=table.querySelector("tbody");
-            const heads=[...table.querySelectorAll("thead th.iz-sortable-th")];
-            if(!tbody) return;
-            heads.forEach(th=>{
-              const run=()=>{
-                const col=Number(th.dataset.col||0);
-                const type=th.dataset.type||"text";
-                const same=Number(table.dataset.sortCol??-1)===col;
-                const prev=table.dataset.sortDir||"";
-                const dir=same?(prev==="desc"?"asc":"desc"):(type==="text"?"asc":"desc");
-                const rows=[...tbody.querySelectorAll("tr")];
-                rows.sort((a,b)=>{
-                  let av=a.children[col]?.dataset.sort ?? a.children[col]?.innerText ?? "";
-                  let bv=b.children[col]?.dataset.sort ?? b.children[col]?.innerText ?? "";
-                  if(type==="number"){
-                    av=Number(av); bv=Number(bv);
-                    if(!Number.isFinite(av)) av=-999999999;
-                    if(!Number.isFinite(bv)) bv=-999999999;
-                    return dir==="asc"?av-bv:bv-av;
+
+          function bindTable(table) {
+            if (!table || table.dataset.izSortBound === "1") return;
+            table.dataset.izSortBound = "1";
+
+            const headers = Array.from(table.querySelectorAll("thead th.iz-sortable-th"));
+            const tbody = table.querySelector("tbody");
+            if (!tbody) return;
+
+            headers.forEach((th) => {
+              th.setAttribute("role", "button");
+              th.setAttribute("tabindex", "0");
+              th.title = th.title || "Sıralamak için tıklayın";
+
+              const doSort = () => {
+                const col = Number(th.dataset.col || 0);
+                const type = th.dataset.type || "text";
+                const previousCol = Number(table.dataset.sortCol ?? -1);
+                const previousDir = table.dataset.sortDir || "desc";
+
+                // İlk tık: sayısalda yüksekten düşüğe; metinde A→Z.
+                let dir;
+                if (previousCol === col) {
+                  dir = previousDir === "desc" ? "asc" : "desc";
+                } else {
+                  dir = type === "text" ? "asc" : "desc";
+                }
+
+                const rows = Array.from(tbody.querySelectorAll("tr"));
+                rows.sort((a, b) => {
+                  const ac = a.children[col];
+                  const bc = b.children[col];
+                  let av = ac?.dataset.sort ?? ac?.innerText ?? "";
+                  let bv = bc?.dataset.sort ?? bc?.innerText ?? "";
+
+                  if (type === "number") {
+                    av = Number(av);
+                    bv = Number(bv);
+                    if (!Number.isFinite(av)) av = -999999999;
+                    if (!Number.isFinite(bv)) bv = -999999999;
+                    return dir === "asc" ? av - bv : bv - av;
                   }
-                  const c=String(av).localeCompare(String(bv),"tr",{numeric:true,sensitivity:"base"});
-                  return dir==="asc"?c:-c;
+
+                  const cmp = String(av).localeCompare(String(bv), "tr", {
+                    numeric: true,
+                    sensitivity: "base"
+                  });
+                  return dir === "asc" ? cmp : -cmp;
                 });
-                rows.forEach(r=>tbody.appendChild(r));
-                table.dataset.sortCol=String(col); table.dataset.sortDir=dir;
-                heads.forEach(h=>{h.classList.remove("iz-sort-active"); const ic=h.querySelector(".iz-sort-icon"); if(ic) ic.textContent="↕";});
+
+                rows.forEach(r => tbody.appendChild(r));
+                table.dataset.sortCol = String(col);
+                table.dataset.sortDir = dir;
+
+                headers.forEach(h => {
+                  h.classList.remove("iz-sort-active");
+                  const icon = h.querySelector(".iz-sort-icon");
+                  if (icon) icon.textContent = "↕";
+                });
+
                 th.classList.add("iz-sort-active");
-                const icon=th.querySelector(".iz-sort-icon"); if(icon) icon.textContent=dir==="desc"?"↓":"↑";
+                const icon = th.querySelector(".iz-sort-icon");
+                if (icon) icon.textContent = dir === "desc" ? "↓" : "↑";
               };
-              th.addEventListener("click",run);
-              th.tabIndex=0;
+
+              th.addEventListener("click", doSort);
+              th.addEventListener("keydown", (e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  doSort();
+                }
+              });
             });
           }
-          const bindAll=()=>doc.querySelectorAll("table.iz-client-sortable").forEach(bind);
+
+          const bindAll = () => {
+            doc.querySelectorAll("table.iz-client-sortable").forEach(bindTable);
+          };
+
           bindAll();
-          new MutationObserver(bindAll).observe(doc.body,{childList:true,subtree:true});
-          setTimeout(bindAll,150);
+
+          // Streamlit DOM'u yeniden çizdiğinde yeni tabloya da otomatik bağlan.
+          const observer = new MutationObserver(bindAll);
+          observer.observe(doc.body, {childList:true, subtree:true});
+
+          setTimeout(bindAll, 120);
+          setTimeout(bindAll, 500);
         })();
         </script>
-        """, height=0
+        """,
+        height=0,
     )
+
 
 
 if not st.session_state.get("user_email") or not st.session_state.get("user_uid"):
@@ -5950,22 +6074,75 @@ if aktif_sayfa == "📊 Takip & Performans":
                     .sort_values(f"+{ufuk_secimi}G Medyan Getiri %", ascending=False)
                 )
 
-                st.dataframe(
-                    gorunum.style.format({
-                        "Sinyal Sayısı": "{:.0f}",
-                        "Başarı Oranı %": "{:.1f}%",
-                        f"+{ufuk_secimi}G Medyan Getiri %": "{:+.2f}%",
-                        "Medyan Benchmark Farkı %": "{:+.2f}%",
-                    }, na_rep="—"),
-                    use_container_width=True,
-                    hide_index=True,
+                # Takip Karnesi tabloları: uygulamanın koyu IZFIN temasıyla uyumlu HTML tablo.
+                # st.dataframe/Pandas Styler Streamlit'in varsayılan açık renk tablosunu ürettiği
+                # için bu iki görünümde özel HTML kullanıyoruz.
+                st.markdown(
+                    """
+                    <style>
+                    .iz-karne-shell{border:1px solid rgba(148,163,184,.18);border-radius:14px;overflow:hidden;background:rgba(9,14,25,.72);box-shadow:0 10px 28px rgba(0,0,0,.18);margin:.45rem 0 .7rem 0}
+                    .iz-karne-scroll{overflow-x:auto;width:100%}
+                    table.iz-karne-table{width:100%;border-collapse:separate;border-spacing:0;min-width:720px;color:#e5edf7;font-size:.90rem}
+                    .iz-karne-table thead th{position:sticky;top:0;z-index:1;background:#111827;color:#cbd5e1;text-align:left;font-size:.76rem;letter-spacing:.035em;text-transform:uppercase;padding:12px 14px;border-bottom:1px solid rgba(148,163,184,.20);white-space:nowrap}
+                    .iz-karne-table tbody td{padding:11px 14px;border-bottom:1px solid rgba(148,163,184,.10);background:rgba(15,23,42,.58);white-space:nowrap}
+                    .iz-karne-table tbody tr:nth-child(even) td{background:rgba(17,24,39,.78)}
+                    .iz-karne-table tbody tr:hover td{background:rgba(30,41,59,.92)}
+                    .iz-karne-table tbody tr:last-child td{border-bottom:0}
+                    .iz-karne-table td.num{text-align:right;font-variant-numeric:tabular-nums}
+                    .iz-karne-table td.asset{font-weight:700;color:#f8fafc}
+                    .iz-karne-table td.asset-repeat{color:transparent;user-select:none}
+                    @media (max-width:768px){.iz-karne-table thead th,.iz-karne-table tbody td{padding:9px 10px;font-size:.80rem}.iz-karne-shell{border-radius:11px}}
+                    </style>
+                    """,
+                    unsafe_allow_html=True,
                 )
+
+                def _iz_karne_fmt(v, kind="text"):
+                    if pd.isna(v):
+                        return "—"
+                    if kind == "int":
+                        return f"{int(round(float(v)))}"
+                    if kind == "pct1":
+                        return f"{float(v):.1f}%"
+                    if kind == "pct2":
+                        return f"{float(v):+.2f}%"
+                    return html.escape(str(v))
+
+                _summary_rows = []
+                _ret_col = f"+{ufuk_secimi}G Medyan Getiri %"
+                for _, _r in gorunum.iterrows():
+                    _summary_rows.append(
+                        "<tr>"
+                        f"<td class='asset'>{html.escape(str(_r.get('Varlık','—')))}</td>"
+                        f"<td class='num'>{_iz_karne_fmt(_r.get('Sinyal Sayısı'), 'int')}</td>"
+                        f"<td class='num'>{_iz_karne_fmt(_r.get('Başarı Oranı %'), 'pct1')}</td>"
+                        f"<td class='num'>{_iz_karne_fmt(_r.get(_ret_col), 'pct2')}</td>"
+                        f"<td class='num'>{_iz_karne_fmt(_r.get('Medyan Benchmark Farkı %'), 'pct2')}</td>"
+                        "</tr>"
+                    )
+                _summary_html = (
+                    "<div class='iz-karne-shell'><div class='iz-karne-scroll'>"
+                    "<table class='iz-karne-table'><thead><tr>"
+                    "<th>Varlık</th><th>Sinyal Sayısı</th><th>Başarı Oranı %</th>"
+                    f"<th>+{ufuk_secimi}G Medyan Getiri %</th><th>Medyan Benchmark Farkı %</th>"
+                    "</tr></thead><tbody>" + "".join(_summary_rows) + "</tbody></table></div></div>"
+                )
+                st.markdown(_summary_html, unsafe_allow_html=True)
 
                 with st.expander("Ölçüm dönemlerini göster", expanded=False):
                     detay = detay_karne.copy()
-                    detay["sinyal_tarihi"] = pd.to_datetime(
-                        detay["sinyal_tarihi"], errors="coerce"
-                    ).dt.strftime("%d.%m.%Y")
+                    # Aynı ölçüm kaydı geçmiş/veri birleştirmeleri nedeniyle birden fazla kez
+                    # geldiyse tekilleştir. Farklı sinyal tarihleri gerçek ayrı dönemlerdir ve korunur.
+                    _dedup_cols = [c for c in ["ticker", "sinyal_tarihi", "sinyal"] if c in detay.columns]
+                    if _dedup_cols:
+                        detay = detay.drop_duplicates(subset=_dedup_cols, keep="last")
+
+                    detay["sinyal_tarihi"] = pd.to_datetime(detay["sinyal_tarihi"], errors="coerce")
+                    detay = detay.sort_values(
+                        [c for c in ["ticker", "sinyal_tarihi"] if c in detay.columns],
+                        ascending=[True, False] if "ticker" in detay.columns and "sinyal_tarihi" in detay.columns else True,
+                    )
+                    detay["sinyal_tarihi"] = detay["sinyal_tarihi"].dt.strftime("%d.%m.%Y")
                     detay = detay.rename(columns={
                         "ticker": "Varlık",
                         "sinyal_tarihi": "Sinyal Tarihi",
@@ -5977,21 +6154,40 @@ if aktif_sayfa == "📊 Takip & Performans":
                         "Varlık", "Sinyal Tarihi", "Sinyal",
                         f"+{ufuk_secimi}G Getiri %", "Benchmark Farkı %"
                     ]
-                    # Tamamı eksik olan tarih/sinyal alanlarını boş sütun olarak gösterme.
                     detay_kolonlari = [
                         c for c in detay_kolonlari
                         if c in detay.columns and not detay[c].isna().all()
                     ]
-                    st.dataframe(
-                        detay[detay_kolonlari].sort_values(
-                            f"+{ufuk_secimi}G Getiri %", ascending=False
-                        ).style.format({
-                            f"+{ufuk_secimi}G Getiri %": "{:+.2f}%",
-                            "Benchmark Farkı %": "{:+.2f}%",
-                        }, na_rep="—"),
-                        use_container_width=True,
-                        hide_index=True,
+
+                    # Aynı varlığın birden fazla GERÇEK ölçüm dönemi varsa dönemler kaybolmasın;
+                    # ancak isim hücresi art arda 2-3 kez yazılmasın. İlk satırda göster, devamında boş bırak.
+                    _detail_rows = []
+                    _prev_asset = None
+                    _detail_ret_col = f"+{ufuk_secimi}G Getiri %"
+                    for _, _r in detay[detay_kolonlari].iterrows():
+                        _asset = str(_r.get("Varlık", "—"))
+                        _repeat = (_asset == _prev_asset)
+                        _prev_asset = _asset
+                        _cells = [
+                            f"<td class='asset{' asset-repeat' if _repeat else ''}'>{html.escape(_asset)}</td>"
+                        ]
+                        if "Sinyal Tarihi" in detay_kolonlari:
+                            _cells.append(f"<td>{_iz_karne_fmt(_r.get('Sinyal Tarihi'))}</td>")
+                        if "Sinyal" in detay_kolonlari:
+                            _cells.append(f"<td>{_iz_karne_fmt(_r.get('Sinyal'))}</td>")
+                        if _detail_ret_col in detay_kolonlari:
+                            _cells.append(f"<td class='num'>{_iz_karne_fmt(_r.get(_detail_ret_col), 'pct2')}</td>")
+                        if "Benchmark Farkı %" in detay_kolonlari:
+                            _cells.append(f"<td class='num'>{_iz_karne_fmt(_r.get('Benchmark Farkı %'), 'pct2')}</td>")
+                        _detail_rows.append("<tr>" + "".join(_cells) + "</tr>")
+
+                    _headers = "".join(f"<th>{html.escape(str(c))}</th>" for c in detay_kolonlari)
+                    _detail_html = (
+                        "<div class='iz-karne-shell'><div class='iz-karne-scroll'>"
+                        f"<table class='iz-karne-table'><thead><tr>{_headers}</tr></thead><tbody>"
+                        + "".join(_detail_rows) + "</tbody></table></div></div>"
                     )
+                    st.markdown(_detail_html, unsafe_allow_html=True)
 
                 if len(karne_df) < 30:
                     st.warning(
