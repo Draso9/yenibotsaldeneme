@@ -3690,3 +3690,120 @@ button[kind="primary"],
     }
 }
 
+
+/* =========================================================
+   v1.7.66 — HOME SIGNAL TABLE / STRONGER TYPOGRAPHY
+   Fonksiyon ve kolon yapısı değişmez.
+   ========================================================= */
+@media (min-width:769px){
+    .iz-signals:not(.iz-home-feature-card){
+        min-height:330px!important;
+        padding:16px 17px 15px!important;
+    }
+
+    .iz-signals:not(.iz-home-feature-card) .iz-card-title{
+        font-size:14px!important;
+        line-height:1.2!important;
+        min-height:29px!important;
+        height:29px!important;
+        margin-bottom:10px!important;
+    }
+
+    .iz-signals:not(.iz-home-feature-card) th{
+        height:34px!important;
+        padding:7px 9px!important;
+        font-size:9.2px!important;
+        line-height:1.15!important;
+        font-weight:850!important;
+        letter-spacing:.25px!important;
+    }
+
+    .iz-signals:not(.iz-home-feature-card) td{
+        height:47px!important;
+        padding:8px 9px!important;
+        font-size:10.8px!important;
+        line-height:1.25!important;
+        font-weight:650!important;
+    }
+
+    .iz-signals:not(.iz-home-feature-card) td:first-child{
+        font-size:11.5px!important;
+        font-weight:900!important;
+    }
+
+    .iz-signals:not(.iz-home-feature-card) td:nth-child(2){
+        font-size:10.7px!important;
+        font-weight:760!important;
+    }
+
+    .iz-signals:not(.iz-home-feature-card) .iz-badge{
+        font-size:9.4px!important;
+        font-weight:850!important;
+        padding:6px 8px!important;
+    }
+
+    .iz-signals:not(.iz-home-feature-card) .iz-ring{
+        transform:scale(1)!important;
+    }
+
+    .iz-movers:not(.iz-home-feature-card){
+        min-height:330px!important;
+    }
+
+    .iz-movers:not(.iz-home-feature-card) .iz-card-title{
+        font-size:14px!important;
+        font-weight:860!important;
+    }
+
+    .iz-movers:not(.iz-home-feature-card) .iz-mover-row{
+        min-height:48px!important;
+        height:48px!important;
+        padding:8px 11px!important;
+    }
+
+    .iz-movers:not(.iz-home-feature-card) .iz-mover-name{
+        font-size:11px!important;
+        font-weight:880!important;
+    }
+
+    .iz-movers:not(.iz-home-feature-card) .iz-mover-price{
+        font-size:10px!important;
+        font-weight:700!important;
+    }
+
+    .iz-movers:not(.iz-home-feature-card) .iz-mover-chg{
+        font-size:10.2px!important;
+        font-weight:880!important;
+    }
+
+    div[data-testid="stMarkdownContainer"]:has(.iz-signals:not(.iz-home-feature-card)),
+    div[data-testid="stMarkdownContainer"]:has(.iz-movers:not(.iz-home-feature-card)),
+    div[data-testid="stMarkdown"]:has(.iz-signals:not(.iz-home-feature-card)),
+    div[data-testid="stMarkdown"]:has(.iz-movers:not(.iz-home-feature-card)),
+    div[data-testid="stElementContainer"]:has(.iz-signals:not(.iz-home-feature-card)),
+    div[data-testid="stElementContainer"]:has(.iz-movers:not(.iz-home-feature-card)){
+        min-height:330px!important;
+    }
+}
+
+@media(max-width:768px){
+    .iz-signals:not(.iz-home-feature-card) .iz-card-title{
+        font-size:13px!important;
+    }
+    .iz-signals:not(.iz-home-feature-card) th{
+        font-size:9px!important;
+        padding:7px 8px!important;
+    }
+    .iz-signals:not(.iz-home-feature-card) td{
+        font-size:10.4px!important;
+        padding:8px!important;
+    }
+    .iz-signals:not(.iz-home-feature-card) td:first-child{
+        font-size:11px!important;
+    }
+    .iz-signals:not(.iz-home-feature-card) .iz-badge{
+        font-size:9px!important;
+        padding:6px 7px!important;
+    }
+}
+
