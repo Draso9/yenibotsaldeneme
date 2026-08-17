@@ -3611,3 +3611,82 @@ button[kind="primary"],
     }
 }
 
+
+/* =========================================================
+   v1.7.65 — HOME TABLE READABILITY + SIDEBAR-STYLE NAV
+   ========================================================= */
+
+/* Listenin Dikkat Çekenleri: masaüstünde daha okunabilir tipografi */
+@media (min-width:769px){
+    .iz-signals:not(.iz-home-feature-card){
+        min-height:306px!important;
+        padding:15px 16px 14px!important;
+    }
+
+    .iz-signals:not(.iz-home-feature-card) .iz-card-title{
+        font-size:12.5px!important;
+        font-weight:860!important;
+        min-height:26px!important;
+        height:26px!important;
+        margin-bottom:9px!important;
+    }
+
+    .iz-signals:not(.iz-home-feature-card) th{
+        height:31px!important;
+        padding:6px 8px!important;
+        font-size:8px!important;
+        line-height:1.15!important;
+        letter-spacing:.2px!important;
+    }
+
+    .iz-signals:not(.iz-home-feature-card) td{
+        height:43px!important;
+        padding:7px 8px!important;
+        font-size:9.3px!important;
+        line-height:1.2!important;
+    }
+
+    .iz-signals:not(.iz-home-feature-card) td:first-child{
+        font-size:9.8px!important;
+        font-weight:850!important;
+    }
+
+    .iz-signals:not(.iz-home-feature-card) .iz-badge{
+        font-size:8.2px!important;
+        padding:5px 7px!important;
+    }
+
+    .iz-signals:not(.iz-home-feature-card) .iz-ring{
+        transform:scale(.90)!important;
+    }
+
+    /* Sağ paneli de aynı dikey ritimde tut */
+    .iz-movers:not(.iz-home-feature-card){
+        min-height:306px!important;
+    }
+
+    div[data-testid="stMarkdownContainer"]:has(.iz-signals:not(.iz-home-feature-card)),
+    div[data-testid="stMarkdownContainer"]:has(.iz-movers:not(.iz-home-feature-card)),
+    div[data-testid="stMarkdown"]:has(.iz-signals:not(.iz-home-feature-card)),
+    div[data-testid="stMarkdown"]:has(.iz-movers:not(.iz-home-feature-card)),
+    div[data-testid="stElementContainer"]:has(.iz-signals:not(.iz-home-feature-card)),
+    div[data-testid="stElementContainer"]:has(.iz-movers:not(.iz-home-feature-card)){
+        min-height:306px!important;
+    }
+}
+
+/* Mobilde tablo biraz büyüsün ama yatay scroll ile taşmasın */
+@media(max-width:768px){
+    .iz-signals:not(.iz-home-feature-card) th{
+        font-size:8px!important;
+        padding:6px 7px!important;
+    }
+    .iz-signals:not(.iz-home-feature-card) td{
+        font-size:9px!important;
+        padding:7px!important;
+    }
+    .iz-signals:not(.iz-home-feature-card) .iz-badge{
+        font-size:8px!important;
+    }
+}
+
