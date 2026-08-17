@@ -27,7 +27,7 @@ import sentry_sdk
 
 
 # --- IZFIN UYGULAMA SÜRÜMÜ ---
-IZFIN_APP_SURUMU = "v1.7.59 Sentry Monitoring"
+IZFIN_APP_SURUMU = "v1.7.61 Yahoo Rate-Limit Guard"
 
 
 def _secret_string(ad, varsayilan=""):
@@ -2684,37 +2684,110 @@ def _gunluk_bar_tamamlandi(ticker, bar_tarihi, simdi=None):
             return False
 
 
+@st.cache_data(ttl=900, show_spinner=False)
 def _gunluk_kapanis_serisi(ticker, period="1y"):
-    """Performans karnesi için yalnızca tamamlanmış günlük kapanışları döndürür."""
+    """Performans karnesi için yalnızca tamamlanmış günlük kapanışları döndürür.
+
+    Geçersiz ticker değerlerini yfinance'a göndermez; Streamlit rerun'ları arasında
+    15 dakika cache kullanır. Yahoo rate-limit/geçici ağ hatalarında kontrollü retry
+    yapar ve başarısızlıkta ana akışı bozmadan boş seri döndürür.
+    """
     try:
-        df = yf.download(
-            ticker, period=period, interval="1d", progress=False,
-            auto_adjust=True, threads=False, timeout=8
-        )
-        if df is None or df.empty:
+        if ticker is None or pd.isna(ticker):
             return pd.Series(dtype=float)
-        if isinstance(df.columns, pd.MultiIndex):
-            if "Close" in df.columns.get_level_values(0):
-                close = df["Close"]
-                if isinstance(close, pd.DataFrame):
-                    close = close.iloc[:, 0]
-            else:
-                return pd.Series(dtype=float)
-        else:
-            if "Close" not in df.columns:
-                return pd.Series(dtype=float)
-            close = df["Close"]
-        close = pd.to_numeric(close, errors="coerce").replace([np.inf, -np.inf], np.nan).dropna()
-        try:
-            close.index = pd.to_datetime(close.index).tz_localize(None)
-        except Exception:
-            close.index = pd.to_datetime(close.index)
-        close = close.sort_index()
-        if not close.empty and not _gunluk_bar_tamamlandi(ticker, close.index[-1]):
-            close = close.iloc[:-1]
-        return close
+        ticker = str(ticker).strip().upper()
+        if not ticker or ticker in {"NAN", "NONE", "NULL", "<NA>"}:
+            return pd.Series(dtype=float)
+
+        for deneme in range(3):
+            try:
+                df = yf.download(
+                    ticker,
+                    period=period,
+                    interval="1d",
+                    progress=False,
+                    auto_adjust=True,
+                    threads=False,
+                    timeout=8,
+                )
+                if df is None or df.empty:
+                    raise RuntimeError(f"Yahoo boş veri döndürdü: {ticker}")
+
+                if isinstance(df.columns, pd.MultiIndex):
+                    if "Close" in df.columns.get_level_values(0):
+                        close = df["Close"]
+                        if isinstance(close, pd.DataFrame):
+                            close = close.iloc[:, 0]
+                    else:
+                        return pd.Series(dtype=float)
+                else:
+                    if "Close" not in df.columns:
+                        return pd.Series(dtype=float)
+                    close = df["Close"]
+
+                close = pd.to_numeric(close, errors="coerce").replace([np.inf, -np.inf], np.nan).dropna()
+
+                try:
+                    close.index = pd.to_datetime(close.index).tz_localize(None)
+                except Exception:
+                    close.index = pd.to_datetime(close.index)
+
+                close = close.sort_index()
+
+                if not close.empty:
+                    yerel_tz = "Europe/Istanbul" if ticker.endswith(".IS") else "America/New_York"
+                    simdi = pd.Timestamp.now(tz=yerel_tz)
+                    bugun = simdi.tz_localize(None).normalize()
+                    son_gun = pd.Timestamp(close.index[-1]).normalize()
+
+                    if son_gun == bugun:
+                        if ticker.endswith(".IS"):
+                            seans_kapandi = (simdi.hour, simdi.minute) >= (18, 10)
+                        else:
+                            seans_kapandi = (simdi.hour, simdi.minute) >= (16, 0)
+
+                        if not seans_kapandi:
+                            close = close.iloc[:-1]
+
+                return close
+
+            except Exception as e:
+                mesaj = str(e).lower()
+                rate_limit = (
+                    "too many requests" in mesaj
+                    or "rate limit" in mesaj
+                    or "ratelimit" in mesaj
+                    or type(e).__name__.lower() == "yfratelimiterror"
+                )
+                gecici = rate_limit or any(
+                    k in mesaj
+                    for k in ["timeout", "timed out", "connection", "temporarily", "502", "503", "504"]
+                )
+
+                if gecici and deneme < 2:
+                    time.sleep(1.25 * (2 ** deneme))
+                    continue
+
+                if rate_limit:
+                    logger.warning(
+                        "Yahoo rate limit | ticker=%s | period=%s | %s",
+                        ticker,
+                        period,
+                        e,
+                    )
+                else:
+                    izfin_hata_logla("gunluk_kapanis_serisi", e, ticker)
+
+                break
+
+        return pd.Series(dtype=float)
+
     except Exception as e:
-        izfin_hata_logla("gunluk_kapanis_serisi", e, ticker)
+        izfin_hata_logla(
+            "gunluk_kapanis_serisi",
+            e,
+            ticker if "ticker" in locals() else None,
+        )
         return pd.Series(dtype=float)
 
 
@@ -2727,15 +2800,24 @@ def performans_karnelerini_guncelle(kayitlar):
     if not db or not kayitlar:
         return kayitlar
 
+    # Aynı çağrı içinde aynı hisse/benchmark yalnızca bir kez çözülür.
+    # _gunluk_kapanis_serisi ayrıca Streamlit rerun'ları arasında 15 dk cache'lidir.
     fiyat_seri_cache = {}
     simdi_iso = datetime.now().isoformat()
 
     for kayit in kayitlar:
         doc_id = kayit.get("doc_id")
-        ticker = kayit.get("ticker")
+        ticker_raw = kayit.get("ticker")
+        # Eski/bozuk arşiv kayıtlarında ticker NaN (float) kalabilir.
+        # `if not ticker` NaN'i yakalamadığı için açıkça pd.isna ile doğrula.
+        if ticker_raw is None or pd.isna(ticker_raw):
+            continue
+        ticker = str(ticker_raw).strip().upper()
+        if not ticker or ticker in {"NAN", "NONE", "NULL", "<NA>"}:
+            continue
         giris = float(kayit.get("giris_fiyati", 0) or 0)
         tarih = pd.to_datetime(kayit.get("olusturma_zamani"), errors="coerce")
-        if not doc_id or not ticker or giris <= 0 or pd.isna(tarih):
+        if not doc_id or giris <= 0 or pd.isna(tarih):
             continue
         try:
             if getattr(tarih, "tzinfo", None) is not None:
