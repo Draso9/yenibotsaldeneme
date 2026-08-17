@@ -284,7 +284,7 @@ STRATEJI_SURUMU = "IZFIN-v1.7.5-auth-switch-fixed"
 PERFORMANS_UFUKLARI = (1, 5, 10, 20, 45)
 
 # --- IZFIN UYGULAMA SÜRÜMÜ / LOG ---
-IZFIN_APP_SURUMU = "v1.7.57 Sortable Scan Table"
+IZFIN_APP_SURUMU = "v1.7.58 Stability + Theme Audit"
 logger = logging.getLogger("IZFIN")
 if not logger.handlers:
     logging.basicConfig(level=logging.INFO)
@@ -518,8 +518,8 @@ def regular_seans_intraday(ticker, df):
         return x
     try:
         if str(ticker).endswith(".IS"):
-            return x.between_time("10:00", "18:10", inclusive="both")
-        return x.between_time("09:30", "16:00", inclusive="both")
+            return x.between_time("10:00", "18:09:59", inclusive="both")
+        return x.between_time("09:30", "15:59:59", inclusive="both")
     except Exception:
         return x
 
@@ -557,7 +557,7 @@ def seans_disi_ozet(ticker, ham_intraday, quote=None):
             return "—", None
         son_ts = x.index[-1]
         son_dakika = son_ts.hour * 60 + son_ts.minute
-        if (9 * 60 + 30) <= son_dakika <= (16 * 60):
+        if (9 * 60 + 30) <= son_dakika < (16 * 60):
             return "—", None
         son_fiyat = float(x["Close"].iloc[-1])
         tur = "PM" if son_dakika < (9 * 60 + 30) else "AH"
@@ -1075,11 +1075,15 @@ def _resample_ohlcv(df, rule):
 
 
 def _zaman_dilimi_karari(df):
-    if df is None or len(df) < 30: return {'yon':'VERİ YOK','puan':0}
-    c=df['Close']
+    if df is None or not isinstance(df, pd.DataFrame) or 'Close' not in df.columns:
+        return {'yon':'VERİ YOK','puan':0}
+    c = pd.to_numeric(df['Close'], errors='coerce').replace([np.inf, -np.inf], np.nan).dropna()
+    if len(c) < 30:
+        return {'yon':'VERİ YOK','puan':0}
     ema9=c.ewm(span=9,adjust=False).mean().iloc[-1]
     ema21=c.ewm(span=21,adjust=False).mean().iloc[-1]
-    rsi=float(_rsi_serisi(c).iloc[-1])
+    rsi_v=_rsi_serisi(c).iloc[-1]
+    rsi=float(rsi_v) if pd.notna(rsi_v) and np.isfinite(float(rsi_v)) else 50.0
     macd=c.ewm(span=12,adjust=False).mean()-c.ewm(span=26,adjust=False).mean()
     ms=macd.ewm(span=9,adjust=False).mean()
     puan=0
@@ -1116,6 +1120,9 @@ def coklu_zaman_dilimi_analizi(intraday, daily):
 
 
 def volatilite_rejimi(fiyat, atr, hv20):
+    fiyat = _safe_float(fiyat, 0)
+    atr = max(0.0, _safe_float(atr, 0))
+    hv20 = max(0.0, _safe_float(hv20, 0))
     atrp=(atr/fiyat*100) if fiyat>0 else 0
     if atrp>=5 or hv20>=0.75: return 'PANİK / ÇOK YÜKSEK'
     if atrp>=3 or hv20>=0.45: return 'YÜKSEK'
@@ -1124,17 +1131,35 @@ def volatilite_rejimi(fiyat, atr, hv20):
 
 
 def sinyal_guven_skoru(panel, temel_skor):
+    panel = panel if isinstance(panel, dict) else {}
     puan=50.0
-    puan += min(12,max(-12,(temel_skor-50)*0.35))
-    puan += 8 if panel.get('adx',0)>=25 and panel.get('plus_di',0)>panel.get('minus_di',0) else (-5 if panel.get('adx',0)<18 else 0)
-    puan += 7 if panel.get('cmf',0)>0.05 else (-7 if panel.get('cmf',0)<-0.05 else 0)
-    puan += 6 if panel.get('supertrend',0)==1 else -6
-    puan += 5 if panel.get('fiyat',0)>panel.get('vwap',float('inf')) else (-3 if np.isfinite(panel.get('vwap',np.nan)) else 0)
-    puan += (panel.get('mtf_uyum',50)-50)*0.20
-    sektorel_fark_v = panel.get('sektorel_fark', np.nan)
-    if pd.notna(sektorel_fark_v) and np.isfinite(float(sektorel_fark_v)):
-        puan += 4 if float(sektorel_fark_v) > 0 else -3
-    puan += 3 if panel.get('risk_odul',0)>=2 else (-3 if panel.get('risk_odul',0)<1.2 else 0)
+    temel = _safe_float(temel_skor, 50)
+    adx = _safe_float(panel.get('adx'), 0)
+    plus_di = _safe_float(panel.get('plus_di'), 0)
+    minus_di = _safe_float(panel.get('minus_di'), 0)
+    cmf = _safe_float(panel.get('cmf'), 0)
+    supertrend = _safe_int(panel.get('supertrend'), 0)
+    fiyat = _safe_float(panel.get('fiyat'), 0)
+    vwap_raw = panel.get('vwap', np.nan)
+    try:
+        vwap = float(vwap_raw)
+        vwap_gecerli = np.isfinite(vwap)
+    except (TypeError, ValueError, OverflowError):
+        vwap, vwap_gecerli = np.nan, False
+    mtf = _safe_float(panel.get('mtf_uyum'), 50)
+    sektorel_fark = _safe_float(panel.get('sektorel_fark'), np.nan)
+    risk_odul = _safe_float(panel.get('risk_odul'), 0)
+
+    puan += min(12,max(-12,(temel-50)*0.35))
+    puan += 8 if adx>=25 and plus_di>minus_di else (-5 if adx<18 else 0)
+    puan += 7 if cmf>0.05 else (-7 if cmf<-0.05 else 0)
+    puan += 6 if supertrend==1 else -6
+    if vwap_gecerli:
+        puan += 5 if fiyat>vwap else -3
+    puan += (mtf-50)*0.20
+    if np.isfinite(sektorel_fark):
+        puan += 4 if sektorel_fark > 0 else -3
+    puan += 3 if risk_odul>=2 else (-3 if 0 < risk_odul < 1.2 else 0)
     return int(round(min(95,max(20,puan))))
 
 
@@ -2494,7 +2519,7 @@ def performans_fiyatlarini_guncelle(kayitlar):
         if ticker not in fiyat_cache:
             try:
                 q = finnhub_quote_cek(ticker)
-                fiyat = float(q.get("c", 0)) if q else 0.0
+                fiyat = float(q.get("close", 0)) if q else 0.0
                 if fiyat <= 0:
                     intraday = intraday_veri_cek(ticker, interval="5m", period="1d")
                     if not intraday.empty:
@@ -2524,8 +2549,35 @@ def performans_fiyatlarini_guncelle(kayitlar):
 
 
 
+def _gunluk_bar_tamamlandi(ticker, bar_tarihi, simdi=None):
+    """Bugünün günlük barının gerçekten kapanıp kapanmadığını kontrol eder.
+
+    Performans karnesi bir ufku yalnızca bir kez kalıcılaştırdığı için açık seanstaki
+    güncel günlük barın ara fiyatını sonuç olarak dondurmak ciddi ölçüm hatası yaratır.
+    """
+    try:
+        tz = ZoneInfo("Europe/Istanbul" if str(ticker).endswith(".IS") else "America/New_York")
+        now = simdi.astimezone(tz) if simdi is not None else datetime.now(tz)
+        d = pd.Timestamp(bar_tarihi).date()
+        if d < now.date():
+            return True
+        if d > now.date():
+            return False
+        if now.weekday() >= 5:
+            return True
+        dakika = now.hour * 60 + now.minute
+        kapanis = 18 * 60 + 10 if str(ticker).endswith(".IS") else 16 * 60
+        return dakika >= kapanis
+    except Exception:
+        # Emin olunamıyorsa bugünün barını kalıcı performans sonucu olarak kullanma.
+        try:
+            return pd.Timestamp(bar_tarihi).date() < datetime.now().date()
+        except Exception:
+            return False
+
+
 def _gunluk_kapanis_serisi(ticker, period="1y"):
-    """Performans karnesi için temiz günlük kapanış serisi döndürür."""
+    """Performans karnesi için yalnızca tamamlanmış günlük kapanışları döndürür."""
     try:
         df = yf.download(
             ticker, period=period, interval="1d", progress=False,
@@ -2549,8 +2601,12 @@ def _gunluk_kapanis_serisi(ticker, period="1y"):
             close.index = pd.to_datetime(close.index).tz_localize(None)
         except Exception:
             close.index = pd.to_datetime(close.index)
-        return close.sort_index()
-    except Exception:
+        close = close.sort_index()
+        if not close.empty and not _gunluk_bar_tamamlandi(ticker, close.index[-1]):
+            close = close.iloc[:-1]
+        return close
+    except Exception as e:
+        izfin_hata_logla("gunluk_kapanis_serisi", e, ticker)
         return pd.Series(dtype=float)
 
 
@@ -3817,6 +3873,56 @@ def _iz_sort_flow(value):
     if "ZAYIF" in u: return 2
     if "ÇIKIŞ" in u or "NEGATİF" in u: return 1
     return 0
+
+
+def izfin_html_tablo(df, formatlar=None, siniflar=None, min_width=760, bos_mesaj="Gösterilecek veri yok."):
+    """Küçük/orta rapor tablolarını Streamlit'in açık tema DataFrame'ine düşmeden çizer."""
+    if df is None or df.empty:
+        return f'<div class="iz-wide-table-empty">{html.escape(str(bos_mesaj))}</div>'
+    formatlar = formatlar or {}
+    siniflar = siniflar or {}
+
+    def _fmt(col, value):
+        if value is None or (not isinstance(value, (dict, list, tuple)) and pd.isna(value)):
+            return "—"
+        fmt = formatlar.get(col)
+        if callable(fmt):
+            try:
+                return html.escape(str(fmt(value)))
+            except Exception:
+                return html.escape(str(value))
+        if isinstance(fmt, str):
+            try:
+                return html.escape(fmt.format(value))
+            except Exception:
+                pass
+        return html.escape(str(value))
+
+    heads = "".join(f"<th>{html.escape(str(c))}</th>" for c in df.columns)
+    rows=[]
+    for _, row in df.iterrows():
+        cells=[]
+        for c in df.columns:
+            v=row.get(c)
+            cls=[]
+            if pd.api.types.is_numeric_dtype(df[c]): cls.append("num")
+            if c in ("Varlık", "Ticker", "Sinyal"): cls.append("strong")
+            fn=siniflar.get(c)
+            if callable(fn):
+                try:
+                    extra=str(fn(v) or "").strip()
+                    if extra: cls.append(extra)
+                except Exception:
+                    pass
+            cls_attr=f' class="{" ".join(cls)}"' if cls else ""
+            cells.append(f"<td{cls_attr}>{_fmt(c,v)}</td>")
+        rows.append("<tr>"+"".join(cells)+"</tr>")
+    return (
+        f'<div class="iz-report-table-wrap"><div class="iz-report-table-scroll">'
+        f'<table class="iz-report-table" style="min-width:{int(min_width)}px">'
+        f'<thead><tr>{heads}</tr></thead><tbody>{"".join(rows)}</tbody></table>'
+        f'</div></div>'
+    )
 
 
 def izfin_tarama_tablosu_html(df):
@@ -5702,11 +5808,17 @@ if aktif_sayfa == "📊 Takip & Performans":
                     "Geçen Gün": acik_gecen.reset_index(drop=True),
                     "Durum": "🟢 Açık",
                 })
-                st.dataframe(
-                    tablo_stili(aktif_gorunum),
-                    use_container_width=True,
-                    height=min(440, 82 + 36 * len(aktif_gorunum)),
-                    hide_index=True,
+                st.markdown(
+                    izfin_html_tablo(
+                        aktif_gorunum,
+                        formatlar={
+                            "İlk Alım Fiyatı": "{:.2f}", "Güncel Fiyat": "{:.2f}",
+                            "Kâr / Zarar %": "{:+.2f}%", "Geçen Gün": "{:.0f}",
+                        },
+                        siniflar={"Kâr / Zarar %": lambda v: "pos" if _guvenli_float(v, 0) > 0 else ("neg" if _guvenli_float(v, 0) < 0 else "")},
+                        min_width=980,
+                    ),
+                    unsafe_allow_html=True,
                 )
                 st.caption(
                     "Performans, hissenin bu alım dönemindeki ilk sinyal fiyatından güncel fiyata göre hesaplanır. "
@@ -6077,25 +6189,6 @@ if aktif_sayfa == "📊 Takip & Performans":
                 # Takip Karnesi tabloları: uygulamanın koyu IZFIN temasıyla uyumlu HTML tablo.
                 # st.dataframe/Pandas Styler Streamlit'in varsayılan açık renk tablosunu ürettiği
                 # için bu iki görünümde özel HTML kullanıyoruz.
-                st.markdown(
-                    """
-                    <style>
-                    .iz-karne-shell{border:1px solid rgba(148,163,184,.18);border-radius:14px;overflow:hidden;background:rgba(9,14,25,.72);box-shadow:0 10px 28px rgba(0,0,0,.18);margin:.45rem 0 .7rem 0}
-                    .iz-karne-scroll{overflow-x:auto;width:100%}
-                    table.iz-karne-table{width:100%;border-collapse:separate;border-spacing:0;min-width:720px;color:#e5edf7;font-size:.90rem}
-                    .iz-karne-table thead th{position:sticky;top:0;z-index:1;background:#111827;color:#cbd5e1;text-align:left;font-size:.76rem;letter-spacing:.035em;text-transform:uppercase;padding:12px 14px;border-bottom:1px solid rgba(148,163,184,.20);white-space:nowrap}
-                    .iz-karne-table tbody td{padding:11px 14px;border-bottom:1px solid rgba(148,163,184,.10);background:rgba(15,23,42,.58);white-space:nowrap}
-                    .iz-karne-table tbody tr:nth-child(even) td{background:rgba(17,24,39,.78)}
-                    .iz-karne-table tbody tr:hover td{background:rgba(30,41,59,.92)}
-                    .iz-karne-table tbody tr:last-child td{border-bottom:0}
-                    .iz-karne-table td.num{text-align:right;font-variant-numeric:tabular-nums}
-                    .iz-karne-table td.asset{font-weight:700;color:#f8fafc}
-                    .iz-karne-table td.asset-repeat{color:transparent;user-select:none}
-                    @media (max-width:768px){.iz-karne-table thead th,.iz-karne-table tbody td{padding:9px 10px;font-size:.80rem}.iz-karne-shell{border-radius:11px}}
-                    </style>
-                    """,
-                    unsafe_allow_html=True,
-                )
 
                 def _iz_karne_fmt(v, kind="text"):
                     if pd.isna(v):
@@ -6295,18 +6388,18 @@ if aktif_sayfa == "🧪 Strateji Laboratuvarı":
                 .reset_index()
                 .sort_values(["İşlem Başarı %", "Örnek"], ascending=False)
             )
-            ozet_stil = ozet.style.format({
-                "Örnek": "{:.0f}",
-                "İşlem Başarı %": "{:.1f}%",
-                "Ort. İşlem %": "{:+.2f}%",
-                "TP1 İlk %": "{:.1f}%",
-                "Stop İlk %": "{:.1f}%",
-                "20G Kârda %": "{:.1f}%",
-                "20G Ort. %": "{:+.2f}%",
-                "45G Kârda %": "{:.1f}%",
-                "45G Ort. %": "{:+.2f}%",
-            }, na_rep="-")
-            st.dataframe(ozet_stil, use_container_width=True, hide_index=True)
+            st.markdown(
+                izfin_html_tablo(
+                    ozet,
+                    formatlar={
+                        "Örnek": "{:.0f}", "İşlem Başarı %": "{:.1f}%", "Ort. İşlem %": "{:+.2f}%",
+                        "TP1 İlk %": "{:.1f}%", "Stop İlk %": "{:.1f}%", "20G Kârda %": "{:.1f}%",
+                        "20G Ort. %": "{:+.2f}%", "45G Kârda %": "{:.1f}%", "45G Ort. %": "{:+.2f}%",
+                    },
+                    min_width=980,
+                ),
+                unsafe_allow_html=True,
+            )
 
             with st.expander("🔬 Geçmiş IZFIN kararlarını incele", expanded=False):
                 detay_kolonlar = [
@@ -6319,14 +6412,22 @@ if aktif_sayfa == "🧪 Strateji Laboratuvarı":
                 for tarih_col in ["Tarih"]:
                     if tarih_col in detay_bt:
                         detay_bt[tarih_col] = pd.to_datetime(detay_bt[tarih_col], errors="coerce").dt.strftime("%Y-%m-%d")
-                st.dataframe(
-                    detay_bt.style.format({
-                        "Hibrit Skor": "{:.0f}", "Güven %": "{:.0f}", "Daily MTF %": "{:.0f}",
-                        "Giriş Proxy": "{:.0f}", "Giriş": "{:.2f}", "İlk Stop": "{:.2f}", "İlk TP1": "{:.2f}",
-                        "İşlem Sonucu %": "{:+.2f}%", "20G %": "{:+.2f}%", "45G %": "{:+.2f}%",
-                    }, na_rep="-"),
-                    use_container_width=True, hide_index=True,
-                    height=min(520, 82 + 35 * len(detay_bt)),
+                st.markdown(
+                    izfin_html_tablo(
+                        detay_bt,
+                        formatlar={
+                            "Hibrit Skor": "{:.0f}", "Güven %": "{:.0f}", "Daily MTF %": "{:.0f}",
+                            "Giriş Proxy": "{:.0f}", "Giriş": "{:.2f}", "İlk Stop": "{:.2f}", "İlk TP1": "{:.2f}",
+                            "İşlem Sonucu %": "{:+.2f}%", "20G %": "{:+.2f}%", "45G %": "{:+.2f}%",
+                        },
+                        siniflar={
+                            "İşlem Sonucu %": lambda v: "pos" if _guvenli_float(v, 0) > 0 else ("neg" if _guvenli_float(v, 0) < 0 else ""),
+                            "20G %": lambda v: "pos" if _guvenli_float(v, 0) > 0 else ("neg" if _guvenli_float(v, 0) < 0 else ""),
+                            "45G %": lambda v: "pos" if _guvenli_float(v, 0) > 0 else ("neg" if _guvenli_float(v, 0) < 0 else ""),
+                        },
+                        min_width=1220,
+                    ),
+                    unsafe_allow_html=True,
                 )
                 st.caption("Bu tablo, geçmişte hangi tarihte hangi merkezi IZFIN kararının işlem açtığını ve karar anındaki günlük çekirdek puanlarını gösterir.")
 
