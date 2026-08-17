@@ -2736,3 +2736,373 @@ button[kind="primary"],
     }
 }
 
+
+/* =========================================================
+   v1.7.60 — TRUE ALIGNMENT FOR HOME FEATURE CARDS
+   v1.7.59 eşit yükseklik verdi ama Streamlit dış blok offset'i
+   farklı kaldı. Burada hem dış blok hem kart kutusu eşitlenir.
+   ========================================================= */
+@media (min-width: 769px){
+
+    /* İki kartın kendi kutu geometrisi birebir aynı */
+    .iz-signals,
+    .iz-movers{
+        margin-top:0!important;
+        margin-bottom:0!important;
+        min-height:128px!important;
+        height:128px!important;
+        padding-top:16px!important;
+        padding-bottom:16px!important;
+        box-sizing:border-box!important;
+    }
+
+    /* Streamlit'in markdown elementlerine verdiği farklı dikey offset'i sıfırla */
+    div[data-testid="stMarkdownContainer"]:has(.iz-signals),
+    div[data-testid="stMarkdownContainer"]:has(.iz-movers){
+        margin-top:0!important;
+        margin-bottom:0!important;
+        padding-top:0!important;
+        padding-bottom:0!important;
+        height:128px!important;
+        min-height:128px!important;
+        box-sizing:border-box!important;
+    }
+
+    div[data-testid="stMarkdown"]:has(.iz-signals),
+    div[data-testid="stMarkdown"]:has(.iz-movers),
+    div[data-testid="stElementContainer"]:has(.iz-signals),
+    div[data-testid="stElementContainer"]:has(.iz-movers){
+        margin-top:0!important;
+        margin-bottom:0!important;
+        padding-top:0!important;
+        padding-bottom:0!important;
+        height:128px!important;
+        min-height:128px!important;
+        align-self:stretch!important;
+        box-sizing:border-box!important;
+    }
+
+    /* Her iki kolonun ilk kart elemanı aynı başlangıç çizgisine otursun */
+    div[data-testid="stColumn"]:has(.iz-signals),
+    div[data-testid="stColumn"]:has(.iz-movers){
+        padding-top:0!important;
+        align-self:flex-start!important;
+    }
+
+    /* Başlık/metin ritmi eşit */
+    .iz-signals .iz-card-title,
+    .iz-movers .iz-card-title{
+        margin-top:0!important;
+        margin-bottom:8px!important;
+        min-height:22px!important;
+        display:flex!important;
+        align-items:center!important;
+    }
+}
+
+/* Mobilde yan yana eşitleme zorlaması yok */
+@media (max-width:768px){
+    div[data-testid="stMarkdownContainer"]:has(.iz-signals),
+    div[data-testid="stMarkdownContainer"]:has(.iz-movers),
+    div[data-testid="stMarkdown"]:has(.iz-signals),
+    div[data-testid="stMarkdown"]:has(.iz-movers),
+    div[data-testid="stElementContainer"]:has(.iz-signals),
+    div[data-testid="stElementContainer"]:has(.iz-movers),
+    .iz-signals,
+    .iz-movers{
+        height:auto!important;
+        min-height:0!important;
+    }
+}
+
+
+/* =========================================================
+   v1.7.61 — PREMIUM HOME EMPTY STATES
+   ========================================================= */
+
+.iz-home-feature-card{
+    position:relative;
+    width:100%;
+    min-height:390px!important;
+    height:390px!important;
+    box-sizing:border-box!important;
+    padding:20px 22px 18px!important;
+    overflow:hidden;
+    border-radius:12px!important;
+    background:
+        radial-gradient(circle at 12% 8%,rgba(22,180,199,.055),transparent 31%),
+        linear-gradient(145deg,#06131f,#081a27)!important;
+    box-shadow:
+        0 18px 44px rgba(0,0,0,.15),
+        inset 0 1px 0 rgba(255,255,255,.025)!important;
+}
+
+.iz-home-feature-cyan{
+    border:1px solid rgba(28,154,177,.52)!important;
+}
+.iz-home-feature-purple{
+    border:1px solid rgba(108,84,230,.54)!important;
+    background:
+        radial-gradient(circle at 14% 8%,rgba(103,74,230,.07),transparent 31%),
+        linear-gradient(145deg,#06131f,#081826)!important;
+}
+
+.iz-feature-head{
+    display:flex;
+    align-items:flex-start;
+    gap:16px;
+}
+.iz-feature-icon{
+    width:48px;
+    height:48px;
+    min-width:48px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    margin-top:1px;
+    border-radius:50%;
+    font-size:25px;
+    font-weight:800;
+}
+.iz-feature-icon-cyan{
+    color:#26d4df;
+    background:rgba(16,184,201,.11);
+    box-shadow:0 0 28px rgba(31,209,220,.08);
+}
+.iz-feature-icon-purple{
+    color:#8b6fff;
+    background:rgba(112,82,234,.14);
+    box-shadow:0 0 28px rgba(111,80,234,.09);
+}
+
+.iz-feature-head-copy{
+    min-width:0;
+    flex:1;
+}
+.iz-home-feature-card .iz-card-title{
+    margin:0!important;
+    min-height:0!important;
+    color:#f4fbff!important;
+    font-size:14px!important;
+    font-weight:840!important;
+    letter-spacing:.1px!important;
+}
+.iz-feature-accent{
+    width:30px;
+    height:2px;
+    margin:9px 0 11px;
+}
+.iz-home-feature-cyan .iz-feature-accent{
+    background:#2ad7df;
+    box-shadow:0 0 10px rgba(42,215,223,.25);
+}
+.iz-home-feature-purple .iz-feature-accent{
+    background:#8a6cff;
+    box-shadow:0 0 10px rgba(138,108,255,.25);
+}
+.iz-feature-desc{
+    max-width:520px;
+    color:#91a9b7;
+    font-size:10.5px;
+    line-height:1.55;
+}
+
+.iz-feature-divider{
+    width:100%;
+    height:1px;
+    margin:17px 0 18px;
+    background:linear-gradient(90deg,rgba(29,78,99,.8),rgba(29,78,99,.28));
+}
+
+.iz-feature-empty{
+    min-height:235px;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    text-align:center;
+    box-sizing:border-box;
+}
+.iz-feature-empty > b{
+    margin-top:8px;
+    color:#f4fbff;
+    font-size:14px;
+    font-weight:800;
+}
+.iz-feature-empty > span{
+    margin-top:7px;
+    color:#839dab;
+    font-size:10px;
+    line-height:1.45;
+}
+
+/* Empty-state pseudo graphics */
+.iz-empty-graphic{
+    position:relative;
+    width:88px;
+    height:66px;
+    margin-bottom:3px;
+    opacity:.90;
+}
+
+.iz-empty-screen{
+    position:absolute;
+    left:23px;
+    top:14px;
+    width:44px;
+    height:32px;
+    border:2px solid #189eb4;
+    border-radius:4px;
+    box-shadow:0 0 18px rgba(24,158,180,.12);
+}
+.iz-empty-screen:after{
+    content:"";
+    position:absolute;
+    left:17px;
+    bottom:-10px;
+    width:10px;
+    height:9px;
+    border-left:2px solid #189eb4;
+    border-right:2px solid #189eb4;
+}
+.iz-empty-line{
+    position:absolute;
+    left:29px;
+    top:34px;
+    width:31px;
+    height:2px;
+    background:#22c7d5;
+    transform:rotate(-8deg);
+    box-shadow:
+        8px -7px 0 -0.2px #22c7d5,
+        18px -2px 0 -0.2px #22c7d5,
+        26px -13px 0 -0.2px #22c7d5;
+}
+.iz-empty-bars span:not(.iz-empty-spark){
+    position:absolute;
+    bottom:13px;
+    width:13px;
+    border-radius:3px 3px 0 0;
+    background:linear-gradient(180deg,#775cff,#4c3ac0);
+    box-shadow:0 0 16px rgba(111,83,240,.12);
+}
+.iz-empty-bars .b1{left:20px;height:18px}
+.iz-empty-bars .b2{left:39px;height:30px}
+.iz-empty-bars .b3{left:58px;height:45px}
+.iz-empty-bars:after{
+    content:"";
+    position:absolute;
+    left:15px;
+    bottom:11px;
+    width:61px;
+    height:2px;
+    background:#4f42a7;
+}
+.iz-empty-spark{
+    position:absolute;
+    font-size:9px;
+}
+.iz-empty-chart .s1{left:16px;top:10px;color:#1ebac8}
+.iz-empty-chart .s2{right:10px;top:4px;color:#2fd4dc}
+.iz-empty-bars .s1{left:12px;top:9px;color:#7159e9}
+.iz-empty-bars .s2{right:7px;top:18px;color:#8a6cff}
+
+.iz-feature-cta{
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    gap:12px;
+    min-width:205px;
+    min-height:42px;
+    margin-top:20px;
+    padding:0 18px;
+    border-radius:7px;
+    text-decoration:none!important;
+    font-size:10px;
+    font-weight:850;
+    letter-spacing:.12px;
+    transition:
+        transform .16s ease,
+        background .16s ease,
+        box-shadow .16s ease,
+        border-color .16s ease;
+}
+.iz-feature-cta em{
+    font-style:normal;
+    font-size:16px;
+    line-height:1;
+}
+.iz-feature-cta:hover{
+    transform:translateY(-1px);
+}
+.iz-feature-cta-cyan{
+    color:#2de0e7!important;
+    border:1px solid rgba(28,197,209,.65);
+    background:linear-gradient(180deg,rgba(15,76,91,.42),rgba(7,34,45,.52));
+    box-shadow:0 9px 20px rgba(8,141,157,.08);
+}
+.iz-feature-cta-cyan:hover{
+    background:linear-gradient(180deg,rgba(17,97,111,.54),rgba(8,43,53,.64));
+    box-shadow:0 10px 25px rgba(8,171,184,.12);
+}
+.iz-feature-cta-purple{
+    color:#a88fff!important;
+    border:1px solid rgba(121,91,239,.68);
+    background:linear-gradient(180deg,rgba(61,48,117,.43),rgba(29,24,67,.55));
+    box-shadow:0 9px 20px rgba(91,66,214,.08);
+}
+.iz-feature-cta-purple:hover{
+    background:linear-gradient(180deg,rgba(75,58,143,.55),rgba(37,29,83,.66));
+    box-shadow:0 10px 25px rgba(100,76,222,.12);
+}
+
+/* v1.7.60'ın 128px zorlamasını empty-state premium kartlar için geçersiz kıl */
+@media (min-width:769px){
+    .iz-signals.iz-home-feature-card,
+    .iz-movers.iz-home-feature-card{
+        height:390px!important;
+        min-height:390px!important;
+    }
+
+    div[data-testid="stMarkdownContainer"]:has(.iz-home-feature-card),
+    div[data-testid="stMarkdown"]:has(.iz-home-feature-card),
+    div[data-testid="stElementContainer"]:has(.iz-home-feature-card){
+        height:390px!important;
+        min-height:390px!important;
+    }
+}
+
+/* Mobile */
+@media(max-width:768px){
+    .iz-home-feature-card{
+        height:auto!important;
+        min-height:360px!important;
+        padding:17px 16px 16px!important;
+    }
+    .iz-feature-head{
+        gap:12px;
+    }
+    .iz-feature-icon{
+        width:42px;
+        height:42px;
+        min-width:42px;
+        font-size:21px;
+    }
+    .iz-home-feature-card .iz-card-title{
+        font-size:13px!important;
+    }
+    .iz-feature-desc{
+        font-size:9.5px;
+    }
+    .iz-feature-empty{
+        min-height:220px;
+    }
+    .iz-feature-cta{
+        width:100%;
+        max-width:270px;
+        min-width:0;
+        min-height:40px;
+        font-size:9.5px;
+    }
+}
+
