@@ -4196,3 +4196,187 @@ h3:has(+ [data-testid="stDataFrame"]){
     }
 }
 
+
+/* =========================================================
+   v1.7.69 — FEATURED STOCK: REAL REDESIGN
+   Eski küçük/sağa yaslı düzeni tamamen bypass eder.
+   ========================================================= */
+.iz-featured-stock-v2{
+    display:grid!important;
+    grid-template-columns:minmax(320px,1.15fr) minmax(520px,1.85fr)!important;
+    align-items:center!important;
+    gap:28px!important;
+    min-height:190px!important;
+    padding:24px 26px!important;
+    text-align:left!important;
+    border-left:5px solid #8b70ff!important;
+}
+
+.iz-featured-stock-v2 .iz-featured-left{
+    display:flex!important;
+    flex-direction:column!important;
+    align-items:flex-start!important;
+    justify-content:center!important;
+    min-width:0!important;
+    text-align:left!important;
+}
+
+.iz-featured-stock-v2 .iz-best-feature-label{
+    margin:0 0 13px!important;
+    font-size:12px!important;
+    line-height:1!important;
+    font-weight:950!important;
+    letter-spacing:1.15px!important;
+    color:#a992ff!important;
+    text-align:left!important;
+}
+.iz-featured-stock-v2 .iz-best-feature-label span{
+    font-size:17px!important;
+    color:#4de1e6!important;
+}
+
+.iz-featured-identity{
+    display:flex!important;
+    align-items:center!important;
+    justify-content:flex-start!important;
+    flex-wrap:wrap!important;
+    gap:15px!important;
+    width:100%!important;
+    text-align:left!important;
+}
+
+.iz-featured-ticker{
+    display:block!important;
+    margin:0!important;
+    padding:0!important;
+    width:auto!important;
+    color:#ffffff!important;
+    font-size:52px!important;
+    line-height:.95!important;
+    font-weight:950!important;
+    letter-spacing:.6px!important;
+    text-align:left!important;
+    text-shadow:0 0 22px rgba(255,255,255,.045)!important;
+}
+
+.iz-featured-signal{
+    display:inline-flex!important;
+    align-items:center!important;
+    justify-content:center!important;
+    width:auto!important;
+    min-height:38px!important;
+    padding:0 13px!important;
+    border:1px solid rgba(56,190,205,.68)!important;
+    border-radius:7px!important;
+    background:rgba(18,105,121,.18)!important;
+    color:#6ce5ea!important;
+    font-size:12px!important;
+    line-height:1!important;
+    font-weight:900!important;
+    text-align:left!important;
+    white-space:nowrap!important;
+}
+
+.iz-featured-caption{
+    margin-top:13px!important;
+    max-width:390px!important;
+    color:#7895a5!important;
+    font-size:10.5px!important;
+    line-height:1.45!important;
+    text-align:left!important;
+}
+
+.iz-featured-metrics{
+    display:grid!important;
+    grid-template-columns:repeat(4,minmax(110px,1fr))!important;
+    gap:10px!important;
+    width:100%!important;
+}
+
+.iz-featured-metrics>div{
+    display:flex!important;
+    flex-direction:column!important;
+    align-items:flex-start!important;
+    justify-content:center!important;
+    min-height:96px!important;
+    padding:14px 15px!important;
+    border:1px solid rgba(37,83,108,.78)!important;
+    border-radius:8px!important;
+    background:linear-gradient(180deg,#071a28,#071520)!important;
+    text-align:left!important;
+}
+
+.iz-featured-metrics span{
+    margin:0 0 9px!important;
+    color:#6e9caf!important;
+    font-size:9px!important;
+    line-height:1!important;
+    font-weight:900!important;
+    letter-spacing:.75px!important;
+    text-align:left!important;
+}
+
+.iz-featured-metrics strong{
+    margin:0!important;
+    color:#f5fbff!important;
+    font-size:24px!important;
+    line-height:1!important;
+    font-weight:950!important;
+    text-align:left!important;
+}
+
+/* Strongly neutralize legacy alignment selectors inside this new component */
+.iz-best-setup-copy.iz-featured-stock-v2 *,
+.iz-best-setup-feature.iz-featured-stock-v2 *{
+    box-sizing:border-box;
+}
+.iz-featured-stock-v2 .iz-featured-ticker,
+.iz-featured-stock-v2 .iz-featured-caption,
+.iz-featured-stock-v2 .iz-featured-left,
+.iz-featured-stock-v2 .iz-featured-identity{
+    float:none!important;
+    right:auto!important;
+    left:auto!important;
+    margin-left:0!important;
+    margin-right:0!important;
+}
+
+@media(max-width:1100px){
+    .iz-featured-stock-v2{
+        grid-template-columns:1fr!important;
+        gap:18px!important;
+    }
+    .iz-featured-metrics{
+        grid-template-columns:repeat(4,1fr)!important;
+    }
+}
+
+@media(max-width:768px){
+    .iz-featured-stock-v2{
+        min-height:0!important;
+        padding:19px 17px!important;
+    }
+    .iz-featured-ticker{
+        font-size:42px!important;
+    }
+    .iz-featured-metrics{
+        grid-template-columns:1fr 1fr!important;
+    }
+    .iz-featured-metrics>div{
+        min-height:82px!important;
+    }
+    .iz-featured-metrics strong{
+        font-size:21px!important;
+    }
+}
+
+@media(max-width:420px){
+    .iz-featured-ticker{
+        font-size:36px!important;
+    }
+    .iz-featured-signal{
+        min-height:34px!important;
+        font-size:11px!important;
+    }
+}
+
