@@ -1,5 +1,5 @@
 /* =========================================================
-   IZFIN v1.7.58 — Centralized Stylesheet
+   IZFIN v1.7.48 — Centralized Stylesheet
    Extracted from v1.7.47 without intentional visual changes.
    Keep order: later rules intentionally override earlier rules.
    ========================================================= */
@@ -1810,13 +1810,12 @@ button[kind="primary"],
 .izw-table tbody tr:hover td{background:#092332}
 .izw-table tbody td:last-child{border-right:0}
 
-.izw-table th:nth-child(1){width:13%}
-.izw-table th:nth-child(2){width:14%}
-.izw-table th:nth-child(3){width:23%}
-.izw-table th:nth-child(4){width:10%}
-.izw-table th:nth-child(5){width:18%}
-.izw-table th:nth-child(6){width:13%}
-.izw-table th:nth-child(7){width:9%}
+.izw-table th:nth-child(1){width:14%}
+.izw-table th:nth-child(2){width:15%}
+.izw-table th:nth-child(3){width:31%}
+.izw-table th:nth-child(4){width:18%}
+.izw-table th:nth-child(5){width:13%}
+.izw-table th:nth-child(6){width:9%}
 
 .izw-asset-top{display:flex;align-items:center;gap:10px}
 .izw-logo{
@@ -1841,7 +1840,7 @@ button[kind="primary"],
 
 .izw-quality{padding:10px 12px!important}
 .izw-quality-top{
-    display:grid;grid-template-columns:1fr 1fr;gap:6px;
+    display:grid;grid-template-columns:.8fr .8fr .8fr;gap:6px;
 }
 .izw-quality-top>div,.izw-entry,.izw-rf-grid>div{
     min-width:0;border:1px solid #16445a;border-radius:6px;background:#071725;
@@ -1856,15 +1855,6 @@ button[kind="primary"],
 }
 .izw-entry{margin-top:6px;padding:7px 8px}
 .izw-entry b{font-size:8.5px}
-
-.izw-confidence{text-align:center}
-.izw-confidence span{
-    display:block;color:#6690a3;font-size:6.5px;font-weight:850;letter-spacing:.55px;
-}
-.izw-confidence b{
-    display:block;margin-top:8px;color:#54d6de;font-size:15px;font-weight:820;
-    white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
-}
 
 .izw-rf-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px}
 .izw-rf-grid>div{padding:10px 9px;min-height:52px}
@@ -1942,18 +1932,13 @@ button[kind="primary"],
 }
 .izw-quality span,
 .izw-riskflow span,
-.izw-value span,
-.izw-confidence span{
+.izw-value span{
     font-size:7.8px!important;
 }
 .izw-quality b,
 .izw-riskflow b{
     margin-top:5px!important;
     font-size:10.5px!important;
-}
-.izw-confidence b{
-    margin-top:8px!important;
-    font-size:15px!important;
 }
 .izw-entry b{
     font-size:10px!important;
@@ -1984,9 +1969,8 @@ button[kind="primary"],
     .izw-asset strong{font-size:13.5px!important}
     .izw-price{font-size:10.5px!important}
     .izw-decision .iz-badge{font-size:9.2px!important}
-    .izw-quality span,.izw-riskflow span,.izw-value span,.izw-confidence span{font-size:7.2px!important}
+    .izw-quality span,.izw-riskflow span,.izw-value span{font-size:7.2px!important}
     .izw-quality b,.izw-riskflow b{font-size:9.5px!important}
-    .izw-confidence b{font-size:13px!important}
     .izw-entry b{font-size:9.2px!important}
     .izw-value b{font-size:10px!important}
     .izw-session b{font-size:9px!important}
@@ -2307,8 +2291,7 @@ button[kind="primary"],
     }
     .izw-quality span,
     .izw-riskflow span,
-    .izw-value span,
-    .izw-confidence span{
+    .izw-value span{
         font-size:7.5px!important;
         white-space:nowrap!important;
     }
@@ -2341,21 +2324,13 @@ button[kind="primary"],
         padding:9px!important;
     }
 
-    /* Alt alan: güven ve değerleme yan yana, seans dışı tam genişlik */
-    .izw-confidence{
-        grid-column:1 / 2!important;
-        text-align:left!important;
-    }
+    /* Alt satır: değerleme + seans dışı */
     .izw-value{
-        grid-column:2 / 3!important;
+        grid-column:1 / 2!important;
     }
     .izw-session{
-        grid-column:1 / -1!important;
+        grid-column:2 / 3!important;
         text-align:left!important;
-    }
-    .izw-confidence b{
-        font-size:13px!important;
-        overflow:visible!important;
     }
     .izw-value b,
     .izw-session b{
@@ -2398,7 +2373,6 @@ button[kind="primary"],
     .izw-asset,
     .izw-decision,
     .izw-quality,
-    .izw-confidence,
     .izw-riskflow,
     .izw-value,
     .izw-session{
@@ -2722,65 +2696,43 @@ button[kind="primary"],
 .iz-sort-icon{display:inline-block;margin-left:5px;opacity:.62;font-size:.86em;font-weight:900}
 .iz-sortable-th.iz-sort-active .iz-sort-icon{opacity:1}
 
+
 /* =========================================================
-   IZFIN v1.7.58 — Stability + Theme Audit final overrides
+   v1.7.59 — HOME TOP CARDS ALIGNMENT
+   Sadece ana sayfadaki iki üst kartı masaüstünde eşitler.
    ========================================================= */
+@media (min-width: 769px){
+    .iz-signals,
+    .iz-movers{
+        min-height:128px!important;
+        height:100%!important;
+        box-sizing:border-box!important;
+        display:flex!important;
+        flex-direction:column!important;
+    }
 
-/* Account identity chip was rendered in Python without a stylesheet rule. */
-.iz-account-chip{
-  margin:8px 0 14px;padding:11px 12px;border-radius:12px;
-  background:linear-gradient(145deg,rgba(8,24,38,.96),rgba(6,18,30,.96));
-  border:1px solid #17384f;color:#dcebf5;overflow:hidden;
-}
-.iz-account-chip b{display:block;color:#f1f8fc;font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-.iz-account-chip span{display:block;color:#6f8da1;font-size:8.5px;line-height:1.45;margin-top:3px;}
+    .iz-signals .iz-card-title,
+    .iz-movers .iz-card-title{
+        min-height:22px!important;
+        display:flex!important;
+        align-items:center!important;
+        margin-bottom:8px!important;
+    }
 
-/* Unified report/performance tables. Avoid Streamlit's light dataframe skin entirely. */
-.iz-report-table-wrap,.iz-karne-shell{
-  width:100%;border:1px solid rgba(38,77,103,.72);border-radius:14px;
-  overflow:hidden;background:linear-gradient(145deg,rgba(7,19,31,.98),rgba(6,16,27,.98));
-  box-shadow:inset 0 1px 0 rgba(255,255,255,.025),0 10px 28px rgba(0,0,0,.16);
-  margin:.45rem 0 .8rem;
+    .iz-signals > div:last-child,
+    .iz-movers > div:last-child{
+        flex:1 1 auto!important;
+        display:flex!important;
+        align-items:center!important;
+    }
 }
-.iz-report-table-scroll,.iz-karne-scroll{width:100%;overflow-x:auto;overscroll-behavior-x:contain;-webkit-overflow-scrolling:touch;}
-.iz-report-table,.iz-karne-table{
-  width:100%;border-collapse:separate;border-spacing:0;color:#dceaf4;font-size:.84rem;
-}
-.iz-report-table thead th,.iz-karne-table thead th{
-  position:sticky;top:0;z-index:2;background:#091725;color:#7898ac;text-align:left;
-  font-size:.70rem;letter-spacing:.045em;text-transform:uppercase;padding:11px 12px;
-  border-bottom:1px solid #1a3c55;white-space:nowrap;
-}
-.iz-report-table tbody td,.iz-karne-table tbody td{
-  padding:10px 12px;border-bottom:1px solid rgba(23,53,75,.55);
-  background:#07131f;white-space:nowrap;vertical-align:middle;
-}
-.iz-report-table tbody tr:nth-child(even) td,.iz-karne-table tbody tr:nth-child(even) td{background:#081623;}
-.iz-report-table tbody tr:hover td,.iz-karne-table tbody tr:hover td{background:#0a1b2a;}
-.iz-report-table tbody tr:last-child td,.iz-karne-table tbody tr:last-child td{border-bottom:0;}
-.iz-report-table td.num,.iz-karne-table td.num{text-align:right;font-variant-numeric:tabular-nums;}
-.iz-report-table td.strong,.iz-karne-table td.asset{font-weight:760;color:#f1f8fc;}
-.iz-report-table td.pos{color:#35e6a2;font-weight:720;}
-.iz-report-table td.neg{color:#ff7480;font-weight:720;}
-.iz-karne-table td.asset-repeat{color:transparent;user-select:none;}
-.iz-wide-table-empty{padding:18px 16px;border:1px solid #17354b;border-radius:13px;background:#07131f;color:#7895a9;font-size:11px;}
 
-/* Sortable table hook: visually communicate sortable headers without altering JS behavior. */
-.iz-client-sortable thead th[data-sort-type]{cursor:pointer;user-select:none;}
-.iz-client-sortable thead th[data-sort-type]:hover{color:#b9eaf1;background:#0b1d2c;}
-.iz-sortable-table-wrap{isolation:isolate;}
-
-/* Native Streamlit dataframe safety net for any future component that slips through. */
-[data-testid="stDataFrame"]{
-  background:#07131f!important;border:1px solid #17354b!important;border-radius:14px!important;
-  color:#dceaf4!important;box-shadow:none!important;
+@media (max-width: 768px){
+    .iz-signals,
+    .iz-movers{
+        min-height:0!important;
+        height:auto!important;
+        display:block!important;
+    }
 }
-[data-testid="stDataFrame"] *{color-scheme:dark;}
 
-/* Keep long labels/controls usable on narrow screens. */
-@media(max-width:768px){
-  .iz-report-table-wrap,.iz-karne-shell{border-radius:11px;}
-  .iz-report-table thead th,.iz-report-table tbody td,.iz-karne-table thead th,.iz-karne-table tbody td{padding:9px 10px;font-size:.76rem;}
-  .iz-account-chip{padding:10px;margin-bottom:11px;}
-  [data-testid="stMainBlockContainer"]{padding-left:.78rem!important;padding-right:.78rem!important;}
-}
