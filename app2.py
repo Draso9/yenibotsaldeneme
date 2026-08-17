@@ -27,7 +27,7 @@ import sentry_sdk
 
 
 # --- IZFIN UYGULAMA SÜRÜMÜ ---
-IZFIN_APP_SURUMU = "v1.7.61 Yahoo Rate-Limit Guard"
+IZFIN_APP_SURUMU = "v1.7.62 Symbol Mapping + YFinance Noise Guard"
 
 
 def _secret_string(ad, varsayilan=""):
@@ -51,8 +51,14 @@ def _url_sorgusunu_temizle(url):
 
 
 def _sentry_before_send(event, hint):
-    """Sentry event'lerinden PII, cookie, auth header ve query-string alanlarını ayıklar."""
+    """Sentry event'lerinden PII/query bilgilerini ayıklar ve üçüncü taraf log gürültüsünü süzer."""
     try:
+        # yfinance bazı beklenen veri/HTTP sorunlarını Python exception fırlatmadan ERROR log olarak
+        # yazar. Bunlar Sentry'de ayrı ayrı "issue" üretip gerçek IZFIN hatalarını gölgeliyordu.
+        # Gerçek uygulama exception'ları izfin_hata_logla() üzerinden IZFIN logger'ıyla yine yakalanır.
+        logger_adi = str(event.get("logger") or "").lower()
+        if logger_adi.startswith("yfinance") and not event.get("exception"):
+            return None
         user = event.get("user")
         if isinstance(user, dict):
             # Gerçek e-posta/IP yerine yalnızca daha sonra bizim atayacağımız anonim id kalabilir.
@@ -424,7 +430,7 @@ def izfin_hata_logla(baglam, hata, ticker=None):
 BIST_30 = [
     "AKBNK.IS", "ALARK.IS", "ASELS.IS", "ASTOR.IS", "BIMAS.IS", "BRISA.IS",
     "CCOLA.IS", "ENKAI.IS", "EREGL.IS", "FROTO.IS", "GARAN.IS", "GUBRF.IS",
-    "HEKTS.IS", "ISCTR.IS", "KCHOL.IS", "KONTR.IS", "KOZAA.IS", "KOZAL.IS",
+    "HEKTS.IS", "ISCTR.IS", "KCHOL.IS", "KONTR.IS", "TRMET.IS", "TRALT.IS",
     "KRDMD.IS", "OYAKC.IS", "PETKM.IS", "PGSUS.IS", "SAHOL.IS", "SASA.IS",
     "SISE.IS", "TCELL.IS", "THYAO.IS", "TOASO.IS", "TUPRS.IS", "YKBNK.IS"
 ]
@@ -435,7 +441,7 @@ BIST_100 = sorted(set(BIST_30 + [
     "BOBET.IS", "BRYAT.IS", "BUCIM.IS", "CANTE.IS", "CIMSA.IS", "CWENE.IS",
     "DOAS.IS", "DOHOL.IS", "ECZYT.IS", "EGEEN.IS", "EKGYO.IS", "ENERY.IS",
     "EUPWR.IS", "ENJSA.IS", "FORMT.IS", "GESAN.IS", "GLYHO.IS", "GWIND.IS",
-    "HALKB.IS", "IPEKE.IS", "ISDMR.IS", "ISGYO.IS", "KAYSE.IS", "KMPUR.IS",
+    "HALKB.IS", "TRENJ.IS", "ISDMR.IS", "ISGYO.IS", "KAYSE.IS", "KMPUR.IS",
     "KONYA.IS", "KOTON.IS", "KZBGY.IS", "MAVI.IS", "MGROS.IS", "ODAS.IS",
     "ONCSM.IS", "OTKAR.IS", "PENTA.IS", "PSGYO.IS", "REEDR.IS", "SMRTG.IS",
     "SOKM.IS", "TAVHL.IS", "TKFEN.IS", "TMSN.IS", "TSKB.IS", "TTKOM.IS",
@@ -453,6 +459,45 @@ if "opsiyon_sonuclar" not in st.session_state:
 FINNHUB_API_KEY = st.secrets.get("FINNHUB_API_KEY", os.getenv("FINNHUB_API_KEY", ""))
 FINNHUB_BASE_URL = "https://finnhub.io/api/v1"
 
+# --- SEMBOL DEĞİŞİKLİKLERİ / VERİ SAĞLAYICI UYUMLULUĞU ---
+# Borsa İstanbul'da 24.11.2025 itibarıyla değişen işlem kodları.
+# Eski kullanıcı listeleri / Firestore geçmişi bozulmasın diye eski semboller veri çekiminde
+# otomatik olarak güncel Yahoo/BIST sembollerine çevrilir.
+YAHOO_TICKER_ALIASES = {
+    "KOZAA.IS": "TRMET.IS",
+    "KOZAL.IS": "TRALT.IS",
+    "TRENJ.IS": "TRENJ.IS",
+}
+
+def _yahoo_ticker(ticker):
+    """Tek ticker'ı güvenli biçimde güncel Yahoo sembolüne normalize eder."""
+    if ticker is None:
+        return ticker
+    try:
+        if pd.isna(ticker):
+            return ticker
+    except Exception:
+        pass
+    t = str(ticker).strip().upper()
+    return YAHOO_TICKER_ALIASES.get(t, t)
+
+def _yahoo_tickers(tickers):
+    """Toplu Yahoo isteklerinde eski kodları güncel kodlara çevirip tekrarları kaldırır."""
+    sonuc = []
+    for t in list(tickers or []):
+        nt = _yahoo_ticker(t)
+        if nt is None:
+            continue
+        try:
+            if pd.isna(nt):
+                continue
+        except Exception:
+            pass
+        nt = str(nt).strip()
+        if nt and nt not in sonuc:
+            sonuc.append(nt)
+    return sonuc
+
 def _normalize_yf_columns(df):
     if isinstance(df, pd.DataFrame) and isinstance(df.columns, pd.MultiIndex):
         df = df.copy()
@@ -462,7 +507,8 @@ def _normalize_yf_columns(df):
 def _finnhub_symbol(ticker):
     # Finnhub ücretsiz planda ABD hisseleri güvenilir biçimde desteklenir.
     # BIST sembollerinde kapsama sınırlı olabildiği için Yahoo fallback kullanılır.
-    return ticker.replace(".IS", "") if ticker.endswith(".IS") else ticker
+    ticker = _yahoo_ticker(ticker)
+    return ticker.replace(".IS", "") if isinstance(ticker, str) and ticker.endswith(".IS") else ticker
 
 @st.cache_data(ttl=21600, show_spinner=False)
 def peg_degeri_cek(ticker):
@@ -472,7 +518,7 @@ def peg_degeri_cek(ticker):
     Geçersiz, negatif veya ulaşılamayan değerlerde None döner.
     """
     try:
-        info = yf.Ticker(ticker).get_info() or {}
+        info = yf.Ticker(_yahoo_ticker(ticker)).get_info() or {}
         # Yahoo/yfinance sürümüne göre anahtar adı değişebildiği için iki yaygın
         # trailing/standart PEG alanını kontrollü biçimde deniyoruz.
         raw = info.get("trailingPegRatio")
@@ -571,8 +617,11 @@ def _finnhub_get(endpoint, params, timeout=3, max_retry=2):
 @st.cache_data(ttl=900, show_spinner=False)
 def taze_veri_indir(tickers_tuple):
     try:
+        yahoo_tickers = _yahoo_tickers(tickers_tuple)
+        if not yahoo_tickers:
+            return pd.DataFrame()
         data = yf.download(
-            list(tickers_tuple),
+            yahoo_tickers,
             period="400d",
             group_by="ticker",
             progress=False,
@@ -684,8 +733,9 @@ def seans_disi_ozet(ticker, ham_intraday, quote=None):
 @st.cache_data(ttl=20, show_spinner=False)
 def intraday_veri_cek(ticker, interval="5m", period="5d"):
     try:
+        yahoo_ticker = _yahoo_ticker(ticker)
         df = yf.download(
-            ticker,
+            yahoo_ticker,
             period=period,
             interval=interval,
             progress=False,
@@ -704,8 +754,11 @@ def toplu_intraday_veri_cek(tickers_tuple, interval="5m", period="5d"):
     if not tickers_tuple:
         return pd.DataFrame()
     try:
+        yahoo_tickers = _yahoo_tickers(tickers_tuple)
+        if not yahoo_tickers:
+            return pd.DataFrame()
         return yf.download(
-            list(tickers_tuple),
+            yahoo_tickers,
             period=period,
             interval=interval,
             group_by="ticker",
@@ -723,6 +776,7 @@ def toplu_intraday_veri_cek(tickers_tuple, interval="5m", period="5d"):
 def toplu_veriden_ticker_ayir(toplu_df, ticker, toplam_adet):
     if toplu_df is None or toplu_df.empty:
         return pd.DataFrame()
+    ticker = _yahoo_ticker(ticker)
     try:
         if toplam_adet == 1 and not isinstance(toplu_df.columns, pd.MultiIndex):
             return _normalize_yf_columns(toplu_df.copy())
@@ -1537,8 +1591,9 @@ def basit_backtest(ticker, period='5y'):
     'Daily MTF' ve 'Giriş Proxy' açıkça ayrı alanlar olarak kullanılır.
     """
     try:
+        yahoo_ticker = _yahoo_ticker(ticker)
         df = yf.download(
-            ticker, period=period, progress=False, auto_adjust=True,
+            yahoo_ticker, period=period, progress=False, auto_adjust=True,
             threads=False, timeout=10,
         )
         df = _normalize_yf_columns(df).dropna(subset=['Close','High','Low','Volume']).copy()
@@ -2115,7 +2170,7 @@ def _donem_ohlc_cek(ticker, baslangic_iso, bitis_iso):
         bit = pd.to_datetime(bitis_iso, errors="coerce")
         if pd.isna(bas) or pd.isna(bit):
             return pd.DataFrame()
-        df = yf.download(ticker, start=(bas-pd.Timedelta(days=2)).date().isoformat(), end=(bit+pd.Timedelta(days=2)).date().isoformat(), interval="1d", progress=False, auto_adjust=True, threads=False, timeout=8)
+        df = yf.download(_yahoo_ticker(ticker), start=(bas-pd.Timedelta(days=2)).date().isoformat(), end=(bit+pd.Timedelta(days=2)).date().isoformat(), interval="1d", progress=False, auto_adjust=True, threads=False, timeout=8)
         return _normalize_yf_columns(df)
     except Exception as e:
         izfin_hata_logla("kapanan_donem_ohlc", e, ticker)
@@ -2698,6 +2753,7 @@ def _gunluk_kapanis_serisi(ticker, period="1y"):
         ticker = str(ticker).strip().upper()
         if not ticker or ticker in {"NAN", "NONE", "NULL", "<NA>"}:
             return pd.Series(dtype=float)
+        ticker = _yahoo_ticker(ticker)
 
         for deneme in range(3):
             try:
@@ -2815,6 +2871,7 @@ def performans_karnelerini_guncelle(kayitlar):
         ticker = str(ticker_raw).strip().upper()
         if not ticker or ticker in {"NAN", "NONE", "NULL", "<NA>"}:
             continue
+        ticker = _yahoo_ticker(ticker)
         giris = float(kayit.get("giris_fiyati", 0) or 0)
         tarih = pd.to_datetime(kayit.get("olusturma_zamani"), errors="coerce")
         if not doc_id or giris <= 0 or pd.isna(tarih):
@@ -3386,7 +3443,7 @@ def izfin_piyasa_bandi_verisi():
     ticker_list = list(semboller.values())
     try:
         intra_all = yf.download(
-            ticker_list, period="1d", interval="1m", group_by="ticker",
+            _yahoo_tickers(ticker_list), period="1d", interval="1m", group_by="ticker",
             progress=False, threads=True, prepost=True, auto_adjust=True, timeout=8
         )
     except Exception as e:
@@ -3394,7 +3451,7 @@ def izfin_piyasa_bandi_verisi():
         intra_all = pd.DataFrame()
     try:
         daily_all = yf.download(
-            ticker_list, period="7d", interval="1d", group_by="ticker",
+            _yahoo_tickers(ticker_list), period="7d", interval="1d", group_by="ticker",
             progress=False, threads=True, auto_adjust=True, timeout=8
         )
     except Exception as e:
@@ -4947,7 +5004,7 @@ if aktif_sayfa in ["🏠 Ana Sayfa", "🔎 Akıllı Tarama"]:
                 
                 try:
                     sektor_toplu = yf.download(
-                        list(sektor_referanslari.keys()), period="40d", group_by="ticker",
+                        _yahoo_tickers(sektor_referanslari.keys()), period="40d", group_by="ticker",
                         progress=False, threads=True, auto_adjust=True, timeout=8
                     )
                 except Exception as e:
