@@ -332,7 +332,7 @@ STRATEJI_SURUMU = "IZFIN-v1.7.5-auth-switch-fixed"
 PERFORMANS_UFUKLARI = (1, 5, 10, 20, 45)
 
 # --- IZFIN UYGULAMA SÜRÜMÜ / LOG ---
-IZFIN_APP_SURUMU = "v1.7.68 Featured Stock Emphasis"
+IZFIN_APP_SURUMU = "v1.7.69 Featured Stock Redesign"
 logger = logging.getLogger("IZFIN")
 if not logger.handlers:
     logging.basicConfig(level=logging.INFO)
@@ -3433,17 +3433,20 @@ def izfin_render_classic_dashboard_clickable():
     if best:
         _, bt, bs, bg, bmtf, brisk, bsignal = best
         best_html = (
-            '<div class="iz-best-setup-copy iz-best-setup-feature">'
-              '<div class="iz-best-feature-label"><span>✦</span> BUGÜNÜN ÖNE ÇIKAN HİSSESİ</div>'
-              '<div class="iz-best-feature-main">'
-                f'<strong>{html.escape(bt)}</strong>'
-                f'<span class="iz-best-feature-signal">{html.escape(bsignal or "—")}</span>'
+            '<div class="iz-best-setup-copy iz-best-setup-feature iz-featured-stock-v2">'
+              '<div class="iz-featured-left">'
+                '<div class="iz-best-feature-label"><span>✦</span> BUGÜNÜN ÖNE ÇIKAN HİSSESİ</div>'
+                '<div class="iz-featured-identity">'
+                  f'<div class="iz-featured-ticker">{html.escape(bt)}</div>'
+                  f'<div class="iz-featured-signal">{html.escape(bsignal or "—")}</div>'
+                '</div>'
+                '<div class="iz-featured-caption">Son taramada listenin teknik bileşiminde en fazla öne çıkan aday</div>'
               '</div>'
-              '<div class="iz-best-feature-meta">'
-                f'<span><b>IZFIN SKOR</b>{int(bs)}</span>'
-                f'<span><b>GÜVEN</b>%{int(bg)}</span>'
-                f'<span><b>MTF</b>%{int(bmtf)}</span>'
-                f'<span><b>RİSK</b>{html.escape(brisk or "—")}</span>'
+              '<div class="iz-featured-metrics">'
+                f'<div><span>IZFIN SKOR</span><strong>{int(bs)}</strong></div>'
+                f'<div><span>GÜVEN</span><strong>%{int(bg)}</strong></div>'
+                f'<div><span>MTF</span><strong>%{int(bmtf)}</strong></div>'
+                f'<div><span>RİSK</span><strong>{html.escape(brisk or "—")}</strong></div>'
               '</div>'
             '</div>'
         )
