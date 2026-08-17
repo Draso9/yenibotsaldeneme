@@ -14,7 +14,7 @@ import html
 import secrets as pysecrets
 import hashlib
 import hmac
-from urllib.parse import urlencode
+from urllib.parse import urlencode, urlsplit, urlunsplit
 from zoneinfo import ZoneInfo
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from threading import Lock
@@ -23,6 +23,96 @@ from firebase_admin import credentials, firestore, auth
 import extra_streamlit_components as stx
 import streamlit.components.v1 as components
 from pathlib import Path
+import sentry_sdk
+
+
+# --- IZFIN UYGULAMA SÜRÜMÜ ---
+IZFIN_APP_SURUMU = "v1.7.59 Sentry Monitoring"
+
+
+def _secret_string(ad, varsayilan=""):
+    """Streamlit Secrets / ortam değişkeninden güvenli metin okur."""
+    try:
+        deger = st.secrets.get(ad, varsayilan)
+    except Exception:
+        deger = os.getenv(ad, varsayilan)
+    return str(deger or varsayilan).strip()
+
+
+def _url_sorgusunu_temizle(url):
+    """OAuth code/state gibi hassas query parametrelerinin Sentry'ye gitmesini engeller."""
+    try:
+        parca = urlsplit(str(url or ""))
+        if not parca.scheme:
+            return str(url or "")
+        return urlunsplit((parca.scheme, parca.netloc, parca.path, "", ""))
+    except Exception:
+        return str(url or "").split("?", 1)[0]
+
+
+def _sentry_before_send(event, hint):
+    """Sentry event'lerinden PII, cookie, auth header ve query-string alanlarını ayıklar."""
+    try:
+        user = event.get("user")
+        if isinstance(user, dict):
+            # Gerçek e-posta/IP yerine yalnızca daha sonra bizim atayacağımız anonim id kalabilir.
+            anon_id = user.get("id")
+            event["user"] = {"id": str(anon_id)} if anon_id else {}
+
+        request = event.get("request")
+        if isinstance(request, dict):
+            if request.get("url"):
+                request["url"] = _url_sorgusunu_temizle(request.get("url"))
+            request.pop("query_string", None)
+            request.pop("cookies", None)
+            request.pop("env", None)
+            headers = request.get("headers")
+            if isinstance(headers, dict):
+                guvenli = {}
+                for k, v in headers.items():
+                    if str(k).lower() not in {"authorization", "cookie", "set-cookie", "x-api-key"}:
+                        guvenli[k] = v
+                request["headers"] = guvenli
+    except Exception:
+        # Monitoring temizleyicisi ana uygulamayı asla bozmasın.
+        pass
+    return event
+
+
+def _sentry_before_breadcrumb(crumb, hint):
+    """HTTP breadcrumb URL'lerinden query-string'i kaldırır."""
+    try:
+        data = crumb.get("data")
+        if isinstance(data, dict) and data.get("url"):
+            data["url"] = _url_sorgusunu_temizle(data.get("url"))
+        message = crumb.get("message")
+        if isinstance(message, str) and "?" in message and message.startswith(("http://", "https://")):
+            crumb["message"] = _url_sorgusunu_temizle(message)
+    except Exception:
+        pass
+    return crumb
+
+
+SENTRY_DSN = _secret_string("SENTRY_DSN")
+SENTRY_ENVIRONMENT = _secret_string("SENTRY_ENVIRONMENT", "production")
+SENTRY_AKTIF = bool(SENTRY_DSN)
+
+if SENTRY_AKTIF:
+    try:
+        sentry_sdk.init(
+            dsn=SENTRY_DSN,
+            environment=SENTRY_ENVIRONMENT,
+            release=IZFIN_APP_SURUMU,
+            send_default_pii=False,
+            before_send=_sentry_before_send,
+            before_breadcrumb=_sentry_before_breadcrumb,
+            max_breadcrumbs=50,
+        )
+        sentry_sdk.set_tag("app", "IZFIN")
+        sentry_sdk.set_tag("app_version", IZFIN_APP_SURUMU)
+    except Exception:
+        # Sentry'nin kendisi açılamazsa IZFIN çalışmaya devam eder.
+        SENTRY_AKTIF = False
 
 
 def izfin_css_yukle():
@@ -283,8 +373,7 @@ VARSAYILAN_TICKERS = ["AAPL", "MSFT", "TSLA", "NVDA", "AMD", "INTC", "THYAO.IS",
 STRATEJI_SURUMU = "IZFIN-v1.7.5-auth-switch-fixed"
 PERFORMANS_UFUKLARI = (1, 5, 10, 20, 45)
 
-# --- IZFIN UYGULAMA SÜRÜMÜ / LOG ---
-IZFIN_APP_SURUMU = "v1.7.58 Stability + Theme Audit"
+# --- IZFIN LOG ---
 logger = logging.getLogger("IZFIN")
 if not logger.handlers:
     logging.basicConfig(level=logging.INFO)
@@ -299,9 +388,28 @@ _FINNHUB_MIN_INTERVAL = 0.10  # yaklaşık 10 istek/sn; 30/sn üst sınırının
 
 
 def izfin_hata_logla(baglam, hata, ticker=None):
-    """Kullanıcıya traceback göstermeden Streamlit Cloud loglarına teknik hata yazar."""
+    """Teknik hatayı Cloud loglarına ve etkinse Sentry'ye güvenli bağlamla yollar."""
     etiket = f"{baglam} | {ticker}" if ticker else baglam
     logger.exception("IZFIN hata [%s]: %s", etiket, hata)
+
+    # Yakalanmış exception'lar otomatik Sentry akışına düşmeyeceği için burada ayrıca gönderilir.
+    if SENTRY_AKTIF:
+        try:
+            with sentry_sdk.push_scope() as scope:
+                scope.set_tag("izfin_context", str(baglam or "bilinmeyen"))
+                scope.set_tag("ticker", str(ticker or "none"))
+                scope.set_tag("error_type", type(hata).__name__)
+                # E-posta/token/portföy verisi eklemiyoruz. Session id anonim korelasyon için yeterli.
+                anonim = st.session_state.get("sentry_anon_id")
+                if not anonim:
+                    anonim = pysecrets.token_hex(8)
+                    st.session_state.sentry_anon_id = anonim
+                scope.set_user({"id": f"anon_{anonim}"})
+                sentry_sdk.capture_exception(hata)
+        except Exception:
+            # Monitoring hatası ana uygulama akışını kesmemeli.
+            pass
+
     try:
         if "taramada_hatalar" not in st.session_state:
             st.session_state.taramada_hatalar = []
