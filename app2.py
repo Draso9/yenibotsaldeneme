@@ -284,7 +284,7 @@ STRATEJI_SURUMU = "IZFIN-v1.7.5-auth-switch-fixed"
 PERFORMANS_UFUKLARI = (1, 5, 10, 20, 45)
 
 # --- IZFIN UYGULAMA SÜRÜMÜ / LOG ---
-IZFIN_APP_SURUMU = "v1.7.59 Home Cards Align"
+IZFIN_APP_SURUMU = "v1.7.61 Premium Home Empty States"
 logger = logging.getLogger("IZFIN")
 if not logger.handlers:
     logging.basicConfig(level=logging.INFO)
@@ -3421,7 +3421,30 @@ def izfin_top_signals_html(max_n=7):
         fiyat = r.get("Fiyat","—"); risk = p.get("risk_seviyesi",r.get("Risk","—")); mtf = int(float(p.get("mtf_uyum",50) or 50))
         rows.append(f'<tr><td><b>{html.escape(t)}</b></td><td>{html.escape(str(fiyat))}</td><td><span class="iz-badge {_iz_badge_class(sin)}">{html.escape(sin)}</span></td><td><b style="color:#20e69a">{skor}</b></td><td><div class="iz-ring" style="--g:{g}"><span>{g}%</span></div></td><td>{mtf}%</td><td>{html.escape(str(risk))}</td></tr>')
     if not rows:
-        return '<div class="iz-signals"><div class="iz-card-title">LİSTENİN DİKKAT ÇEKENLERİ</div><div style="color:#7891a5;padding:18px 0">Derin Tarama çalıştırıldığında en yüksek skorlu sinyaller burada özetlenecek.</div></div>'
+        return (
+            '<div class="iz-signals iz-home-feature-card iz-home-feature-cyan">'
+              '<div class="iz-feature-head">'
+                '<div class="iz-feature-icon iz-feature-icon-cyan">◎</div>'
+                '<div class="iz-feature-head-copy">'
+                  '<div class="iz-card-title">LİSTENİN DİKKAT ÇEKENLERİ</div>'
+                  '<div class="iz-feature-accent"></div>'
+                  '<div class="iz-feature-desc">Derin Tarama çalıştırıldığında en yüksek skorlu sinyaller burada özetlenecek.</div>'
+                '</div>'
+              '</div>'
+              '<div class="iz-feature-divider"></div>'
+              '<div class="iz-feature-empty">'
+                '<div class="iz-empty-graphic iz-empty-chart">'
+                  '<span class="iz-empty-screen"></span>'
+                  '<span class="iz-empty-line"></span>'
+                  '<span class="iz-empty-spark s1">✦</span>'
+                  '<span class="iz-empty-spark s2">✦</span>'
+                '</div>'
+                '<b>Henüz veri yok</b>'
+                '<span>Akıllı Tarama ile listenizdeki fırsatları keşfedin.</span>'
+                '<a class="iz-feature-cta iz-feature-cta-cyan" href="?izfin_go=scan" target="_self">AKILLI TARAMAYI BAŞLAT <em>→</em></a>'
+              '</div>'
+            '</div>'
+        )
     return '<div class="iz-signals"><div class="iz-card-title">LİSTENİN DİKKAT ÇEKENLERİ</div><table><thead><tr><th>VARLIK</th><th>FİYAT</th><th>IZFIN KARARI</th><th>SKOR</th><th>GÜVEN</th><th>MTF</th><th>RİSK</th></tr></thead><tbody>' + ''.join(rows) + '</tbody></table></div>'
 
 def izfin_movers_html(max_n=6):
@@ -3435,10 +3458,36 @@ def izfin_movers_html(max_n=6):
         rows.append((abs(deg), deg, t, r.get("Fiyat", "—")))
     rows.sort(reverse=True)
     if not rows:
-        body = '<div style="padding:22px 2px;color:#748ea2;font-size:11px">Akıllı Tarama sonrası listedeki dikkat çekici fiyat hareketleri burada görünecek.</div>'
+        body = (
+            '<div class="iz-feature-empty">'
+              '<div class="iz-empty-graphic iz-empty-bars">'
+                '<span class="b1"></span><span class="b2"></span><span class="b3"></span>'
+                '<span class="iz-empty-spark s1">✦</span>'
+                '<span class="iz-empty-spark s2">✦</span>'
+              '</div>'
+              '<b>Henüz veri yok</b>'
+              '<span>Akıllı Tarama ile gün içindeki büyük hareketleri görün.</span>'
+              '<a class="iz-feature-cta iz-feature-cta-purple" href="?izfin_go=scan" target="_self">AKILLI TARAMAYI BAŞLAT <em>→</em></a>'
+            '</div>'
+        )
     else:
         body = ''.join([f'<div class="iz-mover-row"><div class="iz-mover-name">{html.escape(str(t))}</div><div class="iz-mover-price">{html.escape(str(f))}</div><div class="iz-mover-chg" style="color:{"#28e69d" if d>=0 else "#ff6673"}">{d:+.2f}%</div></div>' for _,d,t,f in rows[:max_n]])
-    return f'<div class="iz-movers"><div class="iz-card-title">BÜYÜK HAREKETLER</div>{body}</div>'
+    if rows:
+        return f'<div class="iz-movers"><div class="iz-card-title">BÜYÜK HAREKETLER</div>{body}</div>'
+    return (
+        '<div class="iz-movers iz-home-feature-card iz-home-feature-purple">'
+          '<div class="iz-feature-head">'
+            '<div class="iz-feature-icon iz-feature-icon-purple">▥</div>'
+            '<div class="iz-feature-head-copy">'
+              '<div class="iz-card-title">BÜYÜK HAREKETLER</div>'
+              '<div class="iz-feature-accent"></div>'
+              '<div class="iz-feature-desc">Akıllı Tarama sonrası listedeki dikkat çekici fiyat hareketleri burada görünecek.</div>'
+            '</div>'
+          '</div>'
+          '<div class="iz-feature-divider"></div>'
+          f'{body}'
+        '</div>'
+    )
 
 
 def _izfin_home_ticker_ac(ticker):
@@ -4034,9 +4083,31 @@ def izfin_sortable_table_js():
     )
 
 
+
+def _izfin_home_scan_cta_isle():
+    """Ana sayfa HTML kartlarındaki CTA linkinden Akıllı Tarama'ya geç."""
+    try:
+        hedef = str(st.query_params.get("izfin_go", "") or "").strip().lower()
+    except Exception:
+        hedef = ""
+
+    if hedef == "scan":
+        st.session_state.izfin_nav = "🔎 Akıllı Tarama"
+        try:
+            st.query_params.pop("izfin_go")
+        except Exception:
+            try:
+                st.query_params.clear()
+            except Exception:
+                pass
+        st.rerun()
+
+
 if not st.session_state.get("user_email") or not st.session_state.get("user_uid"):
     izfin_auth_ekrani()
     st.stop()
+
+_izfin_home_scan_cta_isle()
 
 st.sidebar.markdown(izfin_brand_html(), unsafe_allow_html=True)
 st.markdown(izfin_market_bar_html(izfin_piyasa_bandi_verisi()), unsafe_allow_html=True)
