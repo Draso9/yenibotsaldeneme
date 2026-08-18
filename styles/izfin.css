@@ -4964,3 +4964,118 @@ h3:has(+ [data-testid="stDataFrame"]){
     }
 }
 
+
+/* =========================================================
+   v1.8.5 — TRUE CENTERED LOGO
+   Merkezleme artık px translate ile değil, merkezlenmiş asset ile yapılır.
+   ========================================================= */
+
+/* Main/sidebar ring */
+.iz-brand-symbol{
+    display:grid!important;
+    place-items:center!important;
+    width:82px!important;
+    height:82px!important;
+    flex:0 0 82px!important;
+    border-radius:50%!important;
+    overflow:hidden!important;
+    padding:0!important;
+    margin:0!important;
+    background:#06111d!important;
+    border:3px solid #18e0e8!important;
+    box-shadow:
+        0 0 0 2px rgba(22,137,255,.58),
+        0 0 24px rgba(24,224,232,.22),
+        0 0 42px rgba(22,137,255,.12)!important;
+}
+
+.iz-brand-symbol img{
+    position:static!important;
+    display:block!important;
+    width:68px!important;
+    height:68px!important;
+    max-width:68px!important;
+    max-height:68px!important;
+    margin:0!important;
+    padding:0!important;
+    object-fit:contain!important;
+    object-position:center!important;
+    border-radius:50%!important;
+    transform:none!important;
+    translate:none!important;
+}
+
+/* Login ring — same geometry, larger size */
+.iz-auth-symbol{
+    display:grid!important;
+    place-items:center!important;
+    width:128px!important;
+    height:128px!important;
+    flex:0 0 128px!important;
+    border-radius:50%!important;
+    overflow:hidden!important;
+    padding:0!important;
+    margin:0!important;
+    background:#06111d!important;
+    border:4px solid #18e0e8!important;
+    box-shadow:
+        0 0 0 3px rgba(22,137,255,.62),
+        0 0 34px rgba(24,224,232,.28),
+        0 0 60px rgba(22,137,255,.14)!important;
+}
+
+.iz-auth-symbol::after{
+    display:none!important;
+}
+
+.iz-auth-symbol img{
+    position:static!important;
+    display:block!important;
+    width:104px!important;
+    height:104px!important;
+    max-width:104px!important;
+    max-height:104px!important;
+    margin:0!important;
+    padding:0!important;
+    object-fit:contain!important;
+    object-position:center!important;
+    border-radius:50%!important;
+    transform:none!important;
+    translate:none!important;
+}
+
+/* Brand rows remain untouched except clean vertical alignment */
+.iz-brand,
+.iz-auth-logo{
+    align-items:center!important;
+}
+
+@media(max-width:768px){
+    .iz-brand-symbol{
+        width:72px!important;
+        height:72px!important;
+        flex-basis:72px!important;
+    }
+
+    .iz-brand-symbol img{
+        width:58px!important;
+        height:58px!important;
+        max-width:58px!important;
+        max-height:58px!important;
+    }
+
+    .iz-auth-symbol{
+        width:106px!important;
+        height:106px!important;
+        flex-basis:106px!important;
+        border-width:3px!important;
+    }
+
+    .iz-auth-symbol img{
+        width:86px!important;
+        height:86px!important;
+        max-width:86px!important;
+        max-height:86px!important;
+    }
+}
+
