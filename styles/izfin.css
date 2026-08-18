@@ -4651,3 +4651,79 @@ h3:has(+ [data-testid="stDataFrame"]){
     }
 }
 
+
+/* =========================================================
+   v1.8.1 — HOME SIGNAL DECISION BADGE FIX
+   "Listenin Dikkat Çekenleri" karar hücresinde TEYİT BEKLE
+   metninin badge dışına taşmasını engeller.
+   ========================================================= */
+.iz-signals:not(.iz-home-feature-card) table{
+    table-layout:fixed;
+    width:100%;
+}
+
+.iz-signals:not(.iz-home-feature-card) th:nth-child(1),
+.iz-signals:not(.iz-home-feature-card) td:nth-child(1){ width:14%; }
+
+.iz-signals:not(.iz-home-feature-card) th:nth-child(2),
+.iz-signals:not(.iz-home-feature-card) td:nth-child(2){ width:16%; }
+
+.iz-signals:not(.iz-home-feature-card) th:nth-child(3),
+.iz-signals:not(.iz-home-feature-card) td:nth-child(3){ width:28%; }
+
+.iz-signals:not(.iz-home-feature-card) th:nth-child(4),
+.iz-signals:not(.iz-home-feature-card) td:nth-child(4){ width:12%; }
+
+.iz-signals:not(.iz-home-feature-card) th:nth-child(5),
+.iz-signals:not(.iz-home-feature-card) td:nth-child(5){ width:11%; }
+
+.iz-signals:not(.iz-home-feature-card) th:nth-child(6),
+.iz-signals:not(.iz-home-feature-card) td:nth-child(6){ width:10%; }
+
+.iz-signals:not(.iz-home-feature-card) th:nth-child(7),
+.iz-signals:not(.iz-home-feature-card) td:nth-child(7){ width:13%; }
+
+.iz-signals:not(.iz-home-feature-card) td:nth-child(3){
+    overflow:visible;
+    white-space:nowrap;
+}
+
+.iz-signals:not(.iz-home-feature-card) td:nth-child(3) .iz-signal,
+.iz-signals:not(.iz-home-feature-card) td:nth-child(3) .iz-signal-badge,
+.iz-signals:not(.iz-home-feature-card) td:nth-child(3) .iz-decision-badge,
+.iz-signals:not(.iz-home-feature-card) td:nth-child(3) span{
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    width:auto;
+    max-width:100%;
+    min-width:max-content;
+    box-sizing:border-box;
+    white-space:nowrap;
+    overflow:visible;
+    text-overflow:clip;
+    padding-left:12px;
+    padding-right:12px;
+}
+
+/* Desktopta kartın kendi alanını daha dengeli kullan. */
+@media (min-width:769px){
+    .iz-signals:not(.iz-home-feature-card) th,
+    .iz-signals:not(.iz-home-feature-card) td{
+        padding-left:12px;
+        padding-right:12px;
+    }
+}
+
+/* Mobilde mevcut yatay kaydırma davranışını koru; badge küçülmesin. */
+@media (max-width:768px){
+    .iz-signals:not(.iz-home-feature-card) table{
+        table-layout:auto;
+        min-width:820px!important;
+    }
+    .iz-signals:not(.iz-home-feature-card) th:nth-child(3),
+    .iz-signals:not(.iz-home-feature-card) td:nth-child(3){
+        min-width:150px;
+    }
+}
+
