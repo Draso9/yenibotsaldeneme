@@ -47,12 +47,23 @@ jobs:
       - name: Install test dependencies
         run: pip install -r requirements-test.txt
 
+      - name: Verify regression test files
+        shell: bash
+        run: |
+          test -f tests/conftest.py
+          test -f tests/test_bist_and_symbols.py
+          test -f tests/test_decision_engine.py
+          test -f tests/test_static_integrity.py
+          test -f tests/test_ci_security.py
+          echo "IZFIN regression test files: OK"
+
       - name: Run IZFIN regression suite
         run: |
           python -m pytest \
             tests/test_bist_and_symbols.py \
             tests/test_decision_engine.py \
             tests/test_static_integrity.py \
+            tests/test_ci_security.py \
             -q
 
   streamlit-smoke:
@@ -97,6 +108,20 @@ jobs:
           import extra_streamlit_components
           print("IZFIN runtime imports: OK")
           PY
+
+      - name: Create CI-only Streamlit secrets file
+        shell: bash
+        run: |
+          mkdir -p .streamlit
+          cat > .streamlit/secrets.toml <<'EOF'
+          # CI smoke-test fixture only.
+          # Real production secrets are intentionally NOT stored in GitHub.
+          FINNHUB_API_KEY = ""
+          GOOGLE_OAUTH_CLIENT_ID = ""
+          GOOGLE_OAUTH_CLIENT_SECRET = ""
+          GOOGLE_OAUTH_REDIRECT_URI = ""
+          EOF
+          echo "CI Streamlit secrets fixture created."
 
       - name: Run Streamlit AppTest smoke tests
         env:
