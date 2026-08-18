@@ -1,0 +1,29 @@
+{
+  "pre_qa_baseline": {
+    "css_lines": 4865,
+    "important_count": 1193,
+    "media_query_count": 49,
+    "hex_color_count": 646,
+    "sub_10px_font_declarations": 163,
+    "inline_style_attributes_in_app": 16,
+    "unsafe_allow_html_count": 63
+  },
+  "qa_center_baseline": {
+    "css_lines": 4933,
+    "important_count": 1193,
+    "media_query_count": 51,
+    "hex_color_count": 647,
+    "sub_10px_font_declarations": 163,
+    "inline_style_attributes_in_app": 17,
+    "unsafe_allow_html_count": 67
+  },
+  "budgets": {
+    "css_lines_max": 5013,
+    "important_count_max": 1203,
+    "media_query_count_max": 52,
+    "hex_color_count_max": 657,
+    "sub_10px_font_declarations_max": 163,
+    "inline_style_attributes_in_app_max": 17,
+    "unsafe_allow_html_count_max": 67
+  }
+}
