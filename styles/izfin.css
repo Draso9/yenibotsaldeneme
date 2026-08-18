@@ -2719,7 +2719,7 @@ button[kind="primary"],
 /* =========================================================
    v1.7.55 — BLOCKING SMART SCAN OVERLAY
    ========================================================= */
-.iz-scan-lock-overlay{position:fixed;inset:0;z-index:2147483000;display:flex;align-items:center;justify-content:center;padding:24px;background:rgba(2,8,14,.82);backdrop-filter:blur(9px);-webkit-backdrop-filter:blur(9px);pointer-events:all;cursor:wait}
+.iz-scan-lock-overlay{position:fixed;inset:0;z-index:var(--iz-z-overlay);display:flex;align-items:center;justify-content:center;padding:24px;background:rgba(2,8,14,.82);backdrop-filter:blur(9px);-webkit-backdrop-filter:blur(9px);pointer-events:all;cursor:wait}
 .iz-scan-lock-card{width:min(520px,calc(100vw - 36px));box-sizing:border-box;padding:25px 27px 21px;border:1px solid #1d5c72;border-radius:12px;background:radial-gradient(circle at 85% 5%,rgba(29,166,180,.13),transparent 34%),linear-gradient(145deg,#061521,#092534);box-shadow:0 30px 80px rgba(0,0,0,.46),inset 0 1px 0 rgba(255,255,255,.035);color:#eaf7fb}
 .iz-scan-lock-brand{display:flex;align-items:center;gap:8px;margin-bottom:13px}
 .iz-scan-lock-brand small{color:#45d1dc;font-size:8px;font-weight:850;letter-spacing:1.25px}
@@ -4577,5 +4577,240 @@ h3:has(+ [data-testid="stDataFrame"]){
 .izw-shell,
 .iz-table-wrap{
     --iz-component-min-font:10px;
+}
+
+
+/* =========================================================
+   v1.7.76 — RESPONSIVE NORMALIZATION PHASE 1
+   Historical media blocks are retained for safety.
+   This final layer centralizes authoritative mobile behavior.
+   ========================================================= */
+@media (max-width:768px){
+
+    /* Main app spacing */
+    .stAppViewContainer .main .block-container{
+        padding-left:10px!important;
+        padding-right:10px!important;
+        padding-top:8px!important;
+    }
+
+    /* Premium home empty-state cards */
+    .iz-home-feature-card{
+        height:auto!important;
+        min-height:360px!important;
+        padding:17px 16px 16px!important;
+    }
+    .iz-feature-head{
+        gap:12px;
+    }
+    .iz-feature-icon{
+        width:42px;
+        height:42px;
+        min-width:42px;
+        font-size:21px;
+    }
+    .iz-feature-desc{
+        font-size:var(--iz-font-xs);
+    }
+    .iz-feature-empty{
+        min-height:220px;
+    }
+
+    /* Populated home signal/mover panels */
+    .iz-signals:not(.iz-home-feature-card),
+    .iz-movers:not(.iz-home-feature-card),
+    div[data-testid="stMarkdownContainer"]:has(.iz-signals:not(.iz-home-feature-card)),
+    div[data-testid="stMarkdownContainer"]:has(.iz-movers:not(.iz-home-feature-card)),
+    div[data-testid="stMarkdown"]:has(.iz-signals:not(.iz-home-feature-card)),
+    div[data-testid="stMarkdown"]:has(.iz-movers:not(.iz-home-feature-card)),
+    div[data-testid="stElementContainer"]:has(.iz-signals:not(.iz-home-feature-card)),
+    div[data-testid="stElementContainer"]:has(.iz-movers:not(.iz-home-feature-card)){
+        height:auto!important;
+        min-height:0!important;
+        max-height:none!important;
+        overflow:visible!important;
+    }
+
+    .iz-signals:not(.iz-home-feature-card){
+        overflow-x:auto!important;
+    }
+    .iz-signals:not(.iz-home-feature-card) table{
+        min-width:760px!important;
+    }
+
+    /* Result filters */
+    [data-testid="stRadio"] [role="radiogroup"]{
+        display:grid!important;
+        grid-template-columns:1fr 1fr!important;
+        width:100%!important;
+    }
+    [data-testid="stRadio"] [role="radiogroup"] label{
+        width:100%!important;
+        box-sizing:border-box!important;
+        font-size:var(--iz-font-xs)!important;
+    }
+
+    /* Wide scan table -> mobile card layout */
+    .iz-focus-title{
+        min-height:auto!important;
+        padding:2px 0!important;
+    }
+    .iz-focus-title h2{
+        font-size:18px!important;
+        line-height:1.18!important;
+        margin-bottom:4px!important;
+    }
+    .iz-focus-meta{
+        flex-wrap:wrap!important;
+        gap:5px!important;
+        margin:5px 0 9px!important;
+    }
+
+    .izw-shell{
+        border:0!important;
+        background:transparent!important;
+        box-shadow:none!important;
+        overflow:visible!important;
+    }
+    .izw-table,
+    .izw-table tbody{
+        display:block!important;
+        width:100%!important;
+    }
+    .izw-table thead{
+        display:none!important;
+    }
+    .izw-table tbody tr{
+        display:grid!important;
+        grid-template-columns:1fr 1fr!important;
+        gap:8px!important;
+        width:100%!important;
+        height:auto!important;
+        min-height:0!important;
+        margin:0 0 11px!important;
+        padding:11px!important;
+        border:1px solid var(--iz-line-strong)!important;
+        border-radius:var(--iz-radius-md)!important;
+        background:linear-gradient(145deg,#071724,#081d2a)!important;
+    }
+    .izw-table tbody td{
+        display:block!important;
+        width:auto!important;
+        min-width:0!important;
+        max-width:none!important;
+        height:auto!important;
+        padding:8px!important;
+        border:1px solid #143c50!important;
+        border-radius:7px!important;
+        background:#071522!important;
+        overflow:visible!important;
+        white-space:normal!important;
+    }
+
+    .izw-asset{grid-column:1 / 2!important;}
+    .izw-decision{grid-column:2 / 3!important;}
+    .izw-quality,
+    .izw-riskflow{grid-column:1 / -1!important;}
+    .izw-value{grid-column:1 / 2!important;}
+    .izw-session{grid-column:2 / 3!important;}
+
+    /* Detailed technical panel */
+    .hp-wrap{
+        width:100%!important;
+        max-width:100%!important;
+        box-sizing:border-box!important;
+        margin-top:10px!important;
+        padding:12px!important;
+        overflow:hidden!important;
+    }
+    .hp-head{
+        display:flex!important;
+        flex-direction:column!important;
+        align-items:flex-start!important;
+        gap:8px!important;
+    }
+    .hp-grid{
+        display:grid!important;
+        grid-template-columns:repeat(2,minmax(0,1fr))!important;
+        gap:7px!important;
+        width:100%!important;
+    }
+    .hp-sections{
+        display:grid!important;
+        grid-template-columns:1fr!important;
+        gap:8px!important;
+        width:100%!important;
+    }
+
+    /* Premium market center */
+    .iz-market-hero{
+        padding:15px 14px!important;
+    }
+    .iz-market-hero h1{
+        font-size:22px!important;
+    }
+    .iz-market-hero-mark{
+        display:none!important;
+    }
+    .iz-decision-center-premium{
+        padding:13px!important;
+    }
+    .iz-decision-center-premium .iz-decision-kpis{
+        grid-template-columns:1fr 1fr!important;
+    }
+
+    /* Featured stock */
+    .iz-featured-stock-v2{
+        grid-template-columns:1fr!important;
+        gap:18px!important;
+        min-height:0!important;
+        padding:19px 17px!important;
+    }
+    .iz-featured-ticker{
+        font-size:42px;
+    }
+    .iz-featured-metrics{
+        grid-template-columns:1fr 1fr;
+    }
+
+    /* Blocking scan overlay */
+    .iz-scan-lock-overlay{
+        padding:14px;
+    }
+    .iz-scan-lock-card{
+        width:100%;
+        padding:20px 18px 17px;
+        border-radius:var(--iz-radius-md);
+    }
+    .iz-scan-lock-meta{
+        align-items:flex-start;
+        flex-direction:column;
+        gap:3px;
+    }
+}
+
+/* Very narrow phones: only rules that truly need a second breakpoint */
+@media (max-width:430px){
+    .izw-table tbody tr{
+        grid-template-columns:1fr!important;
+        gap:6px!important;
+        padding:9px!important;
+    }
+    .izw-asset,
+    .izw-decision,
+    .izw-quality,
+    .izw-riskflow,
+    .izw-value,
+    .izw-session{
+        grid-column:1 / -1!important;
+    }
+
+    .hp-grid{
+        grid-template-columns:1fr!important;
+    }
+
+    .iz-featured-ticker{
+        font-size:36px;
+    }
 }
 
