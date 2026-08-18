@@ -332,7 +332,7 @@ STRATEJI_SURUMU = "IZFIN-v1.7.5-auth-switch-fixed"
 PERFORMANS_UFUKLARI = (1, 5, 10, 20, 45)
 
 # --- IZFIN UYGULAMA SÜRÜMÜ / LOG ---
-IZFIN_APP_SURUMU = "v1.7.73 Design Tokens Phase 1"
+IZFIN_APP_SURUMU = "v1.7.74 Type Scale Cleanup"
 logger = logging.getLogger("IZFIN")
 if not logger.handlers:
     logging.basicConfig(level=logging.INFO)
