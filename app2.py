@@ -372,7 +372,7 @@ STRATEJI_SURUMU = "IZFIN-v1.7.5-auth-switch-fixed"
 PERFORMANS_UFUKLARI = (1, 5, 10, 20, 45)
 
 # --- IZFIN UYGULAMA SÜRÜMÜ ---
-IZFIN_APP_SURUMU = "v1.8.8 Logo Circle-Fit Center"
+IZFIN_APP_SURUMU = "v1.8.9 Sentry Cleanup"
 
 # Finnhub isteklerini süreç içinde ortak hız sınırına tabi tut.
 # Plan bazlı dakika limitleri değişebildiği için 429 yanıtlarında ayrıca backoff uygulanır.
@@ -426,29 +426,37 @@ def _normalize_yf_columns(df):
 def _finnhub_symbol(ticker):
     # Finnhub ücretsiz planda ABD hisseleri güvenilir biçimde desteklenir.
     # BIST sembollerinde kapsama sınırlı olabildiği için Yahoo fallback kullanılır.
+    ticker = str(ticker or "").strip()
     return ticker.replace(".IS", "") if ticker.endswith(".IS") else ticker
 
 @st.cache_data(ttl=21600, show_spinner=False)
 def peg_degeri_cek(ticker):
-    """Yahoo Finance temel verisinden standart/trailing PEG değerini okur.
+    """PEG yalnızca yardımcı temel değerleme etiketidir; ana skoru etkilemez."""
+    ticker = str(ticker or "").strip().upper()
+    if not ticker:
+        return None
 
-    PEG teknik skora dahil edilmez; yalnızca temel değerleme etiketi olarak kullanılır.
-    Geçersiz, negatif veya ulaşılamayan değerlerde None döner.
-    """
     try:
         info = yf.Ticker(ticker).get_info() or {}
-        # Yahoo/yfinance sürümüne göre anahtar adı değişebildiği için iki yaygın
-        # trailing/standart PEG alanını kontrollü biçimde deniyoruz.
+    except Exception as e:
+        # Yahoo quoteSummary 404/no-data, PEG gibi opsiyonel veri için
+        # uygulama/Sentry issue seviyesine yükseltilmez.
+        logger.info("PEG provider verisi alınamadı [%s]: %s", ticker, e)
+        return None
+
+    try:
         raw = info.get("trailingPegRatio")
         if raw is None:
             raw = info.get("pegRatio")
         if raw is None:
             return None
+
         peg = float(raw)
         if not np.isfinite(peg) or peg <= 0:
             return None
         return peg
-    except Exception:
+    except Exception as e:
+        logger.info("PEG parse edilemedi [%s]: %s", ticker, e)
         return None
 
 
@@ -2125,7 +2133,7 @@ def sinyal_kayitlarini_firestore_yaz(sonuclar, teknik_paneller):
 
     simdi = datetime.now()
     email = st.session_state.user_email
-    email_anahtari = email.replace("@", "_").replace(".", "_")
+    email_anahtari = str(email or "").replace("@", "_").replace(".", "_")
 
     # Eski sürümlerden kalan, aktif_sinyaller belgesiyle bağlantısı kopmuş açık
     # kayıtları bir kez okuyup ticker -> en eski açık pozisyon haritası oluştur.
@@ -2159,7 +2167,7 @@ def sinyal_kayitlarini_firestore_yaz(sonuclar, teknik_paneller):
         panel = teknik_paneller.get(ticker, {})
         sinyal = sonuc.get("Nihai Sinyal", "Nötr")
         yon = sinyal_yonu_belirle(sinyal)
-        aktif_doc_id = f"{email_anahtari}_{ticker.replace('.', '_')}"
+        aktif_doc_id = f"{email_anahtari}_{str(ticker or '').replace('.', '_')}"
         aktif_ref = db.collection("aktif_sinyaller").document(aktif_doc_id)
 
         try:
@@ -2347,7 +2355,7 @@ def gecmis_mukerrer_kayitlari_temizle():
             except Exception: g=0.0
             key=("KAPALI",ticker,t.floor("min").isoformat() if not pd.isna(t) else str(v.get("olusturma_zamani","")),k.floor("min").isoformat() if not pd.isna(k) else str(v.get("kapanis_zamani","")),g)
         gruplar.setdefault(key,[]).append((doc_id,v))
-    silinen=yedeklenen=grup_sayisi=0; email_key=email.replace("@","_").replace(".","_")
+    silinen=yedeklenen=grup_sayisi=0; email_key=str(email or "").replace("@","_").replace(".","_")
     for key,grup in gruplar.items():
         if len(grup)<=1: continue
         grup_sayisi+=1; ticker=key[1]; keep_id=None
@@ -2365,7 +2373,7 @@ def gecmis_mukerrer_kayitlari_temizle():
             except Exception as e: izfin_hata_logla("gecmis_kayit_temizlik_silme",e,ticker)
         if key[0]=="ACIK":
             try:
-                aktif_id=f"{email_key}_{ticker.replace('.', '_')}"; db.collection("aktif_sinyaller").document(aktif_id).set({"arsiv_doc_id":keep_id,"durum":"ACIK"},merge=True)
+                aktif_id=f"{email_key}_{str(ticker or '').replace('.', '_')}"; db.collection("aktif_sinyaller").document(aktif_id).set({"arsiv_doc_id":keep_id,"durum":"ACIK"},merge=True)
             except Exception as e: izfin_hata_logla("gecmis_kayit_temizlik_aktif_bag",e,ticker)
     return {"silinen":silinen,"yedeklenen":yedeklenen,"grup":grup_sayisi}
 
@@ -2583,7 +2591,8 @@ def performans_fiyatlarini_guncelle(kayitlar):
                     if not intraday.empty:
                         fiyat = float(intraday["Close"].dropna().iloc[-1])
                 fiyat_cache[ticker] = fiyat
-            except Exception:
+            except Exception as e:
+                izfin_hata_logla("performans_fiyati_guncelle", e, ticker=ticker)
                 fiyat_cache[ticker] = 0.0
         son_fiyat = fiyat_cache[ticker]
         giris = float(kayit.get("giris_fiyati", 0) or 0)
@@ -3112,7 +3121,8 @@ def hisse_onerileri_getir(arama):
         )
 
     # Tam sembol olabilecek girişte kullanıcı manuel eklemeye mecbur kalmasın.
-    if q.replace(".", "").replace("-", "").isalnum() and len(q) <= 15:
+    q_safe = str(q or "")
+    if q_safe.replace(".", "").replace("-", "").isalnum() and len(q_safe) <= 15:
         if not any(x["symbol"] == q_up for x in sonuc):
             _ekle(q_up, "Sembol olarak ekle", "", "SYMBOL")
 
@@ -3232,7 +3242,7 @@ def izfin_piyasa_bandi_verisi():
     ticker_list = list(semboller.values())
     try:
         intra_all = yf.download(
-            ticker_list, period="1d", interval="1m", group_by="ticker",
+            ticker_list, period="5d", interval="1m", group_by="ticker",
             progress=False, threads=True, prepost=True, auto_adjust=True, timeout=8
         )
     except Exception as e:
@@ -3246,6 +3256,36 @@ def izfin_piyasa_bandi_verisi():
     except Exception as e:
         izfin_hata_logla("signature_piyasa_bandi_daily", e)
         daily_all = pd.DataFrame()
+
+    def _piyasa_bandi_tekil_fallback(sembol):
+        """Toplu Yahoo cevabında sembol boşsa son geçerli 5dk veriyi dener."""
+        try:
+            tekil = yf.download(
+                str(sembol),
+                period="5d",
+                interval="5m",
+                progress=False,
+                prepost=True,
+                auto_adjust=True,
+                threads=False,
+                timeout=6,
+            )
+            tekil = _normalize_yf_columns(tekil)
+            if tekil is None or tekil.empty or "Close" not in tekil.columns:
+                return None, None
+            close = pd.to_numeric(tekil["Close"], errors="coerce").dropna()
+            if close.empty:
+                return None, None
+            ts = pd.Timestamp(close.index[-1])
+            if ts.tzinfo is None:
+                ts = ts.tz_localize("UTC")
+            else:
+                ts = ts.tz_convert("UTC")
+            return float(close.iloc[-1]), ts
+        except Exception as e:
+            # Provider no-data ise uygulama fallback ile devam eder.
+            logger.info("Piyasa bandı tekil fallback başarısız [%s]: %s", sembol, e)
+            return None, None
 
     cikti = []
     tazelik_saniye = []
@@ -3267,6 +3307,15 @@ def izfin_piyasa_bandi_verisi():
                         son_zaman = son_zaman.tz_convert("UTC")
                     tazelik_saniye.append(max(0.0, (simdi_utc-son_zaman).total_seconds()))
                     kaynak = "Yahoo 1 dk"
+
+            if son is None:
+                fb_fiyat, fb_ts = _piyasa_bandi_tekil_fallback(sembol)
+                if fb_fiyat is not None:
+                    son = fb_fiyat
+                    son_zaman = fb_ts
+                    kaynak = "Yahoo 5 dk fallback"
+                    if son_zaman is not None:
+                        tazelik_saniye.append(max(0.0, (simdi_utc-son_zaman).total_seconds()))
             daily = toplu_veriden_ticker_ayir(daily_all, sembol, len(ticker_list))
             if not daily.empty and "Close" in daily.columns:
                 dc = pd.to_numeric(daily["Close"], errors="coerce").dropna()
