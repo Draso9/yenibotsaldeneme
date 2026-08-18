@@ -4729,21 +4729,26 @@ h3:has(+ [data-testid="stDataFrame"]){
 
 
 /* =========================================================
-   v1.8.2 — LOGO ALIGNMENT / PREMIUM ROUND TREATMENT
-   Ana sayfa + giriş ekranı aynı logo dili.
+   v1.8.3 — STRUCTURAL LOGO FIX
+   Sadece sembol daireselleştirilir; marka satırı bozulmaz.
    ========================================================= */
 
-/* Ana sayfa / sidebar logo */
-.iz-logo,
-.iz-logo-wrap,
-.iz-brand-logo,
-.iz-sidebar-logo,
-.logo-icon{
+/* MAIN / SIDEBAR */
+.iz-brand{
+    display:flex;
+    align-items:center;
+    justify-content:flex-start;
+    gap:15px;
+    padding:13px 4px 20px;
+    overflow:visible;
+}
+
+.iz-brand-symbol{
     position:relative;
     display:flex;
     align-items:center;
     justify-content:center;
-    flex:0 0 auto;
+    flex:0 0 76px;
     width:76px;
     height:76px;
     padding:0;
@@ -4751,201 +4756,159 @@ h3:has(+ [data-testid="stDataFrame"]){
     border-radius:50%;
     overflow:hidden;
     box-sizing:border-box;
-    background:
-        radial-gradient(circle at 32% 28%, rgba(24,224,232,.10), rgba(5,11,20,.92) 72%);
-    border:1px solid rgba(24,224,232,.38);
+    background:#06111d;
+    border:1px solid rgba(24,224,232,.44);
     box-shadow:
-        0 0 0 1px rgba(22,137,255,.08),
-        0 0 24px rgba(24,224,232,.12);
+        0 0 0 1px rgba(22,137,255,.09),
+        0 0 24px rgba(24,224,232,.14);
 }
 
-.iz-logo img,
-.iz-logo-wrap img,
-.iz-brand-logo img,
-.iz-sidebar-logo img,
-.logo-icon img{
+.iz-brand-symbol img{
     display:block;
-    width:52px;
-    height:52px;
-    max-width:52px;
-    max-height:52px;
-    object-fit:contain;
-    object-position:center;
-    margin:0 auto;
+    width:100%!important;
+    height:100%!important;
+    max-width:none!important;
+    max-height:none!important;
+    margin:0!important;
+    padding:0!important;
+    border:0!important;
+    border-radius:50%!important;
+    object-fit:cover!important;
+    object-position:50% 50%!important;
+    background:transparent!important;
+    box-shadow:none!important;
+    transform:none!important;
+}
+
+.iz-brand-copy{
+    display:flex;
+    flex-direction:column;
+    justify-content:center;
+    min-width:0;
+}
+
+.iz-brand-name{
+    line-height:1;
+}
+
+/* LOGIN */
+.iz-auth-logo{
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    gap:18px;
+    width:auto;
+    height:auto;
+    margin:0 auto 15px;
     padding:0;
+    overflow:visible;
     border:0;
     border-radius:0;
     background:transparent;
     box-shadow:none;
 }
 
-.iz-brand,
-.iz-brand-row,
-.iz-sidebar-brand,
-.iz-logo-row{
-    display:flex;
-    align-items:center;
-    justify-content:flex-start;
-    gap:16px;
-}
-
-/* Sidebar için biraz daha kompakt */
-[data-testid="stSidebar"] .iz-logo,
-[data-testid="stSidebar"] .iz-logo-wrap,
-[data-testid="stSidebar"] .iz-brand-logo,
-[data-testid="stSidebar"] .iz-sidebar-logo,
-[data-testid="stSidebar"] .logo-icon{
-    width:72px;
-    height:72px;
-}
-
-[data-testid="stSidebar"] .iz-logo img,
-[data-testid="stSidebar"] .iz-logo-wrap img,
-[data-testid="stSidebar"] .iz-brand-logo img,
-[data-testid="stSidebar"] .iz-sidebar-logo img,
-[data-testid="stSidebar"] .logo-icon img{
-    width:48px;
-    height:48px;
-    max-width:48px;
-    max-height:48px;
-}
-
-/* Giriş ekranı */
-.iz-auth-logo,
-.iz-login-logo,
-.auth-logo,
-.login-logo{
+.iz-auth-symbol{
     position:relative;
     display:flex;
     align-items:center;
     justify-content:center;
-    width:128px;
-    height:128px;
-    margin:0 auto 20px;
+    flex:0 0 112px;
+    width:112px;
+    height:112px;
     padding:0;
+    margin:0;
     border-radius:50%;
     overflow:hidden;
     box-sizing:border-box;
-    background:
-        radial-gradient(circle at 32% 28%, rgba(24,224,232,.12), rgba(5,11,20,.94) 72%);
-    border:1px solid rgba(24,224,232,.52);
+    background:#06111d;
+    border:1px solid rgba(24,224,232,.56);
     box-shadow:
         0 0 0 1px rgba(22,137,255,.10),
-        0 0 30px rgba(24,224,232,.18),
-        0 0 56px rgba(22,137,255,.08);
+        0 0 28px rgba(24,224,232,.19),
+        0 0 52px rgba(22,137,255,.08);
 }
 
-.iz-auth-logo::before,
-.iz-login-logo::before,
-.auth-logo::before,
-.login-logo::before{
+.iz-auth-symbol::after{
     content:"";
     position:absolute;
-    inset:-1px;
+    inset:5px;
     border-radius:50%;
-    border:1px solid rgba(24,224,232,.28);
+    border:1px solid rgba(24,224,232,.13);
     pointer-events:none;
 }
 
-.iz-auth-logo img,
-.iz-login-logo img,
-.auth-logo img,
-.login-logo img{
+.iz-auth-symbol img{
     display:block;
-    width:82px;
-    height:82px;
-    max-width:82px;
-    max-height:82px;
-    object-fit:contain;
-    object-position:center;
-    margin:0 auto;
-    padding:0;
-    border:0;
-    border-radius:0;
-    background:transparent;
-    box-shadow:none;
+    width:100%!important;
+    height:100%!important;
+    max-width:none!important;
+    max-height:none!important;
+    margin:0!important;
+    padding:0!important;
+    border:0!important;
+    border-radius:50%!important;
+    object-fit:cover!important;
+    object-position:50% 50%!important;
+    background:transparent!important;
+    box-shadow:none!important;
 }
 
-/* st.image wrapper fallback */
-.iz-auth-logo [data-testid="stImage"],
-.iz-login-logo [data-testid="stImage"],
-.auth-logo [data-testid="stImage"],
-.login-logo [data-testid="stImage"]{
+.iz-auth-copy{
     display:flex;
-    align-items:center;
+    flex-direction:column;
+    align-items:flex-start;
     justify-content:center;
-    width:100%;
-    height:100%;
+    min-width:0;
+    text-align:left;
+}
+
+.iz-auth-logo .word{
     margin:0;
-    padding:0;
+    line-height:1;
 }
 
-.iz-auth-logo [data-testid="stImage"] img,
-.iz-login-logo [data-testid="stImage"] img,
-.auth-logo [data-testid="stImage"] img,
-.login-logo [data-testid="stImage"] img{
-    width:82px;
-    height:82px;
-    object-fit:contain;
-}
-
-/* Kare görsel kenarlarını taşıyıcı içinde maskele */
-.iz-logo picture,
-.iz-logo-wrap picture,
-.iz-brand-logo picture,
-.iz-sidebar-logo picture,
-.logo-icon picture,
-.iz-auth-logo picture,
-.iz-login-logo picture,
-.auth-logo picture,
-.login-logo picture{
-    display:flex;
-    align-items:center;
-    justify-content:center;
-    width:100%;
-    height:100%;
-    border-radius:50%;
-    overflow:hidden;
+.iz-auth-logo .tag{
+    text-align:left;
 }
 
 @media(max-width:768px){
-    .iz-logo,
-    .iz-logo-wrap,
-    .iz-brand-logo,
-    .iz-sidebar-logo,
-    .logo-icon{
-        width:64px;
-        height:64px;
+    .iz-brand{
+        gap:12px;
+        padding:11px 3px 17px;
     }
 
-    .iz-logo img,
-    .iz-logo-wrap img,
-    .iz-brand-logo img,
-    .iz-sidebar-logo img,
-    .logo-icon img{
-        width:44px;
-        height:44px;
-        max-width:44px;
-        max-height:44px;
+    .iz-brand-symbol{
+        flex-basis:66px;
+        width:66px;
+        height:66px;
     }
 
-    .iz-auth-logo,
-    .iz-login-logo,
-    .auth-logo,
-    .login-logo{
-        width:112px;
-        height:112px;
-        margin-bottom:16px;
+    .iz-auth-logo{
+        gap:13px;
+        margin-bottom:13px;
     }
 
-    .iz-auth-logo img,
-    .iz-login-logo img,
-    .auth-logo img,
-    .login-logo img{
-        width:72px;
-        height:72px;
-        max-width:72px;
-        max-height:72px;
+    .iz-auth-symbol{
+        flex-basis:88px;
+        width:88px;
+        height:88px;
+    }
+}
+
+@media(max-width:430px){
+    .iz-auth-logo{
+        flex-direction:column;
+        gap:11px;
+    }
+
+    .iz-auth-copy{
+        align-items:center;
+        text-align:center;
+    }
+
+    .iz-auth-logo .tag{
+        text-align:center;
     }
 }
 
