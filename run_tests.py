@@ -16,6 +16,9 @@ def main():
         "tests/test_bist_and_symbols.py",
         "tests/test_decision_engine.py",
         "tests/test_static_integrity.py",
+        "tests/test_ci_security.py",
+        "tests/test_quality_gate.py",
+        "tests/test_admin_qa.py",
         "-q",
     ]
     rc = run(pure)
