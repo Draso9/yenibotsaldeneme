@@ -55,6 +55,7 @@ jobs:
           test -f tests/test_decision_engine.py
           test -f tests/test_static_integrity.py
           test -f tests/test_ci_security.py
+          test -f tests/test_quality_gate.py
           echo "IZFIN regression test files: OK"
 
       - name: Run IZFIN regression suite
