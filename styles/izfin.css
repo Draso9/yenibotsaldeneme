@@ -171,14 +171,16 @@ hr {border-color:#122a3e!important;}
 .iz-home-scan-banner .copy strong{font-size:15px;color:#f4fbff}.iz-home-scan-banner .copy span{display:block;color:#8eadc1;font-size:11px;margin-top:3px}
 .iz-table-wrap {width:100%;overflow-x:auto;border:1px solid var(--iz-line-strong);border-radius:15px;background:var(--iz-surface-deep);margin:10px 0 16px;}
 .iz-table {width:100%;border-collapse:separate;border-spacing:0;min-width:1180px;font-size:11px;color:var(--iz-text-soft);}
-.iz-table thead th {position:sticky;top:0;background:var(--iz-surface-head);color:#7092a8;text-align:left;font-size:9px;letter-spacing:.65px;padding:11px 12px;border-bottom:1px solid #1a3c55;white-space:nowrap;z-index:1;}
-.iz-table tbody td {padding:11px 12px;border-bottom:1px solid rgba(23,53,75,.58);vertical-align:middle;white-space:nowrap;background:var(--iz-surface-deep);}
+.iz-table thead th,.iz-table tbody td {padding:11px 12px;white-space:nowrap;}
+.iz-table thead th {position:sticky;top:0;background:var(--iz-surface-head);color:#7092a8;text-align:left;font-size:9px;letter-spacing:.65px;border-bottom:1px solid #1a3c55;z-index:1;}
+.iz-table tbody td {border-bottom:1px solid rgba(23,53,75,.58);vertical-align:middle;background:var(--iz-surface-deep);}
 .iz-table tbody tr:hover td {background:#0a1b2a;}
 .iz-table tbody tr:last-child td {border-bottom:0;}
 .iz-table .ticker {font-weight:800;color:#f2f9ff}.iz-table .score{font-weight:800;color:#26e2a2}.iz-table .muted{color:#8ca4b6}.iz-table .risk-high{color:#ff7f8b;font-weight:700}.iz-table .risk-mid{color:#ffd06a;font-weight:700}.iz-table .risk-low{color:#55e9b0;font-weight:700}
 .iz-auth-bg {position:fixed;inset:0;pointer-events:none;z-index:0;background:radial-gradient(circle at 50% 22%,rgba(13,191,218,.12),transparent 28%),radial-gradient(circle at 15% 85%,rgba(16,111,238,.10),transparent 27%),radial-gradient(circle at 88% 72%,rgba(18,225,217,.06),transparent 23%),linear-gradient(180deg,#030a12 0%,#05101b 55%,#030911 100%);}
-.iz-auth-bg:before {content:"";position:absolute;inset:0;opacity:.22;background-image:linear-gradient(rgba(31,119,163,.08) 1px,transparent 1px),linear-gradient(90deg,rgba(31,119,163,.08) 1px,transparent 1px);background-size:46px 46px;mask-image:linear-gradient(to bottom,transparent 0%,black 45%,black 100%);}
-.iz-auth-bg:after {content:"";position:absolute;left:8%;right:8%;bottom:4%;height:210px;opacity:.7;background:radial-gradient(ellipse at 50% 100%,rgba(11,174,218,.16),transparent 55%);border-top:1px solid rgba(23,128,173,.09);transform:perspective(480px) rotateX(68deg);}
+.iz-auth-bg:before,.iz-auth-bg:after {content:"";position:absolute;}
+.iz-auth-bg:before {inset:0;opacity:.22;background-image:linear-gradient(rgba(31,119,163,.08) 1px,transparent 1px),linear-gradient(90deg,rgba(31,119,163,.08) 1px,transparent 1px);background-size:46px 46px;mask-image:linear-gradient(to bottom,transparent 0%,black 45%,black 100%);}
+.iz-auth-bg:after {left:8%;right:8%;bottom:4%;height:210px;opacity:.7;background:radial-gradient(ellipse at 50% 100%,rgba(11,174,218,.16),transparent 55%);border-top:1px solid rgba(23,128,173,.09);transform:perspective(480px) rotateX(68deg);}
 .iz-auth-shell {position:relative;z-index:1;max-width:590px;margin:3.2vh auto 0;text-align:center;}
 .iz-auth-logo {display:flex;align-items:center;justify-content:center;gap:15px;margin-bottom:14px;}
 .iz-auth-logo img {width:72px;height:72px;object-fit:contain;border-radius:19px;background:#06131f;border:1px solid rgba(29,225,231,.30);padding:3px;box-shadow:0 0 38px rgba(13,202,225,.13);}
@@ -1058,13 +1060,16 @@ button[kind="primary"],
     font-size:11px;
     color:#d8e8f0;
 }
+.iz-closed-table thead th,
+.iz-closed-table tbody td{
+    padding:10px 11px;
+    white-space:nowrap;
+}
 .iz-closed-table thead th{
     position:sticky;
     top:0;
     z-index:3;
-    padding:10px 11px;
     text-align:left;
-    white-space:nowrap;
     color:#74a7bd;
     background:#081a28;
     border-bottom:1px solid #1d4d64;
@@ -1074,10 +1079,8 @@ button[kind="primary"],
     font-weight:850;
 }
 .iz-closed-table tbody td{
-    padding:10px 11px;
     border-bottom:1px solid rgba(30,70,91,.52);
     background:#071522;
-    white-space:nowrap;
     vertical-align:middle;
 }
 .iz-closed-table tbody tr:nth-child(even) td{
@@ -1772,19 +1775,18 @@ button[kind="primary"],
     margin-bottom:2px;
 }
 .iz-wide-quality b,
+.iz-wide-riskflow b,
+.iz-wide-entry b{
+    white-space:nowrap;
+    overflow:hidden;
+    text-overflow:ellipsis;
+}
+.iz-wide-quality b,
 .iz-wide-riskflow b{
     display:block;
     color:#e7f6fb;
     font-size:9.5px;
     font-weight:760;
-    white-space:nowrap;
-    overflow:hidden;
-    text-overflow:ellipsis;
-}
-.iz-wide-entry b{
-    white-space:nowrap;
-    overflow:hidden;
-    text-overflow:ellipsis;
 }
 
 .iz-wide-riskflow{
@@ -2361,20 +2363,24 @@ button[kind="primary"],
    ========================================================= */
 @media (max-width: 768px){
 
+    .hp-title,.hp-source,.hp-card-head,.hp-card-value,.hp-pill{
+        white-space:normal!important;
+    }
+
+    .hp-title,.hp-sub,.hp-source,.hp-card-head,.hp-card-value,.hp-pill{
+        word-break:normal!important;
+        overflow-wrap:break-word!important;
+    }
+
     .hp-title{
         width:100%!important;
         font-size:18px!important;
         line-height:1.25!important;
-        word-break:normal!important;
-        overflow-wrap:break-word!important;
-        white-space:normal!important;
     }
 
     .hp-sub{
         font-size:10px!important;
         line-height:1.45!important;
-        word-break:normal!important;
-        overflow-wrap:break-word!important;
     }
 
     .hp-source{
@@ -2382,9 +2388,6 @@ button[kind="primary"],
         max-width:100%!important;
         font-size:9px!important;
         padding:5px 8px!important;
-        white-space:normal!important;
-        word-break:normal!important;
-        overflow-wrap:break-word!important;
     }
 
     /* Ana gösterge kartları: telefonda 2 kolon */
@@ -2406,18 +2409,12 @@ button[kind="primary"],
     .hp-card-head{
         font-size:9px!important;
         line-height:1.3!important;
-        white-space:normal!important;
-        word-break:normal!important;
-        overflow-wrap:break-word!important;
     }
 
     .hp-card-value{
         font-size:19px!important;
         line-height:1.15!important;
         margin:7px 0 6px!important;
-        white-space:normal!important;
-        word-break:normal!important;
-        overflow-wrap:break-word!important;
     }
 
     .hp-pill{
@@ -2426,9 +2423,6 @@ button[kind="primary"],
         font-size:8.5px!important;
         line-height:1.3!important;
         padding:4px 6px!important;
-        white-space:normal!important;
-        word-break:normal!important;
-        overflow-wrap:break-word!important;
     }
 
     /* Trend / seviyeler / risk bölümleri tek kolon */
@@ -3477,14 +3471,13 @@ button[kind="primary"],
         font-size:9px;
         font-weight:820;
     }
-    .iz-movers:not(.iz-home-feature-card) .iz-mover-price{
+    .iz-movers:not(.iz-home-feature-card) .iz-mover-price,
+    .iz-movers:not(.iz-home-feature-card) .iz-mover-chg{
         font-size:8px;
         text-align:right;
     }
     .iz-movers:not(.iz-home-feature-card) .iz-mover-chg{
-        font-size:8px;
         font-weight:820;
-        text-align:right;
     }
 
     /* Detay ticker şeritleri artık kartların ALTINDA normal akışta */
