@@ -2957,21 +2957,6 @@ button[kind="primary"],
     }
 }
 
-/* Mobile */
-@media(max-width:768px){
-    .iz-home-feature-card .iz-card-title{
-        font-size:13px!important;
-    }
-    .iz-feature-cta{
-        width:100%;
-        max-width:270px;
-        min-width:0;
-        min-height:40px;
-        font-size:9.5px;
-    }
-}
-
-
 /* =========================================================
    v1.7.62 — PREMIUM IZFIN PİYASA MERKEZİ
    Üst premium kartlarla aynı görsel dil.
@@ -3276,6 +3261,16 @@ button[kind="primary"],
 }
 
 @media(max-width:768px){
+    .iz-home-feature-card .iz-card-title{
+        font-size:13px!important;
+    }
+    .iz-feature-cta{
+        width:100%;
+        max-width:270px;
+        min-width:0;
+        min-height:40px;
+        font-size:9.5px;
+    }
     .st-key-home_empty_scan_left,
     .st-key-home_empty_scan_right{
         width:min(270px,calc(100% - 30px))!important;
@@ -3591,23 +3586,6 @@ button[kind="primary"],
     }
 }
 
-@media(max-width:768px){
-    .iz-signals:not(.iz-home-feature-card) .iz-card-title{
-        font-size:13px;
-    }
-    .iz-signals:not(.iz-home-feature-card) th{
-        padding:7px 8px;
-    }
-    .iz-signals:not(.iz-home-feature-card) td{
-        padding:8px;
-    }
-    .iz-signals:not(.iz-home-feature-card) .iz-badge{
-        font-size:9px;
-        padding:6px 7px;
-    }
-}
-
-
 /* =========================================================
    v1.7.67 — FULL UI CONSISTENCY AUDIT
    ========================================================= */
@@ -3841,6 +3819,19 @@ h3:has(+ [data-testid="stDataFrame"]){
 
 /* ---------- Mobile ---------- */
 @media(max-width:768px){
+    .iz-signals:not(.iz-home-feature-card) .iz-card-title{
+        font-size:13px;
+    }
+    .iz-signals:not(.iz-home-feature-card) th{
+        padding:7px 8px;
+    }
+    .iz-signals:not(.iz-home-feature-card) td{
+        padding:8px;
+    }
+    .iz-signals:not(.iz-home-feature-card) .iz-badge{
+        font-size:9px;
+        padding:6px 7px;
+    }
     .iz-signals:not(.iz-home-feature-card) td:first-child,
     .iz-movers:not(.iz-home-feature-card) .iz-mover-name{
         font-size:12px;
@@ -4258,7 +4249,7 @@ h3:has(+ [data-testid="stDataFrame"]){
 
 /* =========================================================
    v1.7.76 — RESPONSIVE NORMALIZATION PHASE 1
-   Historical media blocks are retained for safety.
+   Component-specific mobile blocks stay isolated for safer maintenance.
    This final layer centralizes authoritative mobile behavior.
    ========================================================= */
 @media(max-width:768px){
