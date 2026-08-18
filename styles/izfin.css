@@ -4729,170 +4729,130 @@ h3:has(+ [data-testid="stDataFrame"]){
 
 
 /* =========================================================
-   v1.8.3 — STRUCTURAL LOGO FIX
-   Sadece sembol daireselleştirilir; marka satırı bozulmaz.
+   v1.8.6 — LOGO RING-CENTER FIX
+   Original symbol pixels are untouched.
+   PNG canvas is cropped around the detected outer ring center.
    ========================================================= */
 
-/* MAIN / SIDEBAR */
 .iz-brand{
     display:flex;
     align-items:center;
     justify-content:flex-start;
-    gap:15px;
-    padding:13px 4px 20px;
-    overflow:visible;
+    gap:16px;
 }
 
+/* Main / sidebar */
 .iz-brand-symbol{
-    position:relative;
-    display:flex;
-    align-items:center;
-    justify-content:center;
-    flex:0 0 76px;
-    width:76px;
-    height:76px;
-    padding:0;
+    display:grid;
+    place-items:center;
+    flex:0 0 86px;
+    width:86px;
+    height:86px;
+    padding:5px;
     margin:0;
+    box-sizing:border-box;
     border-radius:50%;
     overflow:hidden;
-    box-sizing:border-box;
     background:#06111d;
-    border:1px solid rgba(24,224,232,.44);
+    border:4px solid #18e0e8;
     box-shadow:
-        0 0 0 1px rgba(22,137,255,.09),
-        0 0 24px rgba(24,224,232,.14);
+        0 0 0 2px rgba(22,137,255,.72),
+        0 0 26px rgba(24,224,232,.22),
+        0 0 44px rgba(22,137,255,.12);
 }
 
 .iz-brand-symbol img{
-    display:block;
+    display:block!important;
+    position:static!important;
     width:100%!important;
     height:100%!important;
     max-width:none!important;
     max-height:none!important;
     margin:0!important;
     padding:0!important;
-    border:0!important;
-    border-radius:50%!important;
-    object-fit:cover!important;
-    object-position:50% 50%!important;
-    background:transparent!important;
-    box-shadow:none!important;
+    object-fit:contain!important;
+    object-position:center!important;
     transform:none!important;
+    translate:none!important;
+    border:0!important;
+    box-shadow:none!important;
 }
 
-.iz-brand-copy{
-    display:flex;
-    flex-direction:column;
-    justify-content:center;
-    min-width:0;
-}
-
-.iz-brand-name{
-    line-height:1;
-}
-
-/* LOGIN */
+/* Login: .iz-auth-logo remains the row, only symbol gets circle */
 .iz-auth-logo{
     display:flex;
     align-items:center;
     justify-content:center;
-    gap:18px;
+    gap:20px;
     width:auto;
     height:auto;
     margin:0 auto 15px;
     padding:0;
-    overflow:visible;
     border:0;
-    border-radius:0;
     background:transparent;
     box-shadow:none;
+    overflow:visible;
 }
 
 .iz-auth-symbol{
-    position:relative;
-    display:flex;
-    align-items:center;
-    justify-content:center;
-    flex:0 0 112px;
-    width:112px;
-    height:112px;
-    padding:0;
+    display:grid;
+    place-items:center;
+    flex:0 0 136px;
+    width:136px;
+    height:136px;
+    padding:7px;
     margin:0;
+    box-sizing:border-box;
     border-radius:50%;
     overflow:hidden;
-    box-sizing:border-box;
     background:#06111d;
-    border:1px solid rgba(24,224,232,.56);
+    border:5px solid #18e0e8;
     box-shadow:
-        0 0 0 1px rgba(22,137,255,.10),
-        0 0 28px rgba(24,224,232,.19),
-        0 0 52px rgba(22,137,255,.08);
-}
-
-.iz-auth-symbol::after{
-    content:"";
-    position:absolute;
-    inset:5px;
-    border-radius:50%;
-    border:1px solid rgba(24,224,232,.13);
-    pointer-events:none;
+        0 0 0 3px rgba(22,137,255,.72),
+        0 0 36px rgba(24,224,232,.28),
+        0 0 64px rgba(22,137,255,.14);
 }
 
 .iz-auth-symbol img{
-    display:block;
+    display:block!important;
+    position:static!important;
     width:100%!important;
     height:100%!important;
     max-width:none!important;
     max-height:none!important;
     margin:0!important;
     padding:0!important;
+    object-fit:contain!important;
+    object-position:center!important;
+    transform:none!important;
+    translate:none!important;
     border:0!important;
-    border-radius:50%!important;
-    object-fit:cover!important;
-    object-position:50% 50%!important;
-    background:transparent!important;
     box-shadow:none!important;
-}
-
-.iz-auth-copy{
-    display:flex;
-    flex-direction:column;
-    align-items:flex-start;
-    justify-content:center;
-    min-width:0;
-    text-align:left;
-}
-
-.iz-auth-logo .word{
-    margin:0;
-    line-height:1;
-}
-
-.iz-auth-logo .tag{
-    text-align:left;
 }
 
 @media(max-width:768px){
     .iz-brand{
         gap:12px;
-        padding:11px 3px 17px;
     }
 
     .iz-brand-symbol{
-        flex-basis:66px;
-        width:66px;
-        height:66px;
+        flex-basis:72px;
+        width:72px;
+        height:72px;
+        padding:4px;
+        border-width:3px;
     }
 
     .iz-auth-logo{
-        gap:13px;
-        margin-bottom:13px;
+        gap:14px;
     }
 
     .iz-auth-symbol{
-        flex-basis:88px;
-        width:88px;
-        height:88px;
+        flex-basis:108px;
+        width:108px;
+        height:108px;
+        padding:6px;
+        border-width:4px;
     }
 }
 
@@ -4902,180 +4862,9 @@ h3:has(+ [data-testid="stDataFrame"]){
         gap:11px;
     }
 
-    .iz-auth-copy{
-        align-items:center;
-        text-align:center;
-    }
-
+    .iz-auth-logo .word,
     .iz-auth-logo .tag{
         text-align:center;
-    }
-}
-
-
-/* =========================================================
-   v1.8.4 — LOGO OPTICAL CENTER
-   PNG'nin kendi içindeki sembol sola/aşağı ofsetli.
-   Wrapper değil, yalnızca iç artwork optik olarak merkezlenir.
-   ========================================================= */
-
-/* Ana/sidebar logo: görünür sembolü dairenin gerçek optik merkezine taşı */
-.iz-brand-symbol img{
-    transform:translate(5px,-7px) scale(.94)!important;
-    transform-origin:center center!important;
-}
-
-/* Giriş ekranında daha büyük render olduğu için orantılı optik düzeltme */
-.iz-auth-symbol img{
-    transform:translate(8px,-11px) scale(.94)!important;
-    transform-origin:center center!important;
-}
-
-/* Daire/glow merkezinin kendisi asla kaymasın */
-.iz-brand-symbol,
-.iz-auth-symbol{
-    left:auto!important;
-    right:auto!important;
-    top:auto!important;
-    bottom:auto!important;
-    align-self:center!important;
-}
-
-/* Logo satırındaki metin, sembol düzeltmesinden etkilenmez */
-.iz-brand-copy,
-.iz-auth-copy{
-    transform:none!important;
-}
-
-/* Mobilde aynı oranı daha küçük piksel ofsetiyle koru */
-@media(max-width:768px){
-    .iz-brand-symbol img{
-        transform:translate(4px,-6px) scale(.94)!important;
-    }
-
-    .iz-auth-symbol img{
-        transform:translate(6px,-8px) scale(.94)!important;
-    }
-}
-
-@media(max-width:430px){
-    .iz-auth-symbol img{
-        transform:translate(6px,-8px) scale(.94)!important;
-    }
-}
-
-
-/* =========================================================
-   v1.8.5 — TRUE CENTERED LOGO
-   Merkezleme artık px translate ile değil, merkezlenmiş asset ile yapılır.
-   ========================================================= */
-
-/* Main/sidebar ring */
-.iz-brand-symbol{
-    display:grid!important;
-    place-items:center!important;
-    width:82px!important;
-    height:82px!important;
-    flex:0 0 82px!important;
-    border-radius:50%!important;
-    overflow:hidden!important;
-    padding:0!important;
-    margin:0!important;
-    background:#06111d!important;
-    border:3px solid #18e0e8!important;
-    box-shadow:
-        0 0 0 2px rgba(22,137,255,.58),
-        0 0 24px rgba(24,224,232,.22),
-        0 0 42px rgba(22,137,255,.12)!important;
-}
-
-.iz-brand-symbol img{
-    position:static!important;
-    display:block!important;
-    width:68px!important;
-    height:68px!important;
-    max-width:68px!important;
-    max-height:68px!important;
-    margin:0!important;
-    padding:0!important;
-    object-fit:contain!important;
-    object-position:center!important;
-    border-radius:50%!important;
-    transform:none!important;
-    translate:none!important;
-}
-
-/* Login ring — same geometry, larger size */
-.iz-auth-symbol{
-    display:grid!important;
-    place-items:center!important;
-    width:128px!important;
-    height:128px!important;
-    flex:0 0 128px!important;
-    border-radius:50%!important;
-    overflow:hidden!important;
-    padding:0!important;
-    margin:0!important;
-    background:#06111d!important;
-    border:4px solid #18e0e8!important;
-    box-shadow:
-        0 0 0 3px rgba(22,137,255,.62),
-        0 0 34px rgba(24,224,232,.28),
-        0 0 60px rgba(22,137,255,.14)!important;
-}
-
-.iz-auth-symbol::after{
-    display:none!important;
-}
-
-.iz-auth-symbol img{
-    position:static!important;
-    display:block!important;
-    width:104px!important;
-    height:104px!important;
-    max-width:104px!important;
-    max-height:104px!important;
-    margin:0!important;
-    padding:0!important;
-    object-fit:contain!important;
-    object-position:center!important;
-    border-radius:50%!important;
-    transform:none!important;
-    translate:none!important;
-}
-
-/* Brand rows remain untouched except clean vertical alignment */
-.iz-brand,
-.iz-auth-logo{
-    align-items:center!important;
-}
-
-@media(max-width:768px){
-    .iz-brand-symbol{
-        width:72px!important;
-        height:72px!important;
-        flex-basis:72px!important;
-    }
-
-    .iz-brand-symbol img{
-        width:58px!important;
-        height:58px!important;
-        max-width:58px!important;
-        max-height:58px!important;
-    }
-
-    .iz-auth-symbol{
-        width:106px!important;
-        height:106px!important;
-        flex-basis:106px!important;
-        border-width:3px!important;
-    }
-
-    .iz-auth-symbol img{
-        width:86px!important;
-        height:86px!important;
-        max-width:86px!important;
-        max-height:86px!important;
     }
 }
 
