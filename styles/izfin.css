@@ -4729,9 +4729,10 @@ h3:has(+ [data-testid="stDataFrame"]){
 
 
 /* =========================================================
-   v1.8.6 — LOGO RING-CENTER FIX
-   Original symbol pixels are untouched.
-   PNG canvas is cropped around the detected outer ring center.
+   v1.8.7 — TRUE RING CENTER
+   Canvas center = original logo outer ring center.
+   Entire original artwork fits inside the canvas.
+   No translate, no optical px offset.
    ========================================================= */
 
 .iz-brand{
@@ -4741,13 +4742,12 @@ h3:has(+ [data-testid="stDataFrame"]){
     gap:16px;
 }
 
-/* Main / sidebar */
 .iz-brand-symbol{
     display:grid;
     place-items:center;
-    flex:0 0 86px;
-    width:86px;
-    height:86px;
+    flex:0 0 88px;
+    width:88px;
+    height:88px;
     padding:5px;
     margin:0;
     box-sizing:border-box;
@@ -4756,9 +4756,9 @@ h3:has(+ [data-testid="stDataFrame"]){
     background:#06111d;
     border:4px solid #18e0e8;
     box-shadow:
-        0 0 0 2px rgba(22,137,255,.72),
-        0 0 26px rgba(24,224,232,.22),
-        0 0 44px rgba(22,137,255,.12);
+        0 0 0 3px rgba(22,137,255,.72),
+        0 0 28px rgba(24,224,232,.24),
+        0 0 46px rgba(22,137,255,.13);
 }
 
 .iz-brand-symbol img{
@@ -4770,15 +4770,14 @@ h3:has(+ [data-testid="stDataFrame"]){
     max-height:none!important;
     margin:0!important;
     padding:0!important;
+    border:0!important;
     object-fit:contain!important;
-    object-position:center!important;
+    object-position:center center!important;
     transform:none!important;
     translate:none!important;
-    border:0!important;
     box-shadow:none!important;
 }
 
-/* Login: .iz-auth-logo remains the row, only symbol gets circle */
 .iz-auth-logo{
     display:flex;
     align-items:center;
@@ -4789,18 +4788,19 @@ h3:has(+ [data-testid="stDataFrame"]){
     margin:0 auto 15px;
     padding:0;
     border:0;
+    border-radius:0;
+    overflow:visible;
     background:transparent;
     box-shadow:none;
-    overflow:visible;
 }
 
 .iz-auth-symbol{
     display:grid;
     place-items:center;
-    flex:0 0 136px;
-    width:136px;
-    height:136px;
-    padding:7px;
+    flex:0 0 140px;
+    width:140px;
+    height:140px;
+    padding:8px;
     margin:0;
     box-sizing:border-box;
     border-radius:50%;
@@ -4808,9 +4808,9 @@ h3:has(+ [data-testid="stDataFrame"]){
     background:#06111d;
     border:5px solid #18e0e8;
     box-shadow:
-        0 0 0 3px rgba(22,137,255,.72),
-        0 0 36px rgba(24,224,232,.28),
-        0 0 64px rgba(22,137,255,.14);
+        0 0 0 4px rgba(22,137,255,.72),
+        0 0 38px rgba(24,224,232,.30),
+        0 0 68px rgba(22,137,255,.15);
 }
 
 .iz-auth-symbol img{
@@ -4822,35 +4822,31 @@ h3:has(+ [data-testid="stDataFrame"]){
     max-height:none!important;
     margin:0!important;
     padding:0!important;
+    border:0!important;
     object-fit:contain!important;
-    object-position:center!important;
+    object-position:center center!important;
     transform:none!important;
     translate:none!important;
-    border:0!important;
     box-shadow:none!important;
 }
 
 @media(max-width:768px){
-    .iz-brand{
-        gap:12px;
-    }
+    .iz-brand{gap:12px;}
 
     .iz-brand-symbol{
-        flex-basis:72px;
-        width:72px;
-        height:72px;
+        flex-basis:74px;
+        width:74px;
+        height:74px;
         padding:4px;
         border-width:3px;
     }
 
-    .iz-auth-logo{
-        gap:14px;
-    }
+    .iz-auth-logo{gap:14px;}
 
     .iz-auth-symbol{
-        flex-basis:108px;
-        width:108px;
-        height:108px;
+        flex-basis:112px;
+        width:112px;
+        height:112px;
         padding:6px;
         border-width:4px;
     }
