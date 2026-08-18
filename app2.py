@@ -372,7 +372,7 @@ STRATEJI_SURUMU = "IZFIN-v1.7.5-auth-switch-fixed"
 PERFORMANS_UFUKLARI = (1, 5, 10, 20, 45)
 
 # --- IZFIN UYGULAMA SÜRÜMÜ ---
-IZFIN_APP_SURUMU = "v1.8.18 Admin QA"
+IZFIN_APP_SURUMU = "v1.8.19 QA Gate"
 
 # Finnhub isteklerini süreç içinde ortak hız sınırına tabi tut.
 # Plan bazlı dakika limitleri değişebildiği için 429 yanıtlarında ayrıca backoff uygulanır.
@@ -447,6 +447,19 @@ def izfin_qa_static_metrics(app_source=None, css_source=None):
             for x in re.findall(r"font-size\s*:\s*([0-9]+(?:\.[0-9]+)?)px", css_source, flags=re.I)
             if float(x) < 10
         ]
+        token_definitions = {
+            name: value.strip()
+            for name, value in re.findall(
+                r"(--iz-[A-Za-z0-9_-]+)\s*:\s*([^;}]+)", css_source
+            )
+        }
+        token_uses = set(re.findall(r"var\((--iz-[A-Za-z0-9_-]+)", css_source))
+        self_referencing_tokens = {
+            name for name, value in token_definitions.items()
+            if f"var({name})" in value
+        }
+        undefined_tokens = token_uses - set(token_definitions)
+        invalid_tokens = self_referencing_tokens | undefined_tokens
         return {
             "python_satir": app_source.count("\n") + 1,
             "css_satir": css_source.count("\n") + 1,
@@ -454,6 +467,7 @@ def izfin_qa_static_metrics(app_source=None, css_source=None):
             "media_query": len(re.findall(r"@media\s*\(", css_source)),
             "hardcoded_hex": len(re.findall(r"#[0-9a-fA-F]{3,8}\b", css_source)),
             "design_token_kullanimi": len(re.findall(r"var\(--iz-[A-Za-z0-9_-]+\)", css_source)),
+            "gecersiz_design_token": len(invalid_tokens),
             "10px_alti_font": len(small),
             "inline_style": len(re.findall(r'style="[^"]+"', app_source)),
             "unsafe_html": app_source.count("unsafe_allow_html=True"),
@@ -470,6 +484,14 @@ def izfin_qa_release_status(metrics):
             "durum": "KONTROL GEREKİYOR",
             "seviye": "warning",
             "notlar": ["QA metrikleri üretilemedi."],
+        }
+
+    invalid_token_count = metrics.get("gecersiz_design_token", 0)
+    if invalid_token_count:
+        return {
+            "durum": "KONTROL GEREKİYOR",
+            "seviye": "warning",
+            "notlar": [f"{invalid_token_count} geçersiz veya tanımsız design token bulundu."],
         }
 
     notes = []
@@ -3424,6 +3446,7 @@ def izfin_qa_center_render():
         ("<10px Font", metrics.get("10px_alti_font", 0), "Okunabilirlik borcu"),
         ("HEX Renk", metrics.get("hardcoded_hex", 0), "Hardcoded renk"),
         ("Design Token", metrics.get("design_token_kullanimi", 0), "var(--iz-*)"),
+        ("Token Hatası", metrics.get("gecersiz_design_token", 0), "Tanımsız / döngüsel"),
         ("Inline Style", metrics.get("inline_style", 0), "Python içi stil"),
         ("Unsafe HTML", metrics.get("unsafe_html", 0), "Audit noktası"),
     ]
