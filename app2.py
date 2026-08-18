@@ -372,7 +372,7 @@ STRATEJI_SURUMU = "IZFIN-v1.7.5-auth-switch-fixed"
 PERFORMANS_UFUKLARI = (1, 5, 10, 20, 45)
 
 # --- IZFIN UYGULAMA SÜRÜMÜ ---
-IZFIN_APP_SURUMU = "v1.8.2 Logo Alignment Fix"
+IZFIN_APP_SURUMU = "v1.8.3 Structural Logo Fix"
 
 # Finnhub isteklerini süreç içinde ortak hız sınırına tabi tut.
 # Plan bazlı dakika limitleri değişebildiği için 429 yanıtlarında ayrıca backoff uygulanır.
@@ -3211,8 +3211,13 @@ IZFIN_LOGO_B64 = "iVBORw0KGgoAAAANSUhEUgAAAQkAAAD1CAIAAADMLZflAADUj0lEQVR42sz9d7
 def izfin_brand_html():
     return f"""
     <div class="iz-brand">
-      <img src="data:image/png;base64,{IZFIN_LOGO_B64}" alt="IZFIN sembolü">
-      <div><div class="iz-brand-name">IZFIN</div><div class="iz-brand-tag">ANALYZE • PREDICT • INVEST</div></div>
+      <div class="iz-brand-symbol">
+        <img src="data:image/png;base64,{IZFIN_LOGO_B64}" alt="IZFIN sembolü">
+      </div>
+      <div class="iz-brand-copy">
+        <div class="iz-brand-name">IZFIN</div>
+        <div class="iz-brand-tag">ANALYZE • PREDICT • INVEST</div>
+      </div>
     </div>"""
 
 @st.cache_data(ttl=60, show_spinner=False)
@@ -3840,8 +3845,13 @@ def izfin_auth_ekrani():
     st.markdown('<div class="iz-auth-bg"></div>', unsafe_allow_html=True)
     st.markdown(f'''<div class="iz-auth-shell">
       <div class="iz-auth-logo">
-        <img src="data:image/png;base64,{IZFIN_LOGO_B64}" alt="IZFIN">
-        <div><div class="word">IZFIN</div><div class="tag">ANALYZE • PREDICT • INVEST</div></div>
+        <div class="iz-auth-symbol">
+          <img src="data:image/png;base64,{IZFIN_LOGO_B64}" alt="IZFIN">
+        </div>
+        <div class="iz-auth-copy">
+          <div class="word">IZFIN</div>
+          <div class="tag">ANALYZE • PREDICT • INVEST</div>
+        </div>
       </div>
       <div class="iz-auth-kicker">SIGNATURE INTELLIGENCE</div>
       <div class="iz-auth-title">Hoş Geldiniz</div>
