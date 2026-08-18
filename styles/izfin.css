@@ -2053,7 +2053,7 @@ button[kind="primary"],
       .hp-decision-title{font-size:18px;font-weight:750;margin-bottom:5px} .hp-small{font-size:12px;opacity:.7}
       .hp-trigger-list{margin:8px 0 0 18px;padding:0;font-size:12px;line-height:1.6}
       @media(max-width:1000px){.hp-grid{grid-template-columns:repeat(2,1fr)}.hp-sections{grid-template-columns:1fr}}
-      @media(max-width:600px){.hp-grid{grid-template-columns:1fr}.hp-target{grid-template-columns:1fr}}
+      @media(max-width:600px){.hp-target{grid-template-columns:1fr}}
 
 /* =========================================================
    v1.7.50 — HOME PRIORITY LAYOUT
@@ -2212,19 +2212,9 @@ button[kind="primary"],
         min-height:auto!important;
         padding:2px 0!important;
     }
-    .iz-focus-title h2{
-        font-size:18px!important;
-        line-height:1.18!important;
-        margin-bottom:4px!important;
-    }
     .iz-focus-title p{
         font-size:9px!important;
         line-height:1.4!important;
-    }
-    .iz-focus-meta{
-        flex-wrap:wrap!important;
-        gap:5px!important;
-        margin:5px 0 9px!important;
     }
     .iz-focus-meta span{
         font-size:8px!important;
@@ -2239,64 +2229,9 @@ button[kind="primary"],
         overflow:visible!important;
     }
 
-    .izw-table,
-    .izw-table tbody{
-        display:block!important;
-        width:100%!important;
-    }
-
-    .izw-table thead{
-        display:none!important;
-    }
-
-    .izw-table tbody tr{
-        display:grid!important;
-        grid-template-columns:1fr 1fr!important;
-        gap:8px!important;
-        width:100%!important;
-        height:auto!important;
-        min-height:0!important;
-        margin:0 0 11px!important;
-        padding:11px!important;
-        border:1px solid #17485f!important;
-        border-radius:10px!important;
-        background:
-            linear-gradient(145deg,#071724,#081d2a)!important;
-        box-shadow:
-            inset 0 1px 0 rgba(255,255,255,.025),
-            0 8px 20px rgba(0,0,0,.12)!important;
-    }
-
-    .izw-table tbody tr:hover td{
-        background:inherit!important;
-    }
-
-    .izw-table tbody td{
-        display:block!important;
-        width:auto!important;
-        min-width:0!important;
-        max-width:none!important;
-        height:auto!important;
-        padding:8px!important;
-        margin:0!important;
-        border:1px solid #143c50!important;
-        border-radius:7px!important;
-        background:#071522!important;
-        overflow:visible!important;
-        white-space:normal!important;
-    }
-
     /* Varlık + karar ilk satır */
     .izw-asset{
         grid-column:1 / 2!important;
-    }
-    .izw-decision{
-        grid-column:2 / 3!important;
-        display:flex!important;
-        flex-direction:column!important;
-        align-items:flex-start!important;
-        justify-content:center!important;
-        text-align:left!important;
     }
 
     .izw-asset strong{
@@ -2375,10 +2310,6 @@ button[kind="primary"],
     .izw-value{
         grid-column:1 / 2!important;
     }
-    .izw-session{
-        grid-column:2 / 3!important;
-        text-align:left!important;
-    }
     .izw-value b,
     .izw-session b{
         font-size:10px!important;
@@ -2411,24 +2342,6 @@ button[kind="primary"],
 
 /* Çok dar telefonlar */
 @media (max-width: 430px){
-    .izw-table tbody tr{
-        grid-template-columns:1fr!important;
-        gap:6px!important;
-        padding:9px!important;
-    }
-
-    .izw-asset,
-    .izw-decision,
-    .izw-quality,
-    .izw-riskflow,
-    .izw-value,
-    .izw-session{
-        grid-column:1 / -1!important;
-    }
-
-    .izw-decision{
-        align-items:flex-start!important;
-    }
 
     .izw-quality-top{
         grid-template-columns:repeat(3,minmax(0,1fr))!important;
@@ -2449,24 +2362,6 @@ button[kind="primary"],
    responsive kart düzenine dönüşür.
    ========================================================= */
 @media (max-width: 768px){
-
-    .hp-wrap{
-        width:100%!important;
-        max-width:100%!important;
-        box-sizing:border-box!important;
-        margin-top:10px!important;
-        padding:12px!important;
-        border-radius:10px!important;
-        overflow:hidden!important;
-    }
-
-    .hp-head{
-        display:flex!important;
-        flex-direction:column!important;
-        align-items:flex-start!important;
-        gap:8px!important;
-        margin-bottom:11px!important;
-    }
 
     .hp-title{
         width:100%!important;
@@ -2625,10 +2520,6 @@ button[kind="primary"],
 /* Çok dar telefonlarda gösterge kartlarını tek kolona indir */
 @media (max-width: 420px){
 
-    .hp-grid{
-        grid-template-columns:1fr!important;
-    }
-
     .hp-card{
         min-height:84px!important;
     }
@@ -2701,16 +2592,6 @@ button[kind="primary"],
     background:#092536!important;
 }
 @media(max-width:768px){
-    [data-testid="stRadio"] [role="radiogroup"]{
-        display:grid!important;
-        grid-template-columns:1fr 1fr!important;
-        width:100%!important;
-    }
-    [data-testid="stRadio"] [role="radiogroup"] label{
-        width:100%!important;
-        box-sizing:border-box!important;
-        font-size:9px!important;
-    }
     .iz-signal-profile,.izw-profile{
         font-size:8.5px!important;
     }
@@ -2723,8 +2604,39 @@ button[kind="primary"],
 .iz-scan-lock-card{width:min(520px,calc(100vw - 36px));box-sizing:border-box;padding:25px 27px 21px;border:1px solid #1d5c72;border-radius:12px;background:radial-gradient(circle at 85% 5%,rgba(29,166,180,.13),transparent 34%),linear-gradient(145deg,#061521,#092534);box-shadow:0 30px 80px rgba(0,0,0,.46),inset 0 1px 0 rgba(255,255,255,.035);color:#eaf7fb}
 .iz-scan-lock-brand{display:flex;align-items:center;gap:8px;margin-bottom:13px}
 .iz-scan-lock-brand small{color:#45d1dc;font-size:8px;font-weight:850;letter-spacing:1.25px}
-.iz-scan-lock-pulse{width:8px;height:8px;border-radius:50%;background:#36d6df;box-shadow:0 0 0 0 rgba(54,214,223,.55);animation:izScanPulse 1.45s infinite}
-@keyframes izScanPulse{0%{box-shadow:0 0 0 0 rgba(54,214,223,.55)}70%{box-shadow:0 0 0 9px rgba(54,214,223,0)}100%{box-shadow:0 0 0 0 rgba(54,214,223,0)}}
+.iz-scan-lock-pulse{
+    position:relative;
+    width:8px;
+    height:8px;
+    border-radius:50%;
+    background:#36d6df;
+    flex:0 0 8px;
+}
+.iz-scan-lock-pulse::after{
+    content:"";
+    position:absolute;
+    inset:0;
+    border-radius:50%;
+    background:rgba(54,214,223,.42);
+    transform:scale(1);
+    opacity:.75;
+    will-change:transform,opacity;
+    animation:izScanPulse 1.45s ease-out infinite;
+}
+@keyframes izScanPulse{
+    0%{
+        transform:scale(1);
+        opacity:.72;
+    }
+    70%{
+        transform:scale(2.35);
+        opacity:0;
+    }
+    100%{
+        transform:scale(2.35);
+        opacity:0;
+    }
+}
 .iz-scan-lock-card h2{margin:0;color:#f4fcff;font-size:23px;line-height:1.2;font-weight:790}
 .iz-scan-lock-card p{margin:7px 0 17px;color:#91adba;font-size:11px;line-height:1.5}
 .iz-scan-lock-progress{width:100%;height:7px;overflow:hidden;border:1px solid #153d50;border-radius:2px;background:#041019}
@@ -2733,7 +2645,7 @@ button[kind="primary"],
 .iz-scan-lock-meta strong{color:#4ce0b8;font-size:13px;font-weight:820}
 .iz-scan-lock-meta span{min-width:0;color:#7595a5;font-size:8.5px;text-align:right;white-space:normal}
 .iz-scan-lock-note{margin-top:15px;padding-top:11px;border-top:1px solid rgba(29,72,91,.64);color:#587787;font-size:8px;text-align:center}
-@media(max-width:600px){.iz-scan-lock-overlay{padding:14px}.iz-scan-lock-card{width:100%;padding:20px 18px 17px;border-radius:10px}.iz-scan-lock-card h2{font-size:20px}.iz-scan-lock-card p{font-size:10px;margin-bottom:14px}.iz-scan-lock-meta{align-items:flex-start;flex-direction:column;gap:3px}.iz-scan-lock-meta span{text-align:left;font-size:8px}}
+@media(max-width:600px){.iz-scan-lock-card h2{font-size:20px}.iz-scan-lock-card p{font-size:10px;margin-bottom:14px}.iz-scan-lock-meta span{text-align:left;font-size:8px}}
 
 
 /* v1.7.58 sortable header behavior only */
@@ -3121,28 +3033,8 @@ button[kind="primary"],
 
 /* Mobile */
 @media(max-width:768px){
-    .iz-home-feature-card{
-        height:auto!important;
-        min-height:360px!important;
-        padding:17px 16px 16px!important;
-    }
-    .iz-feature-head{
-        gap:12px;
-    }
-    .iz-feature-icon{
-        width:42px;
-        height:42px;
-        min-width:42px;
-        font-size:21px;
-    }
     .iz-home-feature-card .iz-card-title{
         font-size:13px!important;
-    }
-    .iz-feature-desc{
-        font-size:9.5px;
-    }
-    .iz-feature-empty{
-        min-height:220px;
     }
     .iz-feature-cta{
         width:100%;
@@ -3398,23 +3290,7 @@ button[kind="primary"],
     line-height:1.5;
 }
 
-@media(max-width:768px){
-    .iz-market-hero{
-        padding:15px 14px!important;
-    }
-    .iz-market-hero h1{
-        font-size:22px!important;
-    }
-    .iz-market-hero-mark{
-        display:none;
-    }
-    .iz-decision-center-premium{
-        padding:13px!important;
-    }
-    .iz-decision-center-premium .iz-decision-kpis{
-        grid-template-columns:1fr 1fr!important;
-    }
-}
+
 
 
 /* =========================================================
@@ -3635,23 +3511,6 @@ button[kind="primary"],
 
 /* Mobilde dolu paneller doğal şekilde alt alta büyüsün */
 @media(max-width:768px){
-    .iz-signals:not(.iz-home-feature-card),
-    .iz-movers:not(.iz-home-feature-card),
-    div[data-testid="stMarkdownContainer"]:has(.iz-signals:not(.iz-home-feature-card)),
-    div[data-testid="stMarkdownContainer"]:has(.iz-movers:not(.iz-home-feature-card)),
-    div[data-testid="stMarkdown"]:has(.iz-signals:not(.iz-home-feature-card)),
-    div[data-testid="stMarkdown"]:has(.iz-movers:not(.iz-home-feature-card)),
-    div[data-testid="stElementContainer"]:has(.iz-signals:not(.iz-home-feature-card)),
-    div[data-testid="stElementContainer"]:has(.iz-movers:not(.iz-home-feature-card)){
-        height:auto!important;
-        min-height:0!important;
-        max-height:none!important;
-        overflow:visible!important;
-    }
-
-    .iz-signals:not(.iz-home-feature-card){
-        overflow-x:auto!important;
-    }
 
     .iz-signals:not(.iz-home-feature-card) table{
         min-width:650px!important;
@@ -4088,9 +3947,6 @@ h3:has(+ [data-testid="stDataFrame"]){
 
 /* ---------- Mobile ---------- */
 @media(max-width:768px){
-    .iz-signals:not(.iz-home-feature-card){
-        overflow-x:auto!important;
-    }
     .iz-signals:not(.iz-home-feature-card) table{
         min-width:700px!important;
     }
@@ -4399,16 +4255,6 @@ h3:has(+ [data-testid="stDataFrame"]){
 }
 
 @media(max-width:768px){
-    .iz-featured-stock-v2{
-        min-height:0!important;
-        padding:19px 17px!important;
-    }
-    .iz-featured-ticker{
-        font-size:42px;
-    }
-    .iz-featured-metrics{
-        grid-template-columns:1fr 1fr;
-    }
     .iz-featured-metrics>div{
         min-height:82px;
     }
@@ -4418,9 +4264,6 @@ h3:has(+ [data-testid="stDataFrame"]){
 }
 
 @media(max-width:420px){
-    .iz-featured-ticker{
-        font-size:36px;
-    }
     .iz-featured-signal{
         min-height:34px;
         font-size:11px;
@@ -4532,35 +4375,29 @@ h3:has(+ [data-testid="stDataFrame"]){
 }
 
 /* Mobile: do not shrink below readability floor */
-@media(max-width:768px){
-    .iz-section-label,
-    .iz-click-strip-label,
-    .iz-feature-desc,
-    .iz-feature-empty > span,
-    .iz-market-hero-kicker,
-    .iz-market-hero p,
-    .izw-profile,
-    .iz-signal-profile,
-    .hp-source,
-    .hp-card-head,
-    .hp-pill,
-    .hp-row,
-    .hp-target-card span,
-    .hp-target-card small,
-    [class*="st-key-classic_signal_click_"] button,
-    [class*="st-key-classic_mover_click_"] button,
-    .st-key-home_empty_scan_left button,
-    .st-key-home_empty_scan_right button{
+@media(max-width:768px){.iz-section-label,
+.iz-click-strip-label,
+.iz-feature-empty > span,
+.iz-market-hero-kicker,
+.iz-market-hero p,
+.izw-profile,
+.iz-signal-profile,
+.hp-source,
+.hp-card-head,
+.hp-pill,
+.hp-row,
+.hp-target-card span,
+.hp-target-card small,
+[class*="st-key-classic_signal_click_"] button,
+[class*="st-key-classic_mover_click_"] button,
+.st-key-home_empty_scan_left button,
+.st-key-home_empty_scan_right button{
         font-size:var(--iz-font-xs)!important;
     }
 
     .iz-signals:not(.iz-home-feature-card) th,
     .iz-signals:not(.iz-home-feature-card) td{
         font-size:var(--iz-font-sm)!important;
-    }
-
-    .iz-signals:not(.iz-home-feature-card){
-        overflow-x:auto!important;
     }
     .iz-signals:not(.iz-home-feature-card) table{
         min-width:760px!important;
