@@ -4455,3 +4455,127 @@ h3:has(+ [data-testid="stDataFrame"]){
 .hp-mt-5{margin-top:5px;}
 .hp-mt-6{margin-top:6px;}
 
+
+/* =========================================================
+   v1.7.74 — TYPE SCALE / READABILITY NORMALIZATION
+   10px altı metinler için merkezi okunabilirlik tabanı.
+   ========================================================= */
+
+/* Generic metadata / labels */
+.iz-section-label,
+.iz-card-title,
+.iz-click-strip-label,
+.iz-decision-foot,
+.iz-feature-desc,
+.iz-feature-empty > span,
+.iz-market-hero-kicker,
+.iz-market-hero p,
+.iz-decision-center-premium .iz-decision-head small,
+.iz-decision-center-premium .iz-decision-head p,
+.iz-decision-center-premium .iz-decision-kpis span,
+.iz-decision-center-premium .iz-decision-kpis small,
+.iz-decision-center-premium .iz-market-factors span,
+.iz-decision-center-premium .iz-system-comment span,
+.iz-best-feature-label,
+.iz-best-feature-meta b,
+.izw-profile,
+.iz-signal-profile,
+.hp-source,
+.hp-card-head,
+.hp-pill,
+.hp-row,
+.hp-target-card span,
+.hp-target-card small{
+    font-size:var(--iz-font-xs)!important;
+}
+
+/* Buttons / compact controls should not fall below 10px */
+[class*="st-key-classic_signal_click_"] button,
+[class*="st-key-classic_mover_click_"] button,
+[class*="st-key-classic_heat_click_"] button,
+.st-key-home_empty_scan_left button,
+.st-key-home_empty_scan_right button,
+.iz-feature-cta,
+.iz-decision-center-premium .iz-decision-mode{
+    font-size:var(--iz-font-xs)!important;
+}
+
+/* Table and dense numeric UI minimum readable scale */
+.iz-signals:not(.iz-home-feature-card) th,
+.iz-movers:not(.iz-home-feature-card) .iz-mover-price,
+.iz-movers:not(.iz-home-feature-card) .iz-mover-chg,
+.izw-table th,
+.izw-table td,
+.iz-table th,
+.iz-table td{
+    font-size:max(var(--iz-font-xs), 10px)!important;
+}
+
+/* Main table body should be visually stronger than metadata */
+.iz-signals:not(.iz-home-feature-card) td,
+.iz-movers:not(.iz-home-feature-card) .iz-mover-name{
+    font-size:var(--iz-font-sm)!important;
+}
+
+/* Prominent badges / decisions */
+.iz-signals:not(.iz-home-feature-card) .iz-badge,
+.izw-decision .iz-badge,
+.iz-best-feature-signal,
+.iz-featured-signal{
+    font-size:var(--iz-font-xs)!important;
+}
+
+/* Technical panel values */
+.hp-card-value,
+.hp-target-card strong{
+    font-size:var(--iz-font-lg)!important;
+}
+
+/* Mobile: do not shrink below readability floor */
+@media(max-width:768px){
+    .iz-section-label,
+    .iz-click-strip-label,
+    .iz-feature-desc,
+    .iz-feature-empty > span,
+    .iz-market-hero-kicker,
+    .iz-market-hero p,
+    .izw-profile,
+    .iz-signal-profile,
+    .hp-source,
+    .hp-card-head,
+    .hp-pill,
+    .hp-row,
+    .hp-target-card span,
+    .hp-target-card small,
+    [class*="st-key-classic_signal_click_"] button,
+    [class*="st-key-classic_mover_click_"] button,
+    .st-key-home_empty_scan_left button,
+    .st-key-home_empty_scan_right button{
+        font-size:var(--iz-font-xs)!important;
+    }
+
+    .iz-signals:not(.iz-home-feature-card) th,
+    .iz-signals:not(.iz-home-feature-card) td{
+        font-size:var(--iz-font-sm)!important;
+    }
+
+    .iz-signals:not(.iz-home-feature-card){
+        overflow-x:auto!important;
+    }
+    .iz-signals:not(.iz-home-feature-card) table{
+        min-width:760px!important;
+    }
+}
+
+/* Explicit accessibility floor for the most user-facing custom components.
+   Historical legacy rules can remain in file, but these final selectors win. */
+.iz-home-feature-card,
+.iz-decision-center-premium,
+.iz-signals,
+.iz-movers,
+.hp-wrap,
+.izw-shell,
+.iz-table-wrap{
+    --iz-component-min-font:10px;
+}
+
