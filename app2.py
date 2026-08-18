@@ -372,7 +372,7 @@ STRATEJI_SURUMU = "IZFIN-v1.7.5-auth-switch-fixed"
 PERFORMANS_UFUKLARI = (1, 5, 10, 20, 45)
 
 # --- IZFIN UYGULAMA SÜRÜMÜ ---
-IZFIN_APP_SURUMU = "v1.8.28 Active Table QA"
+IZFIN_APP_SURUMU = "v1.8.29 Empty Movers Align"
 
 # Finnhub isteklerini süreç içinde ortak hız sınırına tabi tut.
 # Plan bazlı dakika limitleri değişebildiği için 429 yanıtlarında ayrıca backoff uygulanır.
@@ -4065,25 +4065,23 @@ def izfin_movers_render(max_n=5):
         rows.append((abs(degisim), degisim, ticker, sonuc.get("Fiyat", "—")))
     rows.sort(reverse=True)
 
-    if rows:
-        mover_rows = []
-        for _, degisim, ticker, fiyat in rows[:max_n]:
-            yon_sinifi = "pos" if degisim >= 0 else "neg"
-            mover_rows.append(
-                '<div class="iz-mv1827-row">'
-                f'<div class="iz-mv1827-ticker">{html.escape(str(ticker))}</div>'
-                f'<div class="iz-mv1827-price">{html.escape(str(fiyat))}</div>'
-                f'<div class="iz-mv1827-change {yon_sinifi}">{degisim:+.2f}%</div>'
-                '</div>'
-            )
-        body = "".join(mover_rows)
-    else:
-        body = (
-            '<div class="iz-mv1827-empty">'
-            '<b>Henüz veri yok</b>'
-            '<span>Akıllı Tarama sonrası büyük hareketler burada görünecek.</span>'
+    # Taranmamış durumda soldaki premium boş kartın birebir geometrisini kullan.
+    # Böylece iki kart ve iki native tarama butonu aynı başlangıç/bitiş çizgisinde kalır.
+    if not rows:
+        st.markdown(izfin_movers_html(max_n=max_n), unsafe_allow_html=True)
+        return
+
+    mover_rows = []
+    for _, degisim, ticker, fiyat in rows[:max_n]:
+        yon_sinifi = "pos" if degisim >= 0 else "neg"
+        mover_rows.append(
+            '<div class="iz-mv1827-row">'
+            f'<div class="iz-mv1827-ticker">{html.escape(str(ticker))}</div>'
+            f'<div class="iz-mv1827-price">{html.escape(str(fiyat))}</div>'
+            f'<div class="iz-mv1827-change {yon_sinifi}">{degisim:+.2f}%</div>'
             '</div>'
         )
+    body = "".join(mover_rows)
 
     st.html(
         """
@@ -4095,7 +4093,7 @@ def izfin_movers_render(max_n=5):
         }
         .iz-mv1827-title{
             min-height:28px; display:flex; align-items:center; margin:0 0 10px;
-            color:#f4fbff; font-size:10px; line-height:1; font-weight:850;
+            color:#f4fbff; font-size:14px; line-height:1; font-weight:850;
             letter-spacing:.02em; text-transform:uppercase;
         }
         .iz-mv1827-head, .iz-mv1827-row{
@@ -4122,12 +4120,6 @@ def izfin_movers_render(max_n=5):
         .iz-mv1827-change{font-size:11px; font-weight:850; text-align:right;}
         .iz-mv1827-change.pos{color:#00d77e;}
         .iz-mv1827-change.neg{color:#ff4256;}
-        .iz-mv1827-empty{
-            min-height:300px; display:flex; flex-direction:column; align-items:center;
-            justify-content:center; gap:7px; color:#7898a7; text-align:center;
-        }
-        .iz-mv1827-empty b{color:#e9f8ff; font-size:12px;}
-        .iz-mv1827-empty span{font-size:10px;}
         @media(max-width:768px){
             .iz-mv1827-card{min-height:0; padding:16px 12px 12px;}
             .iz-mv1827-head, .iz-mv1827-row{
