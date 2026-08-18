@@ -1,4 +1,5 @@
 import ast
+import re
 from pathlib import Path
 
 
@@ -13,6 +14,28 @@ def test_app_python_syntax():
 def test_css_braces_are_balanced():
     css = CSS.read_text(encoding="utf-8")
     assert css.count("{") == css.count("}")
+
+
+def test_design_tokens_are_defined_and_not_self_referencing():
+    css = CSS.read_text(encoding="utf-8")
+    definitions = {
+        name: value.strip()
+        for name, value in re.findall(
+            r"(--iz-[A-Za-z0-9_-]+)\s*:\s*([^;}]+)", css
+        )
+    }
+    uses = set(re.findall(r"var\((--iz-[A-Za-z0-9_-]+)", css))
+
+    undefined = uses - set(definitions)
+    self_referencing = {
+        name for name, value in definitions.items()
+        if f"var({name})" in value
+    }
+
+    assert not undefined, f"Undefined IZFIN design tokens: {sorted(undefined)}"
+    assert not self_referencing, (
+        f"Self-referencing IZFIN design tokens: {sorted(self_referencing)}"
+    )
 
 
 def test_no_old_bist_tickers_in_presets():
