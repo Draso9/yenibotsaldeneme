@@ -4862,3 +4862,71 @@ h3:has(+ [data-testid="stDataFrame"]){
     }
 }
 
+
+/* =========================================================
+   v1.8.17 — SYSTEM HEALTH / QA CENTER
+   ========================================================= */
+.iz-qa-hero{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:18px;
+    padding:20px 22px;
+    margin:0 0 14px;
+    border:1px solid var(--iz-border, rgba(93,163,210,.22));
+    border-radius:18px;
+    background:linear-gradient(145deg, rgba(12,31,48,.96), rgba(7,20,32,.96));
+}
+.iz-qa-kicker{
+    font-size:11px;
+    letter-spacing:.16em;
+    font-weight:800;
+    color:var(--iz-cyan, #36d6df);
+}
+.iz-qa-hero h2{margin:4px 0;font-size:24px;line-height:1.15;}
+.iz-qa-hero p{margin:0;opacity:.72;font-size:13px;}
+.iz-qa-version{
+    flex:0 0 auto;
+    padding:8px 12px;
+    border-radius:999px;
+    border:1px solid rgba(54,214,223,.28);
+    background:rgba(54,214,223,.06);
+    font-size:12px;
+    font-weight:800;
+    white-space:nowrap;
+}
+.iz-qa-status{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    padding:13px 16px;
+    margin:0 0 14px;
+    border-radius:14px;
+}
+.iz-qa-status.ok{border:1px solid rgba(41,210,145,.28);background:rgba(41,210,145,.07);}
+.iz-qa-status.warn{border:1px solid rgba(244,186,73,.30);background:rgba(244,186,73,.07);}
+.iz-qa-status span{display:block;font-size:10px;letter-spacing:.12em;opacity:.66;}
+.iz-qa-status strong{display:block;margin-top:2px;font-size:14px;}
+.iz-qa-dot{width:10px;height:10px;border-radius:50%;background:currentColor;opacity:.9;}
+.iz-qa-grid{
+    display:grid;
+    grid-template-columns:repeat(4,minmax(0,1fr));
+    gap:10px;
+    margin-bottom:18px;
+}
+.iz-qa-metric{
+    padding:13px 14px;
+    border-radius:14px;
+    border:1px solid rgba(93,163,210,.18);
+    background:rgba(10,25,39,.82);
+}
+.iz-qa-metric span{display:block;font-size:11px;opacity:.68;}
+.iz-qa-metric strong{display:block;margin:5px 0 3px;font-size:21px;line-height:1;}
+.iz-qa-metric small{display:block;font-size:10px;opacity:.52;}
+@media(max-width:900px){.iz-qa-grid{grid-template-columns:repeat(2,minmax(0,1fr));}}
+@media(max-width:520px){
+    .iz-qa-hero{align-items:flex-start;flex-direction:column;}
+    .iz-qa-grid{grid-template-columns:1fr 1fr;}
+    .iz-qa-version{white-space:normal;}
+}
+
