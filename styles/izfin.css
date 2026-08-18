@@ -2205,13 +2205,9 @@ button[kind="primary"],
    Desktop: mevcut geniş tablo korunur.
    Mobile: her satır okunabilir bir hisse kartına dönüşür.
    ========================================================= */
-@media (max-width: 768px){
+@media(max-width:768px){
 
     /* Geniş görünüm üst alanı */
-    .iz-focus-title{
-        min-height:auto!important;
-        padding:2px 0!important;
-    }
     .iz-focus-title p{
         font-size:9px!important;
         line-height:1.4!important;
@@ -2221,19 +2217,7 @@ button[kind="primary"],
         padding:5px 7px!important;
     }
 
-    /* Shell mobilde kart listesine dönüşür */
-    .izw-shell{
-        border:0!important;
-        background:transparent!important;
-        box-shadow:none!important;
-        overflow:visible!important;
-    }
-
     /* Varlık + karar ilk satır */
-    .izw-asset{
-        grid-column:1 / 2!important;
-    }
-
     .izw-asset strong{
         font-size:16px!important;
         line-height:1.1!important;
@@ -2259,10 +2243,6 @@ button[kind="primary"],
         font-size:8px!important;
     }
 
-    /* Kalite tam genişlik */
-    .izw-quality{
-        grid-column:1 / -1!important;
-    }
     .izw-quality-top{
         grid-template-columns:repeat(3,1fr)!important;
         gap:6px!important;
@@ -2293,10 +2273,6 @@ button[kind="primary"],
         white-space:normal!important;
     }
 
-    /* Risk / Akış tam genişlik */
-    .izw-riskflow{
-        grid-column:1 / -1!important;
-    }
     .izw-rf-grid{
         grid-template-columns:1fr 1fr!important;
         gap:6px!important;
@@ -2307,9 +2283,6 @@ button[kind="primary"],
     }
 
     /* Alt satır: değerleme + seans dışı */
-    .izw-value{
-        grid-column:1 / 2!important;
-    }
     .izw-value b,
     .izw-session b{
         font-size:10px!important;
@@ -2323,13 +2296,6 @@ button[kind="primary"],
         margin:0 5px 0 0!important;
         font-size:14px!important;
         vertical-align:middle!important;
-    }
-
-    /* Mobilde ana Streamlit iç boşluğunu azalt */
-    .stAppViewContainer .main .block-container{
-        padding-left:9px!important;
-        padding-right:9px!important;
-        padding-top:8px!important;
     }
 
     /* Exit butonu mobilde okunabilir */
@@ -2361,7 +2327,7 @@ button[kind="primary"],
    Telefonda Detaylı Teknik Analiz paneli sıkışmak yerine
    responsive kart düzenine dönüşür.
    ========================================================= */
-@media (max-width: 768px){
+@media(max-width:768px){
 
     .hp-title,.hp-source,.hp-card-head,.hp-card-value,.hp-pill{
         white-space:normal!important;
@@ -2386,16 +2352,7 @@ button[kind="primary"],
     .hp-source{
         align-self:flex-start!important;
         max-width:100%!important;
-        font-size:9px!important;
         padding:5px 8px!important;
-    }
-
-    /* Ana gösterge kartları: telefonda 2 kolon */
-    .hp-grid{
-        display:grid!important;
-        grid-template-columns:repeat(2,minmax(0,1fr))!important;
-        gap:7px!important;
-        width:100%!important;
     }
 
     .hp-card{
@@ -2407,7 +2364,6 @@ button[kind="primary"],
     }
 
     .hp-card-head{
-        font-size:9px!important;
         line-height:1.3!important;
     }
 
@@ -2420,18 +2376,13 @@ button[kind="primary"],
     .hp-pill{
         display:inline-flex!important;
         max-width:100%!important;
-        font-size:8.5px!important;
         line-height:1.3!important;
         padding:4px 6px!important;
     }
 
     /* Trend / seviyeler / risk bölümleri tek kolon */
     .hp-sections{
-        display:grid!important;
-        grid-template-columns:1fr!important;
-        gap:8px!important;
         margin-top:8px!important;
-        width:100%!important;
     }
 
     .hp-section{
@@ -2457,7 +2408,6 @@ button[kind="primary"],
         align-items:start!important;
         gap:8px!important;
         padding:7px 0!important;
-        font-size:10px!important;
         line-height:1.35!important;
     }
 
@@ -2496,7 +2446,6 @@ button[kind="primary"],
 
     .hp-target-card span,
     .hp-target-card small{
-        font-size:7.5px!important;
         line-height:1.25!important;
         white-space:normal!important;
         word-break:normal!important;
@@ -2583,12 +2532,6 @@ button[kind="primary"],
     border-color:#26c8d4!important;
     background:#092536!important;
 }
-@media(max-width:768px){
-    .iz-signal-profile,.izw-profile{
-        font-size:8.5px!important;
-    }
-}
-
 /* =========================================================
    v1.7.55 — BLOCKING SMART SCAN OVERLAY
    ========================================================= */
@@ -2675,11 +2618,9 @@ button[kind="primary"],
     }
 }
 
-@media (max-width: 768px){
+@media(max-width:768px){
     .iz-signals,
     .iz-movers{
-        min-height:0!important;
-        height:auto!important;
         display:block!important;
     }
 }
@@ -3347,7 +3288,6 @@ button[kind="primary"],
     }
     .st-key-home_empty_scan_left button,
     .st-key-home_empty_scan_right button{
-        font-size:9.5px!important;
         min-height:40px!important;
         height:40px!important;
     }
@@ -3497,15 +3437,6 @@ button[kind="primary"],
     }
 }
 
-/* Mobilde dolu paneller doğal şekilde alt alta büyüsün */
-@media(max-width:768px){
-
-    .iz-signals:not(.iz-home-feature-card) table{
-        min-width:650px!important;
-    }
-}
-
-
 /* =========================================================
    v1.7.65 — HOME TABLE READABILITY + SIDEBAR-STYLE NAV
    ========================================================= */
@@ -3568,22 +3499,6 @@ button[kind="primary"],
         min-height:306px!important;
     }
 }
-
-/* Mobilde tablo biraz büyüsün ama yatay scroll ile taşmasın */
-@media(max-width:768px){
-    .iz-signals:not(.iz-home-feature-card) th{
-        font-size:8px;
-        padding:6px 7px;
-    }
-    .iz-signals:not(.iz-home-feature-card) td{
-        font-size:9px;
-        padding:7px;
-    }
-    .iz-signals:not(.iz-home-feature-card) .iz-badge{
-        font-size:8px;
-    }
-}
-
 
 /* =========================================================
    v1.7.66 — HOME SIGNAL TABLE / STRONGER TYPOGRAPHY
@@ -3685,15 +3600,10 @@ button[kind="primary"],
         font-size:13px;
     }
     .iz-signals:not(.iz-home-feature-card) th{
-        font-size:9px;
         padding:7px 8px;
     }
     .iz-signals:not(.iz-home-feature-card) td{
-        font-size:10.4px;
         padding:8px;
-    }
-    .iz-signals:not(.iz-home-feature-card) td:first-child{
-        font-size:11px;
     }
     .iz-signals:not(.iz-home-feature-card) .iz-badge{
         font-size:9px;
@@ -3935,15 +3845,6 @@ h3:has(+ [data-testid="stDataFrame"]){
 
 /* ---------- Mobile ---------- */
 @media(max-width:768px){
-    .iz-signals:not(.iz-home-feature-card) table{
-        min-width:700px!important;
-    }
-    .iz-signals:not(.iz-home-feature-card) th{
-        font-size:9.5px;
-    }
-    .iz-signals:not(.iz-home-feature-card) td{
-        font-size:11px;
-    }
     .iz-signals:not(.iz-home-feature-card) td:first-child,
     .iz-movers:not(.iz-home-feature-card) .iz-mover-name{
         font-size:12px;
@@ -4449,10 +4350,6 @@ h3:has(+ [data-testid="stDataFrame"]){
     .iz-signals:not(.iz-home-feature-card){
         overflow-x:auto!important;
     }
-    .iz-signals:not(.iz-home-feature-card) table{
-        min-width:760px!important;
-    }
-
     /* Result filters */
     [data-testid="stRadio"] [role="radiogroup"]{
         display:grid!important;
