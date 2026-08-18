@@ -25,6 +25,43 @@ import streamlit.components.v1 as components
 from pathlib import Path
 
 
+# --- IZFIN TEKNİK LOG KATMANI ---
+logger = logging.getLogger("IZFIN")
+if not logger.handlers:
+    logging.basicConfig(level=logging.INFO)
+
+def izfin_hata_logla(baglam, hata, ticker=None):
+    """Yakalanmış hatayı traceback'iyle loglar; kullanıcı akışını bozmaz."""
+    etiket = f"{baglam} | {ticker}" if ticker else baglam
+    exc_info = None
+    try:
+        if isinstance(hata, BaseException):
+            exc_info = (type(hata), hata, hata.__traceback__)
+    except Exception:
+        exc_info = None
+
+    logger.error(
+        "IZFIN hata [%s]: %s",
+        etiket,
+        hata,
+        exc_info=exc_info,
+    )
+
+    # Session içi teknik özet yalnızca yardımcıdır; başarısız olursa log fonksiyonu
+    # kendi kendisini tekrar çağırarak recursion üretmez.
+    try:
+        if "taramada_hatalar" not in st.session_state:
+            st.session_state.taramada_hatalar = []
+        st.session_state.taramada_hatalar.append({
+            "baglam": baglam,
+            "ticker": ticker,
+            "tip": type(hata).__name__,
+            "mesaj": str(hata)[:180],
+        })
+    except Exception:
+        pass
+
+
 
 def izfin_dataframe_tema(obj):
     """Native Streamlit dataframe'lerinde IZFIN koyu tema tutarlılığı sağlar."""
@@ -82,7 +119,8 @@ def izfin_css_yukle():
     except FileNotFoundError:
         st.error("IZFIN tema dosyası bulunamadı: styles/izfin.css")
     except Exception as e:
-        st.error(f"IZFIN tema dosyası yüklenemedi: {e}")
+        izfin_hata_logla("css_yukleme", e)
+        st.error("IZFIN tema dosyası yüklenemedi. Teknik hata kayda alındı.")
 
 
 # --- 1. SAYFA YAPILANDIRMASI ---
@@ -115,8 +153,8 @@ try:
     _legacy_email_cookie = cookie_manager.get(cookie="user_email")
     if _legacy_email_cookie:
         cookie_manager.delete("user_email")
-except Exception:
-    pass
+except Exception as e:
+    izfin_hata_logla("silent_exception_line_118", e)
 
 # --- FIREBASE BAŞLATMA ---
 if not firebase_admin._apps:
@@ -128,11 +166,13 @@ if not firebase_admin._apps:
             cred = credentials.Certificate("serviceAccountKey.json")
         firebase_admin.initialize_app(cred)
     except Exception as e:
-        st.warning(f"Firebase başlatılamadı (Veritabanı özellikleri devre dışı): {e}")
+        izfin_hata_logla("firebase_admin_init", e)
+        st.warning("Firebase bağlantısı şu anda kullanılamıyor. Kişisel kayıt özellikleri geçici olarak sınırlı olabilir.")
 
 try:
     db = firestore.client()
-except Exception:
+except Exception as e:
+    izfin_hata_logla("firestore_client_init", e)
     db = None
 
 # --- FIREBASE AUTH: GERÇEK E-POSTA/ŞİFRE OTURUMU ---
@@ -147,8 +187,8 @@ def _firebase_web_api_key():
         try:
             if "firebase_web" in st.secrets:
                 key = dict(st.secrets["firebase_web"]).get("apiKey", "")
-        except Exception:
-            pass
+        except Exception as e:
+            izfin_hata_logla("silent_exception_line_150", e)
     return str(key or "").strip()
 
 FIREBASE_WEB_API_KEY = _firebase_web_api_key()
@@ -159,8 +199,8 @@ def _firebase_project_id():
     try:
         if "firebase" in st.secrets:
             return str(dict(st.secrets["firebase"]).get("project_id", "") or "").strip()
-    except Exception:
-        pass
+    except Exception as e:
+        izfin_hata_logla("silent_exception_line_162", e)
     return str(os.getenv("FIREBASE_PROJECT_ID", "") or "").strip()
 
 FIREBASE_PROJECT_ID = _firebase_project_id()
@@ -246,8 +286,8 @@ def _oturum_ac(data, beni_hatirla=False):
         _kullanici_profilini_hazirla(uid, email)
         try:
             cookie_manager.delete("izfin_session")
-        except Exception:
-            pass
+        except Exception as e:
+            izfin_hata_logla("silent_exception_line_249", e)
         if beni_hatirla:
             expires_in = timedelta(days=14)
             session_cookie = auth.create_session_cookie(id_token, expires_in=expires_in)
@@ -280,8 +320,8 @@ def _kayit_ol(email, password):
             izfin_hata_logla("kayit_ilk_kisisel_liste", e)
     try:
         _firebase_auth_post("sendOobCode", {"requestType": "VERIFY_EMAIL", "idToken": data.get("idToken")})
-    except Exception:
-        pass
+    except Exception as e:
+        izfin_hata_logla("silent_exception_line_283", e)
     return data, None
 
 def _sifre_sifirlama_maili(email):
@@ -331,11 +371,8 @@ VARSAYILAN_TICKERS = ["AAPL", "MSFT", "TSLA", "NVDA", "AMD", "INTC", "THYAO.IS",
 STRATEJI_SURUMU = "IZFIN-v1.7.5-auth-switch-fixed"
 PERFORMANS_UFUKLARI = (1, 5, 10, 20, 45)
 
-# --- IZFIN UYGULAMA SÜRÜMÜ / LOG ---
-IZFIN_APP_SURUMU = "v1.7.76 Responsive Normalization Phase 1"
-logger = logging.getLogger("IZFIN")
-if not logger.handlers:
-    logging.basicConfig(level=logging.INFO)
+# --- IZFIN UYGULAMA SÜRÜMÜ ---
+IZFIN_APP_SURUMU = "v1.8.0 Release Candidate"
 
 # Finnhub isteklerini süreç içinde ortak hız sınırına tabi tut.
 # Plan bazlı dakika limitleri değişebildiği için 429 yanıtlarında ayrıca backoff uygulanır.
@@ -346,19 +383,6 @@ _FINNHUB_MIN_INTERVAL = 0.10  # yaklaşık 10 istek/sn; 30/sn üst sınırının
 
 
 
-def izfin_hata_logla(baglam, hata, ticker=None):
-    """Kullanıcıya traceback göstermeden Streamlit Cloud loglarına teknik hata yazar."""
-    etiket = f"{baglam} | {ticker}" if ticker else baglam
-    logger.exception("IZFIN hata [%s]: %s", etiket, hata)
-    try:
-        if "taramada_hatalar" not in st.session_state:
-            st.session_state.taramada_hatalar = []
-        st.session_state.taramada_hatalar.append({
-            "baglam": baglam, "ticker": ticker, "tip": type(hata).__name__,
-            "mesaj": str(hata)[:180]
-        })
-    except Exception:
-        pass
 
 # --- HAZIR VARLIK LİSTELERİ ---
 BIST_30 = [
@@ -457,7 +481,8 @@ def peg_verilerini_paralel_cek(tickers, max_workers=6):
             ticker = futures[future]
             try:
                 sonuc[ticker] = future.result()
-            except Exception:
+            except Exception as e:
+                izfin_hata_logla("peg_parallel_fetch", e, ticker=ticker)
                 sonuc[ticker] = None
     return sonuc
 
@@ -554,8 +579,8 @@ def _intraday_local_index(ticker, df):
         else:
             idx = idx.tz_convert(tz)
         x.index = idx
-    except Exception:
-        pass
+    except Exception as e:
+        izfin_hata_logla("silent_exception_line_557", e)
     return x
 
 
@@ -596,8 +621,8 @@ def seans_disi_ozet(ticker, ham_intraday, quote=None):
             try:
                 px = float(quote["close"])
                 return f"🌙 Seans dışı {px:.2f}", px
-            except Exception:
-                pass
+            except Exception as e:
+                izfin_hata_logla("silent_exception_line_599", e)
         return "—", None
     try:
         x = x.dropna(subset=["Close"]).sort_index()
@@ -673,8 +698,8 @@ def toplu_veriden_ticker_ayir(toplu_df, ticker, toplam_adet):
             # Bazı yfinance sürümlerinde ticker ikinci seviyede olabilir.
             if ticker in toplu_df.columns.get_level_values(-1):
                 return _normalize_yf_columns(toplu_df.xs(ticker, axis=1, level=-1).copy())
-    except Exception:
-        pass
+    except Exception as e:
+        izfin_hata_logla("silent_exception_line_676", e)
     return pd.DataFrame()
 
 
@@ -720,7 +745,8 @@ def finnhub_quotelari_paralel_cek(tickers, max_workers=6):
             t = futures[future]
             try:
                 sonuc[t] = future.result()
-            except Exception:
+            except Exception as e:
+                izfin_hata_logla("finnhub_parallel_quote", e, ticker=t)
                 sonuc[t] = None
     return sonuc
 
@@ -1307,8 +1333,17 @@ def merkezi_karar_motoru(panel):
             nedenler.append('Olumlu: ' + ', '.join(olumlu[:2]))
         if olumsuz:
             nedenler.append('Bekleme nedeni: ' + ', '.join(olumsuz[:3]))
+    elif aksiyon in {'KAR_AL', 'KAR_KORU'}:
+        if asiri_isinmis:
+            nedenler.append('Fiyat/RSI kısa vadede aşırı ısınmış görünüyor')
+        if momentum_bozuluyor:
+            nedenler.append('Momentum teyidi zayıflıyor')
+        if yuksek_risk:
+            nedenler.append(f'Risk seviyesi {risk.lower()}')
+        if not nedenler:
+            nedenler.append('Yeni giriş yerine mevcut kazancı koruma öncelikli')
     else:
-        nedenler = olumsuz[:4] or ['risk/getiri yapısı yeni pozisyon için yeterli değil']
+        nedenler = olumsuz[:4] or ['Risk profili yeni pozisyon için yeterli değil']
 
     ozet = ' · '.join(nedenler) if nedenler else 'Karar, mevcut teknik verilerin ortak değerlendirmesinden üretildi.'
     return {
@@ -2162,8 +2197,8 @@ def sinyal_kayitlarini_firestore_yaz(sonuclar, teknik_paneller):
                     "arsiv_doc_id": eski_id,
                     "giris_fiyati": float(eski_veri.get("giris_fiyati", 0) or 0),
                 }
-            except Exception:
-                pass
+            except Exception as e:
+                izfin_hata_logla("aktif_pozisyon_eski_kaydi_ac", e, ticker=ticker)
 
         if yon == "ALIM" and panel and fiyat > 0:
             ortak_guncel = {
@@ -2211,8 +2246,8 @@ def sinyal_kayitlarini_firestore_yaz(sonuclar, teknik_paneller):
                 try:
                     db.collection("sinyal_arsivi").document(arsiv_doc_id).set(arsiv_guncelleme, merge=True)
                     aktif_ref.set(aktif_guncelleme, merge=True)
-                except Exception:
-                    pass
+                except Exception as e:
+                    izfin_hata_logla("aktif_pozisyon_sinyal_degisim_yaz", e, ticker=ticker)
                 continue
 
             # Gerçekten açık pozisyon yoksa yeni dönem başlat.
@@ -2268,8 +2303,8 @@ def sinyal_kayitlarini_firestore_yaz(sonuclar, teknik_paneller):
                     "guncelleme_zamani": simdi.isoformat(),
                 })
                 eski_acik_haritasi[ticker] = (yeni_arsiv_id, simdi.isoformat(), yeni_veri)
-            except Exception:
-                pass
+            except Exception as e:
+                izfin_hata_logla("aktif_pozisyon_yeni_donem_yaz", e, ticker=ticker)
 
         elif aktif_mi and arsiv_doc_id:
             arsiv_veri = {}
@@ -2381,8 +2416,8 @@ def performans_cache_gecersiz_kil():
         st.session_state.performans_cache_epoch = int(
             st.session_state.get("performans_cache_epoch", 0)
         ) + 1
-    except Exception:
-        pass
+    except Exception as e:
+        izfin_hata_logla("silent_exception_line_2384", e)
 
 
 def _guvenli_dict(deger):
@@ -2565,8 +2600,12 @@ def performans_fiyatlarini_guncelle(kayitlar):
                     "getiri_yuzde": getiri,
                     "guncelleme_zamani": kayit["guncelleme_zamani"],
                 }, merge=True)
-            except Exception:
-                pass
+            except Exception as e:
+                izfin_hata_logla(
+                    "aktif_pozisyon_getiri_firestore_guncelle",
+                    e,
+                    ticker=kayit.get("ticker"),
+                )
         guncellenen.append(kayit)
     return guncellenen
 
@@ -2694,8 +2733,8 @@ def performans_karnelerini_guncelle(kayitlar):
         try:
             db.collection("sinyal_arsivi").document(doc_id).set(update, merge=True)
             kayit.update(update)
-        except Exception:
-            pass
+        except Exception as e:
+            izfin_hata_logla("performans_karnesi_firestore_guncelle", e, ticker=ticker)
 
     return kayitlar
 
@@ -2934,7 +2973,8 @@ if st.session_state.user_email and db and not st.session_state.kullanici_listesi
         st.session_state.kullanici_listesi_yuklendi = True
 
     except Exception as _liste_hatasi:
-        st.warning(f"Kayıtlı listeniz şu anda yüklenemedi: {_liste_hatasi}")
+        izfin_hata_logla("kullanici_listesi_yukle", _liste_hatasi)
+        st.warning("Kayıtlı listeniz şu anda yüklenemedi. Varsayılan listeyle devam ediliyor.")
 
 def kullanici_listesini_kaydet(raise_on_error=False):
     """Kişisel listeyi Firestore'a yazar ve gerçek başarı durumunu döndürür.
@@ -3026,8 +3066,8 @@ def hisse_onerileri_getir(arama):
                     x.get("exchDisp") or x.get("exchange"),
                     qt,
                 )
-    except Exception:
-        pass
+    except Exception as e:
+        izfin_hata_logla("hisse_onerileri_getir", e)
 
     # 2) Finnhub: Yahoo az sonuç verdiyse tamamla.
     if len(sonuc) < 8 and FINNHUB_API_KEY:
@@ -3050,8 +3090,8 @@ def hisse_onerileri_getir(arama):
                     x.get("displaySymbol"),
                     typ,
                 )
-        except Exception:
-            pass
+        except Exception as e:
+            izfin_hata_logla("hisse_onerileri_getir", e)
 
     # 3) Yerel evren fallback + yazılan sembolü kaybetmeme.
     try:
@@ -3121,9 +3161,10 @@ def hisse_ekle_callback():
         try:
             kullanici_listesini_kaydet(raise_on_error=True)
         except Exception as firebase_hatasi:
+            izfin_hata_logla("manuel_liste_ekleme_firestore", firebase_hatasi, ticker=symbol)
             st.session_state.custom_tickers = eski_liste
             st.session_state["liste_islem_mesaji"] = (
-                "error", f"{symbol} listeye eklenemedi: {firebase_hatasi}"
+                "error", f"{symbol} listeye eklenemedi: kayıt işlemi tamamlanamadı."
             )
             return
 
@@ -4429,18 +4470,22 @@ if aktif_sayfa in ["🏠 Ana Sayfa", "🔎 Akıllı Tarama"]:
 
             # Yazı değiştiğinde Streamlit zaten rerun eder; Ara butonu da aynı akışı tetikler.
             # Böylece hem Enter hem tıklama kullanılabilir.
-            _arama_aktif = bool(_arama.strip()) and (
-                _ara_tiklandi
-                or st.session_state.get("_son_hisse_arama") != _arama.strip()
-                or st.session_state.get("_son_hisse_arama") == _arama.strip()
-            )
+            _arama_q = _arama.strip()
+            _son_arama = str(st.session_state.get("_son_hisse_arama", "") or "")
+            _arama_degisti = bool(_arama_q) and (_arama_q != _son_arama)
+            _arama_aktif = bool(_arama_q) and (_ara_tiklandi or _arama_degisti)
 
             if _arama_aktif:
-                st.session_state["_son_hisse_arama"] = _arama.strip()
                 with st.spinner("Piyasalarda aranıyor..."):
-                    _oneriler = hisse_onerileri_getir(_arama)
+                    _oneriler = hisse_onerileri_getir(_arama_q)
+                st.session_state["_son_hisse_arama"] = _arama_q
+                st.session_state["_son_hisse_onerileri"] = _oneriler
+            elif _arama_q:
+                _oneriler = st.session_state.get("_son_hisse_onerileri", [])
             else:
                 _oneriler = []
+                st.session_state["_son_hisse_arama"] = ""
+                st.session_state["_son_hisse_onerileri"] = []
 
             if _oneriler:
                 st.caption(f"🔎 {len(_oneriler)} eşleşme bulundu")
@@ -4462,10 +4507,13 @@ if aktif_sayfa in ["🏠 Ana Sayfa", "🔎 Akıllı Tarama"]:
                 )
 
                 _chosen = _oneriler[int(_idx)]
+                _chosen_symbol_html = html.escape(str(_chosen.get("symbol") or "—"))
+                _chosen_name_html = html.escape(str(_chosen.get("name") or "Şirket adı yok"))
+                _chosen_exchange_html = html.escape(str(_chosen.get("exchange") or "Piyasa bilgisi yok"))
                 st.markdown(
                     f"""<div class="iz-search-result-preview">
-                    <div><b>{_chosen['symbol']}</b><span>{_chosen.get('name') or 'Şirket adı yok'}</span></div>
-                    <small>{_chosen.get('exchange') or 'Piyasa bilgisi yok'}</small>
+                    <div><b>{_chosen_symbol_html}</b><span>{_chosen_name_html}</span></div>
+                    <small>{_chosen_exchange_html}</small>
                     </div>""",
                     unsafe_allow_html=True,
                 )
@@ -4494,10 +4542,11 @@ if aktif_sayfa in ["🏠 Ana Sayfa", "🔎 Akıllı Tarama"]:
                                 f"{_symbol} kişisel listenize başarıyla eklendi."
                             )
                         except Exception as _ekleme_hatasi:
+                            izfin_hata_logla("autocomplete_liste_ekleme", _ekleme_hatasi, ticker=_symbol)
                             st.session_state.custom_tickers = _eski_liste
                             st.session_state["liste_islem_mesaji"] = (
                                 "error",
-                                f"{_symbol} listeye eklenemedi: Firebase kaydı tamamlanamadı. {_ekleme_hatasi}"
+                                f"{_symbol} listeye eklenemedi: kayıt işlemi tamamlanamadı."
                             )
                     st.rerun()
             elif _arama.strip():
@@ -4517,7 +4566,7 @@ if aktif_sayfa in ["🏠 Ana Sayfa", "🔎 Akıllı Tarama"]:
                 if st.session_state.custom_tickers:
                     st.caption(f"{len(st.session_state.custom_tickers)} kayıtlı varlık")
                     _kayitli_html = "".join(
-                        f'<span class="iz-static-chip">{x}</span>'
+                        f'<span class="iz-static-chip">{html.escape(str(x))}</span>'
                         for x in st.session_state.custom_tickers
                     )
                     st.markdown(
@@ -4571,7 +4620,7 @@ if aktif_sayfa in ["🏠 Ana Sayfa", "🔎 Akıllı Tarama"]:
                 st.session_state.secilen_varliklar = selected_tickers.copy()
 
                 _liste_html = "".join(
-                    f'<span class="iz-static-chip">{x}</span>'
+                    f'<span class="iz-static-chip">{html.escape(str(x))}</span>'
                     for x in selected_tickers
                 ) or '<span class="iz-empty-list">Listenizde henüz hisse yok</span>'
 
