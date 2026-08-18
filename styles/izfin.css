@@ -2618,14 +2618,6 @@ button[kind="primary"],
     }
 }
 
-@media(max-width:768px){
-    .iz-signals,
-    .iz-movers{
-        display:block!important;
-    }
-}
-
-
 /* =========================================================
    v1.7.60 — TRUE ALIGNMENT FOR HOME FEATURE CARDS
    v1.7.59 eşit yükseklik verdi ama Streamlit dış blok offset'i
@@ -2701,6 +2693,10 @@ button[kind="primary"],
     .iz-movers{
         height:auto!important;
         min-height:0!important;
+    }
+    .iz-signals,
+    .iz-movers{
+        display:block!important;
     }
 }
 
@@ -4140,15 +4136,6 @@ h3:has(+ [data-testid="stDataFrame"]){
     }
 }
 
-@media(max-width:768px){
-    .iz-featured-metrics>div{
-        min-height:82px;
-    }
-    .iz-featured-metrics strong{
-        font-size:21px;
-    }
-}
-
 @media(max-width:420px){
     .iz-featured-signal{
         min-height:34px;
@@ -4256,33 +4243,6 @@ h3:has(+ [data-testid="stDataFrame"]){
     font-size:var(--iz-font-lg)!important;
 }
 
-/* Mobile: do not shrink below readability floor */
-@media(max-width:768px){.iz-section-label,
-.iz-click-strip-label,
-.iz-feature-empty > span,
-.iz-market-hero-kicker,
-.iz-market-hero p,
-.izw-profile,
-.iz-signal-profile,
-.hp-source,
-.hp-card-head,
-.hp-pill,
-.hp-row,
-.hp-target-card span,
-.hp-target-card small,
-[class*="st-key-classic_signal_click_"] button,
-[class*="st-key-classic_mover_click_"] button,
-.st-key-home_empty_scan_left button,
-.st-key-home_empty_scan_right button{
-        font-size:var(--iz-font-xs)!important;
-    }
-
-    .iz-signals:not(.iz-home-feature-card) th,
-    .iz-signals:not(.iz-home-feature-card) td{
-        font-size:var(--iz-font-sm)!important;
-    }
-}
-
 /* Explicit accessibility floor for the most user-facing custom components.
    Historical legacy rules can remain in file, but these final selectors win. */
 .iz-home-feature-card,
@@ -4301,7 +4261,33 @@ h3:has(+ [data-testid="stDataFrame"]){
    Historical media blocks are retained for safety.
    This final layer centralizes authoritative mobile behavior.
    ========================================================= */
-@media (max-width:768px){
+@media(max-width:768px){
+
+    /* Mobile readability floor */
+    .iz-section-label,
+    .iz-click-strip-label,
+    .iz-feature-empty > span,
+    .iz-market-hero-kicker,
+    .iz-market-hero p,
+    .izw-profile,
+    .iz-signal-profile,
+    .hp-source,
+    .hp-card-head,
+    .hp-pill,
+    .hp-row,
+    .hp-target-card span,
+    .hp-target-card small,
+    [class*="st-key-classic_signal_click_"] button,
+    [class*="st-key-classic_mover_click_"] button,
+    .st-key-home_empty_scan_left button,
+    .st-key-home_empty_scan_right button{
+        font-size:var(--iz-font-xs)!important;
+    }
+
+    .iz-signals:not(.iz-home-feature-card) th,
+    .iz-signals:not(.iz-home-feature-card) td{
+        font-size:var(--iz-font-sm)!important;
+    }
 
     /* Main app spacing */
     .stAppViewContainer .main .block-container{
@@ -4483,6 +4469,12 @@ h3:has(+ [data-testid="stDataFrame"]){
     }
     .iz-featured-metrics{
         grid-template-columns:1fr 1fr;
+    }
+    .iz-featured-metrics>div{
+        min-height:82px;
+    }
+    .iz-featured-metrics strong{
+        font-size:21px;
     }
 
     /* Blocking scan overlay */
