@@ -4729,10 +4729,9 @@ h3:has(+ [data-testid="stDataFrame"]){
 
 
 /* =========================================================
-   v1.8.7 — TRUE RING CENTER
-   Canvas center = original logo outer ring center.
-   Entire original artwork fits inside the canvas.
-   No translate, no optical px offset.
+   v1.8.8 — LOGO CIRCLE-FIT TRUE CENTER
+   Outer cyan arc is mathematically circle-fitted in the asset.
+   No translate / guessed px offset.
    ========================================================= */
 
 .iz-brand{
@@ -4745,9 +4744,9 @@ h3:has(+ [data-testid="stDataFrame"]){
 .iz-brand-symbol{
     display:grid;
     place-items:center;
-    flex:0 0 88px;
-    width:88px;
-    height:88px;
+    flex:0 0 90px;
+    width:90px;
+    height:90px;
     padding:5px;
     margin:0;
     box-sizing:border-box;
@@ -4772,7 +4771,7 @@ h3:has(+ [data-testid="stDataFrame"]){
     padding:0!important;
     border:0!important;
     object-fit:contain!important;
-    object-position:center center!important;
+    object-position:50% 50%!important;
     transform:none!important;
     translate:none!important;
     box-shadow:none!important;
@@ -4797,9 +4796,9 @@ h3:has(+ [data-testid="stDataFrame"]){
 .iz-auth-symbol{
     display:grid;
     place-items:center;
-    flex:0 0 140px;
-    width:140px;
-    height:140px;
+    flex:0 0 142px;
+    width:142px;
+    height:142px;
     padding:8px;
     margin:0;
     box-sizing:border-box;
@@ -4824,7 +4823,7 @@ h3:has(+ [data-testid="stDataFrame"]){
     padding:0!important;
     border:0!important;
     object-fit:contain!important;
-    object-position:center center!important;
+    object-position:50% 50%!important;
     transform:none!important;
     translate:none!important;
     box-shadow:none!important;
@@ -4834,9 +4833,9 @@ h3:has(+ [data-testid="stDataFrame"]){
     .iz-brand{gap:12px;}
 
     .iz-brand-symbol{
-        flex-basis:74px;
-        width:74px;
-        height:74px;
+        flex-basis:76px;
+        width:76px;
+        height:76px;
         padding:4px;
         border-width:3px;
     }
@@ -4844,9 +4843,9 @@ h3:has(+ [data-testid="stDataFrame"]){
     .iz-auth-logo{gap:14px;}
 
     .iz-auth-symbol{
-        flex-basis:112px;
-        width:112px;
-        height:112px;
+        flex-basis:114px;
+        width:114px;
+        height:114px;
         padding:6px;
         border-width:4px;
     }
@@ -4857,7 +4856,6 @@ h3:has(+ [data-testid="stDataFrame"]){
         flex-direction:column;
         gap:11px;
     }
-
     .iz-auth-logo .word,
     .iz-auth-logo .tag{
         text-align:center;
