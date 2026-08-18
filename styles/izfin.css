@@ -194,7 +194,6 @@ hr {border-color:#122a3e!important;}
 .iz-auth-security b{color:#84b7ca;font-weight:600;}
 .iz-google-wrap {margin-top:10px;padding-top:12px;border-top:1px solid rgba(28,65,89,.65);}
 .iz-google-caption {font-size:9px;color:#6d8799;text-align:center;margin:0 0 9px;}
-.iz-google-note {font-size:8.5px;color:#58758a;text-align:center;margin-top:4px;}
 .iz-google-oauth-btn{width:100%;height:46px;border-radius:11px;border:1px solid #cfd9e2;background:linear-gradient(180deg,#fff 0%,#f7fafc 100%);color:#17222d!important;font-size:13px;font-weight:700;text-decoration:none!important;display:flex;align-items:center;justify-content:center;gap:11px;transition:.18s;box-shadow:0 7px 20px rgba(0,0,0,.18),inset 0 1px 0 rgba(255,255,255,.95);}
 .iz-google-oauth-btn:hover{transform:translateY(-1px);border-color:#9fb8ca;color:#101c27!important;box-shadow:0 11px 27px rgba(0,0,0,.24);}
 .iz-google-g{width:19px;height:19px;display:block;flex:0 0 19px;}
@@ -2679,8 +2678,8 @@ button[kind="primary"],
         margin-bottom:8px!important;
     }
 
-    .iz-signals > div:last-child,
-    .iz-movers > div:last-child{
+    .iz-signals.iz-home-feature-card > div:last-child,
+    .iz-movers.iz-home-feature-card > div:last-child{
         flex:1 1 auto!important;
         display:flex!important;
         align-items:center!important;
@@ -4399,9 +4398,6 @@ h3:has(+ [data-testid="stDataFrame"]){
     .iz-signals:not(.iz-home-feature-card) th,
     .iz-signals:not(.iz-home-feature-card) td{
         font-size:var(--iz-font-sm)!important;
-    }
-    .iz-signals:not(.iz-home-feature-card) table{
-        min-width:760px!important;
     }
 }
 
