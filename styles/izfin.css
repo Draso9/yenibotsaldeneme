@@ -118,7 +118,7 @@ hr {border-color:#122a3e!important;}
 .iz-hero {padding:6px 2px 12px}.iz-hero h1 {font-size:31px;margin:0;color:#f3f9fc;letter-spacing:-.5px}.iz-hero p {color:#8099ac;margin:5px 0 0;font-size:13px}
 .iz-section-label {font-size:10px;color:#1bd7e4;letter-spacing:1.6px;font-weight:650;text-transform:uppercase}
 @media(max-width:1100px) {.iz-livebar {grid-template-columns:repeat(3,1fr)}.iz-dashboard {grid-template-columns:1fr}.iz-pulse {grid-template-columns:145px 1fr}}
-@media(max-width:700px) {.iz-livebar {grid-template-columns:repeat(2,1fr)}.iz-components {grid-template-columns:repeat(2,1fr)}.iz-heat-grid {grid-template-columns:repeat(2,1fr)}.iz-pulse {grid-template-columns:1fr}.iz-gauge {margin:auto}}
+@media(max-width:700px) {.iz-livebar,.iz-components,.iz-heat-grid {grid-template-columns:repeat(2,1fr)}.iz-pulse {grid-template-columns:1fr}.iz-gauge {margin:auto}}
 
 /* --- IZFIN v1.7.1 Signature refinement --- */
 [data-testid="stMainBlockContainer"] {max-width:1680px!important;padding-left:1.35rem!important;padding-right:1.35rem!important;}
@@ -1678,9 +1678,7 @@ button[kind="primary"],
 
 
 /* v1.7.43 — Fit-to-screen table support */
-.iz-scan-table-wrap table{
-    box-sizing:border-box;
-}
+.iz-scan-table-wrap table,
 .iz-scan-table-wrap th,
 .iz-scan-table-wrap td{
     box-sizing:border-box;
@@ -2628,10 +2626,7 @@ button[kind="primary"],
         transform:scale(1);
         opacity:.72;
     }
-    70%{
-        transform:scale(2.35);
-        opacity:0;
-    }
+    70%,
     100%{
         transform:scale(2.35);
         opacity:0;
@@ -3956,10 +3951,7 @@ h3:has(+ [data-testid="stDataFrame"]){
     .iz-signals:not(.iz-home-feature-card) td{
         font-size:11px;
     }
-    .iz-signals:not(.iz-home-feature-card) td:first-child{
-        font-size:12px;
-    }
-
+    .iz-signals:not(.iz-home-feature-card) td:first-child,
     .iz-movers:not(.iz-home-feature-card) .iz-mover-name{
         font-size:12px;
     }
@@ -4304,7 +4296,7 @@ h3:has(+ [data-testid="stDataFrame"]){
    10px altı metinler için merkezi okunabilirlik tabanı.
    ========================================================= */
 
-/* Generic metadata / labels */
+/* Generic metadata / labels / compact controls */
 .iz-section-label,
 .iz-card-title,
 .iz-click-strip-label,
@@ -4328,11 +4320,7 @@ h3:has(+ [data-testid="stDataFrame"]){
 .hp-pill,
 .hp-row,
 .hp-target-card span,
-.hp-target-card small{
-    font-size:var(--iz-font-xs)!important;
-}
-
-/* Buttons / compact controls should not fall below 10px */
+.hp-target-card small,
 [class*="st-key-classic_signal_click_"] button,
 [class*="st-key-classic_mover_click_"] button,
 [class*="st-key-classic_heat_click_"] button,
