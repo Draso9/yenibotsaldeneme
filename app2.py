@@ -372,7 +372,7 @@ STRATEJI_SURUMU = "IZFIN-v1.7.5-auth-switch-fixed"
 PERFORMANS_UFUKLARI = (1, 5, 10, 20, 45)
 
 # --- IZFIN UYGULAMA SÜRÜMÜ ---
-IZFIN_APP_SURUMU = "v1.8.17 QA Center"
+IZFIN_APP_SURUMU = "v1.8.18 Admin QA"
 
 # Finnhub isteklerini süreç içinde ortak hız sınırına tabi tut.
 # Plan bazlı dakika limitleri değişebildiği için 429 yanıtlarında ayrıca backoff uygulanır.
@@ -382,6 +382,55 @@ _FINNHUB_MIN_INTERVAL = 0.10  # yaklaşık 10 istek/sn; 30/sn üst sınırının
 
 
 
+
+
+
+
+# --- IZFIN ADMIN ACCESS ---
+def izfin_admin_email_listesi():
+    """Admin e-posta listesini Streamlit Secrets / environment üzerinden güvenle okur."""
+    raw = None
+
+    try:
+        if "ADMIN_EMAILS" in st.secrets:
+            raw = st.secrets.get("ADMIN_EMAILS")
+    except Exception:
+        raw = None
+
+    if raw in (None, "", []):
+        raw = os.getenv("ADMIN_EMAILS", "")
+
+    if isinstance(raw, str):
+        adaylar = re.split(r"[,;\n]+", raw)
+    elif isinstance(raw, (list, tuple, set)):
+        adaylar = list(raw)
+    else:
+        adaylar = []
+
+    sonuc = []
+    for item in adaylar:
+        email = str(item or "").strip().lower()
+        if email and email not in sonuc:
+            sonuc.append(email)
+    return sonuc
+
+
+def izfin_admin_mi(email=None):
+    """Aktif kullanıcının QA/Admin alanlarına erişim yetkisini döndürür."""
+    if email is None:
+        email = st.session_state.get("user_email", "")
+    email = str(email or "").strip().lower()
+    if not email:
+        return False
+    return email in izfin_admin_email_listesi()
+
+
+def izfin_admin_erisim_kontrolu():
+    """Admin olmayan kullanıcıların doğrudan QA sayfasına erişmesini engeller."""
+    if not izfin_admin_mi():
+        st.error("Bu alan yalnızca IZFIN yöneticisine açıktır.")
+        st.stop()
+    return True
 
 
 
@@ -3332,6 +3381,7 @@ IZFIN_LOGO_GEOCENTER_B64 = "iVBORw0KGgoAAAANSUhEUgAAANgAAADYCAYAAACJIC3tAADA7ElE
 
 def izfin_qa_center_render():
     """Geliştirici amaçlı, salt-okunur IZFIN sistem sağlık merkezi."""
+    izfin_admin_erisim_kontrolu()
     metrics = izfin_qa_static_metrics()
     status = izfin_qa_release_status(metrics)
     badge_class = "ok" if status.get("seviye") == "success" else "warn"
@@ -4559,7 +4609,21 @@ def _izfin_nav_to(hedef):
     st.session_state.izfin_nav = hedef
 
 st.sidebar.markdown('<div class="iz-nav-label" style="margin-top:14px">NAVİGASYON</div>', unsafe_allow_html=True)
-for _nav_label in ["🏠 Ana Sayfa", "🔎 Akıllı Tarama", "🎯 Projeksiyon & Senaryo", "📊 Takip & Performans", "🧪 Strateji Laboratuvarı", "🛠️ Sistem Sağlığı"]:
+_izfin_nav_items = [
+    "🏠 Ana Sayfa",
+    "🔎 Akıllı Tarama",
+    "🎯 Projeksiyon & Senaryo",
+    "📊 Takip & Performans",
+    "🧪 Strateji Laboratuvarı",
+]
+if izfin_admin_mi():
+    _izfin_nav_items.append("🛠️ Sistem Sağlığı")
+
+# Eski bir session değerinde admin sayfası kalmışsa yetkisiz kullanıcıyı ana sayfaya döndür.
+if st.session_state.izfin_nav == "🛠️ Sistem Sağlığı" and not izfin_admin_mi():
+    st.session_state.izfin_nav = "🏠 Ana Sayfa"
+
+for _nav_label in _izfin_nav_items:
     st.sidebar.button(
         _nav_label,
         key=f"nav_{_nav_label}",
