@@ -372,7 +372,7 @@ STRATEJI_SURUMU = "IZFIN-v1.7.5-auth-switch-fixed"
 PERFORMANS_UFUKLARI = (1, 5, 10, 20, 45)
 
 # --- IZFIN UYGULAMA SÜRÜMÜ ---
-IZFIN_APP_SURUMU = "v1.8.9 Sentry Cleanup"
+IZFIN_APP_SURUMU = "v1.8.11 Current BIST Indices"
 
 # Finnhub isteklerini süreç içinde ortak hız sınırına tabi tut.
 # Plan bazlı dakika limitleri değişebildiği için 429 yanıtlarında ayrıca backoff uygulanır.
@@ -385,33 +385,76 @@ _FINNHUB_MIN_INTERVAL = 0.10  # yaklaşık 10 istek/sn; 30/sn üst sınırının
 
 
 # --- HAZIR VARLIK LİSTELERİ ---
+
+# Endeks bileşen dönemi: 01.07.2026 - 30.09.2026 (2026 Q3)
+# BIST 30 ve BIST 100 sabit listeleri bu dönem için günceldir.
+# Yeni dönemsel Borsa İstanbul duyurusunda bu iki liste yeniden gözden geçirilmelidir.
+BIST_ENDEKS_DONEMI = "2026-Q3"
+BIST_ENDEKS_GECERLILIK = "01.07.2026-30.09.2026"
+
 BIST_30 = [
-    "AKBNK.IS", "ALARK.IS", "ASELS.IS", "ASTOR.IS", "BIMAS.IS", "BRISA.IS",
-    "CCOLA.IS", "ENKAI.IS", "EREGL.IS", "FROTO.IS", "GARAN.IS", "GUBRF.IS",
-    "HEKTS.IS", "ISCTR.IS", "KCHOL.IS", "KONTR.IS", "KOZAA.IS", "KOZAL.IS",
-    "KRDMD.IS", "OYAKC.IS", "PETKM.IS", "PGSUS.IS", "SAHOL.IS", "SASA.IS",
-    "SISE.IS", "TCELL.IS", "THYAO.IS", "TOASO.IS", "TUPRS.IS", "YKBNK.IS"
+    "AEFES.IS", "AKBNK.IS", "ASELS.IS", "ASTOR.IS", "BIMAS.IS", "CIMSA.IS",
+    "DSTKF.IS", "EKGYO.IS", "ENKAI.IS", "EREGL.IS", "FROTO.IS", "GARAN.IS",
+    "HEKTS.IS", "ISCTR.IS", "KCHOL.IS", "KRDMD.IS", "MGROS.IS", "PETKM.IS",
+    "PGSUS.IS", "SAHOL.IS", "SASA.IS", "SISE.IS", "TAVHL.IS", "TCELL.IS",
+    "THYAO.IS", "TOASO.IS", "TTKOM.IS", "TUPRS.IS", "ULKER.IS", "YKBNK.IS"
 ]
 
-BIST_100 = sorted(set(BIST_30 + [
-    "AGHOL.IS", "AHGAZ.IS", "AKCNS.IS", "AKFGY.IS", "AKSA.IS", "AKSEN.IS",
-    "ALBRK.IS", "ALFAS.IS", "ARCLK.IS", "ASUZU.IS", "BAGFS.IS", "BIOEN.IS",
-    "BOBET.IS", "BRYAT.IS", "BUCIM.IS", "CANTE.IS", "CIMSA.IS", "CWENE.IS",
-    "DOAS.IS", "DOHOL.IS", "ECZYT.IS", "EGEEN.IS", "EKGYO.IS", "ENERY.IS",
-    "EUPWR.IS", "ENJSA.IS", "FORMT.IS", "GESAN.IS", "GLYHO.IS", "GWIND.IS",
-    "HALKB.IS", "IPEKE.IS", "ISDMR.IS", "ISGYO.IS", "KAYSE.IS", "KMPUR.IS",
-    "KONYA.IS", "KOTON.IS", "KZBGY.IS", "MAVI.IS", "MGROS.IS", "ODAS.IS",
-    "ONCSM.IS", "OTKAR.IS", "PENTA.IS", "PSGYO.IS", "REEDR.IS", "SMRTG.IS",
-    "SOKM.IS", "TAVHL.IS", "TKFEN.IS", "TMSN.IS", "TSKB.IS", "TTKOM.IS",
-    "TTRAK.IS", "ULKER.IS", "VAKBN.IS", "VESBE.IS", "VESTL.IS", "YEOTK.IS",
-    "ZOREN.IS"
-]))
+BIST_100 = [
+    "AEFES.IS", "AKBNK.IS", "AKSA.IS", "AKSEN.IS", "ALARK.IS", "ALTNY.IS",
+    "ANSGR.IS", "ARCLK.IS", "ASELS.IS", "ASTOR.IS", "BALSU.IS", "BERA.IS",
+    "BIMAS.IS", "BRSAN.IS", "BRYAT.IS", "BSOKE.IS", "BTCIM.IS", "CANTE.IS",
+    "CCOLA.IS", "CIMSA.IS", "CVKMD.IS", "CWENE.IS", "DAPGM.IS", "DOAS.IS",
+    "DOHOL.IS", "DSTKF.IS", "ECILC.IS", "EFOR.IS", "EKGYO.IS", "ENERY.IS",
+    "ENJSA.IS", "ENKAI.IS", "EREGL.IS", "ESEN.IS", "EUPWR.IS", "EUREN.IS",
+    "FENER.IS", "FROTO.IS", "GARAN.IS", "GENIL.IS", "GESAN.IS", "GLRMK.IS",
+    "GRSEL.IS", "GRTHO.IS", "GSRAY.IS", "GUBRF.IS", "HALKB.IS", "HEKTS.IS",
+    "IEYHO.IS", "ISCTR.IS", "ISMEN.IS", "IZENR.IS", "KCHOL.IS", "KLRHO.IS",
+    "KRDMD.IS", "KTLEV.IS", "KUYAS.IS", "MAGEN.IS", "MAVI.IS", "MGROS.IS",
+    "MIATK.IS", "MPARK.IS", "OBAMS.IS", "ODAS.IS", "ODINE.IS", "OTKAR.IS",
+    "OYAKC.IS", "PAHOL.IS", "PASEU.IS", "PATEK.IS", "PETKM.IS", "PGSUS.IS",
+    "PSGYO.IS", "QUAGR.IS", "RALYH.IS", "REEDR.IS", "SAHOL.IS", "SARKY.IS",
+    "SASA.IS", "SISE.IS", "SKBNK.IS", "SOKM.IS", "TAVHL.IS", "TCELL.IS",
+    "THYAO.IS", "TKFEN.IS", "TOASO.IS", "TRALT.IS", "TRENJ.IS", "TRMET.IS",
+    "TSKB.IS", "TTKOM.IS", "TUKAS.IS", "TUPRS.IS", "TURSG.IS", "ULKER.IS",
+    "VAKBN.IS", "VESTL.IS", "YKBNK.IS", "ZOREN.IS"
+]
 
 ABD_HİSSELERİ = ["AAPL", "MSFT", "GOOGL", "AMZN", "META", "TSLA", "NVDA", "AMD", "INTC", "NFLX"]
+
+# --- BORSA İSTANBUL KOD DEĞİŞİKLİKLERİ ---
+BIST_TICKER_ALIAS = {
+    "KOZAA.IS": "TRMET.IS",
+    "KOZAL.IS": "TRALT.IS",
+    "IPEKE.IS": "TRENJ.IS",
+}
+
+def bist_ticker_guncelle(ticker):
+    """Eski BIST işlem kodlarını güncel Yahoo/BIST kodlarına normalize eder."""
+    t = str(ticker or "").strip().upper()
+    return BIST_TICKER_ALIAS.get(t, t)
+
+def bist_ticker_listesi_guncelle(tickers):
+    """Liste sırasını koruyarak eski işlem kodlarını günceller ve mükerrerleri siler."""
+    sonuc = []
+    gorulen = set()
+    for ticker in tickers or []:
+        guncel = bist_ticker_guncelle(ticker)
+        if guncel and guncel not in gorulen:
+            sonuc.append(guncel)
+            gorulen.add(guncel)
+    return sonuc
+
 
 # --- OTURUM DURUMU (SESSION STATE) ---
 if "opsiyon_sonuclar" not in st.session_state:
     st.session_state.opsiyon_sonuclar = None
+
+# Eski kaydedilmiş Koza/İpek işlem kodları session içinde kalmışsa otomatik güncelle.
+if "custom_tickers" in st.session_state:
+    st.session_state.custom_tickers = bist_ticker_listesi_guncelle(st.session_state.custom_tickers)
+if "secilen_varliklar" in st.session_state:
+    st.session_state.secilen_varliklar = bist_ticker_listesi_guncelle(st.session_state.secilen_varliklar)
 
 # --- HİBRİT VERİ ÇEKME MOTORU (YFINANCE + FINNHUB) ---
 FINNHUB_API_KEY = st.secrets.get("FINNHUB_API_KEY", os.getenv("FINNHUB_API_KEY", ""))
@@ -3129,7 +3172,12 @@ def hisse_onerileri_getir(arama):
     return sonuc[:15]
 
 def get_preset_options():
-    return {"Kendi Listem": st.session_state.custom_tickers, "BIST 30": BIST_30, "BIST 100": BIST_100, "ABD Büyük Teknoloji": ABD_HİSSELERİ}
+    return {
+        "Kendi Listem": bist_ticker_listesi_guncelle(st.session_state.custom_tickers),
+        "BIST 30": bist_ticker_listesi_guncelle(BIST_30),
+        "BIST 100": bist_ticker_listesi_guncelle(BIST_100),
+        "ABD Büyük Teknoloji": ABD_HİSSELERİ,
+    }
 
 preset_options = get_preset_options()
 tum_varliklar_havuzu = list(set([h for lst in preset_options.values() for h in lst]))
@@ -4391,7 +4439,7 @@ if not FINNHUB_API_KEY:
     st.sidebar.caption("ℹ️ Finnhub yok: ABD quote katmanı Yahoo fallback ile devam ediyor.")
 
 # v1.7.14 — Sidebar yalnızca navigasyon ve hesap alanıdır.
-selected_tickers = list(st.session_state.get("secilen_varliklar", []))
+selected_tickers = bist_ticker_listesi_guncelle(st.session_state.get("secilen_varliklar", []))
 tarama_tetiklendi = False
 
 st.sidebar.markdown("---")
