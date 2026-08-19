@@ -151,7 +151,7 @@ saved_session_cookie = cookie_manager.get(cookie="izfin_session")
 try:
     _legacy_email_cookie = cookie_manager.get(cookie="user_email")
     if _legacy_email_cookie:
-        cookie_manager.delete("user_email")
+        cookie_manager.delete("user_email", key="delete_legacy_user_email")
 except Exception as e:
     izfin_hata_logla("silent_exception_line_118", e)
 
@@ -284,14 +284,27 @@ def _oturum_ac(data, beni_hatirla=False):
         st.session_state.logout_triggered = False
         st.session_state.kullanici_listesi_yuklendi = False
         _kullanici_profilini_hazirla(uid, email)
-        try:
-            cookie_manager.delete("izfin_session")
-        except Exception as e:
-            izfin_hata_logla("silent_exception_line_249", e)
         if beni_hatirla:
             expires_in = timedelta(days=14)
             session_cookie = auth.create_session_cookie(id_token, expires_in=expires_in)
-            cookie_manager.set("izfin_session", session_cookie, expires_at=datetime.now() + expires_in)
+            # Mevcut cookie'yi önce silmek, istemci tarafındaki asenkron delete/set
+            # bileşenlerinin yarışmasına ve eski hesabın geri yüklenmesine yol açabilir.
+            # Aynı isimle tek bir set işlemi eski değeri atomik olarak değiştirir.
+            cookie_manager.set(
+                "izfin_session",
+                session_cookie,
+                key="set_izfin_session",
+                path="/",
+                expires_at=datetime.now() + expires_in,
+                max_age=int(expires_in.total_seconds()),
+                secure=True,
+                same_site="lax",
+            )
+        else:
+            try:
+                cookie_manager.delete("izfin_session", key="delete_izfin_session_no_remember")
+            except Exception as e:
+                izfin_hata_logla("silent_exception_line_249", e)
         return True, None
     except Exception as e:
         izfin_hata_logla("firebase_id_token_dogrulama", e)
@@ -359,7 +372,7 @@ if (not st.session_state.user_email) and saved_session_cookie and not st.session
             _kullanici_profilini_hazirla(uid, email)
     except Exception:
         try:
-            cookie_manager.delete("izfin_session")
+            cookie_manager.delete("izfin_session", key="delete_invalid_izfin_session")
         except Exception:
             pass
         st.session_state.user_uid = None
@@ -372,7 +385,7 @@ STRATEJI_SURUMU = "IZFIN-v1.7.5-auth-switch-fixed"
 PERFORMANS_UFUKLARI = (1, 5, 10, 20, 45)
 
 # --- IZFIN UYGULAMA SÜRÜMÜ ---
-IZFIN_APP_SURUMU = "v1.8.30 Comprehensive QA Fixes"
+IZFIN_APP_SURUMU = "v1.8.31 Session Persistence Fix"
 
 # Finnhub isteklerini süreç içinde ortak hız sınırına tabi tut.
 # Plan bazlı dakika limitleri değişebildiği için 429 yanıtlarında ayrıca backoff uygulanır.
@@ -4910,12 +4923,13 @@ tarama_tetiklendi = False
 st.sidebar.markdown("---")
 if st.sidebar.button("🚪 Çıkış Yap", use_container_width=True):
     try:
-        cookie_manager.delete("izfin_session"); cookie_manager.delete("user_email")
+        cookie_manager.delete("izfin_session", key="logout_delete_izfin_session")
+        cookie_manager.delete("user_email", key="logout_delete_legacy_user_email")
     except Exception: pass
     st.session_state.user_email=None; st.session_state.user_uid=None
     st.session_state.custom_tickers=VARSAYILAN_TICKERS.copy(); st.session_state.secilen_varliklar=VARSAYILAN_TICKERS.copy()
     st.session_state.kullanici_listesi_yuklendi=False; st.session_state.logout_triggered=True
-    time.sleep(.2); st.rerun()
+    time.sleep(.8); st.rerun()
 
 
 def izfin_tarama_overlay_html(yuzde=0, baslik="IZFIN tarıyor", durum="Hazırlanıyor…", detay=""):
@@ -4997,7 +5011,7 @@ if aktif_sayfa in ["🏠 Ana Sayfa", "🔎 Akıllı Tarama"]:
             args=("🔎 Akıllı Tarama",),
         )
     else:
-        st.markdown('''<div class="iz-scanner-hero"><div><div class="iz-section-label">IZFIN SCANNER</div><h2 id="akilli-tarama-merkezi">Akıllı Tarama Merkezi</h2><p>Varlık evrenini seç, merkezi karar motorunu çalıştır ve sonuçları skor · güven · giriş kalitesi · MTF · risk ekseninde karşılaştır.</p></div><span class="iz-badge wait">SIGNATURE SCAN</span></div>''', unsafe_allow_html=True)
+        st.html('''<div class="iz-scanner-hero"><div><div class="iz-section-label">IZFIN SCANNER</div><h2 id="akilli-tarama-merkezi">Akıllı Tarama Merkezi</h2><p>Varlık evrenini seç, merkezi karar motorunu çalıştır ve sonuçları skor · güven · giriş kalitesi · MTF · risk ekseninde karşılaştır.</p></div><span class="iz-badge wait">SIGNATURE SCAN</span></div>''')
 
         # --- v1.7.14: Akıllı Tarama ana çalışma alanı ---
         if st.session_state.pop("liste_kurtarma_mesaji", False):
@@ -6027,7 +6041,9 @@ if aktif_sayfa in ["🏠 Ana Sayfa", "🔎 Akıllı Tarama"]:
 
 
 if aktif_sayfa == "🎯 Projeksiyon & Senaryo":
-    st.markdown(
+    # st.html ham başlık kimliğini korur; st.markdown sayfa değişiminde önceki
+    # başlığın otomatik anchor bağlantısını React ağacında taşıyabiliyor.
+    st.html(
         """
         <div class="iz-proj-hero">
             <div>
@@ -6037,8 +6053,7 @@ if aktif_sayfa == "🎯 Projeksiyon & Senaryo":
             </div>
             <span class="iz-badge wait">45G MODEL</span>
         </div>
-        """,
-        unsafe_allow_html=True,
+        """
     )
 
     if not st.session_state.tarama_durumu or not st.session_state.teknik_paneller:
