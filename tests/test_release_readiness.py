@@ -66,6 +66,26 @@ def test_every_auth_provider_passes_through_legal_acceptance_gate():
     assert source.count('st.session_state.pop("izfin_yasal_onayli", None)') >= 3
 
 
+def test_legal_gate_uses_versioned_professional_experience():
+    source = _source()
+    css = (APP.parent / "styles" / "izfin-legal.css").read_text(encoding="utf-8")
+    assert 'class="iz-legal-hero"' in source
+    assert 'class="iz-legal-shell-marker"' in source
+    assert 'class="iz-legal-approval-marker"' in source
+    assert "izfin_kullanim_kosullari_render(kapida=True)" in source
+    assert "izfin_gizlilik_metni_render(kapida=True)" in source
+    assert "01 · Kullanım Koşulları" in source
+    assert "02 · KVKK Aydınlatma Metni" in source
+    assert "aydınlatma metninin sunulması açık rıza değildir" in source.lower()
+    assert '("izfin.css", "izfin-legal.css")' in source
+    assert ".iz-legal-hero" in css
+    assert ":has(.iz-legal-shell-marker)" in css
+    assert "@media(max-width:768px)" in css
+    assert css.count("{") == css.count("}")
+    assert "font-size:8px" not in css
+    assert "font-size:9px" not in css
+
+
 def test_user_export_and_delete_cover_every_user_collection():
     source = _source()
     for collection in (
