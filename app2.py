@@ -385,7 +385,7 @@ STRATEJI_SURUMU = "IZFIN-v1.7.5-auth-switch-fixed"
 PERFORMANS_UFUKLARI = (1, 5, 10, 20, 45)
 
 # --- IZFIN UYGULAMA SÜRÜMÜ ---
-IZFIN_APP_SURUMU = "v1.8.35 Sortable Table Ready Fix"
+IZFIN_APP_SURUMU = "v1.8.36 Sortable Table Bind Fix"
 
 # Finnhub isteklerini süreç içinde ortak hız sınırına tabi tut.
 # Plan bazlı dakika limitleri değişebildiği için 429 yanıtlarında ayrıca backoff uygulanır.
@@ -4720,11 +4720,12 @@ def izfin_sortable_table_js():
         (() => {
           const doc = window.parent.document;
           function bind(table){
-            if(!table || table.dataset.izSortBound==="1") return;
-            table.dataset.izSortBound="1";
+            if(!table) return false;
+            if(table.dataset.izSortBound==="1") return true;
             const tbody=table.querySelector("tbody");
             const heads=[...table.querySelectorAll("thead th.iz-sortable-th")];
-            if(!tbody) return;
+            if(!tbody || !heads.length) return false;
+            table.dataset.izSortBound="1";
             heads.forEach(th=>{
               const run=()=>{
                 const col=Number(th.dataset.col||0);
@@ -4754,16 +4755,16 @@ def izfin_sortable_table_js():
               th.addEventListener("click",run);
               th.tabIndex=0;
             });
+            return true;
           }
           const bindAll=()=>{
             const tables=[...doc.querySelectorAll("table.iz-client-sortable")];
-            tables.forEach(bind);
-            return tables.length;
+            return tables.length>0 && tables.map(bind).every(Boolean);
           };
           let bindAttempts=0;
           const bindWithRetry=()=>{
             bindAttempts+=1;
-            if(bindAll()===0 && bindAttempts<480) setTimeout(bindWithRetry,250);
+            if(!bindAll() && bindAttempts<480) setTimeout(bindWithRetry,250);
           };
           bindWithRetry();
         })();
