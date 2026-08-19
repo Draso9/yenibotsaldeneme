@@ -8,7 +8,6 @@ import requests
 import yfinance as yf
 import os
 import logging
-import base64
 import re
 import html
 import secrets as pysecrets
@@ -218,7 +217,7 @@ GOOGLE_OAUTH_CLIENT_ID = _secret_degeri("GOOGLE_OAUTH_CLIENT_ID")
 GOOGLE_OAUTH_CLIENT_SECRET = _secret_degeri("GOOGLE_OAUTH_CLIENT_SECRET")
 GOOGLE_OAUTH_REDIRECT_URI = _secret_degeri(
     "GOOGLE_OAUTH_REDIRECT_URI",
-    "https://yenibotsaldeneme-3mevwlpzmsq8khknqxxyuf.streamlit.app/",
+    "https://izfin-develop.streamlit.app/",
 )
 GOOGLE_OAUTH_AUTHORIZE_URL = "https://accounts.google.com/o/oauth2/v2/auth"
 GOOGLE_OAUTH_TOKEN_URL = "https://oauth2.googleapis.com/token"
@@ -236,7 +235,7 @@ def _firebase_auth_hata_mesaji(kod):
         "WEAK_PASSWORD": "Şifre yeterince güçlü değil.",
         "TOO_MANY_ATTEMPTS_TRY_LATER": "Çok fazla başarısız deneme yapıldı. Bir süre sonra tekrar deneyin.",
         "OPERATION_NOT_ALLOWED": "Firebase'de Email/Password giriş yöntemi etkin değil.",
-    }.get(kod, f"Kimlik doğrulama başarısız: {kod or 'bilinmeyen hata'}")
+    }.get(kod, "Kimlik doğrulama başarısız. Lütfen bilgilerinizi kontrol edip tekrar deneyin.")
 
 def _firebase_auth_post(action, payload):
     if not FIREBASE_WEB_API_KEY:
@@ -253,7 +252,8 @@ def _firebase_auth_post(action, payload):
         kod = ((data.get("error") or {}).get("message") or f"HTTP_{r.status_code}")
         return None, _firebase_auth_hata_mesaji(kod)
     except Exception as e:
-        return None, f"Firebase Authentication bağlantısı kurulamadı: {e}"
+        izfin_hata_logla("firebase_auth_post", e)
+        return None, "Kimlik doğrulama servisine şu anda ulaşılamıyor. Lütfen daha sonra tekrar deneyin."
 
 def _kullanici_liste_doc_id():
     uid = str(st.session_state.get("user_uid") or "").strip()
@@ -372,7 +372,7 @@ STRATEJI_SURUMU = "IZFIN-v1.7.5-auth-switch-fixed"
 PERFORMANS_UFUKLARI = (1, 5, 10, 20, 45)
 
 # --- IZFIN UYGULAMA SÜRÜMÜ ---
-IZFIN_APP_SURUMU = "v1.8.29 Empty Movers Align"
+IZFIN_APP_SURUMU = "v1.8.30 Comprehensive QA Fixes"
 
 # Finnhub isteklerini süreç içinde ortak hız sınırına tabi tut.
 # Plan bazlı dakika limitleri değişebildiği için 429 yanıtlarında ayrıca backoff uygulanır.
@@ -590,7 +590,7 @@ if "secilen_varliklar" in st.session_state:
     st.session_state.secilen_varliklar = bist_ticker_listesi_guncelle(st.session_state.secilen_varliklar)
 
 # --- HİBRİT VERİ ÇEKME MOTORU (YFINANCE + FINNHUB) ---
-FINNHUB_API_KEY = st.secrets.get("FINNHUB_API_KEY", os.getenv("FINNHUB_API_KEY", ""))
+FINNHUB_API_KEY = _secret_degeri("FINNHUB_API_KEY")
 FINNHUB_BASE_URL = "https://finnhub.io/api/v1"
 
 def _normalize_yf_columns(df):
@@ -1794,7 +1794,6 @@ def basit_backtest(ticker, period='5y'):
         hist = df.iloc[:i+1].copy()
         gecmis = df.iloc[:i] if i > 0 else hist
         swing_high = float(pd.to_numeric(gecmis['High'], errors='coerce').tail(50).max())
-        swing_low = float(pd.to_numeric(gecmis['Low'], errors='coerce').tail(50).min())
         seviyeler = teknik_seviyeler_hesapla(
             hist, fiyat, atr, float(ema50.iloc[i]), float(bb_alt.iloc[i]),
             float(bb_mid.iloc[i]), float(bb_ust.iloc[i]), hv20,
@@ -2073,6 +2072,9 @@ def sozlu_teknik_analiz_olustur(ticker, fiyat, gunluk_degisim, rsi, macd, macd_s
                                   ema9, ema21, ema50, sma200, bb_alt, bb_mid, bb_ust,
                                   hacim_oran, mfi, sektorel_fark, destek, direnc, stop,
                                   tp1, tp2, tp3, sinyal, veri_kaynagi):
+    ticker_html = html.escape(str(ticker))
+    sinyal_html = html.escape(str(sinyal))
+    veri_kaynagi_html = html.escape(str(veri_kaynagi))
     trend_uzun = "yukarı" if fiyat > sma200 else "aşağı"
     trend_orta = "pozitif" if fiyat > ema50 else "zayıf"
     trend_kisa = "boğa lehine" if ema9 > ema21 else "ayı lehine"
@@ -2113,14 +2115,14 @@ def sozlu_teknik_analiz_olustur(ticker, fiyat, gunluk_degisim, rsi, macd, macd_s
 
     return f"""
     <div class="iz-verbal-analysis-box">
-      <h3 class="iz-verbal-analysis-heading">🧠 {ticker} Sözel Teknik Analizi</h3>
+      <h3 class="iz-verbal-analysis-heading">🧠 {ticker_html} Sözel Teknik Analizi</h3>
       <p><b>Genel görünüm:</b> Fiyat {fiyat:.2f} seviyesinde ve günlük değişim %{gunluk_degisim:+.2f}. Uzun vadeli ana trend <b>{trend_uzun}</b>, orta vadeli yapı <b>{trend_orta}</b>, EMA 9/21 ilişkisi ise <b>{trend_kisa}</b>.</p>
       <p><b>Momentum:</b> {rsi_yorum} {macd_yorum}</p>
       <p><b>Hacim ve para akışı:</b> {hacim_yorum} {mfi_yorum}</p>
       <p><b>Göreceli güç:</b> {sektor_yorum}</p>
       <p><b>Volatilite ve konum:</b> {bant_yorum}</p>
       <p><b>Kritik seviyeler:</b> Yakın destek <b>{destek:.2f}</b>, direnç <b>{direnc:.2f}</b>, süren stop <b>{stop:.2f}</b>. Olumlu senaryoda izlenebilecek hedefler <b>{tp1:.2f}</b>, <b>{tp2:.2f}</b> ve trend devamında <b>{tp3:.2f}</b>.</p>
-      <p><b>Sistem sonucu:</b> {sinyal}. Veri kaynağı: <b>{veri_kaynagi}</b>.</p>
+      <p><b>Sistem sonucu:</b> {sinyal_html}. Veri kaynağı: <b>{veri_kaynagi_html}</b>.</p>
       <div class="iz-verbal-analysis-note">
         Bu bölüm otomatik teknik göstergelere dayanır; tek başına yatırım kararı yerine trend, hacim, destek/direnç ve risk yönetimi birlikte değerlendirilmelidir.
       </div>
@@ -2141,17 +2143,21 @@ def gelismis_teknik_panel_olustur(d):
     s1, s2, s3 = float(d.get("s1", destek)), float(d.get("s2", d.get("swing_low", destek))), float(d.get("s3", max(0.01, destek-atr)))
     r1, r2, r3 = float(d.get("r1", direnc)), float(d.get("r2", tp2)), float(d.get("r3", tp3))
     tp1_y, tp2_y, tp3_y = int(d.get("tp1_yildiz",3)), int(d.get("tp2_yildiz",2)), int(d.get("tp3_yildiz",1))
-    hacim, hacim_ort, hacim_oran = float(d["hacim"]), float(d["hacim_ort"]), float(d["hacim_oran"])
+    hacim_oran = float(d["hacim_oran"])
     sinyal, veri_kaynagi = str(d["sinyal"]), str(d["veri_kaynagi"])
     profil = str(d.get("profil", d.get("on_sinyal", "NÖTR")))
     seans_disi = str(d.get("seans_disi", "—"))
-    seans_notu = f" · {seans_disi} (ek bilgi; skora dahil değil)" if seans_disi and seans_disi != "—" else ""
+    seans_notu = f" · {html.escape(seans_disi)} (ek bilgi; skora dahil değil)" if seans_disi and seans_disi != "—" else ""
     gunluk_degisim, ticker = float(d["gunluk_degisim"]), str(d["ticker"])
     tetik_puani = int(d.get("giris_puani", d.get("tetik_puani", 0)) or 0)
     tetik_seviyesi = str(d.get("giris_seviyesi", d.get("tetik_seviyesi", "⏳ GİRİŞ UYGUN DEĞİL")))
     tetik_detay = d.get("giris_detay", d.get("tetik_detay", [])) or []
     skor = int(d.get("nihai_skor", d.get("cezali_skor", d.get("skor", 0))) or 0)
     guven = int(d.get("guven_skoru", 0) or 0)
+    ticker_html = html.escape(ticker)
+    sinyal_html = html.escape(sinyal)
+    veri_kaynagi_html = html.escape(veri_kaynagi)
+    profil_html = html.escape(profil)
 
     def durum(deger, olumlu, olumsuz):
         return ("pozitif", olumlu) if deger else ("negatif", olumsuz)
@@ -2179,7 +2185,12 @@ def gelismis_teknik_panel_olustur(d):
         tetik_cls = "notr"
 
     def metric(icon, title, value, note, css="notr"):
-        return f'<div class="hp-card"><div class="hp-card-head"><span>{icon}</span><span>{title}</span></div><div class="hp-card-value">{value}</div><div class="hp-pill {css}">{note}</div></div>'
+        return (
+            '<div class="hp-card"><div class="hp-card-head">'
+            f'<span>{html.escape(str(icon))}</span><span>{html.escape(str(title))}</span></div>'
+            f'<div class="hp-card-value">{html.escape(str(value))}</div>'
+            f'<div class="hp-pill {css}">{html.escape(str(note))}</div></div>'
+        )
 
     cards = "".join([
         metric("💵", "Fiyat", f"{fiyat:.2f}", f"%{gunluk_degisim:+.2f}", "pozitif" if gunluk_degisim >= 0 else "negatif"),
@@ -2192,7 +2203,7 @@ def gelismis_teknik_panel_olustur(d):
         metric("🌊", "ATR (14)", f"{atr:.2f}", "Yüksek oynaklık" if atr/max(fiyat,1e-9) > .035 else "Normal oynaklık", "uyari" if atr/max(fiyat,1e-9) > .035 else "notr"),
     ])
 
-    tetik_list = "".join(f"<li>{x}</li>" for x in tetik_detay[:7]) or "<li>Henüz yeterli çok zaman dilimli giriş teyidi bulunmuyor.</li>"
+    tetik_list = "".join(f"<li>{html.escape(str(x))}</li>" for x in tetik_detay[:7]) or "<li>Henüz yeterli çok zaman dilimli giriş teyidi bulunmuyor.</li>"
     karar_cls = ("pozitif" if sinyal_yonu_belirle(sinyal) == "ALIM" else
                  "negatif" if sinyal_yonu_belirle(sinyal) == "SATIŞ" else
                  "uyari" if any(x in sinyal for x in ["TEYİT", "KÂR", "KAR", "🟠", "🟡"]) else "notr")
@@ -2203,7 +2214,7 @@ def gelismis_teknik_panel_olustur(d):
 
     return f"""
     <div class="hp-wrap">
-      <div class="hp-head"><div><div class="hp-title">📋 {ticker} — Detaylı Teknik Analiz</div><div class="hp-sub">Göstergeler, seviyeler ve nihai karar tek görünümde{seans_notu}</div></div><div class="hp-source">🔌 {veri_kaynagi}</div></div>
+      <div class="hp-head"><div><div class="hp-title">📋 {ticker_html} — Detaylı Teknik Analiz</div><div class="hp-sub">Göstergeler, seviyeler ve nihai karar tek görünümde{seans_notu}</div></div><div class="hp-source">🔌 {veri_kaynagi_html}</div></div>
       <div class="hp-grid">{cards}</div>
       <div class="hp-sections">
         <div class="hp-section"><h4>🧭 Trend ve momentum özeti</h4>
@@ -2220,13 +2231,13 @@ def gelismis_teknik_panel_olustur(d):
         </div>
         <div class="hp-section"><h4>🎯 Çok zaman dilimli giriş motoru</h4><div class="hp-row"><span>Puan</span><b>{tetik_puani}/100</b></div><div class="hp-row"><span>Seviye</span><b>{tetik_seviyesi}</b></div><ul class="hp-trigger-list">{tetik_list}</ul></div>
       </div>
-      <div class="hp-section" class="hp-mt-10"><h4>🎯 Teknik kâr hedefleri</h4><div class="hp-target">
+      <div class="hp-section hp-mt-10"><h4>🎯 Teknik kâr hedefleri</h4><div class="hp-target">
         <div class="hp-target-card"><span>TP1 — Yakın hedef</span><strong>{tp1:.2f}</strong><div class="hp-stars">{yildiz(tp1_y)}</div></div>
         <div class="hp-target-card"><span>TP2 — Orta hedef</span><strong>{tp2:.2f}</strong><div class="hp-stars">{yildiz(tp2_y)}</div></div>
         <div class="hp-target-card"><span>TP3 — Agresif trend</span><strong>{tp3:.2f}</strong><div class="hp-stars">{yildiz(tp3_y)}</div></div>
       </div></div>
       <div class="hp-comment"><b>🧠 Algoritmik yorum:</b> Fiyat {ana_yorum}. Kısa vadede EMA 9 {kisa_yorum}, RSI {rsi:.1f} ve MACD histogramı {macd_hist:.3f}. Hacim 20 günlük ortalamanın %{hacim_oran:.0f} seviyesinde; fiyatın {s1:.2f}–{r1:.2f} karar aralığındaki davranışı yönün devamı açısından önemlidir.</div>
-      <div class="hp-decision"><div class="hp-decision-title">🧭 Nihai karar: <span class="hp-pill {karar_cls}">{sinyal}</span></div><div class="hp-mt-5"><b>Teknik profil:</b> {profil}</div><div>Hibrit skor: <b>{skor}/100</b> · Algoritma güveni: <b>%{guven}</b> · Giriş kalitesi: <b>{tetik_puani}/100</b></div><div class="hp-small" class="hp-mt-6">Profil ve skorlar açıklayıcıdır; işlem aksiyonu merkezi karar motorundan gelir.</div></div>
+      <div class="hp-decision"><div class="hp-decision-title">🧭 Nihai karar: <span class="hp-pill {karar_cls}">{sinyal_html}</span></div><div class="hp-mt-5"><b>Teknik profil:</b> {profil_html}</div><div>Hibrit skor: <b>{skor}/100</b> · Algoritma güveni: <b>%{guven}</b> · Giriş kalitesi: <b>{tetik_puani}/100</b></div><div class="hp-small hp-mt-6">Profil ve skorlar açıklayıcıdır; işlem aksiyonu merkezi karar motorundan gelir.</div></div>
     </div>
     """
 
@@ -2332,7 +2343,8 @@ def sinyal_kayitlarini_firestore_yaz(sonuclar, teknik_paneller):
             mevcut = eski_acik_haritasi.get(ticker_eski)
             if mevcut is None or tarih < mevcut[1]:
                 eski_acik_haritasi[ticker_eski] = (doc.id, tarih, veri)
-    except Exception:
+    except Exception as e:
+        izfin_hata_logla("acik_pozisyon_arsiv_okuma", e)
         eski_acik_haritasi = {}
 
     for sonuc in sonuclar:
@@ -2349,7 +2361,8 @@ def sinyal_kayitlarini_firestore_yaz(sonuclar, teknik_paneller):
         try:
             aktif_snap = aktif_ref.get()
             aktif = aktif_snap.to_dict() if aktif_snap.exists else {}
-        except Exception:
+        except Exception as e:
+            izfin_hata_logla("aktif_pozisyon_okuma", e, ticker=ticker)
             continue
 
         aktif_mi = str(aktif.get("durum", "")).upper() == "ACIK"
@@ -2662,7 +2675,7 @@ def performans_kayitlarini_tekillestir(kayitlar):
     acik = df[df["durum"].eq("ACIK") & df["ticker"].ne("")].copy()
     acik_birlesik = []
 
-    for ticker, grup in acik.groupby("ticker", sort=False):
+    for _, grup in acik.groupby("ticker", sort=False):
         grup = grup.sort_values(
             ["_tarih", "_guncel_tarih"], ascending=[True, True], na_position="last"
         )
@@ -4267,7 +4280,8 @@ def _google_tokenu_firebase_tokenina_cevir(google_id_token):
         kod = ((data.get("error") or {}).get("message") or data.get("errorMessage") or f"HTTP_{r.status_code}")
         if "EMAIL_EXISTS" in str(kod):
             return None, "Bu Google e-postası mevcut başka bir IZFIN hesabıyla çakışıyor. Önce mevcut yöntemle giriş yapın."
-        return None, f"Firebase Google oturumu oluşturulamadı: {kod}"
+        izfin_hata_logla("google_firebase_exchange_response", RuntimeError(str(kod)[:120]))
+        return None, "Google oturumu Firebase hesabına bağlanamadı. Lütfen yeniden deneyin."
     except Exception as e:
         izfin_hata_logla("google_firebase_exchange", e)
         return None, "Google kimliği Firebase hesabına bağlanamadı."
@@ -4286,7 +4300,8 @@ def _google_callback_isle():
         except Exception: pass
         if oauth_error == "access_denied":
             return False, "Google girişi kullanıcı tarafından iptal edildi."
-        return False, f"Google OAuth hatası: {oauth_error}"
+        izfin_hata_logla("google_oauth_provider_error", RuntimeError(oauth_error[:120]))
+        return False, "Google girişi tamamlanamadı. Lütfen yeniden deneyin."
     if not code:
         return None
     if not GOOGLE_OAUTH_CLIENT_SECRET or not _google_state_dogrula(state):
@@ -4311,7 +4326,8 @@ def _google_callback_isle():
             aciklama = token_data.get("error_description") or token_data.get("error") or f"HTTP_{token_resp.status_code}"
             try: st.query_params.clear()
             except Exception: pass
-            return False, f"Google yetkilendirme kodu doğrulanamadı: {aciklama}"
+            izfin_hata_logla("google_oauth_token_response", RuntimeError(str(aciklama)[:120]))
+            return False, "Google yetkilendirmesi doğrulanamadı. Lütfen yeniden deneyin."
         google_id_token = str(token_data.get("id_token") or "")
         if not google_id_token:
             try: st.query_params.clear()
@@ -4981,7 +4997,7 @@ if aktif_sayfa in ["🏠 Ana Sayfa", "🔎 Akıllı Tarama"]:
             args=("🔎 Akıllı Tarama",),
         )
     else:
-        st.markdown('''<div class="iz-scanner-hero"><div><div class="iz-section-label">IZFIN SCANNER</div><h2>Akıllı Tarama Merkezi</h2><p>Varlık evrenini seç, merkezi karar motorunu çalıştır ve sonuçları skor · güven · giriş kalitesi · MTF · risk ekseninde karşılaştır.</p></div><span class="iz-badge wait">SIGNATURE SCAN</span></div>''', unsafe_allow_html=True)
+        st.markdown('''<div class="iz-scanner-hero"><div><div class="iz-section-label">IZFIN SCANNER</div><h2 id="akilli-tarama-merkezi">Akıllı Tarama Merkezi</h2><p>Varlık evrenini seç, merkezi karar motorunu çalıştır ve sonuçları skor · güven · giriş kalitesi · MTF · risk ekseninde karşılaştır.</p></div><span class="iz-badge wait">SIGNATURE SCAN</span></div>''', unsafe_allow_html=True)
 
         # --- v1.7.14: Akıllı Tarama ana çalışma alanı ---
         if st.session_state.pop("liste_kurtarma_mesaji", False):
@@ -4992,7 +5008,7 @@ if aktif_sayfa in ["🏠 Ana Sayfa", "🔎 Akıllı Tarama"]:
             <div class="iz-scan-control-head">
               <div>
                 <div class="iz-section-label">TARAMA KONTROL PANELİ</div>
-                <h3>Evreni hazırla ve taramayı başlat</h3>
+                <h3 id="tarama-kontrol-paneli">Evreni hazırla ve taramayı başlat</h3>
                 <p>Hisse ekleme, kişisel liste, profil ve tarama seçimi artık tek çalışma alanında.</p>
               </div>
               <div class="iz-scan-count">KİŞİSEL LİSTE · {len(st.session_state.get("custom_tickers", []))} VARLIK</div>
@@ -5071,12 +5087,16 @@ if aktif_sayfa in ["🏠 Ana Sayfa", "🔎 Akıllı Tarama"]:
                     </div>""",
                 )
 
-                if st.button(
-                    f"＋ {_chosen['symbol']} Listeme Ekle",
+                _chosen_symbol = str(_chosen["symbol"]).strip().upper()
+                _chosen_listede = _chosen_symbol in st.session_state.custom_tickers
+                _ekle_tiklandi = st.button(
+                    f"✓ {_chosen_symbol} Listemde" if _chosen_listede else f"＋ {_chosen_symbol} Listeme Ekle",
                     use_container_width=True,
                     key="autocomplete_add",
-                    type="primary",
-                ):
+                    type="secondary" if _chosen_listede else "primary",
+                    disabled=_chosen_listede,
+                )
+                if _ekle_tiklandi:
                     _symbol = str(_chosen["symbol"]).strip().upper()
                     if _symbol in st.session_state.custom_tickers:
                         st.session_state["liste_islem_mesaji"] = (
@@ -5999,6 +6019,11 @@ if aktif_sayfa in ["🏠 Ana Sayfa", "🔎 Akıllı Tarama"]:
                         st.markdown(aksiyon_rehberi_olustur(anlik_sinyal, anlik_teyit, panel_verisi.get('profil'), karar), unsafe_allow_html=True)
                     else:
                         st.info("Bu varlık için teknik panel verisi bulunamadı. Derin taramayı yeniden çalıştırın.")
+            else:
+                st.info(
+                    f"{sonuc_filtresi} filtresine uyan sonuç bulunamadı. "
+                    "Diğer filtrelerden birini seçebilir veya taramayı daha sonra yenileyebilirsiniz."
+                )
 
 
 if aktif_sayfa == "🎯 Projeksiyon & Senaryo":
@@ -6007,7 +6032,7 @@ if aktif_sayfa == "🎯 Projeksiyon & Senaryo":
         <div class="iz-proj-hero">
             <div>
                 <div class="iz-section-label">IZFIN PROJECTION LAB</div>
-                <h2>Projeksiyon & Senaryo Analizi</h2>
+                <h2 id="projeksiyon-senaryo-analizi">Projeksiyon & Senaryo Analizi</h2>
                 <p>Seçilen varlık için yaklaşık 45 günlük hareket bandını, model uyumunu ve yukarı/aşağı teknik senaryoları tek ekranda inceleyin.</p>
             </div>
             <span class="iz-badge wait">45G MODEL</span>
@@ -6159,7 +6184,7 @@ if aktif_sayfa == "🎯 Projeksiyon & Senaryo":
 
 
 if aktif_sayfa == "📊 Takip & Performans":
-    st.subheader("📊 Takip & Performans")
+    st.html('<h3 id="takip-performans">📊 Takip & Performans</h3>')
     st.markdown(
         "Her hissede **ilk alım sinyali tarihi ve fiyatı sabit tutulur**. "
         "Aynı alım dönemi devam ederken sinyal türü değişse bile yeni kayıt açılmaz; "
@@ -6748,7 +6773,7 @@ if aktif_sayfa == "📊 Takip & Performans":
 
 
 if aktif_sayfa == "🧪 Strateji Laboratuvarı":
-    st.subheader("🧪 Strateji Laboratuvarı · IZFIN Daily Core Backtest")
+    st.html('<h3 id="strateji-laboratuvari">🧪 Strateji Laboratuvarı · IZFIN Daily Core Backtest</h3>')
     st.markdown(
         "Geçmişte her gün için yalnızca o güne kadar bilinen verilerle **IZFIN günlük çekirdek karar motorunu** yeniden çalıştırır. "
         "Merkezi motor yalnızca GÜÇLÜ AL / AL / ERKEN AL dediğinde test işlemi açılır; ardından 5/10/20/45 günlük hareket ve Stop/TP sonucu ölçülür. "
@@ -6761,11 +6786,11 @@ if aktif_sayfa == "🧪 Strateji Laboratuvarı":
         # Kullanıcı kayıtlı havuzda olmayan geçerli bir Yahoo sembolünü de doğrudan test edebilir.
         bt_havuz = sorted(set(str(x).strip().upper() for x in tum_varliklar_havuzu if str(x).strip()))
         bt_arama = st.text_input(
-            "Test edilecek varlığı ara",
+            "Test edilecek varlık · yazıp Enter'a basın",
             value=st.session_state.get("bt_son_ticker", ""),
             placeholder="Örn. NVDA, AAPL, THYAO.IS",
             key="bt_ticker_arama",
-            help="Sembolü yazın. Kayıtlı varlıklarda eşleşmeler daraltılır; listede olmayan geçerli Yahoo sembolleri de test edilebilir.",
+            help="Sembolü yazdıktan sonra Enter'a basın. Kayıtlı varlıklarda eşleşmeler daraltılır; listede olmayan geçerli Yahoo sembolleri de test edilebilir.",
         ).strip().upper()
 
         bt_ticker = ""
@@ -6789,7 +6814,7 @@ if aktif_sayfa == "🧪 Strateji Laboratuvarı":
                 bt_ticker = bt_arama
                 st.caption(f"🔎 {bt_ticker} kayıtlı havuzda yok; geçerli bir Yahoo sembolüyse doğrudan test edilecek.")
         else:
-            st.caption("Bir sembol yazın; örneğin NVDA veya THYAO.IS.")
+            st.caption("Bir sembol yazıp Enter'a basın; örneğin NVDA veya THYAO.IS.")
 
     with bt_c2:
         bt_period = st.selectbox("Geçmiş dönem", ["3y", "5y", "10y"], index=1, key="bt_period")
