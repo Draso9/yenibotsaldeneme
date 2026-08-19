@@ -385,7 +385,7 @@ STRATEJI_SURUMU = "IZFIN-v1.7.5-auth-switch-fixed"
 PERFORMANS_UFUKLARI = (1, 5, 10, 20, 45)
 
 # --- IZFIN UYGULAMA SÜRÜMÜ ---
-IZFIN_APP_SURUMU = "v1.8.34 Sortable Table Retry Fix"
+IZFIN_APP_SURUMU = "v1.8.35 Sortable Table Ready Fix"
 
 # Finnhub isteklerini süreç içinde ortak hız sınırına tabi tut.
 # Plan bazlı dakika limitleri değişebildiği için 429 yanıtlarında ayrıca backoff uygulanır.
@@ -4755,12 +4755,15 @@ def izfin_sortable_table_js():
               th.tabIndex=0;
             });
           }
-          const bindAll=()=>doc.querySelectorAll("table.iz-client-sortable").forEach(bind);
+          const bindAll=()=>{
+            const tables=[...doc.querySelectorAll("table.iz-client-sortable")];
+            tables.forEach(bind);
+            return tables.length;
+          };
           let bindAttempts=0;
           const bindWithRetry=()=>{
-            bindAll();
             bindAttempts+=1;
-            if(bindAttempts<50) setTimeout(bindWithRetry,100);
+            if(bindAll()===0 && bindAttempts<480) setTimeout(bindWithRetry,250);
           };
           bindWithRetry();
         })();
