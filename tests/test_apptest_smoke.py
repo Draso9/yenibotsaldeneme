@@ -75,6 +75,9 @@ def test_no_raw_python_traceback_is_rendered_to_user():
     assert not any(token in text for token in forbidden)
 
 
-@pytest.mark.parametrize("required_file", ["app2.py", "styles/izfin.css"])
+@pytest.mark.parametrize(
+    "required_file",
+    ["app2.py", "styles/izfin.css", "styles/izfin-legal.css"],
+)
 def test_release_files_exist(required_file):
     assert (ROOT / required_file).exists()
