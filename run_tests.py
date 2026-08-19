@@ -11,26 +11,7 @@ def run(args):
 
 
 def main():
-    pure = [
-        sys.executable, "-m", "pytest",
-        "tests/test_bist_and_symbols.py",
-        "tests/test_decision_engine.py",
-        "tests/test_static_integrity.py",
-        "tests/test_ci_security.py",
-        "tests/test_quality_gate.py",
-        "tests/test_admin_qa.py",
-        "-q",
-    ]
-    rc = run(pure)
-    if rc:
-        return rc
-
-    smoke = [
-        sys.executable, "-m", "pytest",
-        "tests/test_apptest_smoke.py",
-        "-q",
-    ]
-    return run(smoke)
+    return run([sys.executable, "-m", "pytest", "-q"])
 
 
 if __name__ == "__main__":
