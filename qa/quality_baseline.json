@@ -9,23 +9,23 @@
     "unsafe_allow_html_count": 63
   },
   "qa_center_baseline": {
-    "css_lines": 4933,
-    "important_count": 1193,
-    "media_query_count": 51,
-    "hex_color_count": 654,
-    "sub_10px_font_declarations": 163,
+    "css_lines": 3839,
+    "important_count": 854,
+    "media_query_count": 30,
+    "hex_color_count": 336,
+    "sub_10px_font_declarations": 0,
     "inline_style_attributes_in_app": 17,
-    "unsafe_allow_html_count": 67,
+    "unsafe_allow_html_count": 66,
     "invalid_design_token_count": 0
   },
   "budgets": {
-    "css_lines_max": 5013,
-    "important_count_max": 1193,
-    "media_query_count_max": 51,
-    "hex_color_count_max": 654,
-    "sub_10px_font_declarations_max": 163,
+    "css_lines_max": 3839,
+    "important_count_max": 854,
+    "media_query_count_max": 30,
+    "hex_color_count_max": 336,
+    "sub_10px_font_declarations_max": 0,
     "inline_style_attributes_in_app_max": 17,
-    "unsafe_allow_html_count_max": 67,
+    "unsafe_allow_html_count_max": 66,
     "invalid_design_token_count_max": 0
   }
 }
