@@ -16,6 +16,17 @@ def _metrics():
         float(x) for x in re.findall(r"font-size\s*:\s*([0-9]+(?:\.[0-9]+)?)px", css, flags=re.I)
         if float(x) < 10
     ]
+    token_definitions = {
+        name: value.strip()
+        for name, value in re.findall(
+            r"(--iz-[A-Za-z0-9_-]+)\s*:\s*([^;}]+)", css
+        )
+    }
+    token_uses = set(re.findall(r"var\((--iz-[A-Za-z0-9_-]+)", css))
+    invalid_tokens = (token_uses - set(token_definitions)) | {
+        name for name, value in token_definitions.items()
+        if f"var({name})" in value
+    }
     return {
         "css_lines": css.count("\n") + 1,
         "important_count": css.count("!important"),
@@ -24,6 +35,7 @@ def _metrics():
         "sub_10px_font_declarations": len(sub10),
         "inline_style_attributes_in_app": len(re.findall(r'style="[^"]+"', app)),
         "unsafe_allow_html_count": app.count("unsafe_allow_html=True"),
+        "invalid_design_token_count": len(invalid_tokens),
     }
 
 def test_quality_baseline_file_is_valid():
@@ -43,6 +55,12 @@ def test_qa_helpers_and_renderer_exist():
     fn_names = {n.name for n in tree.body if isinstance(n, ast.FunctionDef)}
     for fn in ("izfin_qa_static_metrics", "izfin_qa_release_status", "izfin_qa_center_render"):
         assert fn in fn_names
+
+
+def test_invalid_design_tokens_are_release_blockers():
+    source = APP.read_text(encoding="utf-8")
+    assert 'metrics.get("gecersiz_design_token", 0)' in source
+    assert '"durum": "KONTROL GEREKİYOR"' in source
 
 def test_critical_ui_markers_remain_present():
     source = APP.read_text(encoding="utf-8").upper()
