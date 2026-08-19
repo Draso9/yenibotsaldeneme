@@ -8,6 +8,7 @@ import requests
 import yfinance as yf
 import os
 import logging
+import json
 import re
 import html
 import secrets as pysecrets
@@ -22,6 +23,18 @@ from firebase_admin import credentials, firestore, auth
 import extra_streamlit_components as stx
 import streamlit.components.v1 as components
 from pathlib import Path
+
+try:
+    import sentry_sdk
+    from sentry_sdk.integrations.logging import LoggingIntegration
+except ImportError:  # Uygulama, opsiyonel izleme paketi olmadan da güvenli biçimde açılır.
+    sentry_sdk = None
+    LoggingIntegration = None
+
+
+IZFIN_RELEASE = "1.9.0"
+IZFIN_APP_SURUMU = "v1.9.0 Privacy & Observability"
+SENTRY_ETKIN = False
 
 
 # --- IZFIN TEKNİK LOG KATMANI ---
@@ -45,6 +58,18 @@ def izfin_hata_logla(baglam, hata, ticker=None):
         hata,
         exc_info=exc_info,
     )
+
+    # Sentry'ye kullanıcı e-postası, cookie veya token eklenmez. Aynı olayın
+    # logging entegrasyonundan ikinci kez gitmemesi için yalnız burada yakalanır.
+    if SENTRY_ETKIN and sentry_sdk is not None and isinstance(hata, BaseException):
+        try:
+            with sentry_sdk.push_scope() as scope:
+                scope.set_tag("izfin.context", str(baglam)[:120])
+                if ticker:
+                    scope.set_tag("izfin.ticker", str(ticker)[:32])
+                sentry_sdk.capture_exception(hata)
+        except Exception:
+            pass
 
     # Session içi teknik özet yalnızca yardımcıdır; başarısız olursa log fonksiyonu
     # kendi kendisini tekrar çağırarak recursion üretmez.
@@ -128,6 +153,52 @@ st.set_page_config(
     page_icon="💠",
     layout="wide"
 )
+
+
+def _erken_secret_degeri(ad, varsayilan=""):
+    """Sayfa kurulurken gereken secrets/env değerlerini kullanıcıya sızdırmadan okur."""
+    try:
+        deger = st.secrets.get(ad, varsayilan)
+    except Exception:
+        deger = os.getenv(ad, varsayilan)
+    return str(deger or varsayilan).strip()
+
+
+def _sentry_olayini_temizle(event, hint):
+    """Sentry olayından kimlik, cookie ve yetkilendirme başlıklarını çıkarır."""
+    event.pop("user", None)
+    request_data = event.get("request")
+    if isinstance(request_data, dict):
+        request_data.pop("cookies", None)
+        headers = request_data.get("headers")
+        if isinstance(headers, dict):
+            for hassas in ("Authorization", "authorization", "Cookie", "cookie"):
+                headers.pop(hassas, None)
+    return event
+
+
+SENTRY_DSN = _erken_secret_degeri("SENTRY_DSN")
+IZFIN_ENVIRONMENT = _erken_secret_degeri("IZFIN_ENVIRONMENT", "development")
+try:
+    _sentry_trace_orani = float(_erken_secret_degeri("SENTRY_TRACES_SAMPLE_RATE", "0.02"))
+except ValueError:
+    _sentry_trace_orani = 0.02
+_sentry_trace_orani = max(0.0, min(1.0, _sentry_trace_orani))
+
+if SENTRY_DSN and sentry_sdk is not None:
+    try:
+        sentry_sdk.init(
+            dsn=SENTRY_DSN,
+            environment=IZFIN_ENVIRONMENT,
+            release=f"izfin@{IZFIN_RELEASE}",
+            send_default_pii=False,
+            traces_sample_rate=_sentry_trace_orani,
+            before_send=_sentry_olayini_temizle,
+            integrations=[LoggingIntegration(level=logging.INFO, event_level=None)],
+        )
+        SENTRY_ETKIN = True
+    except Exception as _sentry_init_hatasi:
+        logger.error("IZFIN Sentry başlatılamadı: %s", _sentry_init_hatasi)
 
 izfin_css_yukle()
 
@@ -213,6 +284,20 @@ def _secret_degeri(ad, varsayilan=""):
         v = os.getenv(ad, varsayilan)
     return str(v or varsayilan).strip()
 
+
+IZFIN_TERMS_VERSION = _secret_degeri("IZFIN_TERMS_VERSION", "2026-08-19-v1")
+IZFIN_PRIVACY_VERSION = _secret_degeri("IZFIN_PRIVACY_VERSION", "2026-08-19-v1")
+IZFIN_DATA_CONTROLLER_NAME = _secret_degeri("IZFIN_DATA_CONTROLLER_NAME")
+IZFIN_CONTACT_EMAIL = _secret_degeri("IZFIN_CONTACT_EMAIL")
+IZFIN_DATA_CONTROLLER_ADDRESS = _secret_degeri("IZFIN_DATA_CONTROLLER_ADDRESS")
+try:
+    IZFIN_LOG_RETENTION_DAYS = max(
+        1,
+        int(_secret_degeri("IZFIN_LOG_RETENTION_DAYS", "30")),
+    )
+except ValueError:
+    IZFIN_LOG_RETENTION_DAYS = 30
+
 GOOGLE_OAUTH_CLIENT_ID = _secret_degeri("GOOGLE_OAUTH_CLIENT_ID")
 GOOGLE_OAUTH_CLIENT_SECRET = _secret_degeri("GOOGLE_OAUTH_CLIENT_SECRET")
 GOOGLE_OAUTH_REDIRECT_URI = _secret_degeri(
@@ -279,6 +364,8 @@ def _oturum_ac(data, beni_hatirla=False):
         email = str(claims.get("email") or (data or {}).get("email") or "").strip().lower()
         if not uid or not email:
             return False, "Kullanıcı kimliği doğrulanamadı."
+        st.session_state.pop("izfin_yasal_onayli", None)
+        st.session_state.pop("izfin_export_json", None)
         st.session_state.user_uid = uid
         st.session_state.user_email = email
         st.session_state.logout_triggered = False
@@ -310,7 +397,7 @@ def _oturum_ac(data, beni_hatirla=False):
         izfin_hata_logla("firebase_id_token_dogrulama", e)
         return False, "Güvenli oturum oluşturulamadı. Lütfen tekrar giriş yapın."
 
-def _kayit_ol(email, password):
+def _kayit_ol(email, password, terms_accepted=False, privacy_notice_seen=False):
     data, err = _firebase_auth_post("signUp", {"email": email, "password": password, "returnSecureToken": True})
     if err:
         return None, err
@@ -319,6 +406,10 @@ def _kayit_ol(email, password):
         try:
             db.collection("kullanicilar").document(uid).set({
                 "uid": uid, "email": email, "olusturma_zamani": datetime.now().isoformat(), "son_giris": None,
+                "terms_version": IZFIN_TERMS_VERSION if terms_accepted else None,
+                "terms_accepted_at": datetime.now().isoformat() if terms_accepted else None,
+                "privacy_notice_version": IZFIN_PRIVACY_VERSION if privacy_notice_seen else None,
+                "privacy_notice_shown_at": datetime.now().isoformat() if privacy_notice_seen else None,
             }, merge=True)
         except Exception as e:
             izfin_hata_logla("kayit_profil_firestore", e)
@@ -366,6 +457,8 @@ if (not st.session_state.user_email) and saved_session_cookie and not st.session
         user = auth.get_user(uid) if uid else None
         email = str((claims.get("email") if claims else None) or (user.email if user else "") or "").strip().lower()
         if uid and email:
+            st.session_state.pop("izfin_yasal_onayli", None)
+            st.session_state.pop("izfin_export_json", None)
             st.session_state.user_uid = uid
             st.session_state.user_email = email
             st.session_state.kullanici_listesi_yuklendi = False
@@ -377,15 +470,14 @@ if (not st.session_state.user_email) and saved_session_cookie and not st.session
             pass
         st.session_state.user_uid = None
         st.session_state.user_email = None
+        st.session_state.pop("izfin_yasal_onayli", None)
+        st.session_state.pop("izfin_export_json", None)
 
 VARSAYILAN_TICKERS = ["AAPL", "MSFT", "TSLA", "NVDA", "AMD", "INTC", "THYAO.IS", "FROTO.IS", "TOASO.IS"]
 
 # --- IZFIN STRATEJİ SÜRÜMÜ ---
 STRATEJI_SURUMU = "IZFIN-v1.7.5-auth-switch-fixed"
 PERFORMANS_UFUKLARI = (1, 5, 10, 20, 45)
-
-# --- IZFIN UYGULAMA SÜRÜMÜ ---
-IZFIN_APP_SURUMU = "v1.8.36 Sortable Table Bind Fix"
 
 # Finnhub isteklerini süreç içinde ortak hız sınırına tabi tut.
 # Plan bazlı dakika limitleri değişebildiği için 429 yanıtlarında ayrıca backoff uygulanır.
@@ -2575,7 +2667,7 @@ def gecmis_mukerrer_kayitlari_temizle():
             except Exception as e: izfin_hata_logla("gecmis_kayit_temizlik_silme",e,ticker)
         if key[0]=="ACIK":
             try:
-                aktif_id=f"{email_key}_{str(ticker or '').replace('.', '_')}"; db.collection("aktif_sinyaller").document(aktif_id).set({"arsiv_doc_id":keep_id,"durum":"ACIK"},merge=True)
+                aktif_id=f"{email_key}_{str(ticker or '').replace('.', '_')}"; db.collection("aktif_sinyaller").document(aktif_id).set({"user_email":email,"ticker":ticker,"arsiv_doc_id":keep_id,"durum":"ACIK"},merge=True)
             except Exception as e: izfin_hata_logla("gecmis_kayit_temizlik_aktif_bag",e,ticker)
     return {"silinen":silinen,"yedeklenen":yedeklenen,"grup":grup_sayisi}
 
@@ -3572,13 +3664,27 @@ def izfin_qa_center_render():
     st.markdown(f'<div class="iz-qa-grid">{cards_html}</div>', unsafe_allow_html=True)
 
     st.markdown("#### Release kontrolü")
-    c1, c2, c3 = st.columns(3)
+    c1, c2, c3, c4 = st.columns(4)
     with c1:
         st.success("Regression test altyapısı aktif")
     with c2:
         st.success("Streamlit AppTest smoke aktif")
     with c3:
-        st.success("GitHub CI Gate aktif")
+        st.success("Tek GitHub Quality Gate aktif")
+    with c4:
+        if SENTRY_ETKIN:
+            st.success(f"Sentry aktif · {IZFIN_ENVIRONMENT}")
+        else:
+            st.warning("Sentry DSN bekliyor")
+
+    if SENTRY_ETKIN and sentry_sdk is not None:
+        if st.button("Sentry bağlantı testi gönder", key="qa_sentry_test"):
+            olay_id = sentry_sdk.capture_message(
+                "IZFIN admin observability connection test",
+                level="info",
+            )
+            sentry_sdk.flush(timeout=2.0)
+            st.success(f"Sentry test olayı gönderildi · Event ID: {olay_id}")
 
     st.markdown("#### Görsel bileşen önizleme")
     with st.expander("🎨 Aktif Alım Pozisyonları · Tema Kontrolü", expanded=False):
@@ -4386,7 +4492,441 @@ def _google_login_component():
         help="Google hesabınızla güvenli şekilde devam edin.",
     )
 
+
+def _yasal_url(tur):
+    base = _secret_degeri(
+        "IZFIN_PUBLIC_URL",
+        "https://izfin-develop.streamlit.app/",
+    ).rstrip("/")
+    return f"{base}/?legal={tur}"
+
+
+def _yasal_kimlik_eksikleri():
+    alanlar = {
+        "IZFIN_DATA_CONTROLLER_NAME": IZFIN_DATA_CONTROLLER_NAME,
+        "IZFIN_CONTACT_EMAIL": IZFIN_CONTACT_EMAIL,
+        "IZFIN_DATA_CONTROLLER_ADDRESS": IZFIN_DATA_CONTROLLER_ADDRESS,
+    }
+    return [ad for ad, deger in alanlar.items() if not str(deger or "").strip()]
+
+
+def izfin_gizlilik_metni_render():
+    """Uygulamanın gerçek veri akışına göre KVKK aydınlatma ve gizlilik metni."""
+    st.title("Gizlilik ve KVKK Aydınlatma Metni")
+    st.caption(f"Metin sürümü: {IZFIN_PRIVACY_VERSION}")
+
+    eksikler = _yasal_kimlik_eksikleri()
+    if eksikler:
+        st.warning(
+            "Bu geliştirme ortamında veri sorumlusu kimlik/iletişim alanları henüz "
+            "tamamlanmadı. Herkese açık yayından önce Streamlit Secrets içindeki "
+            f"{', '.join(eksikler)} değerleri doldurulmalıdır."
+        )
+
+    veri_sorumlusu = IZFIN_DATA_CONTROLLER_NAME or "Yapılandırılmayı bekliyor"
+    iletisim = IZFIN_CONTACT_EMAIL or "Yapılandırılmayı bekliyor"
+    adres = IZFIN_DATA_CONTROLLER_ADDRESS or "Yapılandırılmayı bekliyor"
+
+    st.markdown(f"""
+### 1. Veri sorumlusu
+
+- **Veri sorumlusu:** {veri_sorumlusu}
+- **İletişim e-postası:** {iletisim}
+- **Başvuru adresi:** {adres}
+
+### 2. İşlenen veriler
+
+IZFIN; hesap oluşturma ve hizmeti sunma kapsamında e-posta adresi, Firebase kullanıcı
+kimliği (UID), hesap oluşturma/son giriş zamanı, yasal metin sürüm kayıtları, kişisel
+izleme listesi, kullanıcının oluşturduğu sinyal ve performans takip kayıtları ile sınırlı
+teknik hata kayıtlarını işler. Google ile girişte Google parolası IZFIN'e ulaşmaz ve
+IZFIN tarafından saklanmaz.
+
+### 3. İşleme amaçları
+
+Bu veriler hesabın doğrulanması, oturumun sürdürülmesi, kişisel listenin ve takip
+geçmişinin saklanması, güvenliğin sağlanması, hataların giderilmesi ve hizmet kalitesinin
+ölçülmesi amaçlarıyla kullanılır. Veriler reklam profili oluşturmak veya IZFIN dışı
+otomatik yatırım işlemi gerçekleştirmek için kullanılmaz.
+
+### 4. Toplama yöntemi ve hukuki sebep
+
+Veriler kayıt/giriş formları, Google OAuth, Firebase Authentication, kullanıcı işlemleri
+ve uygulama teknik logları üzerinden elektronik ortamda elde edilir. İşleme faaliyetleri;
+hizmet sözleşmesinin kurulması ve ifası, hukuki yükümlülüklerin yerine getirilmesi ve
+uygulama güvenliğinin sağlanmasına yönelik meşru menfaatler kapsamında yürütülür.
+Gerekli olduğu durumlarda ayrıca açık rıza istenir; aydınlatma metni açık rıza yerine geçmez.
+
+### 5. Hizmet sağlayıcılar ve aktarım
+
+Kimlik ve kullanıcı verileri Firebase/Google Cloud altyapısında; uygulama Streamlit Cloud
+altyapısında işlenebilir. Hata izleme etkinleştirildiğinde Sentry'ye kimlik, cookie ve
+yetkilendirme başlıkları gönderilmez. Piyasa verisi isteklerinde Finnhub ve Yahoo Finance
+gibi veri sağlayıcıları kullanılabilir; kullanıcı e-postası bu piyasa verisi isteklerine
+eklenmez. Bu sağlayıcıların yurt dışındaki altyapıları kullanılabileceğinden, production
+yayın öncesinde gerekli aktarım mekanizmaları veri sorumlusu tarafından ayrıca
+tamamlanmalıdır.
+
+### 6. Saklama ve silme
+
+Hesap, kişisel liste ve takip kayıtları hesap aktif olduğu sürece veya mevzuatın gerekli
+kıldığı süre boyunca saklanır. Teknik hata kayıtları varsayılan olarak en fazla
+**{IZFIN_LOG_RETENTION_DAYS} gün** tutulacak şekilde yapılandırılmalıdır. Kullanıcı,
+uygulamadaki **Gizlilik & Hesap** bölümünden verilerini indirebilir ve hesabını kalıcı
+olarak silebilir. Yasal saklama zorunluluğu bulunmayan kullanıcı belgeleri silme işlemiyle
+birlikte kaldırılır.
+
+### 7. Çerezler
+
+`izfin_session` çerezi yalnızca kullanıcı "Beni hatırla" seçeneğini kullandığında güvenli
+oturumu sürdürmek için kullanılır. Reklam veya üçüncü taraf pazarlama çerezi kullanılmaz.
+
+### 8. İlgili kişinin hakları
+
+KVKK kapsamındaki kişiler; verilerinin işlenip işlenmediğini öğrenme, bilgi talep etme,
+amacına uygun kullanılıp kullanılmadığını öğrenme, aktarılan tarafları bilme, düzeltme,
+silme/yok etme ve kanuni şartları varsa zararın giderilmesini talep etme haklarına
+sahiptir. Talepler yukarıdaki iletişim kanalından veri sorumlusuna iletilebilir.
+""")
+    st.info(
+        "Bu metin uygulamanın teknik veri akışına göre hazırlanmış yayın taslağıdır. "
+        "Production öncesinde veri sorumlusu bilgileri ve hukuki dayanaklar yetkili bir "
+        "hukuk uzmanı tarafından doğrulanmalıdır."
+    )
+
+
+def izfin_kullanim_kosullari_render():
+    """IZFIN kullanım sınırlarını ve finansal risk açıklamalarını gösterir."""
+    st.title("IZFIN Kullanım Koşulları")
+    st.caption(f"Koşul sürümü: {IZFIN_TERMS_VERSION}")
+    st.markdown("""
+### 1. Hizmetin kapsamı
+
+IZFIN; piyasa verilerini, teknik göstergeleri, tarama sonuçlarını, projeksiyonları ve
+geçmiş dönem testlerini bir araya getiren bir araştırma ve karar destek uygulamasıdır.
+Aracı kurum değildir; emir iletmez, portföy yönetmez ve kullanıcı adına işlem yapmaz.
+
+### 2. Yatırım tavsiyesi değildir
+
+Uygulamadaki skor, sinyal, hedef, stop, projeksiyon ve backtest sonuçları yatırım
+tavsiyesi, kesin getiri veya zarar etmeme garantisi değildir. Kullanıcı, yatırım
+kararlarından ve bu kararların sonuçlarından kendisi sorumludur. Gerektiğinde yetkili
+bir yatırım danışmanından görüş alınmalıdır.
+
+### 3. Veri ve model sınırlamaları
+
+Piyasa verileri gecikebilir, eksik olabilir veya sağlayıcılar arasında farklılık
+gösterebilir. Teknik seviyeler; haber, bilanço, likidite, piyasa boşluğu ve olağanüstü
+koşullarla geçersiz hale gelebilir. Geçmiş performans gelecekteki sonucu göstermez.
+Backtestlerde komisyon, vergi, spread ve gerçek emir kayması ayrıca belirtilmedikçe
+modellenmez.
+
+### 4. Hesap güvenliği ve kabul edilebilir kullanım
+
+Kullanıcı hesap bilgilerini korumalı, yetkisiz erişimi bildirmeli ve uygulamayı hukuka
+aykırı, yanıltıcı, sistemi aşırı yükleyici veya üçüncü kişilerin haklarını ihlal edici
+biçimde kullanmamalıdır. Otomatik veri kazıma, erişim kontrollerini aşma ve hizmeti
+bozacak yoğun istek gönderme yasaktır.
+
+### 5. Hizmetin sürekliliği
+
+Bakım, veri sağlayıcı kesintisi, kota, güvenlik veya mücbir sebepler nedeniyle hizmet
+geçici olarak yavaşlayabilir ya da durabilir. Güvenliği veya mevzuata uyumu korumak için
+özellikler değiştirilebilir veya hesap erişimi sınırlandırılabilir.
+
+### 6. Fikri haklar ve değişiklikler
+
+IZFIN'e ait marka, arayüz, analiz mantığı ve özgün içerikler izin olmadan ticari olarak
+kopyalanamaz. Koşullar önemli değişikliklerde yeni sürüm numarasıyla sunulur; kullanıcıdan
+yeniden kabul istenebilir.
+
+### 7. Hesabın sona ermesi
+
+Kullanıcı hesabını uygulama içinden kalıcı olarak silebilir. Silme öncesinde verilerin
+indirilmesi kullanıcının sorumluluğundadır. Kötüye kullanım veya hukuki zorunluluk halinde
+hesap erişimi askıya alınabilir.
+""")
+
+
+def _json_uyumlu(deger):
+    """Firestore/pandas değerlerini indirilebilir, güvenli JSON biçimine dönüştürür."""
+    if deger is None or isinstance(deger, (str, int, bool)):
+        return deger
+    if isinstance(deger, float):
+        return deger if math.isfinite(deger) else None
+    if isinstance(deger, (datetime, pd.Timestamp)):
+        return deger.isoformat()
+    if isinstance(deger, np.generic):
+        return _json_uyumlu(deger.item())
+    if isinstance(deger, bytes):
+        return deger.hex()
+    if isinstance(deger, dict):
+        return {str(k): _json_uyumlu(v) for k, v in deger.items()}
+    if isinstance(deger, (list, tuple, set)):
+        return [_json_uyumlu(v) for v in deger]
+    return str(deger)
+
+
+def _kullanici_belgelerini_getir():
+    """Yalnız aktif ve doğrulanmış kullanıcıya ait Firestore belgelerini toplar."""
+    if db is None:
+        raise RuntimeError("Firebase veritabanı bağlantısı kullanılamıyor.")
+
+    uid = str(st.session_state.get("user_uid") or "").strip()
+    email = str(st.session_state.get("user_email") or "").strip().lower()
+    if not uid or not email:
+        raise RuntimeError("Doğrulanmış kullanıcı oturumu bulunamadı.")
+
+    bulunan = {}
+
+    def _ekle(koleksiyon, snapshot):
+        if snapshot is not None and snapshot.exists:
+            bulunan[(koleksiyon, snapshot.id)] = snapshot.to_dict() or {}
+
+    _ekle("kullanicilar", db.collection("kullanicilar").document(uid).get())
+    _ekle("kullanici_listeleri", db.collection("kullanici_listeleri").document(uid).get())
+    if email != uid:
+        _ekle("kullanici_listeleri", db.collection("kullanici_listeleri").document(email).get())
+
+    for koleksiyon in (
+        "sinyal_arsivi",
+        "aktif_sinyaller",
+        "sinyal_arsivi_temizlik_yedegi",
+    ):
+        sorgu = db.collection(koleksiyon).where("user_email", "==", email)
+        for snapshot in sorgu.stream():
+            _ekle(koleksiyon, snapshot)
+
+    # Eski temizlik sürümleri bazı aktif belge bağlantılarını user_email alanı
+    # olmadan oluşturmuş olabilir. Arşivdeki ticker'lardan deterministik belge
+    # kimliğini kurarak bu eski kayıtları da export/silme kapsamına al.
+    email_anahtari = email.replace("@", "_").replace(".", "_")
+    arsiv_tickerlari = {
+        str(veri.get("ticker") or "").strip()
+        for (koleksiyon, _), veri in bulunan.items()
+        if koleksiyon == "sinyal_arsivi" and str(veri.get("ticker") or "").strip()
+    }
+    for ticker in arsiv_tickerlari:
+        aktif_id = f"{email_anahtari}_{ticker.replace('.', '_')}"
+        _ekle(
+            "aktif_sinyaller",
+            db.collection("aktif_sinyaller").document(aktif_id).get(),
+        )
+
+    return [
+        {"collection": koleksiyon, "document_id": doc_id, "data": veri}
+        for (koleksiyon, doc_id), veri in sorted(bulunan.items())
+    ]
+
+
+def izfin_kullanici_veri_paketi_olustur():
+    belgeler = _kullanici_belgelerini_getir()
+    koleksiyonlar = {}
+    for belge in belgeler:
+        koleksiyonlar.setdefault(belge["collection"], []).append({
+            "document_id": belge["document_id"],
+            "data": _json_uyumlu(belge["data"]),
+        })
+    return {
+        "export_schema": "izfin-user-data-v1",
+        "exported_at": datetime.now(tz=ZoneInfo("UTC")).isoformat(),
+        "app_release": IZFIN_RELEASE,
+        "user_uid": st.session_state.get("user_uid"),
+        "user_email": st.session_state.get("user_email"),
+        "collections": koleksiyonlar,
+    }
+
+
+def _kullanici_hesabini_kalici_sil():
+    """Kullanıcı belgelerini toplu siler, tokenları iptal eder ve Auth hesabını kaldırır."""
+    uid = str(st.session_state.get("user_uid") or "").strip()
+    if not uid:
+        raise RuntimeError("Silinecek kullanıcı kimliği bulunamadı.")
+
+    belgeler = _kullanici_belgelerini_getir()
+    for baslangic in range(0, len(belgeler), 400):
+        batch = db.batch()
+        for belge in belgeler[baslangic:baslangic + 400]:
+            ref = db.collection(belge["collection"]).document(belge["document_id"])
+            batch.delete(ref)
+        batch.commit()
+
+    try:
+        auth.revoke_refresh_tokens(uid)
+    except Exception as e:
+        izfin_hata_logla("hesap_sil_token_iptali", e)
+    auth.delete_user(uid)
+    return len(belgeler)
+
+
+def _yasal_onay_kaydet(uid):
+    simdi = datetime.now(tz=ZoneInfo("UTC")).isoformat()
+    db.collection("kullanicilar").document(uid).set({
+        "terms_version": IZFIN_TERMS_VERSION,
+        "terms_accepted_at": simdi,
+        "privacy_notice_version": IZFIN_PRIVACY_VERSION,
+        "privacy_notice_shown_at": simdi,
+    }, merge=True)
+
+
+def izfin_yasal_onay_kapisi():
+    """E-posta ve Google kullanıcılarına sürümlü koşul/onay kapısını aynı biçimde uygular."""
+    if st.session_state.get("izfin_yasal_onayli"):
+        return True
+    if db is None:
+        st.error("Yasal onay kaydı doğrulanamadığı için uygulama güvenli biçimde açılamıyor.")
+        return False
+
+    uid = str(st.session_state.get("user_uid") or "").strip()
+    try:
+        snapshot = db.collection("kullanicilar").document(uid).get()
+        profil = snapshot.to_dict() if snapshot.exists else {}
+    except Exception as e:
+        izfin_hata_logla("yasal_onay_durumu", e)
+        st.error("Hesap onay bilgileri şu anda doğrulanamıyor. Lütfen daha sonra tekrar deneyin.")
+        return False
+
+    guncel = (
+        profil.get("terms_version") == IZFIN_TERMS_VERSION
+        and profil.get("privacy_notice_version") == IZFIN_PRIVACY_VERSION
+    )
+    if guncel:
+        st.session_state.izfin_yasal_onayli = True
+        return True
+
+    st.warning("Devam etmek için güncel kullanım koşullarını kabul etmeniz gerekiyor.")
+    kosul_tab, gizlilik_tab = st.tabs(["Kullanım Koşulları", "KVKK Aydınlatma Metni"])
+    with kosul_tab:
+        izfin_kullanim_kosullari_render()
+    with gizlilik_tab:
+        izfin_gizlilik_metni_render()
+    kosul_ok = st.checkbox(
+        f"Kullanım Koşulları'nı kabul ediyorum ({IZFIN_TERMS_VERSION}).",
+        key="legal_gate_terms",
+    )
+    gizlilik_goruldu = st.checkbox(
+        f"KVKK Aydınlatma Metni tarafıma sunuldu ({IZFIN_PRIVACY_VERSION}).",
+        key="legal_gate_privacy",
+    )
+    if st.button("Onayla ve IZFIN'e devam et", type="primary", use_container_width=True):
+        if not kosul_ok or not gizlilik_goruldu:
+            st.error("Devam etmek için iki kutuyu da işaretleyin.")
+        else:
+            try:
+                _yasal_onay_kaydet(uid)
+                st.session_state.izfin_yasal_onayli = True
+                st.rerun()
+            except Exception as e:
+                izfin_hata_logla("yasal_onay_kaydet", e)
+                st.error("Onay kaydedilemedi. Lütfen yeniden deneyin.")
+    return False
+
+
+def izfin_gizlilik_hesap_render():
+    st.html('<h2 id="gizlilik-hesap">⚖️ Gizlilik & Hesap</h2>')
+    st.caption("Yasal metinleri inceleyin, verilerinizi indirin veya hesabınızı yönetin.")
+    gizlilik_tab, kosul_tab, veri_tab, silme_tab = st.tabs([
+        "KVKK & Gizlilik",
+        "Kullanım Koşulları",
+        "Verilerimi İndir",
+        "Hesabı Sil",
+    ])
+
+    with gizlilik_tab:
+        izfin_gizlilik_metni_render()
+    with kosul_tab:
+        izfin_kullanim_kosullari_render()
+    with veri_tab:
+        st.subheader("Kişisel veri kopyanız")
+        st.write(
+            "Hesap profiliniz, kayıtlı listeniz ve size ait sinyal/performance belgeleri "
+            "JSON biçiminde hazırlanır. Dosya yalnız bu tarayıcı oturumunda oluşturulur."
+        )
+        if st.button("Verilerimi hazırla", key="prepare_user_export", type="primary"):
+            try:
+                paket = izfin_kullanici_veri_paketi_olustur()
+                st.session_state.izfin_export_json = json.dumps(
+                    _json_uyumlu(paket),
+                    ensure_ascii=False,
+                    indent=2,
+                )
+                st.success("Veri dosyanız hazırlandı.")
+            except Exception as e:
+                izfin_hata_logla("kullanici_veri_export", e)
+                st.error("Verileriniz şu anda hazırlanamadı. Lütfen daha sonra tekrar deneyin.")
+        if st.session_state.get("izfin_export_json"):
+            st.download_button(
+                "JSON dosyasını indir",
+                data=st.session_state.izfin_export_json.encode("utf-8"),
+                file_name=f"izfin-verilerim-{datetime.now().strftime('%Y%m%d')}.json",
+                mime="application/json",
+                use_container_width=True,
+            )
+
+    with silme_tab:
+        st.error(
+            "Bu işlem geri alınamaz. Firebase hesabınız; kişisel listeniz, aktif sinyalleriniz "
+            "ve performans geçmişiniz kalıcı olarak silinir. Önce veri kopyanızı indirin."
+        )
+        silme_email = st.text_input(
+            "Hesabınızın e-posta adresini yazın",
+            key="delete_account_email",
+        ).strip().lower()
+        silme_ifadesi = st.text_input(
+            "Onay için HESABIMI KALICI OLARAK SİL yazın",
+            key="delete_account_phrase",
+        ).strip()
+        geri_alinamaz = st.checkbox(
+            "Silme işleminin geri alınamayacağını anlıyorum.",
+            key="delete_account_irreversible",
+        )
+        if st.button("Hesabımı ve verilerimi kalıcı olarak sil", key="delete_account", type="primary"):
+            dogru_email = silme_email == str(st.session_state.get("user_email") or "").lower()
+            dogru_ifade = silme_ifadesi == "HESABIMI KALICI OLARAK SİL"
+            if not dogru_email or not dogru_ifade or not geri_alinamaz:
+                st.error("E-posta, onay ifadesi ve geri alınamazlık kutusunu eksiksiz doğrulayın.")
+            else:
+                try:
+                    with st.spinner("Hesap ve kullanıcı verileri kalıcı olarak siliniyor..."):
+                        silinen_belge = _kullanici_hesabini_kalici_sil()
+                    try:
+                        cookie_manager.delete("izfin_session", key="account_delete_session_cookie")
+                        cookie_manager.delete("user_email", key="account_delete_legacy_cookie")
+                    except Exception:
+                        pass
+                    st.session_state.user_email = None
+                    st.session_state.user_uid = None
+                    st.session_state.logout_triggered = True
+                    st.session_state.pop("izfin_export_json", None)
+                    st.session_state.izfin_account_deleted_notice = (
+                        f"Hesabınız ve {silinen_belge} kullanıcı veri belgesi kalıcı olarak silindi."
+                    )
+                    time.sleep(.8)
+                    st.rerun()
+                except Exception as e:
+                    izfin_hata_logla("kullanici_hesabi_kalici_sil", e)
+                    st.error(
+                        "Silme işlemi tamamlanamadı. Hesap erişiminizi koruduk; lütfen yeniden "
+                        "deneyin veya destek kanalıyla iletişime geçin."
+                    )
+
+
+def izfin_public_yasal_sayfa_render():
+    """Google OAuth ve giriş ekranından erişilebilen herkese açık yasal URL'ler."""
+    tur = str(st.query_params.get("legal", "") or "").strip().lower()
+    if tur not in {"privacy", "terms"}:
+        return False
+    if tur == "privacy":
+        izfin_gizlilik_metni_render()
+    else:
+        izfin_kullanim_kosullari_render()
+    st.link_button("IZFIN'e dön", _secret_degeri("IZFIN_PUBLIC_URL", "https://izfin-develop.streamlit.app/"))
+    return True
+
 def izfin_auth_ekrani():
+    silindi_mesaji = st.session_state.pop("izfin_account_deleted_notice", None)
+    if silindi_mesaji:
+        st.success(silindi_mesaji)
     callback = _google_callback_isle()
     if callback:
         ok, msg = callback
@@ -4470,13 +5010,24 @@ def izfin_auth_ekrani():
 
         else:
             st.caption("Yeni hesabınız kişisel izleme listenizi ve performans geçmişinizi size özel saklar.")
+            st.markdown(
+                f"[{IZFIN_TERMS_VERSION} Kullanım Koşulları]({_yasal_url('terms')}) · "
+                f"[{IZFIN_PRIVACY_VERSION} KVKK Aydınlatma Metni]({_yasal_url('privacy')})"
+            )
             with st.form("izfin_register_form", clear_on_submit=False):
                 reg_email = st.text_input("E-posta", key="reg_email", placeholder="ornek@email.com").strip().lower()
                 reg_pass = st.text_input("Şifre", key="reg_pass", type="password", help="En az 8 karakter; büyük harf, küçük harf ve rakam içersin.")
                 reg_pass2 = st.text_input("Şifre Tekrar", key="reg_pass2", type="password")
                 st.caption(f"İnsan doğrulaması: {st.session_state.captcha_a} + {st.session_state.captcha_b} = ?")
                 captcha = st.text_input("Doğrulama sonucu", key=f"captcha_{st.session_state.captcha_nonce}")
-                terms = st.checkbox("Kullanım koşullarını ve gizlilik bilgilendirmesini okudum.", key="reg_terms")
+                terms = st.checkbox(
+                    "Kullanım Koşulları'nı kabul ediyorum.",
+                    key="reg_terms",
+                )
+                privacy_notice_seen = st.checkbox(
+                    "KVKK Aydınlatma Metni tarafıma sunuldu.",
+                    key="reg_privacy_notice",
+                )
                 register_btn = st.form_submit_button("Hesabımı Oluştur", type="primary", use_container_width=True)
             if register_btn:
                 errors = []
@@ -4487,11 +5038,17 @@ def izfin_auth_ekrani():
                 except Exception: captcha_ok = False
                 if not captcha_ok: errors.append("Doğrulama işlemi yanlış.")
                 if not terms: errors.append("Kullanım koşulları onaylanmalı.")
+                if not privacy_notice_seen: errors.append("KVKK Aydınlatma Metni görüntülenip doğrulanmalı.")
                 if errors:
                     for e in errors: st.error(e)
                     _captcha_yenile()
                 else:
-                    data, err = _kayit_ol(reg_email, reg_pass)
+                    data, err = _kayit_ol(
+                        reg_email,
+                        reg_pass,
+                        terms_accepted=terms,
+                        privacy_notice_seen=privacy_notice_seen,
+                    )
                     if err:
                         st.error(err); _captcha_yenile()
                     else:
@@ -4501,6 +5058,19 @@ def izfin_auth_ekrani():
             st.markdown('<div class="iz-google-wrap"><div class="iz-google-caption">şifre oluşturmadan devam et</div></div>', unsafe_allow_html=True)
             _google_login_component()
 
+        legal_col1, legal_col2 = st.columns(2)
+        with legal_col1:
+            st.link_button(
+                "Gizlilik & KVKK",
+                _yasal_url("privacy"),
+                use_container_width=True,
+            )
+        with legal_col2:
+            st.link_button(
+                "Kullanım Koşulları",
+                _yasal_url("terms"),
+                use_container_width=True,
+            )
         st.markdown('<div class="iz-auth-security"><span>◈ <b>Firebase Auth</b></span><span>◈ <b>Kişisel veri alanı</b></span><span>◈ <b>14 gün güvenli oturum</b></span></div>', unsafe_allow_html=True)
 
     st.markdown('<div class="iz-auth-shell"><div class="iz-auth-footer">IZFIN · ANALYZE • PREDICT • INVEST &nbsp;·&nbsp; Yatırım karar destek platformu</div></div>', unsafe_allow_html=True)
@@ -4775,8 +5345,14 @@ def izfin_sortable_table_js():
 
 
 
+if izfin_public_yasal_sayfa_render():
+    st.stop()
+
 if not st.session_state.get("user_email") or not st.session_state.get("user_uid"):
     izfin_auth_ekrani()
+    st.stop()
+
+if not izfin_yasal_onay_kapisi():
     st.stop()
 
 st.sidebar.markdown(izfin_brand_html(), unsafe_allow_html=True)
@@ -4898,6 +5474,7 @@ _izfin_nav_items = [
     "🎯 Projeksiyon & Senaryo",
     "📊 Takip & Performans",
     "🧪 Strateji Laboratuvarı",
+    "⚖️ Gizlilik & Hesap",
 ]
 if izfin_admin_mi():
     _izfin_nav_items.append("🛠️ Sistem Sağlığı")
@@ -4937,6 +5514,8 @@ if st.sidebar.button("🚪 Çıkış Yap", use_container_width=True):
     st.session_state.user_email=None; st.session_state.user_uid=None
     st.session_state.custom_tickers=VARSAYILAN_TICKERS.copy(); st.session_state.secilen_varliklar=VARSAYILAN_TICKERS.copy()
     st.session_state.kullanici_listesi_yuklendi=False; st.session_state.logout_triggered=True
+    st.session_state.pop("izfin_export_json", None)
+    st.session_state.pop("izfin_yasal_onayli", None)
     time.sleep(.8); st.rerun()
 
 
@@ -4961,6 +5540,9 @@ def izfin_tarama_overlay_html(yuzde=0, baslik="IZFIN tarıyor", durum="Hazırlan
 
 if aktif_sayfa == "🛠️ Sistem Sağlığı":
     izfin_qa_center_render()
+
+if aktif_sayfa == "⚖️ Gizlilik & Hesap":
+    izfin_gizlilik_hesap_render()
 
 if aktif_sayfa in ["🏠 Ana Sayfa", "🔎 Akıllı Tarama"]:
     if aktif_sayfa == "🏠 Ana Sayfa":
