@@ -32,8 +32,8 @@ except ImportError:  # Uygulama, opsiyonel izleme paketi olmadan da güvenli bi�
     LoggingIntegration = None
 
 
-IZFIN_RELEASE = "1.9.0"
-IZFIN_APP_SURUMU = "v1.9.0 Privacy & Observability"
+IZFIN_RELEASE = "1.9.1"
+IZFIN_APP_SURUMU = "v1.9.1 Legal Experience"
 SENTRY_ETKIN = False
 
 
@@ -135,13 +135,18 @@ def izfin_dataframe_tema(obj):
 
 
 def izfin_css_yukle():
-    """IZFIN merkezi stil dosyasını yükler."""
-    css_path = Path(__file__).resolve().parent / "styles" / "izfin.css"
+    """IZFIN temel ve özellik bazlı stil dosyalarını sıralı biçimde yükler."""
+    style_dir = Path(__file__).resolve().parent / "styles"
+    css_dosyalari = ("izfin.css", "izfin-legal.css")
     try:
-        css = css_path.read_text(encoding="utf-8")
+        css = "\n".join(
+            (style_dir / dosya).read_text(encoding="utf-8")
+            for dosya in css_dosyalari
+        )
         st.markdown(f"<style>{css}</style>", unsafe_allow_html=True)
-    except FileNotFoundError:
-        st.error("IZFIN tema dosyası bulunamadı: styles/izfin.css")
+    except FileNotFoundError as e:
+        eksik = Path(e.filename).name if e.filename else "bilinmeyen CSS dosyası"
+        st.error(f"IZFIN tema dosyası bulunamadı: styles/{eksik}")
     except Exception as e:
         izfin_hata_logla("css_yukleme", e)
         st.error("IZFIN tema dosyası yüklenemedi. Teknik hata kayda alındı.")
@@ -4510,10 +4515,23 @@ def _yasal_kimlik_eksikleri():
     return [ad for ad, deger in alanlar.items() if not str(deger or "").strip()]
 
 
-def izfin_gizlilik_metni_render():
+def izfin_gizlilik_metni_render(*, kapida=False):
     """Uygulamanın gerçek veri akışına göre KVKK aydınlatma ve gizlilik metni."""
-    st.title("Gizlilik ve KVKK Aydınlatma Metni")
-    st.caption(f"Metin sürümü: {IZFIN_PRIVACY_VERSION}")
+    if kapida:
+        st.html(f"""
+        <section class="iz-legal-document-intro">
+          <div class="iz-legal-doc-number">02</div>
+          <div class="iz-legal-doc-copy">
+            <span>VERİ ŞEFFAFLIĞI</span>
+            <h2>KVKK Aydınlatma Metni</h2>
+            <p>Hangi verilerin neden işlendiğini, nerede saklandığını ve haklarınızı inceleyin.</p>
+          </div>
+          <div class="iz-legal-version">{html.escape(str(IZFIN_PRIVACY_VERSION))}</div>
+        </section>
+        """)
+    else:
+        st.title("Gizlilik ve KVKK Aydınlatma Metni")
+        st.caption(f"Metin sürümü: {IZFIN_PRIVACY_VERSION}")
 
     eksikler = _yasal_kimlik_eksikleri()
     if eksikler:
@@ -4595,10 +4613,23 @@ sahiptir. Talepler yukarıdaki iletişim kanalından veri sorumlusuna iletilebil
     )
 
 
-def izfin_kullanim_kosullari_render():
+def izfin_kullanim_kosullari_render(*, kapida=False):
     """IZFIN kullanım sınırlarını ve finansal risk açıklamalarını gösterir."""
-    st.title("IZFIN Kullanım Koşulları")
-    st.caption(f"Koşul sürümü: {IZFIN_TERMS_VERSION}")
+    if kapida:
+        st.html(f"""
+        <section class="iz-legal-document-intro">
+          <div class="iz-legal-doc-number">01</div>
+          <div class="iz-legal-doc-copy">
+            <span>HİZMET ÇERÇEVESİ</span>
+            <h2>Kullanım Koşulları</h2>
+            <p>Platformun kapsamını, finansal risk sınırlarını ve hesap sorumluluklarını inceleyin.</p>
+          </div>
+          <div class="iz-legal-version">{html.escape(str(IZFIN_TERMS_VERSION))}</div>
+        </section>
+        """)
+    else:
+        st.title("IZFIN Kullanım Koşulları")
+        st.caption(f"Koşul sürümü: {IZFIN_TERMS_VERSION}")
     st.markdown("""
 ### 1. Hizmetin kapsamı
 
@@ -4794,21 +4825,63 @@ def izfin_yasal_onay_kapisi():
         st.session_state.izfin_yasal_onayli = True
         return True
 
-    st.warning("Devam etmek için güncel kullanım koşullarını kabul etmeniz gerekiyor.")
-    kosul_tab, gizlilik_tab = st.tabs(["Kullanım Koşulları", "KVKK Aydınlatma Metni"])
-    with kosul_tab:
-        izfin_kullanim_kosullari_render()
-    with gizlilik_tab:
-        izfin_gizlilik_metni_render()
-    kosul_ok = st.checkbox(
-        f"Kullanım Koşulları'nı kabul ediyorum ({IZFIN_TERMS_VERSION}).",
-        key="legal_gate_terms",
-    )
-    gizlilik_goruldu = st.checkbox(
-        f"KVKK Aydınlatma Metni tarafıma sunuldu ({IZFIN_PRIVACY_VERSION}).",
-        key="legal_gate_privacy",
-    )
-    if st.button("Onayla ve IZFIN'e devam et", type="primary", use_container_width=True):
+    st.html("""
+    <section class="iz-legal-hero">
+      <div class="iz-legal-hero-top">
+        <span class="iz-legal-kicker">IZFIN · GÜVEN &amp; ŞEFFAFLIK</span>
+        <span class="iz-legal-status"><i></i> GÜNCEL ONAY GEREKLİ</span>
+      </div>
+      <h1>Hesabınız için şeffaf ve güvenli bir başlangıç</h1>
+      <p>IZFIN'i kullanmaya devam etmeden önce hizmet çerçevesini ve kişisel veri
+      bilgilendirmesini inceleyin. Belgeler birbirinden ayrı ve sürümlü olarak kaydedilir.</p>
+      <div class="iz-legal-steps">
+        <div><b>01</b><span><strong>Koşulları inceleyin</strong><small>Hizmet ve risk sınırları</small></span></div>
+        <div><b>02</b><span><strong>Veri akışını görün</strong><small>KVKK ve saklama bilgisi</small></span></div>
+        <div><b>03</b><span><strong>Güvenle devam edin</strong><small>Sürümlü onay kaydı</small></span></div>
+      </div>
+    </section>
+    """)
+
+    with st.container(border=True):
+        st.html('<span class="iz-legal-shell-marker" aria-hidden="true"></span>')
+        kosul_tab, gizlilik_tab = st.tabs([
+            "01 · Kullanım Koşulları",
+            "02 · KVKK Aydınlatma Metni",
+        ])
+        with kosul_tab:
+            izfin_kullanim_kosullari_render(kapida=True)
+        with gizlilik_tab:
+            izfin_gizlilik_metni_render(kapida=True)
+
+    with st.container(border=True):
+        st.html(f"""
+        <section class="iz-legal-approval-marker">
+          <div>
+            <span>SON ADIM</span>
+            <h3>Belgeleri okuduğunuzu doğrulayın</h3>
+            <p>Aydınlatma metninin sunulması açık rıza değildir; iki kayıt ayrı tutulur.</p>
+          </div>
+          <div class="iz-legal-approval-versions">
+            <span>KOŞUL · {html.escape(str(IZFIN_TERMS_VERSION))}</span>
+            <span>KVKK · {html.escape(str(IZFIN_PRIVACY_VERSION))}</span>
+          </div>
+        </section>
+        """)
+        kosul_ok = st.checkbox(
+            f"Kullanım Koşulları'nı okudum ve kabul ediyorum ({IZFIN_TERMS_VERSION}).",
+            key="legal_gate_terms",
+        )
+        gizlilik_goruldu = st.checkbox(
+            f"KVKK Aydınlatma Metni tarafıma sunuldu ({IZFIN_PRIVACY_VERSION}).",
+            key="legal_gate_privacy",
+        )
+        st.caption("Onay zamanınız ve belge sürümleri hesap güvenliği için kaydedilir.")
+        devam = st.button(
+            "Kabul et ve IZFIN'e devam et  →",
+            type="primary",
+            use_container_width=True,
+        )
+    if devam:
         if not kosul_ok or not gizlilik_goruldu:
             st.error("Devam etmek için iki kutuyu da işaretleyin.")
         else:
