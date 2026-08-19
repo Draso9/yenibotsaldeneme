@@ -86,7 +86,7 @@ html, body, [data-testid="stAppViewContainer"], .stApp {
   background: radial-gradient(circle at 70% 0%, rgba(22,137,255,.08), transparent 27%), var(--iz-bg) !important;
   color:var(--iz-text);
 }
-[data-testid="stMainBlockContainer"] {max-width:1580px!important;padding-top:1rem!important;padding-bottom:3rem!important;}
+[data-testid="stMainBlockContainer"] {padding-bottom:3rem!important;}
 header[data-testid="stHeader"] {background:rgba(5,11,20,.72)!important;backdrop-filter:blur(16px);border-bottom:1px solid rgba(35,83,119,.22);box-shadow:none!important;}
 [data-testid="stStatusWidget"], [data-testid="stToolbarActions"], .stDeployButton, .stAppStatusIndicator {display:none!important;visibility:hidden!important;opacity:0!important;}
 [data-testid="collapsedControl"] {display:flex!important;visibility:visible!important;opacity:1!important;z-index:99999!important;}
@@ -135,8 +135,8 @@ hr {border-color:#122a3e!important;}
 [data-testid="stSidebar"] [data-testid="stExpander"] {background:var(--iz-surface-deep)!important;border:1px solid var(--iz-line-strong)!important;border-radius:12px!important;overflow:hidden;}
 [data-testid="stSidebar"] [data-testid="stExpander"] details summary {background:var(--iz-surface-deep)!important;color:#dceaf5!important;}
 [data-testid="stSidebar"] [data-testid="stExpander"] details summary:hover {background:#0a1a29!important;}
-.iz-brand {padding:12px 3px 18px!important;gap:13px!important;}
-.iz-brand img {width:62px!important;height:62px!important;border-radius:16px!important;object-fit:cover!important;border:1px solid rgba(35,226,234,.24);box-shadow:0 0 28px rgba(22,196,228,.13)!important;}
+.iz-brand {gap:13px!important;}
+.iz-brand img {width:62px!important;height:62px!important;border-radius:16px!important;border:1px solid rgba(35,226,234,.24);box-shadow:0 0 28px rgba(22,196,228,.13)!important;}
 .iz-brand-name {font-size:27px!important;letter-spacing:7px!important;}
 .iz-brand-tag {font-size:8px!important;color:#68a4c5!important;letter-spacing:2.35px!important;}
 .iz-nav-label {font-size:9px;color:#25dce8;letter-spacing:1.7px;font-weight:750;margin:3px 0 8px;text-transform:uppercase;}
@@ -247,8 +247,6 @@ hr {border-color:#122a3e!important;}
 .st-key-google_oauth_native a[data-testid="stBaseLinkButton-secondary"]::before {
     content:""!important;
     display:inline-block!important;
-    flex:0 0 19px!important;
-    margin-right:10px!important;
     background-repeat:no-repeat!important;
     background-position:center!important;
     background-size:19px 19px!important;
@@ -296,8 +294,6 @@ hr {border-color:#122a3e!important;}
 .st-key-google_oauth_native a[data-testid="stBaseLinkButton-secondary"]::before {
     margin-left:0!important;
     margin-right:9px!important;
-    position:static!important;
-    transform:none!important;
 }
 
 
@@ -1229,13 +1225,11 @@ button[kind="primary"],
     letter-spacing:.85px;
 }
 [class*="st-key-classic_mover_click_"] button{
-    min-height:27px!important;
     border-radius:7px!important;
     background:var(--iz-surface-card)!important;
     border:1px solid var(--iz-control-border)!important;
     color:#8fb3c4!important;
     font-weight:760!important;
-    padding:3px 5px!important;
     box-shadow:none!important;
 }
 [class*="st-key-classic_mover_click_"] button:hover{
@@ -1484,7 +1478,7 @@ button[kind="primary"],
 .izw-decision{text-align:center}
 .izw-decision .iz-badge{
     display:inline-flex!important;align-items:center;justify-content:center;
-    max-width:100%;padding:6px 8px!important;font-size:8.5px!important;
+    max-width:100%;
     white-space:nowrap!important;
 }
 .izw-decision small{display:block;margin-top:7px;color:#668798;font-size:7px}
@@ -2553,9 +2547,6 @@ button[kind="primary"],
         radial-gradient(circle at 92% 6%,rgba(89,73,210,.055),transparent 28%),
         radial-gradient(circle at 6% 8%,rgba(29,188,201,.055),transparent 32%),
         linear-gradient(145deg,var(--iz-surface-ink),#081b28)!important;
-    box-shadow:
-        0 18px 44px rgba(0,0,0,.13),
-        inset 0 1px 0 rgba(255,255,255,.025)!important;
 }
 
 .iz-decision-center-premium .iz-decision-head{
