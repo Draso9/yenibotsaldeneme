@@ -385,7 +385,7 @@ STRATEJI_SURUMU = "IZFIN-v1.7.5-auth-switch-fixed"
 PERFORMANS_UFUKLARI = (1, 5, 10, 20, 45)
 
 # --- IZFIN UYGULAMA SÜRÜMÜ ---
-IZFIN_APP_SURUMU = "v1.8.31 Session Persistence Fix"
+IZFIN_APP_SURUMU = "v1.8.32 DOM Observer Guard"
 
 # Finnhub isteklerini süreç içinde ortak hız sınırına tabi tut.
 # Plan bazlı dakika limitleri değişebildiği için 429 yanıtlarında ayrıca backoff uygulanır.
@@ -4757,7 +4757,12 @@ def izfin_sortable_table_js():
           }
           const bindAll=()=>doc.querySelectorAll("table.iz-client-sortable").forEach(bind);
           bindAll();
-          new MutationObserver(bindAll).observe(doc.body,{childList:true,subtree:true});
+          const startObserver=()=>{
+            const target=doc.body || doc.documentElement;
+            if(!target){ setTimeout(startObserver,50); return; }
+            new MutationObserver(bindAll).observe(target,{childList:true,subtree:true});
+          };
+          startObserver();
           setTimeout(bindAll,150);
         })();
         </script>
