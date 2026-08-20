@@ -1,21 +1,17 @@
 name: IZFIN CI
 
 on:
-  # Develop dalındaki her küçük düzenleme yalnız Streamlit develop uygulamasına
-  # gider. Tam kalite kapısı PR açıldığında ve main güncellendiğinde bir kez çalışır.
+  # Her develop güncellemesi main'e alınmadan önce tam kalite kapısından geçer.
   push:
     branches:
-      - main
-  pull_request:
-    branches:
-      - main
+      - develop
   workflow_dispatch:
 
 permissions:
   contents: read
 
 concurrency:
-  group: izfin-ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  group: izfin-ci-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:

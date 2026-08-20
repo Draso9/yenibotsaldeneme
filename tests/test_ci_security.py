@@ -27,12 +27,15 @@ def test_ci_runtime_matches_streamlit_cloud():
     assert 'python-version: "3.11"' not in text
 
 
-def test_ci_runs_every_test_once_and_avoids_develop_push_duplicates():
+def test_ci_runs_every_test_once_for_develop_only():
     workflow = ROOT / ".github" / "workflows" / "izfin-tests.yml"
     text = workflow.read_text(encoding="utf-8")
 
     assert "run: python -m pytest -q" in text
     assert "quality-gate:" in text
-    push_block = text.split("push:", 1)[1].split("pull_request:", 1)[0]
-    assert "- main" in push_block
-    assert "- develop" not in push_block
+    trigger_block = text.split("permissions:", 1)[0]
+    push_block = trigger_block.split("push:", 1)[1].split("workflow_dispatch:", 1)[0]
+    assert "- develop" in push_block
+    assert "- main" not in push_block
+    assert "pull_request:" not in trigger_block
+    assert "workflow_dispatch:" in trigger_block
