@@ -8,8 +8,10 @@ ROOT = Path(__file__).resolve().parents[1]
 APP = ROOT / "app2.py"
 CORE = ROOT / "izfin_core"
 UI = ROOT / "izfin_ui"
+SERVICES = ROOT / "izfin_services"
 
 EXTRACTED_FUNCTIONS = {
+    "_firebase_auth_hata_mesaji",
     "bist_ticker_guncelle",
     "bist_ticker_listesi_guncelle",
     "_finnhub_symbol",
@@ -71,6 +73,9 @@ def test_app_imports_extracted_core_modules():
         "izfin_core.projection_engine",
         "izfin_core.performance_engine",
         "izfin_ui.analysis_views",
+        "izfin_services.yahoo_client",
+        "izfin_services.finnhub_client",
+        "izfin_services.firebase_auth_client",
     ):
         assert module in modules
 
@@ -107,3 +112,23 @@ def test_shared_ui_presenters_have_no_streamlit_or_provider_dependencies():
             elif isinstance(node, ast.ImportFrom) and node.module:
                 imported.add(node.module.split(".")[0])
         assert not forbidden & imported, f"{path.name}: {sorted(forbidden & imported)}"
+
+
+def test_provider_services_have_no_streamlit_or_firebase_admin_dependency():
+    forbidden = {"streamlit", "firebase_admin"}
+    for path in SERVICES.glob("*.py"):
+        tree = ast.parse(path.read_text(encoding="utf-8"))
+        imported = set()
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Import):
+                imported.update(alias.name.split(".")[0] for alias in node.names)
+            elif isinstance(node, ast.ImportFrom) and node.module:
+                imported.add(node.module.split(".")[0])
+        assert not forbidden & imported, f"{path.name}: {sorted(forbidden & imported)}"
+
+
+def test_auth_and_finnhub_http_details_stay_outside_streamlit_app():
+    source = APP.read_text(encoding="utf-8")
+    assert "requests.post(" not in source
+    assert "_FINNHUB_RATE_LOCK" not in source
+    assert "_FINNHUB_LAST_CALL" not in source

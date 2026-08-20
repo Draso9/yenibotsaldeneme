@@ -17,7 +17,6 @@ import hmac
 from urllib.parse import urlencode
 from zoneinfo import ZoneInfo
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from threading import Lock
 import firebase_admin
 from firebase_admin import credentials, firestore, auth
 import extra_streamlit_components as stx
@@ -76,6 +75,21 @@ from izfin_ui.analysis_views import (
     aksiyon_rehberi_olustur,
     gelismis_teknik_panel_olustur,
     sozlu_teknik_analiz_olustur,
+)
+from izfin_services.firebase_auth_client import (
+    FirebaseAuthClient,
+    firebase_auth_hata_mesaji as _firebase_auth_hata_mesaji,
+    google_oauth_kodu_tokena_cevir,
+)
+from izfin_services.finnhub_client import FinnhubClient
+from izfin_services.yahoo_client import (
+    backtest_verisi_indir,
+    donem_ohlc_indir,
+    gunluk_kapanis_serisi_indir,
+    intraday_veri_indir,
+    peg_degeri_indir,
+    toplu_gunluk_veri_indir,
+    toplu_intraday_veri_indir,
 )
 
 try:
@@ -322,6 +336,11 @@ def _firebase_web_api_key():
 
 FIREBASE_WEB_API_KEY = _firebase_web_api_key()
 FIREBASE_AUTH_BASE = "https://identitytoolkit.googleapis.com/v1"
+FIREBASE_AUTH_CLIENT = FirebaseAuthClient(
+    FIREBASE_WEB_API_KEY,
+    base_url=FIREBASE_AUTH_BASE,
+    error_handler=lambda context, error: izfin_hata_logla(context, error),
+)
 
 
 def _firebase_project_id():
@@ -367,37 +386,8 @@ GOOGLE_OAUTH_AUTHORIZE_URL = "https://accounts.google.com/o/oauth2/v2/auth"
 GOOGLE_OAUTH_TOKEN_URL = "https://oauth2.googleapis.com/token"
 
 
-def _firebase_auth_hata_mesaji(kod):
-    kod = str(kod or "").split(" : ")[0].strip()
-    return {
-        "EMAIL_EXISTS": "Bu e-posta adresiyle zaten bir hesap var.",
-        "EMAIL_NOT_FOUND": "Bu e-posta ile kayıtlı hesap bulunamadı.",
-        "INVALID_PASSWORD": "Şifre hatalı.",
-        "INVALID_LOGIN_CREDENTIALS": "E-posta veya şifre hatalı.",
-        "USER_DISABLED": "Bu kullanıcı hesabı devre dışı bırakılmış.",
-        "INVALID_EMAIL": "Geçerli bir e-posta adresi girin.",
-        "WEAK_PASSWORD": "Şifre yeterince güçlü değil.",
-        "TOO_MANY_ATTEMPTS_TRY_LATER": "Çok fazla başarısız deneme yapıldı. Bir süre sonra tekrar deneyin.",
-        "OPERATION_NOT_ALLOWED": "Firebase'de Email/Password giriş yöntemi etkin değil.",
-    }.get(kod, "Kimlik doğrulama başarısız. Lütfen bilgilerinizi kontrol edip tekrar deneyin.")
-
 def _firebase_auth_post(action, payload):
-    if not FIREBASE_WEB_API_KEY:
-        return None, "FIREBASE_WEB_API_KEY eksik. Streamlit secrets'e Firebase Web API Key eklenmeli."
-    try:
-        r = requests.post(
-            f"{FIREBASE_AUTH_BASE}/accounts:{action}?key={FIREBASE_WEB_API_KEY}",
-            json=payload,
-            timeout=10,
-        )
-        data = r.json() if r.content else {}
-        if r.ok:
-            return data, None
-        kod = ((data.get("error") or {}).get("message") or f"HTTP_{r.status_code}")
-        return None, _firebase_auth_hata_mesaji(kod)
-    except Exception as e:
-        izfin_hata_logla("firebase_auth_post", e)
-        return None, "Kimlik doğrulama servisine şu anda ulaşılamıyor. Lütfen daha sonra tekrar deneyin."
+    return FIREBASE_AUTH_CLIENT.post(action, payload)
 
 def _kullanici_liste_doc_id():
     uid = str(st.session_state.get("user_uid") or "").strip()
@@ -535,18 +525,6 @@ if (not st.session_state.user_email) and saved_session_cookie and not st.session
 # --- IZFIN STRATEJİ SÜRÜMÜ ---
 STRATEJI_SURUMU = "IZFIN-v1.7.5-auth-switch-fixed"
 PERFORMANS_UFUKLARI = (1, 5, 10, 20, 45)
-
-# Finnhub isteklerini süreç içinde ortak hız sınırına tabi tut.
-# Plan bazlı dakika limitleri değişebildiği için 429 yanıtlarında ayrıca backoff uygulanır.
-_FINNHUB_RATE_LOCK = Lock()
-_FINNHUB_LAST_CALL = 0.0
-_FINNHUB_MIN_INTERVAL = 0.10  # yaklaşık 10 istek/sn; 30/sn üst sınırının oldukça altında
-
-
-
-
-
-
 
 # --- IZFIN ADMIN ACCESS ---
 def izfin_admin_email_listesi():
@@ -692,6 +670,12 @@ if "secilen_varliklar" in st.session_state:
 # --- HİBRİT VERİ ÇEKME MOTORU (YFINANCE + FINNHUB) ---
 FINNHUB_API_KEY = _secret_degeri("FINNHUB_API_KEY")
 FINNHUB_BASE_URL = "https://finnhub.io/api/v1"
+FINNHUB_CLIENT = FinnhubClient(
+    FINNHUB_API_KEY,
+    base_url=FINNHUB_BASE_URL,
+    http_session=session,
+    error_handler=lambda context, error: izfin_hata_logla(context, error),
+)
 
 @st.cache_data(ttl=21600, show_spinner=False)
 def peg_degeri_cek(ticker):
@@ -701,26 +685,11 @@ def peg_degeri_cek(ticker):
         return None
 
     try:
-        info = yf.Ticker(ticker).get_info() or {}
+        return peg_degeri_indir(ticker)
     except Exception as e:
         # Yahoo quoteSummary 404/no-data, PEG gibi opsiyonel veri için
         # uygulama/Sentry issue seviyesine yükseltilmez.
         logger.info("PEG provider verisi alınamadı [%s]: %s", ticker, e)
-        return None
-
-    try:
-        raw = info.get("trailingPegRatio")
-        if raw is None:
-            raw = info.get("pegRatio")
-        if raw is None:
-            return None
-
-        peg = float(raw)
-        if not np.isfinite(peg) or peg <= 0:
-            return None
-        return peg
-    except Exception as e:
-        logger.info("PEG parse edilemedi [%s]: %s", ticker, e)
         return None
 
 
@@ -760,64 +729,12 @@ def peg_verilerini_paralel_cek(tickers, max_workers=6):
 
 
 def _finnhub_get(endpoint, params, timeout=3, max_retry=2):
-    if not FINNHUB_API_KEY:
-        return None
-
-    global _FINNHUB_LAST_CALL
-
-    for deneme in range(max_retry + 1):
-        try:
-            # ThreadPool olsa bile istek başlangıçlarını süreç içinde aralıklı gönder.
-            with _FINNHUB_RATE_LOCK:
-                simdi = time.monotonic()
-                bekle = _FINNHUB_MIN_INTERVAL - (simdi - _FINNHUB_LAST_CALL)
-                if bekle > 0:
-                    time.sleep(bekle)
-                _FINNHUB_LAST_CALL = time.monotonic()
-
-            r = session.get(
-                f"{FINNHUB_BASE_URL}/{endpoint}",
-                params={**params, "token": FINNHUB_API_KEY},
-                timeout=timeout,
-            )
-
-            if r.status_code == 429:
-                # Retry-After varsa onu kullan, yoksa kontrollü artan bekleme.
-                try:
-                    retry_after = float(r.headers.get("Retry-After", 0) or 0)
-                except Exception:
-                    retry_after = 0.0
-                if deneme < max_retry:
-                    time.sleep(max(retry_after, 1.0 + deneme * 1.5))
-                    continue
-                return None
-
-            r.raise_for_status()
-            data = r.json()
-            return data if isinstance(data, dict) else None
-
-        except Exception as e:
-            if deneme < max_retry:
-                time.sleep(0.5 * (deneme + 1))
-                continue
-            izfin_hata_logla("finnhub_get", e)
-            return None
-
-    return None
+    return FINNHUB_CLIENT.get(endpoint, params, timeout=timeout, max_retry=max_retry)
 
 @st.cache_data(ttl=900, show_spinner=False)
 def taze_veri_indir(tickers_tuple):
     try:
-        data = yf.download(
-            list(tickers_tuple),
-            period="400d",
-            group_by="ticker",
-            progress=False,
-            threads=True,
-            auto_adjust=True,
-                        timeout=10,
-        )
-        return data
+        return toplu_gunluk_veri_indir(tickers_tuple)
     except Exception as e:
         izfin_hata_logla("yahoo_toplu_gunluk", e)
         return pd.DataFrame()
@@ -826,18 +743,7 @@ def taze_veri_indir(tickers_tuple):
 def finnhub_quote_cek(ticker):
     if ticker.endswith(".IS"):
         return None
-    data = _finnhub_get("quote", {"symbol": _finnhub_symbol(ticker)})
-    if not data or not data.get("c"):
-        return None
-    return {
-        "open": float(data.get("o") or 0),
-        "high": float(data.get("h") or 0),
-        "low": float(data.get("l") or 0),
-        "close": float(data.get("c") or 0),
-        "previous_close": float(data.get("pc") or 0),
-        "timestamp": int(data.get("t") or 0),
-        "source": "Finnhub",
-    }
+    return FINNHUB_CLIENT.quote(_finnhub_symbol(ticker))
 
 def _intraday_local_index(ticker, df):
     if df is None or df.empty:
@@ -907,15 +813,7 @@ def seans_disi_ozet(ticker, ham_intraday, quote=None):
 @st.cache_data(ttl=20, show_spinner=False)
 def intraday_veri_cek(ticker, interval="5m", period="5d"):
     try:
-        df = yf.download(
-            ticker,
-            period=period,
-            interval=interval,
-            progress=False,
-            prepost=True,
-            auto_adjust=True,
-                    )
-        return _normalize_yf_columns(df)
+        return intraday_veri_indir(ticker, interval=interval, period=period)
     except Exception as e:
         izfin_hata_logla("yahoo_intraday_tekil", e, ticker)
         return pd.DataFrame()
@@ -927,16 +825,10 @@ def toplu_intraday_veri_cek(tickers_tuple, interval="5m", period="5d"):
     if not tickers_tuple:
         return pd.DataFrame()
     try:
-        return yf.download(
-            list(tickers_tuple),
-            period=period,
+        return toplu_intraday_veri_indir(
+            tickers_tuple,
             interval=interval,
-            group_by="ticker",
-            progress=False,
-            prepost=True,
-            threads=True,
-            auto_adjust=True,
-                        timeout=8,
+            period=period,
         )
     except Exception as e:
         izfin_hata_logla("yahoo_intraday_toplu", e)
@@ -1038,13 +930,7 @@ def tekil_taze_veri_cek(ticker):
 def basit_backtest(ticker, period='5y'):
     """Yahoo verisini indirir ve sağlayıcıdan bağımsız Daily Core motorunu çalıştırır."""
     try:
-        df = yf.download(
-            ticker, period=period, progress=False, auto_adjust=True,
-            threads=False, timeout=10,
-        )
-        df = _normalize_yf_columns(df).dropna(
-            subset=["Close", "High", "Low", "Volume"]
-        ).copy()
+        df = backtest_verisi_indir(ticker, period=period)
     except Exception as e:
         izfin_hata_logla("backtest_veri", e, ticker)
         return pd.DataFrame(), {}
@@ -1054,12 +940,7 @@ def basit_backtest(ticker, period='5y'):
 @st.cache_data(ttl=1800, show_spinner=False)
 def _donem_ohlc_cek(ticker, baslangic_iso, bitis_iso):
     try:
-        bas = pd.to_datetime(baslangic_iso, errors="coerce")
-        bit = pd.to_datetime(bitis_iso, errors="coerce")
-        if pd.isna(bas) or pd.isna(bit):
-            return pd.DataFrame()
-        df = yf.download(ticker, start=(bas-pd.Timedelta(days=2)).date().isoformat(), end=(bit+pd.Timedelta(days=2)).date().isoformat(), interval="1d", progress=False, auto_adjust=True, threads=False, timeout=8)
-        return _normalize_yf_columns(df)
+        return donem_ohlc_indir(ticker, baslangic_iso, bitis_iso)
     except Exception as e:
         izfin_hata_logla("kapanan_donem_ohlc", e, ticker)
         return pd.DataFrame()
@@ -1450,29 +1331,7 @@ def performans_fiyatlarini_guncelle(kayitlar):
 def _gunluk_kapanis_serisi(ticker, period="1y"):
     """Performans karnesi için temiz günlük kapanış serisi döndürür."""
     try:
-        df = yf.download(
-            ticker, period=period, interval="1d", progress=False,
-            auto_adjust=True, threads=False, timeout=8
-        )
-        if df is None or df.empty:
-            return pd.Series(dtype=float)
-        if isinstance(df.columns, pd.MultiIndex):
-            if "Close" in df.columns.get_level_values(0):
-                close = df["Close"]
-                if isinstance(close, pd.DataFrame):
-                    close = close.iloc[:, 0]
-            else:
-                return pd.Series(dtype=float)
-        else:
-            if "Close" not in df.columns:
-                return pd.Series(dtype=float)
-            close = df["Close"]
-        close = pd.to_numeric(close, errors="coerce").replace([np.inf, -np.inf], np.nan).dropna()
-        try:
-            close.index = pd.to_datetime(close.index).tz_localize(None)
-        except Exception:
-            close.index = pd.to_datetime(close.index)
-        return close.sort_index()
+        return gunluk_kapanis_serisi_indir(ticker, period=period)
     except Exception:
         return pd.Series(dtype=float)
 
@@ -2764,31 +2623,10 @@ def _google_oauth_url():
 
 
 def _google_tokenu_firebase_tokenina_cevir(google_id_token):
-    if not FIREBASE_WEB_API_KEY:
-        return None, "Firebase Web API Key eksik."
-    try:
-        post_body = urlencode({"id_token": google_id_token, "providerId": "google.com"})
-        r = requests.post(
-            f"{FIREBASE_AUTH_BASE}/accounts:signInWithIdp?key={FIREBASE_WEB_API_KEY}",
-            json={
-                "postBody": post_body,
-                "requestUri": GOOGLE_OAUTH_REDIRECT_URI,
-                "returnIdpCredential": True,
-                "returnSecureToken": True,
-            },
-            timeout=12,
-        )
-        data = r.json() if r.content else {}
-        if r.ok and data.get("idToken"):
-            return data, None
-        kod = ((data.get("error") or {}).get("message") or data.get("errorMessage") or f"HTTP_{r.status_code}")
-        if "EMAIL_EXISTS" in str(kod):
-            return None, "Bu Google e-postası mevcut başka bir IZFIN hesabıyla çakışıyor. Önce mevcut yöntemle giriş yapın."
-        izfin_hata_logla("google_firebase_exchange_response", RuntimeError(str(kod)[:120]))
-        return None, "Google oturumu Firebase hesabına bağlanamadı. Lütfen yeniden deneyin."
-    except Exception as e:
-        izfin_hata_logla("google_firebase_exchange", e)
-        return None, "Google kimliği Firebase hesabına bağlanamadı."
+    return FIREBASE_AUTH_CLIENT.google_id_tokenini_firebase_tokenina_cevir(
+        google_id_token,
+        GOOGLE_OAUTH_REDIRECT_URI,
+    )
 
 
 def _google_callback_isle():
@@ -2814,23 +2652,17 @@ def _google_callback_isle():
         return False, "Google oturumu güvenlik doğrulamasından geçemedi. Lütfen yeniden deneyin."
 
     try:
-        token_resp = requests.post(
+        token_data, token_hatasi = google_oauth_kodu_tokena_cevir(
+            code,
+            GOOGLE_OAUTH_CLIENT_ID,
+            GOOGLE_OAUTH_CLIENT_SECRET,
+            GOOGLE_OAUTH_REDIRECT_URI,
             GOOGLE_OAUTH_TOKEN_URL,
-            data={
-                "code": code,
-                "client_id": GOOGLE_OAUTH_CLIENT_ID,
-                "client_secret": GOOGLE_OAUTH_CLIENT_SECRET,
-                "redirect_uri": GOOGLE_OAUTH_REDIRECT_URI,
-                "grant_type": "authorization_code",
-            },
-            timeout=12,
         )
-        token_data = token_resp.json() if token_resp.content else {}
-        if not token_resp.ok:
-            aciklama = token_data.get("error_description") or token_data.get("error") or f"HTTP_{token_resp.status_code}"
+        if token_hatasi:
             try: st.query_params.clear()
             except Exception: pass
-            izfin_hata_logla("google_oauth_token_response", RuntimeError(str(aciklama)[:120]))
+            izfin_hata_logla("google_oauth_token_response", RuntimeError(str(token_hatasi)[:120]))
             return False, "Google yetkilendirmesi doğrulanamadı. Lütfen yeniden deneyin."
         google_id_token = str(token_data.get("id_token") or "")
         if not google_id_token:

@@ -23,6 +23,7 @@ from izfin_core import (
     technical_analysis,
 )
 from izfin_ui import analysis_views
+from izfin_services import firebase_auth_client, finnhub_client, yahoo_client
 
 
 APP_PATH = Path(__file__).resolve().parents[1] / "app2.py"
@@ -76,12 +77,16 @@ def _load_app_namespace(names):
         projection_engine,
         performance_engine,
         analysis_views,
+        firebase_auth_client,
+        finnhub_client,
+        yahoo_client,
     ):
         ns.update({
             name: getattr(core_module, name)
             for name in wanted
             if hasattr(core_module, name)
         })
+    ns["_firebase_auth_hata_mesaji"] = firebase_auth_client.firebase_auth_hata_mesaji
     exec(compile(extracted_module, str(APP_PATH), "exec"), ns, ns)
     return SimpleNamespace(**ns)
 
