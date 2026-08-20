@@ -13,8 +13,10 @@ import pytest
 
 from izfin_core import (
     decision_engine,
+    entry_engine,
     market_data,
     market_universe,
+    performance_engine,
     projection_engine,
     risk_engine,
     technical_analysis,
@@ -65,9 +67,11 @@ def _load_app_namespace(names):
         market_universe,
         market_data,
         decision_engine,
+        entry_engine,
         technical_analysis,
         risk_engine,
         projection_engine,
+        performance_engine,
     ):
         ns.update({
             name: getattr(core_module, name)
@@ -96,5 +100,11 @@ def core():
         "sozlu_teknik_analiz_olustur",
         "gelismis_teknik_panel_olustur",
         "sinyal_yonu_belirle",
+        "tetik_puani_hesapla",
+        "giris_motoru_hesapla",
+        "ogrenme_profili_olustur",
+        "performans_kayitlarini_tekillestir",
+        "performans_karnesi_ozeti",
+        "_guvenli_dict",
         "_guvenli_float",
     })

@@ -37,6 +37,13 @@ EXTRACTED_FUNCTIONS = {
     "_seviye_yildizi",
     "teknik_seviyeler_hesapla",
     "opsiyon_projeksiyonu_hesapla",
+    "tetik_puani_hesapla",
+    "giris_motoru_hesapla",
+    "ogrenme_profili_olustur",
+    "_guvenli_dict",
+    "_guvenli_float",
+    "performans_kayitlarini_tekillestir",
+    "performans_karnesi_ozeti",
 }
 
 
@@ -50,10 +57,12 @@ def test_app_imports_extracted_core_modules():
     for module in (
         "izfin_core.market_universe",
         "izfin_core.market_data",
+        "izfin_core.entry_engine",
         "izfin_core.decision_engine",
         "izfin_core.technical_analysis",
         "izfin_core.risk_engine",
         "izfin_core.projection_engine",
+        "izfin_core.performance_engine",
     ):
         assert module in modules
 
