@@ -9,6 +9,7 @@ APP = ROOT / "app2.py"
 CORE = ROOT / "izfin_core"
 UI = ROOT / "izfin_ui"
 SERVICES = ROOT / "izfin_services"
+REPOSITORIES = ROOT / "izfin_repositories"
 
 EXTRACTED_FUNCTIONS = {
     "_firebase_auth_hata_mesaji",
@@ -76,6 +77,8 @@ def test_app_imports_extracted_core_modules():
         "izfin_services.yahoo_client",
         "izfin_services.finnhub_client",
         "izfin_services.firebase_auth_client",
+        "izfin_repositories.user_repository",
+        "izfin_repositories.signal_repository",
     ):
         assert module in modules
 
@@ -132,3 +135,23 @@ def test_auth_and_finnhub_http_details_stay_outside_streamlit_app():
     assert "requests.post(" not in source
     assert "_FINNHUB_RATE_LOCK" not in source
     assert "_FINNHUB_LAST_CALL" not in source
+
+
+def test_repository_modules_have_no_streamlit_or_firebase_admin_dependency():
+    forbidden = {"streamlit", "firebase_admin", "yfinance", "requests"}
+    for path in REPOSITORIES.glob("*.py"):
+        tree = ast.parse(path.read_text(encoding="utf-8"))
+        imported = set()
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Import):
+                imported.update(alias.name.split(".")[0] for alias in node.names)
+            elif isinstance(node, ast.ImportFrom) and node.module:
+                imported.add(node.module.split(".")[0])
+        assert not forbidden & imported, f"{path.name}: {sorted(forbidden & imported)}"
+
+
+def test_streamlit_app_has_no_direct_provider_or_collection_queries():
+    source = APP.read_text(encoding="utf-8")
+    assert "yf.download(" not in source
+    assert "db.collection(" not in source
+    assert "session.get(" not in source

@@ -10,6 +10,7 @@ import pandas as pd
 
 
 APP = Path(__file__).resolve().parents[1] / "app2.py"
+USER_REPOSITORY = APP.parent / "izfin_repositories" / "user_repository.py"
 
 
 def _source():
@@ -107,6 +108,7 @@ def test_auth_legal_documents_open_in_native_modals():
 
 def test_user_export_and_delete_cover_every_user_collection():
     source = _source()
+    repository_source = USER_REPOSITORY.read_text(encoding="utf-8")
     for collection in (
         "kullanicilar",
         "kullanici_listeleri",
@@ -114,9 +116,9 @@ def test_user_export_and_delete_cover_every_user_collection():
         "aktif_sinyaller",
         "sinyal_arsivi_temizlik_yedegi",
     ):
-        assert f'"{collection}"' in source
+        assert f'"{collection}"' in repository_source
     assert '"export_schema": "izfin-user-data-v1"' in source
-    assert 'batch.delete(ref)' in source
+    assert 'batch.delete(ref)' in repository_source
     assert 'auth.revoke_refresh_tokens(uid)' in source
     assert 'auth.delete_user(uid)' in source
 

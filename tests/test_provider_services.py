@@ -68,6 +68,52 @@ def test_yahoo_daily_download_contract(monkeypatch):
     }
 
 
+def test_yahoo_symbol_search_filters_and_normalizes_provider_results():
+    session = FakeSession(
+        [
+            FakeResponse(
+                {
+                    "quotes": [
+                        {
+                            "symbol": "AAPL",
+                            "shortname": "Apple Inc.",
+                            "exchDisp": "NASDAQ",
+                            "quoteType": "EQUITY",
+                        },
+                        {
+                            "symbol": "AAPL240",
+                            "shortname": "Apple option",
+                            "quoteType": "OPTION",
+                        },
+                    ]
+                }
+            )
+        ]
+    )
+
+    result = yahoo_client.sembol_ara("apple", http_session=session)
+
+    assert result == [
+        {
+            "symbol": "AAPL",
+            "name": "Apple Inc.",
+            "exchange": "NASDAQ",
+            "quote_type": "EQUITY",
+        }
+    ]
+    url, kwargs = session.calls[0]
+    assert url == yahoo_client.YAHOO_SEARCH_URL
+    assert kwargs["params"]["q"] == "apple"
+    assert kwargs["params"]["quotesCount"] == 20
+    assert kwargs["timeout"] == 6
+
+
+def test_yahoo_symbol_search_empty_or_failed_response_returns_empty():
+    assert yahoo_client.sembol_ara("") == []
+    session = FakeSession([FakeResponse({}, ok=False, status_code=503)])
+    assert yahoo_client.sembol_ara("AAPL", http_session=session) == []
+
+
 def test_yahoo_intraday_normalizes_columns(monkeypatch):
     raw = pd.DataFrame(
         [[1.0, 2.0]],
@@ -104,6 +150,103 @@ def test_yahoo_daily_close_series_is_numeric_sorted_and_timezone_naive(monkeypat
 
     assert result.tolist() == [11.5]
     assert result.index.tz is None
+
+
+def test_yahoo_market_band_download_contracts(monkeypatch):
+    calls = []
+    expected = pd.DataFrame({"Close": [10.0]})
+
+    def fake_download(tickers, **kwargs):
+        calls.append((tickers, kwargs))
+        return expected
+
+    monkeypatch.setattr(yahoo_client.yf, "download", fake_download)
+    tickers = ("^GSPC", "XU100.IS")
+
+    assert yahoo_client.piyasa_bandi_intraday_indir(tickers) is expected
+    assert yahoo_client.piyasa_bandi_gunluk_indir(tickers) is expected
+
+    assert calls[0] == (
+        list(tickers),
+        {
+            "period": "5d",
+            "interval": "1m",
+            "group_by": "ticker",
+            "progress": False,
+            "threads": True,
+            "prepost": True,
+            "auto_adjust": True,
+            "timeout": 8,
+        },
+    )
+    assert calls[1] == (
+        list(tickers),
+        {
+            "period": "7d",
+            "interval": "1d",
+            "group_by": "ticker",
+            "progress": False,
+            "threads": True,
+            "auto_adjust": True,
+            "timeout": 8,
+        },
+    )
+
+
+def test_yahoo_market_band_fallback_normalizes_columns(monkeypatch):
+    raw = pd.DataFrame(
+        [[10.0]],
+        columns=pd.MultiIndex.from_tuples([("Close", "^GSPC")]),
+    )
+    calls = []
+
+    def fake_download(ticker, **kwargs):
+        calls.append((ticker, kwargs))
+        return raw
+
+    monkeypatch.setattr(yahoo_client.yf, "download", fake_download)
+    result = yahoo_client.piyasa_bandi_tekil_indir("^GSPC")
+
+    assert list(result.columns) == ["Close"]
+    assert calls == [
+        (
+            "^GSPC",
+            {
+                "period": "5d",
+                "interval": "5m",
+                "progress": False,
+                "prepost": True,
+                "auto_adjust": True,
+                "threads": False,
+                "timeout": 6,
+            },
+        )
+    ]
+
+
+def test_yahoo_sector_reference_download_contract(monkeypatch):
+    calls = []
+    monkeypatch.setattr(
+        yahoo_client.yf,
+        "download",
+        lambda tickers, **kwargs: calls.append((tickers, kwargs)) or pd.DataFrame(),
+    )
+
+    yahoo_client.sektor_referanslari_indir(("XU100.IS", "^IXIC"))
+
+    assert calls == [
+        (
+            ["XU100.IS", "^IXIC"],
+            {
+                "period": "40d",
+                "group_by": "ticker",
+                "progress": False,
+                "threads": True,
+                "auto_adjust": True,
+                "timeout": 8,
+            },
+        )
+    ]
 
 
 def test_finnhub_quote_maps_provider_payload_and_token():

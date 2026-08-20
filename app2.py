@@ -5,7 +5,6 @@ from datetime import datetime, timedelta
 import time
 import math
 import requests
-import yfinance as yf
 import os
 import logging
 import json
@@ -88,9 +87,16 @@ from izfin_services.yahoo_client import (
     gunluk_kapanis_serisi_indir,
     intraday_veri_indir,
     peg_degeri_indir,
+    piyasa_bandi_gunluk_indir,
+    piyasa_bandi_intraday_indir,
+    piyasa_bandi_tekil_indir,
+    sektor_referanslari_indir,
+    sembol_ara as yahoo_sembol_ara,
     toplu_gunluk_veri_indir,
     toplu_intraday_veri_indir,
 )
+from izfin_repositories.signal_repository import SignalRepository
+from izfin_repositories.user_repository import UserRepository
 
 try:
     import sentry_sdk
@@ -318,6 +324,9 @@ except Exception as e:
     izfin_hata_logla("firestore_client_init", e)
     db = None
 
+USER_REPOSITORY = UserRepository(db)
+SIGNAL_REPOSITORY = SignalRepository(db)
+
 # --- FIREBASE AUTH: GERÇEK E-POSTA/ŞİFRE OTURUMU ---
 def _firebase_web_api_key():
     try:
@@ -394,12 +403,13 @@ def _kullanici_liste_doc_id():
     return uid or str(st.session_state.get("user_email") or "").strip().lower()
 
 def _kullanici_profilini_hazirla(uid, email):
-    if not db or not uid:
+    if not USER_REPOSITORY.available or not uid:
         return
     try:
-        db.collection("kullanicilar").document(uid).set({
-            "uid": uid, "email": email, "son_giris": datetime.now().isoformat(),
-        }, merge=True)
+        USER_REPOSITORY.upsert_profile(
+            uid,
+            {"uid": uid, "email": email, "son_giris": datetime.now().isoformat()},
+        )
     except Exception as e:
         logging.getLogger("IZFIN").exception("Kullanıcı profili yazılamadı: %s", e)
 
@@ -451,24 +461,33 @@ def _kayit_ol(email, password, terms_accepted=False, privacy_notice_seen=False):
     if err:
         return None, err
     uid = str(data.get("localId") or "")
-    if db and uid:
+    if USER_REPOSITORY.available and uid:
         try:
-            db.collection("kullanicilar").document(uid).set({
-                "uid": uid, "email": email, "olusturma_zamani": datetime.now().isoformat(), "son_giris": None,
-                "terms_version": IZFIN_TERMS_VERSION if terms_accepted else None,
-                "terms_accepted_at": datetime.now().isoformat() if terms_accepted else None,
-                "privacy_notice_version": IZFIN_PRIVACY_VERSION if privacy_notice_seen else None,
-                "privacy_notice_shown_at": datetime.now().isoformat() if privacy_notice_seen else None,
-            }, merge=True)
+            USER_REPOSITORY.upsert_profile(
+                uid,
+                {
+                    "uid": uid,
+                    "email": email,
+                    "olusturma_zamani": datetime.now().isoformat(),
+                    "son_giris": None,
+                    "terms_version": IZFIN_TERMS_VERSION if terms_accepted else None,
+                    "terms_accepted_at": datetime.now().isoformat() if terms_accepted else None,
+                    "privacy_notice_version": IZFIN_PRIVACY_VERSION if privacy_notice_seen else None,
+                    "privacy_notice_shown_at": datetime.now().isoformat() if privacy_notice_seen else None,
+                },
+            )
         except Exception as e:
             izfin_hata_logla("kayit_profil_firestore", e)
         try:
-            db.collection("kullanici_listeleri").document(uid).set({
-                "uid": uid,
-                "email": email,
-                "tickers": VARSAYILAN_TICKERS.copy(),
-                "guncelleme_zamani": datetime.now().isoformat(),
-            }, merge=True)
+            USER_REPOSITORY.upsert_watchlist(
+                uid,
+                {
+                    "uid": uid,
+                    "email": email,
+                    "tickers": VARSAYILAN_TICKERS.copy(),
+                    "guncelleme_zamani": datetime.now().isoformat(),
+                },
+            )
         except Exception as e:
             izfin_hata_logla("kayit_ilk_kisisel_liste", e)
     try:
@@ -979,7 +998,7 @@ def sinyal_kayitlarini_firestore_yaz(sonuclar, teknik_paneller):
     - Eski sürümlerden kalan açık arşiv kaydı varsa yeni kayıt açmak yerine
       en eski açık kaydı aktif pozisyon olarak yeniden bağlar.
     """
-    if not db or not st.session_state.user_email:
+    if not SIGNAL_REPOSITORY.available or not st.session_state.user_email:
         return
 
     simdi = datetime.now()
@@ -990,11 +1009,7 @@ def sinyal_kayitlarini_firestore_yaz(sonuclar, teknik_paneller):
     # kayıtları bir kez okuyup ticker -> en eski açık pozisyon haritası oluştur.
     eski_acik_haritasi = {}
     try:
-        sorgu = (db.collection("sinyal_arsivi")
-                 .where("user_email", "==", email)
-                 .limit(500))
-        for doc in sorgu.stream():
-            veri = doc.to_dict() or {}
+        for doc_id, veri in SIGNAL_REPOSITORY.list_archive(email, limit=500):
             if veri.get("yon") != "ALIM":
                 continue
             durum = str(veri.get("durum", "ACIK") or "ACIK").upper()
@@ -1006,7 +1021,7 @@ def sinyal_kayitlarini_firestore_yaz(sonuclar, teknik_paneller):
             tarih = str(veri.get("olusturma_zamani", ""))
             mevcut = eski_acik_haritasi.get(ticker_eski)
             if mevcut is None or tarih < mevcut[1]:
-                eski_acik_haritasi[ticker_eski] = (doc.id, tarih, veri)
+                eski_acik_haritasi[ticker_eski] = (doc_id, tarih, veri)
     except Exception as e:
         izfin_hata_logla("acik_pozisyon_arsiv_okuma", e)
         eski_acik_haritasi = {}
@@ -1020,11 +1035,8 @@ def sinyal_kayitlarini_firestore_yaz(sonuclar, teknik_paneller):
         sinyal = sonuc.get("Nihai Sinyal", "Nötr")
         yon = sinyal_yonu_belirle(sinyal)
         aktif_doc_id = f"{email_anahtari}_{str(ticker or '').replace('.', '_')}"
-        aktif_ref = db.collection("aktif_sinyaller").document(aktif_doc_id)
-
         try:
-            aktif_snap = aktif_ref.get()
-            aktif = aktif_snap.to_dict() if aktif_snap.exists else {}
+            aktif = SIGNAL_REPOSITORY.get_active(aktif_doc_id)
         except Exception as e:
             izfin_hata_logla("aktif_pozisyon_okuma", e, ticker=ticker)
             continue
@@ -1041,16 +1053,20 @@ def sinyal_kayitlarini_firestore_yaz(sonuclar, teknik_paneller):
             aktif_mi = True
             onceki_sinyal = str(eski_veri.get("sinyal", ""))
             try:
-                aktif_ref.set({
-                    "user_email": email,
-                    "ticker": ticker,
-                    "durum": "ACIK",
-                    "sinyal": onceki_sinyal,
-                    "arsiv_doc_id": eski_id,
-                    "acilis_zamani": eski_veri.get("olusturma_zamani"),
-                    "giris_fiyati": float(eski_veri.get("giris_fiyati", 0) or 0),
-                    "guncelleme_zamani": simdi.isoformat(),
-                }, merge=True)
+                SIGNAL_REPOSITORY.set_active(
+                    aktif_doc_id,
+                    {
+                        "user_email": email,
+                        "ticker": ticker,
+                        "durum": "ACIK",
+                        "sinyal": onceki_sinyal,
+                        "arsiv_doc_id": eski_id,
+                        "acilis_zamani": eski_veri.get("olusturma_zamani"),
+                        "giris_fiyati": float(eski_veri.get("giris_fiyati", 0) or 0),
+                        "guncelleme_zamani": simdi.isoformat(),
+                    },
+                    merge=True,
+                )
                 aktif = {
                     **aktif,
                     "durum": "ACIK",
@@ -1105,8 +1121,16 @@ def sinyal_kayitlarini_firestore_yaz(sonuclar, teknik_paneller):
                 })
                 aktif_guncelleme["sinyal_degisim_sayisi"] = degisim_sayisi
                 try:
-                    db.collection("sinyal_arsivi").document(arsiv_doc_id).set(arsiv_guncelleme, merge=True)
-                    aktif_ref.set(aktif_guncelleme, merge=True)
+                    SIGNAL_REPOSITORY.set_archive(
+                        arsiv_doc_id,
+                        arsiv_guncelleme,
+                        merge=True,
+                    )
+                    SIGNAL_REPOSITORY.set_active(
+                        aktif_doc_id,
+                        aktif_guncelleme,
+                        merge=True,
+                    )
                 except Exception as e:
                     izfin_hata_logla("aktif_pozisyon_sinyal_degisim_yaz", e, ticker=ticker)
                 continue
@@ -1151,18 +1175,21 @@ def sinyal_kayitlarini_firestore_yaz(sonuclar, teknik_paneller):
                 "performans_ufuklari": {},
             }
             try:
-                db.collection("sinyal_arsivi").document(yeni_arsiv_id).set(yeni_veri)
-                aktif_ref.set({
-                    "user_email": email,
-                    "ticker": ticker,
-                    "durum": "ACIK",
-                    "sinyal": sinyal,
-                    "arsiv_doc_id": yeni_arsiv_id,
-                    "sinyal_degisim_sayisi": 0,
-                    "acilis_zamani": simdi.isoformat(),
-                    "giris_fiyati": fiyat,
-                    "guncelleme_zamani": simdi.isoformat(),
-                })
+                SIGNAL_REPOSITORY.set_archive(yeni_arsiv_id, yeni_veri)
+                SIGNAL_REPOSITORY.set_active(
+                    aktif_doc_id,
+                    {
+                        "user_email": email,
+                        "ticker": ticker,
+                        "durum": "ACIK",
+                        "sinyal": sinyal,
+                        "arsiv_doc_id": yeni_arsiv_id,
+                        "sinyal_degisim_sayisi": 0,
+                        "acilis_zamani": simdi.isoformat(),
+                        "giris_fiyati": fiyat,
+                        "guncelleme_zamani": simdi.isoformat(),
+                    },
+                )
                 eski_acik_haritasi[ticker] = (yeni_arsiv_id, simdi.isoformat(), yeni_veri)
             except Exception as e:
                 izfin_hata_logla("aktif_pozisyon_yeni_donem_yaz", e, ticker=ticker)
@@ -1170,8 +1197,7 @@ def sinyal_kayitlarini_firestore_yaz(sonuclar, teknik_paneller):
         elif aktif_mi and arsiv_doc_id:
             arsiv_veri = {}
             try:
-                arsiv_snap = db.collection("sinyal_arsivi").document(arsiv_doc_id).get()
-                arsiv_veri = arsiv_snap.to_dict() if arsiv_snap.exists else {}
+                arsiv_veri = SIGNAL_REPOSITORY.get_archive(arsiv_doc_id)
             except Exception as e:
                 izfin_hata_logla("kapanis_arsiv_okuma", e, ticker)
             giris = float(aktif.get("giris_fiyati", 0) or arsiv_veri.get("giris_fiyati", 0) or 0)
@@ -1179,22 +1205,28 @@ def sinyal_kayitlarini_firestore_yaz(sonuclar, teknik_paneller):
             acilis_zamani = aktif.get("acilis_zamani") or arsiv_veri.get("olusturma_zamani") or simdi.isoformat()
             donem_istat = kapanan_donem_istatistikleri(ticker, giris, acilis_zamani, simdi.isoformat(), arsiv_veri.get("ilk_stop"), arsiv_veri.get("ilk_tp1"), arsiv_veri.get("ilk_tp2"), arsiv_veri.get("ilk_tp3"))
             try:
-                db.collection("sinyal_arsivi").document(arsiv_doc_id).set({"durum":"KAPALI","kapanis_sinyali":sinyal,"kapanis_fiyati":fiyat,"son_fiyat":fiyat,"getiri_yuzde":kapanis_getiri,"kapanis_zamani":simdi.isoformat(),"guncelleme_zamani":simdi.isoformat(),**donem_istat}, merge=True)
-                aktif_ref.set({"durum":"KAPALI","sinyal":sinyal,"onceki_arsiv_doc_id":arsiv_doc_id,"arsiv_doc_id":None,"guncelleme_zamani":simdi.isoformat()}, merge=True)
+                SIGNAL_REPOSITORY.set_archive(
+                    arsiv_doc_id,
+                    {"durum":"KAPALI","kapanis_sinyali":sinyal,"kapanis_fiyati":fiyat,"son_fiyat":fiyat,"getiri_yuzde":kapanis_getiri,"kapanis_zamani":simdi.isoformat(),"guncelleme_zamani":simdi.isoformat(),**donem_istat},
+                    merge=True,
+                )
+                SIGNAL_REPOSITORY.set_active(
+                    aktif_doc_id,
+                    {"durum":"KAPALI","sinyal":sinyal,"onceki_arsiv_doc_id":arsiv_doc_id,"arsiv_doc_id":None,"guncelleme_zamani":simdi.isoformat()},
+                    merge=True,
+                )
                 eski_acik_haritasi.pop(ticker, None)
             except Exception as e:
                 izfin_hata_logla("pozisyon_kapatma", e, ticker)
 
 def gecmis_mukerrer_kayitlari_temizle():
     """Mükerrerleri önce yedek koleksiyona kopyalar, sonra siler. Otomatik çalışmaz."""
-    if not db or not st.session_state.user_email:
+    if not SIGNAL_REPOSITORY.available or not st.session_state.user_email:
         return {"silinen":0,"yedeklenen":0,"grup":0}
     email=st.session_state.user_email; docs=[]
     try:
-        q=db.collection("sinyal_arsivi").where("user_email","==",email).limit(1000)
-        for doc in q.stream():
-            v=doc.to_dict() or {}
-            if v.get("yon")=="ALIM": docs.append((doc.id,v))
+        for doc_id, v in SIGNAL_REPOSITORY.list_archive(email, limit=1000):
+            if v.get("yon")=="ALIM": docs.append((doc_id,v))
     except Exception as e:
         izfin_hata_logla("gecmis_kayit_temizlik_okuma",e); return {"silinen":0,"yedeklenen":0,"grup":0}
     gruplar={}
@@ -1221,12 +1253,12 @@ def gecmis_mukerrer_kayitlari_temizle():
             if doc_id==keep_id: continue
             try:
                 backup_id=f"{doc_id}_{datetime.now().strftime('%Y%m%d%H%M%S%f')}"
-                db.collection("sinyal_arsivi_temizlik_yedegi").document(backup_id).set({**v,"orijinal_doc_id":doc_id,"temizlik_zamani":datetime.now().isoformat(),"temizlik_nedeni":"gecmis_mukerrer_kayit","korunan_doc_id":keep_id})
-                yedeklenen+=1; db.collection("sinyal_arsivi").document(doc_id).delete(); silinen+=1
+                SIGNAL_REPOSITORY.backup_archive(backup_id,{**v,"orijinal_doc_id":doc_id,"temizlik_zamani":datetime.now().isoformat(),"temizlik_nedeni":"gecmis_mukerrer_kayit","korunan_doc_id":keep_id})
+                yedeklenen+=1; SIGNAL_REPOSITORY.delete_archive(doc_id); silinen+=1
             except Exception as e: izfin_hata_logla("gecmis_kayit_temizlik_silme",e,ticker)
         if key[0]=="ACIK":
             try:
-                aktif_id=f"{email_key}_{str(ticker or '').replace('.', '_')}"; db.collection("aktif_sinyaller").document(aktif_id).set({"user_email":email,"ticker":ticker,"arsiv_doc_id":keep_id,"durum":"ACIK"},merge=True)
+                aktif_id=f"{email_key}_{str(ticker or '').replace('.', '_')}"; SIGNAL_REPOSITORY.set_active(aktif_id,{"user_email":email,"ticker":ticker,"arsiv_doc_id":keep_id,"durum":"ACIK"},merge=True)
             except Exception as e: izfin_hata_logla("gecmis_kayit_temizlik_aktif_bag",e,ticker)
     return {"silinen":silinen,"yedeklenen":yedeklenen,"grup":grup_sayisi}
 
@@ -1237,30 +1269,17 @@ def _performans_kayitlarini_getir_cached(email, limit=250, cache_epoch=0):
     cache_epoch yalnızca yazma/temizlik sonrası aynı kullanıcı için önbelleği
     mantıksal olarak geçersiz kılmak amacıyla kullanılır.
     """
-    if not db or not email:
+    if not SIGNAL_REPOSITORY.available or not email:
         return []
     try:
-        sorgu = (
-            db.collection("sinyal_arsivi")
-            .where("user_email", "==", email)
-            .limit(limit)
-        )
-        kayitlar = []
-        for doc in sorgu.stream():
-            veri = doc.to_dict() or {}
-            if veri.get("yon") != "ALIM":
-                continue
-            veri["doc_id"] = doc.id
-            kayitlar.append(veri)
-        kayitlar.sort(key=lambda x: x.get("olusturma_zamani", ""), reverse=True)
-        return kayitlar
+        return SIGNAL_REPOSITORY.list_performance_records(email, limit=limit)
     except Exception as e:
         izfin_hata_logla("performans_firestore_okuma", e)
         return []
 
 
 def performans_kayitlarini_getir(limit=250):
-    if not db or not st.session_state.user_email:
+    if not SIGNAL_REPOSITORY.available or not st.session_state.user_email:
         return []
     kayitlar = _performans_kayitlarini_getir_cached(
         st.session_state.user_email,
@@ -1282,7 +1301,7 @@ def performans_cache_gecersiz_kil():
 
 
 def performans_fiyatlarini_guncelle(kayitlar):
-    if not db:
+    if not SIGNAL_REPOSITORY.available:
         return kayitlar
     guncellenen = []
     fiyat_cache = {}
@@ -1312,11 +1331,15 @@ def performans_fiyatlarini_guncelle(kayitlar):
             kayit["getiri_yuzde"] = getiri
             kayit["guncelleme_zamani"] = datetime.now().isoformat()
             try:
-                db.collection("sinyal_arsivi").document(kayit["doc_id"]).set({
-                    "son_fiyat": son_fiyat,
-                    "getiri_yuzde": getiri,
-                    "guncelleme_zamani": kayit["guncelleme_zamani"],
-                }, merge=True)
+                SIGNAL_REPOSITORY.set_archive(
+                    kayit["doc_id"],
+                    {
+                        "son_fiyat": son_fiyat,
+                        "getiri_yuzde": getiri,
+                        "guncelleme_zamani": kayit["guncelleme_zamani"],
+                    },
+                    merge=True,
+                )
             except Exception as e:
                 izfin_hata_logla(
                     "aktif_pozisyon_getiri_firestore_guncelle",
@@ -1342,7 +1365,7 @@ def performans_karnelerini_guncelle(kayitlar):
     İlk sinyal fiyatı/snapshot alanları değiştirilmez. Yeterli işlem günü oluşan
     ufuklar yalnızca bir kez yazılır; böylece geçmiş performans sonradan kaymaz.
     """
-    if not db or not kayitlar:
+    if not SIGNAL_REPOSITORY.available or not kayitlar:
         return kayitlar
 
     fiyat_seri_cache = {}
@@ -1426,7 +1449,7 @@ def performans_karnelerini_guncelle(kayitlar):
             update["max_dusus_45g"] = kayit["max_dusus_45g"]
 
         try:
-            db.collection("sinyal_arsivi").document(doc_id).set(update, merge=True)
+            SIGNAL_REPOSITORY.set_archive(doc_id, update, merge=True)
             kayit.update(update)
         except Exception as e:
             izfin_hata_logla("performans_karnesi_firestore_guncelle", e, ticker=ticker)
@@ -1461,20 +1484,17 @@ for _key, _default in _SESSION_DEFAULTS.items():
 # Kullanıcının Firebase'de kayıtlı özel listesini her oturumda yalnızca bir kez yükle.
 # v1.7.13: Eski e-posta bazlı listeyi UID belgesi oluşmuş olsa bile güvenli biçimde kurtarır.
 # Eski belge ASLA silinmez; yalnızca yeni UID belgesine kopyalanır/birleştirilir.
-if st.session_state.user_email and db and not st.session_state.kullanici_listesi_yuklendi:
+if st.session_state.user_email and USER_REPOSITORY.available and not st.session_state.kullanici_listesi_yuklendi:
     try:
         _doc_id = _kullanici_liste_doc_id()
         _email_id = str(st.session_state.user_email or "").strip().lower()
-        _uid_doc = db.collection("kullanici_listeleri").document(_doc_id).get()
-        _legacy_doc = None
-        if _email_id and _email_id != _doc_id:
-            try:
-                _legacy_doc = db.collection("kullanici_listeleri").document(_email_id).get()
-            except Exception:
-                _legacy_doc = None
-
-        _uid_data = (_uid_doc.to_dict() or {}) if _uid_doc.exists else {}
-        _legacy_data = (_legacy_doc.to_dict() or {}) if (_legacy_doc is not None and _legacy_doc.exists) else {}
+        _watchlists = USER_REPOSITORY.get_primary_and_legacy_watchlists(
+            _doc_id,
+            _email_id,
+        )
+        _uid_exists = _watchlists["primary_exists"]
+        _uid_data = _watchlists["primary_data"]
+        _legacy_data = _watchlists["legacy_data"]
 
         _uid_ticks = [
             str(x).strip().upper()
@@ -1497,7 +1517,7 @@ if st.session_state.user_email and db and not st.session_state.kullanici_listesi
         # Her iki tarafta gerçek kişisel eklemeler varsa kayıp olmaması için union yapılır.
         _kurtarma_gerekli = False
         if _legacy_ticks:
-            if not _uid_doc.exists or not _uid_ticks:
+            if not _uid_exists or not _uid_ticks:
                 _final_ticks = _legacy_ticks
                 _kurtarma_gerekli = True
             elif _uid_set.issubset(_varsayilan_set) and not _legacy_set.issubset(_varsayilan_set):
@@ -1517,13 +1537,16 @@ if st.session_state.user_email and db and not st.session_state.kullanici_listesi
         st.session_state.custom_tickers = _final_ticks
 
         if _kurtarma_gerekli and st.session_state.get("user_uid"):
-            db.collection("kullanici_listeleri").document(_doc_id).set({
-                "uid": st.session_state.user_uid,
-                "email": st.session_state.user_email,
-                "tickers": _final_ticks,
-                "legacy_kurtarildi": True,
-                "guncelleme_zamani": datetime.now().isoformat(),
-            }, merge=True)
+            USER_REPOSITORY.upsert_watchlist(
+                _doc_id,
+                {
+                    "uid": st.session_state.user_uid,
+                    "email": st.session_state.user_email,
+                    "tickers": _final_ticks,
+                    "legacy_kurtarildi": True,
+                    "guncelleme_zamani": datetime.now().isoformat(),
+                },
+            )
             st.session_state["liste_kurtarma_mesaji"] = True
 
         if st.session_state.aktif_profil == "Kendi Listem":
@@ -1541,7 +1564,7 @@ def kullanici_listesini_kaydet(raise_on_error=False):
     Eski sürüm Firestore hatasını içeride yuttuğu için çağıran kod yanlışlıkla
     "başarıyla eklendi" diyebiliyordu. Bu sürümde yazma sonucu gözlemlenebilir.
     """
-    if not db:
+    if not USER_REPOSITORY.available:
         hata = RuntimeError("Firebase veritabanı bağlantısı kullanılamıyor.")
         if raise_on_error:
             raise hata
@@ -1552,12 +1575,15 @@ def kullanici_listesini_kaydet(raise_on_error=False):
             raise hata
         return False, str(hata)
     try:
-        db.collection("kullanici_listeleri").document(_kullanici_liste_doc_id()).set({
-            "uid": st.session_state.get("user_uid"),
-            "email": st.session_state.user_email,
-            "tickers": list(dict.fromkeys(st.session_state.custom_tickers)),
-            "guncelleme_zamani": datetime.now().isoformat(),
-        }, merge=True)
+        USER_REPOSITORY.upsert_watchlist(
+            _kullanici_liste_doc_id(),
+            {
+                "uid": st.session_state.get("user_uid"),
+                "email": st.session_state.user_email,
+                "tickers": list(dict.fromkeys(st.session_state.custom_tickers)),
+                "guncelleme_zamani": datetime.now().isoformat(),
+            },
+        )
         return True, None
     except Exception as e:
         izfin_hata_logla("kullanici_listesi_yaz", e)
@@ -1594,37 +1620,13 @@ def hisse_onerileri_getir(arama):
 
     # 1) Yahoo Finance: şirket adı + sembol + fuzzy search.
     try:
-        headers = {
-            "User-Agent": "Mozilla/5.0",
-            "Accept": "application/json,text/plain,*/*",
-        }
-        r = session.get(
-            "https://query2.finance.yahoo.com/v1/finance/search",
-            params={
-                "q": q,
-                "quotesCount": 20,
-                "newsCount": 0,
-                "listsCount": 0,
-                "enableFuzzyQuery": "true",
-                "quotesQueryId": "tss_match_phrase_query",
-                "multiQuoteQueryId": "multi_quote_single_token_query",
-            },
-            headers=headers,
-            timeout=6,
-        )
-        if r.ok:
-            payload = r.json() or {}
-            for x in payload.get("quotes", []) or []:
-                qt = str(x.get("quoteType") or "").upper()
-                # Kullanıcı hisse ekliyor: equity/ETF ağırlıklı sonuçlar.
-                if qt not in {"EQUITY", "ETF", "MUTUALFUND", "INDEX"}:
-                    continue
-                _ekle(
-                    x.get("symbol"),
-                    x.get("shortname") or x.get("longname") or x.get("name"),
-                    x.get("exchDisp") or x.get("exchange"),
-                    qt,
-                )
+        for item in yahoo_sembol_ara(q, http_session=session):
+            _ekle(
+                item.get("symbol"),
+                item.get("name"),
+                item.get("exchange"),
+                item.get("quote_type"),
+            )
     except Exception as e:
         izfin_hata_logla("hisse_onerileri_getir", e)
 
@@ -1998,18 +2000,12 @@ def izfin_piyasa_bandi_verisi():
     }
     ticker_list = list(semboller.values())
     try:
-        intra_all = yf.download(
-            ticker_list, period="5d", interval="1m", group_by="ticker",
-            progress=False, threads=True, prepost=True, auto_adjust=True, timeout=8
-        )
+        intra_all = piyasa_bandi_intraday_indir(tuple(ticker_list))
     except Exception as e:
         izfin_hata_logla("signature_piyasa_bandi_1m", e)
         intra_all = pd.DataFrame()
     try:
-        daily_all = yf.download(
-            ticker_list, period="7d", interval="1d", group_by="ticker",
-            progress=False, threads=True, auto_adjust=True, timeout=8
-        )
+        daily_all = piyasa_bandi_gunluk_indir(tuple(ticker_list))
     except Exception as e:
         izfin_hata_logla("signature_piyasa_bandi_daily", e)
         daily_all = pd.DataFrame()
@@ -2017,17 +2013,7 @@ def izfin_piyasa_bandi_verisi():
     def _piyasa_bandi_tekil_fallback(sembol):
         """Toplu Yahoo cevabında sembol boşsa son geçerli 5dk veriyi dener."""
         try:
-            tekil = yf.download(
-                str(sembol),
-                period="5d",
-                interval="5m",
-                progress=False,
-                prepost=True,
-                auto_adjust=True,
-                threads=False,
-                timeout=6,
-            )
-            tekil = _normalize_yf_columns(tekil)
+            tekil = piyasa_bandi_tekil_indir(sembol)
             if tekil is None or tekil.empty or "Close" not in tekil.columns:
                 return None, None
             close = pd.to_numeric(tekil["Close"], errors="coerce").dropna()
@@ -2940,7 +2926,7 @@ def _json_uyumlu(deger):
 
 def _kullanici_belgelerini_getir():
     """Yalnız aktif ve doğrulanmış kullanıcıya ait Firestore belgelerini toplar."""
-    if db is None:
+    if not USER_REPOSITORY.available:
         raise RuntimeError("Firebase veritabanı bağlantısı kullanılamıyor.")
 
     uid = str(st.session_state.get("user_uid") or "").strip()
@@ -2948,46 +2934,7 @@ def _kullanici_belgelerini_getir():
     if not uid or not email:
         raise RuntimeError("Doğrulanmış kullanıcı oturumu bulunamadı.")
 
-    bulunan = {}
-
-    def _ekle(koleksiyon, snapshot):
-        if snapshot is not None and snapshot.exists:
-            bulunan[(koleksiyon, snapshot.id)] = snapshot.to_dict() or {}
-
-    _ekle("kullanicilar", db.collection("kullanicilar").document(uid).get())
-    _ekle("kullanici_listeleri", db.collection("kullanici_listeleri").document(uid).get())
-    if email != uid:
-        _ekle("kullanici_listeleri", db.collection("kullanici_listeleri").document(email).get())
-
-    for koleksiyon in (
-        "sinyal_arsivi",
-        "aktif_sinyaller",
-        "sinyal_arsivi_temizlik_yedegi",
-    ):
-        sorgu = db.collection(koleksiyon).where("user_email", "==", email)
-        for snapshot in sorgu.stream():
-            _ekle(koleksiyon, snapshot)
-
-    # Eski temizlik sürümleri bazı aktif belge bağlantılarını user_email alanı
-    # olmadan oluşturmuş olabilir. Arşivdeki ticker'lardan deterministik belge
-    # kimliğini kurarak bu eski kayıtları da export/silme kapsamına al.
-    email_anahtari = email.replace("@", "_").replace(".", "_")
-    arsiv_tickerlari = {
-        str(veri.get("ticker") or "").strip()
-        for (koleksiyon, _), veri in bulunan.items()
-        if koleksiyon == "sinyal_arsivi" and str(veri.get("ticker") or "").strip()
-    }
-    for ticker in arsiv_tickerlari:
-        aktif_id = f"{email_anahtari}_{ticker.replace('.', '_')}"
-        _ekle(
-            "aktif_sinyaller",
-            db.collection("aktif_sinyaller").document(aktif_id).get(),
-        )
-
-    return [
-        {"collection": koleksiyon, "document_id": doc_id, "data": veri}
-        for (koleksiyon, doc_id), veri in sorted(bulunan.items())
-    ]
+    return USER_REPOSITORY.collect_user_documents(uid, email)
 
 
 def izfin_kullanici_veri_paketi_olustur():
@@ -3015,12 +2962,7 @@ def _kullanici_hesabini_kalici_sil():
         raise RuntimeError("Silinecek kullanıcı kimliği bulunamadı.")
 
     belgeler = _kullanici_belgelerini_getir()
-    for baslangic in range(0, len(belgeler), 400):
-        batch = db.batch()
-        for belge in belgeler[baslangic:baslangic + 400]:
-            ref = db.collection(belge["collection"]).document(belge["document_id"])
-            batch.delete(ref)
-        batch.commit()
+    USER_REPOSITORY.delete_documents(belgeler)
 
     try:
         auth.revoke_refresh_tokens(uid)
@@ -3032,26 +2974,28 @@ def _kullanici_hesabini_kalici_sil():
 
 def _yasal_onay_kaydet(uid):
     simdi = datetime.now(tz=ZoneInfo("UTC")).isoformat()
-    db.collection("kullanicilar").document(uid).set({
-        "terms_version": IZFIN_TERMS_VERSION,
-        "terms_accepted_at": simdi,
-        "privacy_notice_version": IZFIN_PRIVACY_VERSION,
-        "privacy_notice_shown_at": simdi,
-    }, merge=True)
+    USER_REPOSITORY.upsert_profile(
+        uid,
+        {
+            "terms_version": IZFIN_TERMS_VERSION,
+            "terms_accepted_at": simdi,
+            "privacy_notice_version": IZFIN_PRIVACY_VERSION,
+            "privacy_notice_shown_at": simdi,
+        },
+    )
 
 
 def izfin_yasal_onay_kapisi():
     """E-posta ve Google kullanıcılarına sürümlü koşul/onay kapısını aynı biçimde uygular."""
     if st.session_state.get("izfin_yasal_onayli"):
         return True
-    if db is None:
+    if not USER_REPOSITORY.available:
         st.error("Yasal onay kaydı doğrulanamadığı için uygulama güvenli biçimde açılamıyor.")
         return False
 
     uid = str(st.session_state.get("user_uid") or "").strip()
     try:
-        snapshot = db.collection("kullanicilar").document(uid).get()
-        profil = snapshot.to_dict() if snapshot.exists else {}
+        profil = USER_REPOSITORY.get_profile(uid)
     except Exception as e:
         izfin_hata_logla("yasal_onay_durumu", e)
         st.error("Hesap onay bilgileri şu anda doğrulanamıyor. Lütfen daha sonra tekrar deneyin.")
@@ -4201,9 +4145,8 @@ if aktif_sayfa in ["🏠 Ana Sayfa", "🔎 Akıllı Tarama"]:
                 sektor_getirileri = {}
                 
                 try:
-                    sektor_toplu = yf.download(
-                        list(sektor_referanslari.keys()), period="40d", group_by="ticker",
-                        progress=False, threads=True, auto_adjust=True, timeout=8
+                    sektor_toplu = sektor_referanslari_indir(
+                        tuple(sektor_referanslari.keys())
                     )
                 except Exception as e:
                     izfin_hata_logla("yahoo_sektor_toplu", e)
@@ -5099,7 +5042,7 @@ if aktif_sayfa == "📊 Takip & Performans":
         "performans ilk giriş fiyatından güncel fiyata göre hesaplanır."
     )
 
-    if not st.session_state.user_email or not db:
+    if not st.session_state.user_email or not SIGNAL_REPOSITORY.available:
         st.warning("Bu bölüm için Firebase bağlantısı ve kullanıcı oturumu gereklidir.")
     else:
         col_p1, col_p2 = st.columns([1, 3])

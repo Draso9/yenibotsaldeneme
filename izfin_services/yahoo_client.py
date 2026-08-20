@@ -4,9 +4,54 @@ from __future__ import annotations
 
 import numpy as np
 import pandas as pd
+import requests
 import yfinance as yf
 
 from izfin_core.market_data import normalize_yf_columns
+
+
+YAHOO_SEARCH_URL = "https://query2.finance.yahoo.com/v1/finance/search"
+
+
+def sembol_ara(query, *, http_session=None):
+    query = str(query or "").strip()
+    if not query:
+        return []
+    istemci = http_session or requests.Session()
+    response = istemci.get(
+        YAHOO_SEARCH_URL,
+        params={
+            "q": query,
+            "quotesCount": 20,
+            "newsCount": 0,
+            "listsCount": 0,
+            "enableFuzzyQuery": "true",
+            "quotesQueryId": "tss_match_phrase_query",
+            "multiQuoteQueryId": "multi_quote_single_token_query",
+        },
+        headers={
+            "User-Agent": "Mozilla/5.0",
+            "Accept": "application/json,text/plain,*/*",
+        },
+        timeout=6,
+    )
+    if not response.ok:
+        return []
+    payload = response.json() or {}
+    results = []
+    for item in payload.get("quotes", []) or []:
+        quote_type = str(item.get("quoteType") or "").upper()
+        if quote_type not in {"EQUITY", "ETF", "MUTUALFUND", "INDEX"}:
+            continue
+        results.append(
+            {
+                "symbol": item.get("symbol"),
+                "name": item.get("shortname") or item.get("longname") or item.get("name"),
+                "exchange": item.get("exchDisp") or item.get("exchange"),
+                "quote_type": quote_type,
+            }
+        )
+    return results
 
 
 def peg_degeri_indir(ticker):
@@ -57,6 +102,59 @@ def toplu_intraday_veri_indir(tickers_tuple, interval="5m", period="5d"):
         group_by="ticker",
         progress=False,
         prepost=True,
+        threads=True,
+        auto_adjust=True,
+        timeout=8,
+    )
+
+
+def piyasa_bandi_intraday_indir(tickers_tuple):
+    return yf.download(
+        list(tickers_tuple),
+        period="5d",
+        interval="1m",
+        group_by="ticker",
+        progress=False,
+        threads=True,
+        prepost=True,
+        auto_adjust=True,
+        timeout=8,
+    )
+
+
+def piyasa_bandi_gunluk_indir(tickers_tuple):
+    return yf.download(
+        list(tickers_tuple),
+        period="7d",
+        interval="1d",
+        group_by="ticker",
+        progress=False,
+        threads=True,
+        auto_adjust=True,
+        timeout=8,
+    )
+
+
+def piyasa_bandi_tekil_indir(ticker):
+    data = yf.download(
+        str(ticker),
+        period="5d",
+        interval="5m",
+        progress=False,
+        prepost=True,
+        auto_adjust=True,
+        threads=False,
+        timeout=6,
+    )
+    return normalize_yf_columns(data)
+
+
+def sektor_referanslari_indir(tickers_tuple):
+    return yf.download(
+        list(tickers_tuple),
+        period="40d",
+        group_by="ticker",
+        progress=False,
         threads=True,
         auto_adjust=True,
         timeout=8,
