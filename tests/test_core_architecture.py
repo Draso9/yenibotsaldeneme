@@ -19,6 +19,24 @@ EXTRACTED_FUNCTIONS = {
     "karar_motoru_ozeti",
     "nihai_karar_motoru",
     "sinyal_yonu_belirle",
+    "_normalize_yf_columns",
+    "abd_quote_regular_seans_mi",
+    "_yalnizca_kapali_mumlar",
+    "_rsi_serisi",
+    "adx_hesapla",
+    "cmf_hesapla",
+    "supertrend_hesapla",
+    "seans_vwap_hesapla",
+    "_resample_ohlcv",
+    "_zaman_dilimi_karari",
+    "coklu_zaman_dilimi_analizi",
+    "_backtest_supertrend_serisi",
+    "_backtest_adx_serileri",
+    "_backtest_daily_mtf_proxy",
+    "_backtest_giris_proxy",
+    "_seviye_yildizi",
+    "teknik_seviyeler_hesapla",
+    "opsiyon_projeksiyonu_hesapla",
 }
 
 
@@ -29,8 +47,15 @@ def test_app_imports_extracted_core_modules():
         for node in tree.body
         if isinstance(node, ast.ImportFrom)
     }
-    assert "izfin_core.market_universe" in modules
-    assert "izfin_core.decision_engine" in modules
+    for module in (
+        "izfin_core.market_universe",
+        "izfin_core.market_data",
+        "izfin_core.decision_engine",
+        "izfin_core.technical_analysis",
+        "izfin_core.risk_engine",
+        "izfin_core.projection_engine",
+    ):
+        assert module in modules
 
 
 def test_extracted_functions_are_not_redefined_in_streamlit_app():

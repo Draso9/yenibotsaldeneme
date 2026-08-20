@@ -42,6 +42,26 @@ from izfin_core.market_universe import (
     finnhub_symbol as _finnhub_symbol,
     ticker_girdisini_dogrula as _ticker_girdisini_dogrula,
 )
+from izfin_core.market_data import (
+    abd_quote_regular_seans_mi,
+    normalize_yf_columns as _normalize_yf_columns,
+    yalnizca_kapali_mumlar as _yalnizca_kapali_mumlar,
+)
+from izfin_core.projection_engine import opsiyon_projeksiyonu_hesapla
+from izfin_core.risk_engine import teknik_seviyeler_hesapla
+from izfin_core.technical_analysis import (
+    _backtest_adx_serileri,
+    _backtest_daily_mtf_proxy,
+    _backtest_giris_proxy,
+    _backtest_supertrend_serisi,
+    _resample_ohlcv,
+    _rsi_serisi,
+    adx_hesapla,
+    cmf_hesapla,
+    coklu_zaman_dilimi_analizi,
+    seans_vwap_hesapla,
+    supertrend_hesapla,
+)
 
 try:
     import sentry_sdk
@@ -658,12 +678,6 @@ if "secilen_varliklar" in st.session_state:
 FINNHUB_API_KEY = _secret_degeri("FINNHUB_API_KEY")
 FINNHUB_BASE_URL = "https://finnhub.io/api/v1"
 
-def _normalize_yf_columns(df):
-    if isinstance(df, pd.DataFrame) and isinstance(df.columns, pd.MultiIndex):
-        df = df.copy()
-        df.columns = df.columns.get_level_values(0)
-    return df
-
 @st.cache_data(ttl=21600, show_spinner=False)
 def peg_degeri_cek(ticker):
     """PEG yalnızca yardımcı temel değerleme etiketidir; ana skoru etkilemez."""
@@ -840,20 +854,6 @@ def regular_seans_intraday(ticker, df):
         return x
 
 
-def abd_quote_regular_seans_mi(quote):
-    if not quote:
-        return False
-    try:
-        ts = int(quote.get("timestamp") or 0)
-        if ts <= 0:
-            return False
-        dt = datetime.fromtimestamp(ts, tz=ZoneInfo("America/New_York"))
-        dakika = dt.hour * 60 + dt.minute
-        return dt.weekday() < 5 and (9 * 60 + 30) <= dakika <= (16 * 60)
-    except Exception:
-        return False
-
-
 def seans_disi_ozet(ticker, ham_intraday, quote=None):
     """ABD premarket/after-hours fiyatını yalnızca ek bilgi olarak verir."""
     if str(ticker).endswith(".IS"):
@@ -949,31 +949,6 @@ def toplu_veriden_ticker_ayir(toplu_df, ticker, toplam_adet):
 def gunluk_toplu_veriden_ticker_ayir(toplu_df, ticker, toplam_adet):
     """Yahoo'nun tek/çok sembolde değişebilen kolon düzenini güvenle ayırır."""
     return toplu_veriden_ticker_ayir(toplu_df, ticker, toplam_adet)
-
-
-def _yalnizca_kapali_mumlar(df, varsayilan_dakika=5):
-    """Son bar gerçekten oluşuyorsa çıkarır; kapanmış son barı gereksiz yere silmez."""
-    if df is None or df.empty:
-        return pd.DataFrame()
-    x = df.copy().sort_index()
-    if len(x) < 2:
-        return x.iloc[0:0]
-    try:
-        idx = pd.DatetimeIndex(pd.to_datetime(x.index))
-        farklar = idx.to_series().diff().dropna()
-        pozitif = farklar[farklar > pd.Timedelta(0)]
-        bar_suresi = pozitif.tail(20).median() if not pozitif.empty else pd.Timedelta(minutes=varsayilan_dakika)
-        if pd.isna(bar_suresi) or bar_suresi <= pd.Timedelta(0):
-            bar_suresi = pd.Timedelta(minutes=varsayilan_dakika)
-        son = idx[-1]
-        simdi = pd.Timestamp.now(tz=son.tz) if son.tz is not None else pd.Timestamp.now()
-        # Küçük veri gecikmelerini tolere et; yalnızca halen oluşan barı dışarıda bırak.
-        if simdi < son + bar_suresi + pd.Timedelta(seconds=10):
-            return x.iloc[:-1].copy()
-    except Exception:
-        # Zaman bilgisi yorumlanamazsa ileriye bakış riskine karşı muhafazakâr davran.
-        return x.iloc[:-1].copy()
-    return x
 
 
 def finnhub_quotelari_paralel_cek(tickers, max_workers=6):
@@ -1307,243 +1282,6 @@ def giris_motoru_hesapla(intraday_5dk, uzun_vade_trend):
 
 
 # --- GELİŞMİŞ TEKNİK / DOĞRULAMA MOTORU ---
-def _rsi_serisi(close, period=14):
-    delta = close.diff()
-    gain = delta.clip(lower=0).ewm(alpha=1/period, adjust=False).mean()
-    loss = (-delta.clip(upper=0)).ewm(alpha=1/period, adjust=False).mean()
-    return 100 - (100 / (1 + gain / (loss + 1e-9)))
-
-
-def adx_hesapla(df, period=14):
-    high, low, close = df['High'], df['Low'], df['Close']
-    plus_dm = high.diff().where((high.diff() > -low.diff()) & (high.diff() > 0), 0.0)
-    minus_dm = (-low.diff()).where((-low.diff() > high.diff()) & (-low.diff() > 0), 0.0)
-    tr = pd.concat([(high-low), (high-close.shift()).abs(), (low-close.shift()).abs()], axis=1).max(axis=1)
-    atr = tr.ewm(alpha=1/period, adjust=False).mean()
-    plus_di = 100 * plus_dm.ewm(alpha=1/period, adjust=False).mean() / (atr + 1e-9)
-    minus_di = 100 * minus_dm.ewm(alpha=1/period, adjust=False).mean() / (atr + 1e-9)
-    dx = 100 * (plus_di-minus_di).abs() / (plus_di+minus_di+1e-9)
-    adx = dx.ewm(alpha=1/period, adjust=False).mean()
-    return float(adx.iloc[-1]), float(plus_di.iloc[-1]), float(minus_di.iloc[-1])
-
-
-def cmf_hesapla(df, period=20):
-    denom = (df['High']-df['Low']).replace(0, np.nan)
-    mfm = ((df['Close']-df['Low'])-(df['High']-df['Close'])) / denom
-    mfv = mfm.fillna(0) * df['Volume'].fillna(0)
-    cmf = mfv.rolling(period).sum() / (df['Volume'].rolling(period).sum()+1e-9)
-    ad_line = mfv.cumsum()
-    return float(cmf.iloc[-1]) if pd.notna(cmf.iloc[-1]) else 0.0, float(ad_line.iloc[-1])
-
-
-def supertrend_hesapla(df, period=10, multiplier=3.0):
-    high, low, close = df['High'], df['Low'], df['Close']
-    tr = pd.concat([(high-low), (high-close.shift()).abs(), (low-close.shift()).abs()], axis=1).max(axis=1)
-    atr = tr.ewm(alpha=1/period, adjust=False).mean()
-    hl2 = (high+low)/2
-    upper = hl2 + multiplier*atr
-    lower = hl2 - multiplier*atr
-    final_upper, final_lower = upper.copy(), lower.copy()
-    trend = pd.Series(1, index=df.index, dtype=int)
-    for i in range(1, len(df)):
-        final_upper.iloc[i] = upper.iloc[i] if (upper.iloc[i] < final_upper.iloc[i-1] or close.iloc[i-1] > final_upper.iloc[i-1]) else final_upper.iloc[i-1]
-        final_lower.iloc[i] = lower.iloc[i] if (lower.iloc[i] > final_lower.iloc[i-1] or close.iloc[i-1] < final_lower.iloc[i-1]) else final_lower.iloc[i-1]
-        if close.iloc[i] > final_upper.iloc[i-1]: trend.iloc[i] = 1
-        elif close.iloc[i] < final_lower.iloc[i-1]: trend.iloc[i] = -1
-        else: trend.iloc[i] = trend.iloc[i-1]
-    line = final_lower if trend.iloc[-1] == 1 else final_upper
-    return int(trend.iloc[-1]), float(line.iloc[-1])
-
-
-def seans_vwap_hesapla(intraday):
-    if intraday is None or intraday.empty or not {'High','Low','Close','Volume'}.issubset(intraday.columns):
-        return np.nan
-    d = intraday.dropna(subset=['Close']).copy()
-    if d.empty: return np.nan
-    d = d[d.index.date == d.index[-1].date()]
-    tp = (d['High']+d['Low']+d['Close'])/3
-    vol = d['Volume'].fillna(0)
-    return float((tp*vol).sum()/(vol.sum()+1e-9))
-
-
-def _resample_ohlcv(df, rule):
-    """Normal seans başlangıcına hizalı OHLCV üretir.
-
-    Özellikle ABD hisselerinde seans 09:30'da başladığı için varsayılan saat-başı
-    resample ilk 1 saatlik mumu 09:30-10:00 gibi eksik oluşturabiliyordu.
-    Zaman dilimine göre seans açılışını doğru ankora çeviriyoruz.
-    """
-    if df is None or df.empty:
-        return pd.DataFrame()
-    x = df.copy().sort_index()
-    try:
-        td = pd.Timedelta(rule)
-        kural_dk = max(1, int(td.total_seconds() // 60))
-        tz_str = str(getattr(x.index, 'tz', '') or '')
-        seans_acilis_dk = 570 if 'New_York' in tz_str else 600 if 'Istanbul' in tz_str else 0
-        offset = pd.Timedelta(minutes=(seans_acilis_dk % kural_dk)) if seans_acilis_dk else pd.Timedelta(0)
-        return (x.resample(rule, origin='start_day', offset=offset)
-                 .agg({'Open':'first','High':'max','Low':'min','Close':'last','Volume':'sum'})
-                 .dropna(subset=['Close']))
-    except Exception:
-        return (x.resample(rule)
-                 .agg({'Open':'first','High':'max','Low':'min','Close':'last','Volume':'sum'})
-                 .dropna(subset=['Close']))
-
-
-def _zaman_dilimi_karari(df):
-    if df is None or len(df) < 30: return {'yon':'VERİ YOK','puan':0}
-    c=df['Close']
-    ema9=c.ewm(span=9,adjust=False).mean().iloc[-1]
-    ema21=c.ewm(span=21,adjust=False).mean().iloc[-1]
-    rsi=float(_rsi_serisi(c).iloc[-1])
-    macd=c.ewm(span=12,adjust=False).mean()-c.ewm(span=26,adjust=False).mean()
-    ms=macd.ewm(span=9,adjust=False).mean()
-    puan=0
-    puan += 1 if c.iloc[-1]>ema21 else -1
-    puan += 1 if ema9>ema21 else -1
-    puan += 1 if macd.iloc[-1]>ms.iloc[-1] else -1
-    puan += 1 if 50<=rsi<=70 else (-1 if rsi<40 or rsi>75 else 0)
-    yon='AL' if puan>=2 else 'SAT' if puan<=-2 else 'NÖTR'
-    return {'yon':yon,'puan':puan,'rsi':rsi}
-
-
-def coklu_zaman_dilimi_analizi(intraday, daily):
-    """MTF uyumunu yalnızca tamamlanmış gün içi mumlarla hesaplar.
-
-    Giriş motoru kapanmamış mumu zaten dışlıyordu; MTF katmanında aynı koruma
-    yoktu. Bu nedenle yarım oluşmuş 5/15/60/240 dk mumlar merkezi karar puanını
-    geçici olarak oynatabiliyordu.
-    """
-    sonuclar={}
-    if intraday is not None and not intraday.empty:
-        kapali_5 = _yalnizca_kapali_mumlar(intraday)
-        sonuclar['5Dk']=_zaman_dilimi_karari(kapali_5)
-        for ad, kural in [('15Dk','15min'), ('1S','60min'), ('4S','240min')]:
-            yeniden = _resample_ohlcv(kapali_5, kural)
-            yeniden = _yalnizca_kapali_mumlar(yeniden, varsayilan_dakika=int(pd.Timedelta(kural).total_seconds() // 60))
-            sonuclar[ad]=_zaman_dilimi_karari(yeniden)
-    sonuclar['Günlük']=_zaman_dilimi_karari(daily)
-    gecerli=[v for v in sonuclar.values() if v.get('yon')!='VERİ YOK']
-    net=sum(v.get('puan',0) for v in gecerli)
-    maxp=max(len(gecerli)*4,1)
-    uyum=round(50+50*net/maxp)
-    uyum=int(min(100,max(0,uyum)))
-    return sonuclar, uyum
-
-
-def _backtest_supertrend_serisi(df, period=10, multiplier=3.0):
-    """Canlı SuperTrend mantığının tüm geçmiş için nedensel (causal) seri karşılığı."""
-    high = pd.to_numeric(df['High'], errors='coerce')
-    low = pd.to_numeric(df['Low'], errors='coerce')
-    close = pd.to_numeric(df['Close'], errors='coerce')
-    tr = pd.concat([(high-low), (high-close.shift()).abs(), (low-close.shift()).abs()], axis=1).max(axis=1)
-    atr = tr.ewm(alpha=1/period, adjust=False).mean()
-    hl2 = (high+low)/2
-    upper = hl2 + multiplier*atr
-    lower = hl2 - multiplier*atr
-    final_upper, final_lower = upper.copy(), lower.copy()
-    trend = pd.Series(1, index=df.index, dtype=int)
-    for i in range(1, len(df)):
-        final_upper.iloc[i] = upper.iloc[i] if (upper.iloc[i] < final_upper.iloc[i-1] or close.iloc[i-1] > final_upper.iloc[i-1]) else final_upper.iloc[i-1]
-        final_lower.iloc[i] = lower.iloc[i] if (lower.iloc[i] > final_lower.iloc[i-1] or close.iloc[i-1] < final_lower.iloc[i-1]) else final_lower.iloc[i-1]
-        if close.iloc[i] > final_upper.iloc[i-1]:
-            trend.iloc[i] = 1
-        elif close.iloc[i] < final_lower.iloc[i-1]:
-            trend.iloc[i] = -1
-        else:
-            trend.iloc[i] = trend.iloc[i-1]
-    return trend
-
-
-def _backtest_adx_serileri(df, period=14):
-    """ADX/+DI/-DI değerlerini tüm geçmiş için tek seferde hesaplar."""
-    high = pd.to_numeric(df['High'], errors='coerce')
-    low = pd.to_numeric(df['Low'], errors='coerce')
-    close = pd.to_numeric(df['Close'], errors='coerce')
-    up = high.diff()
-    down = -low.diff()
-    plus_dm = up.where((up > down) & (up > 0), 0.0)
-    minus_dm = down.where((down > up) & (down > 0), 0.0)
-    tr = pd.concat([(high-low), (high-close.shift()).abs(), (low-close.shift()).abs()], axis=1).max(axis=1)
-    atr = tr.ewm(alpha=1/period, adjust=False).mean()
-    plus_di = 100 * plus_dm.ewm(alpha=1/period, adjust=False).mean() / (atr + 1e-9)
-    minus_di = 100 * minus_dm.ewm(alpha=1/period, adjust=False).mean() / (atr + 1e-9)
-    dx = 100 * (plus_di-minus_di).abs() / (plus_di+minus_di+1e-9)
-    adx = dx.ewm(alpha=1/period, adjust=False).mean()
-    return adx, plus_di, minus_di
-
-
-def _backtest_daily_mtf_proxy(i, c, ema9, ema21, ema50, sma200, macd, macd_signal, rsi, adx, plus_di, minus_di):
-    """Intraday geçmişi olmayan uzun dönem test için yalnızca günlük veriden zaman-ölçeği uyumu.
-
-    Bu değer canlı 5dk/15dk/1s MTF'nin yerine geçmiş intraday veri uydurmaz; günlük kısa/orta/uzun
-    trend katmanlarının aynı yöne bakıp bakmadığını 0-100 ölçeğine taşır.
-    """
-    if i < 200:
-        return 50
-    puanlar = []
-    # Kısa günlük yapı
-    p = 0
-    p += 1 if c.iloc[i] > ema21.iloc[i] else -1
-    p += 1 if ema9.iloc[i] > ema21.iloc[i] else -1
-    p += 1 if macd.iloc[i] > macd_signal.iloc[i] else -1
-    rv = float(rsi.iloc[i]) if pd.notna(rsi.iloc[i]) else 50.0
-    p += 1 if 50 <= rv <= 70 else (-1 if rv < 40 or rv > 75 else 0)
-    puanlar.append(p)
-    # Orta vadeli günlük yapı
-    p = 0
-    p += 1 if c.iloc[i] > ema50.iloc[i] else -1
-    p += 1 if ema21.iloc[i] > ema50.iloc[i] else -1
-    p += 1 if macd.iloc[i] > macd_signal.iloc[i] else -1
-    p += 1 if (adx.iloc[i] >= 20 and plus_di.iloc[i] >= minus_di.iloc[i]) else -1
-    puanlar.append(p)
-    # Uzun vadeli günlük yapı
-    p = 0
-    p += 1 if c.iloc[i] > sma200.iloc[i] else -1
-    p += 1 if ema50.iloc[i] > sma200.iloc[i] else -1
-    p += 1 if i >= 20 and c.iloc[i] > c.iloc[i-20] else -1
-    p += 1 if plus_di.iloc[i] >= minus_di.iloc[i] else -1
-    puanlar.append(p)
-    net = sum(puanlar)
-    return int(max(0, min(100, round(50 + 50 * net / 12))))
-
-
-def _backtest_giris_proxy(on_sinyal, skor, hacim_oran, ema9_gt_ema21, macd_gt_signal,
-                          adx, cmf, supertrend, rsi, mfi):
-    """Uzun dönem günlük testte intraday giriş puanı yerine kullanılan açıkça etiketli proxy.
-
-    Amaç 5dk veri varmış gibi davranmak değil; günlük adayın ne kadar olgun olduğunu aynı 0-100
-    ölçeğinde yaklaşıklaştırmaktır. Canlı uygulamadaki gerçek giriş motorunun yerine geçmez.
-    """
-    s = str(on_sinyal).upper()
-    if not any(x in s for x in ['ALIM', 'KIRILIM', 'ADAY']):
-        return 0
-    if 'KIRILIM' in s:
-        puan = 60
-    elif 'KUSURSUZ ALIM' in s:
-        puan = 55
-    elif 'KADEMELİ ALIM' in s:
-        puan = 50
-    else:
-        puan = 45
-    if skor >= 70: puan += 8
-    if skor >= 80: puan += 4
-    if hacim_oran >= 120: puan += 7
-    if hacim_oran >= 150: puan += 3
-    if ema9_gt_ema21: puan += 6
-    if macd_gt_signal: puan += 6
-    if adx >= 25: puan += 6
-    elif adx < 18: puan -= 5
-    if cmf > 0.05: puan += 5
-    elif cmf < -0.05: puan -= 5
-    if supertrend == 1: puan += 5
-    else: puan -= 5
-    if 35 <= rsi <= 68: puan += 4
-    if mfi < 30: puan -= 3
-    return int(max(0, min(100, puan)))
-
-
 @st.cache_data(ttl=3600, show_spinner=False)
 def basit_backtest(ticker, period='5y'):
     """IZFIN Daily Core geçmiş doğrulaması.
@@ -1880,52 +1618,6 @@ def aksiyon_rehberi_olustur(nihai_sinyal, teyit_5dk, profil=None, karar_detay=No
       <div style="margin-top:10px;font-size:12px;opacity:.72;">Profil, skor ve teyitler açıklayıcı katmanlardır; işlem aksiyonu yalnızca merkezi nihai karar motorundan gelir.</div>
     </div>
     '''
-
-
-def _seviye_yildizi(seviye, adaylar, atr):
-    """Yakın teknik referansların çakışmasını 1-5 yıldızla özetler."""
-    tolerans = max(float(atr) * 0.35, abs(float(seviye)) * 0.003)
-    uyum = sum(1 for x in adaylar if pd.notna(x) and abs(float(x) - float(seviye)) <= tolerans)
-    return min(5, max(1, uyum + 1))
-
-
-def teknik_seviyeler_hesapla(df, fiyat, atr, ema50, bb_alt, bb_mid, bb_ust, hv20):
-    """Geçmiş tepe/dipler, bantlar, ATR ve volatilite projeksiyonundan S/R ve TP üretir."""
-    fiyat, atr = float(fiyat), max(float(atr), fiyat * 0.005)
-    gecmis = df.iloc[:-1].copy() if len(df) > 2 else df.copy()
-    highs = [gecmis['High'].tail(n).max() for n in (20, 50, 100) if len(gecmis) >= min(n, 10)]
-    lows = [gecmis['Low'].tail(n).min() for n in (20, 50, 100) if len(gecmis) >= min(n, 10)]
-    swing_range = max((max(highs) - min(lows)) if highs and lows else atr * 4, atr * 2)
-    hv_45 = fiyat * max(float(hv20), 0.05) * np.sqrt(45 / 252)
-
-    direncler = highs + [bb_ust, fiyat + atr * 1.5, fiyat + atr * 3.0,
-                         fiyat + swing_range * 0.272, fiyat + swing_range * 0.618,
-                         fiyat + hv_45]
-    destekler = lows + [ema50, bb_mid, bb_alt, fiyat - atr, fiyat - atr * 2,
-                        fiyat - hv_45]
-
-    def sec(adaylar, ust=True):
-        vals = sorted({round(float(x), 6) for x in adaylar if pd.notna(x) and ((x > fiyat) if ust else (x < fiyat))}, reverse=not ust)
-        secilen=[]
-        for x in vals:
-            if not secilen or all(abs(x-y) >= atr*0.35 for y in secilen):
-                secilen.append(x)
-            if len(secilen)==3: break
-        while len(secilen)<3:
-            adim=(len(secilen)+1)*atr*(1.5 if ust else -1.0)
-            x=fiyat+adim
-            if all(abs(x-y)>=atr*0.25 for y in secilen): secilen.append(x)
-        return sorted(secilen) if ust else sorted(secilen, reverse=True)
-
-    r=sec(direncler, True); d=sec(destekler, False)
-    return {
-        's1': d[0], 's2': d[1], 's3': d[2],
-        'r1': r[0], 'r2': r[1], 'r3': r[2],
-        'tp1': r[0], 'tp2': r[1], 'tp3': r[2],
-        'tp1_yildiz': _seviye_yildizi(r[0], direncler, atr),
-        'tp2_yildiz': _seviye_yildizi(r[1], direncler, atr),
-        'tp3_yildiz': _seviye_yildizi(r[2], direncler, atr),
-    }
 
 
 def sozlu_teknik_analiz_olustur(ticker, fiyat, gunluk_degisim, rsi, macd, macd_sinyal,
@@ -2841,85 +2533,6 @@ def performans_karnesi_ozeti(kayitlar, gun=20):
             "max_dusus": _guvenli_float(k.get("max_dusus_45g")),
         })
     return pd.DataFrame(satirlar)
-
-def opsiyon_projeksiyonu_hesapla(panel, gun=45):
-    """ATR + tarihsel volatilite tabanlı karma fiyat projeksiyonu.
-
-    Bu fonksiyon gerçek opsiyon zinciri veya implied volatility kullanmaz. ATR son
-    fiyat aralıklarını, HV ise günlük getirilerin dağılımını temsil eder.
-    """
-    fiyat = float(panel.get("fiyat", 0) or 0)
-    atr = float(panel.get("atr", 0) or 0)
-    hv20 = float(panel.get("hv20", 0) or 0)
-    hv60 = float(panel.get("hv60", hv20) or hv20)
-    if fiyat <= 0:
-        return None
-
-    # ATR modeli: günlük gerçek fiyat aralığını zamanın kareköküyle ölçekler.
-    atr_gunluk_oran = (atr / fiyat) if atr > 0 else 0.02
-    atr_gunluk_oran = min(max(atr_gunluk_oran, 0.003), 0.15)
-    atr_hareket = fiyat * atr_gunluk_oran * math.sqrt(gun)
-
-    # Tarihsel volatilite modeli: yıllıklandırılmış sigma -> seçilen gün sayısı.
-    if hv20 <= 0:
-        hv20 = atr_gunluk_oran * math.sqrt(252)
-    if hv60 <= 0:
-        hv60 = hv20
-    hv20 = min(max(hv20, 0.05), 2.50)
-    hv60 = min(max(hv60, 0.05), 2.50)
-    hv_karma = (0.65 * hv20) + (0.35 * hv60)
-    volatilite_hareket = fiyat * hv_karma * math.sqrt(gun / 252)
-
-    # Modeller birbirine yakınsa eşit ağırlık; ayrışma büyürse daha ihtiyatlı
-    # biçimde büyük tahmine biraz daha fazla ağırlık verilir.
-    kucuk = max(min(atr_hareket, volatilite_hareket), 1e-9)
-    uyum_orani = max(atr_hareket, volatilite_hareket) / kucuk
-    if uyum_orani <= 1.20:
-        atr_agirlik, vol_agirlik = 0.50, 0.50
-    elif atr_hareket > volatilite_hareket:
-        atr_agirlik, vol_agirlik = 0.60, 0.40
-    else:
-        atr_agirlik, vol_agirlik = 0.40, 0.60
-
-    karma_hareket = (atr_hareket * atr_agirlik) + (volatilite_hareket * vol_agirlik)
-
-    # Güven skoru bir olasılık değildir; veri tutarlılığı ve gösterge teyidini
-    # 0-100 arasında özetleyen karar destek puanıdır.
-    model_uyumu = max(0.0, 1.0 - abs(atr_hareket - volatilite_hareket) / max(karma_hareket, 1e-9))
-    veri_guveni = 1.0 if panel.get("veri_kaynagi") else 0.75
-    trend_teyidi = 0.0
-    fiyat_v = fiyat
-    ema21 = float(panel.get("ema21", fiyat_v) or fiyat_v)
-    ema50 = float(panel.get("ema50", fiyat_v) or fiyat_v)
-    sma200 = float(panel.get("sma200", fiyat_v) or fiyat_v)
-    macd = float(panel.get("macd", 0) or 0)
-    macd_signal = float(panel.get("macd_signal", 0) or 0)
-    rsi = float(panel.get("rsi", 50) or 50)
-    trend_teyidi += 0.25 if fiyat_v > ema21 else 0.0
-    trend_teyidi += 0.25 if ema21 > ema50 else 0.0
-    trend_teyidi += 0.25 if fiyat_v > sma200 else 0.0
-    trend_teyidi += 0.25 if macd > macd_signal and 40 <= rsi <= 70 else 0.0
-    guven_skoru = int(round(min(95, max(45, 45 + 30 * model_uyumu + 10 * veri_guveni + 10 * trend_teyidi))))
-
-    return {
-        "gun": gun,
-        "fiyat": fiyat,
-        "atr_hareket": atr_hareket,
-        "atr_yuzde": (atr_hareket / fiyat) * 100,
-        "volatilite_hareket": volatilite_hareket,
-        "volatilite_yuzde": (volatilite_hareket / fiyat) * 100,
-        "hv20": hv20,
-        "hv60": hv60,
-        "hv_karma": hv_karma,
-        "karma_hareket": karma_hareket,
-        "karma_yuzde": (karma_hareket / fiyat) * 100,
-        "guven_skoru": guven_skoru,
-        "model_uyumu": model_uyumu,
-        "alt_1s": max(0, fiyat - karma_hareket),
-        "ust_1s": fiyat + karma_hareket,
-        "alt_2s": max(0, fiyat - 2 * karma_hareket),
-        "ust_2s": fiyat + 2 * karma_hareket,
-    }
 
 # --- UYGULAMA OTURUM DURUMU VARSAYILANLARI ---
 # Streamlit her yeniden çalıştırmada bu alanları korur; ilk çalıştırmada ise

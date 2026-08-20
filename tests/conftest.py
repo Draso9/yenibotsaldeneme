@@ -11,7 +11,14 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from izfin_core import decision_engine, market_universe
+from izfin_core import (
+    decision_engine,
+    market_data,
+    market_universe,
+    projection_engine,
+    risk_engine,
+    technical_analysis,
+)
 
 
 APP_PATH = Path(__file__).resolve().parents[1] / "app2.py"
@@ -54,7 +61,14 @@ def _load_app_namespace(names):
         "math": math,
         "re": re,
     }
-    for core_module in (market_universe, decision_engine):
+    for core_module in (
+        market_universe,
+        market_data,
+        decision_engine,
+        technical_analysis,
+        risk_engine,
+        projection_engine,
+    ):
         ns.update({
             name: getattr(core_module, name)
             for name in wanted
