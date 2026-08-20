@@ -1,9 +1,11 @@
-streamlit
-pandas
-numpy
-requests
-yfinance
-firebase-admin
-extra-streamlit-components
-plotly
-sentry-sdk
+-c constraints.txt
+
+streamlit==1.62.0
+pandas==3.0.5
+numpy==2.5.2
+requests==2.34.2
+yfinance==1.6.0
+firebase-admin==7.5.0
+extra-streamlit-components==0.1.81
+plotly==6.9.0
+sentry-sdk==2.68.0
