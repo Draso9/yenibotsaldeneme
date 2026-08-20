@@ -5,6 +5,7 @@ from pathlib import Path
 
 APP = Path(__file__).resolve().parents[1] / "app2.py"
 CSS = Path(__file__).resolve().parents[1] / "styles" / "izfin.css"
+MARKET_UNIVERSE = Path(__file__).resolve().parents[1] / "izfin_core" / "market_universe.py"
 
 
 def test_app_python_syntax():
@@ -39,7 +40,7 @@ def test_design_tokens_are_defined_and_not_self_referencing():
 
 
 def test_no_old_bist_tickers_in_presets():
-    source = APP.read_text(encoding="utf-8")
+    source = MARKET_UNIVERSE.read_text(encoding="utf-8")
     tree = ast.parse(source)
     values = {}
     for node in tree.body:

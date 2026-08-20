@@ -11,6 +11,8 @@ import numpy as np
 import pandas as pd
 import pytest
 
+from izfin_core import decision_engine, market_universe
+
 
 APP_PATH = Path(__file__).resolve().parents[1] / "app2.py"
 
@@ -22,18 +24,15 @@ def _load_app_namespace(names):
 
     selected = []
     wanted = set(names)
-
-    # Dependencies needed by the selected pure functions.
-    dependency_names = {
+    wanted |= {
+        "VARSAYILAN_TICKERS",
         "BIST_TICKER_ALIAS",
         "BIST_30",
         "BIST_100",
         "BIST_ENDEKS_DONEMI",
         "BIST_ENDEKS_GECERLILIK",
-        "_safe_float",
-        "_safe_int",
+        "ABD_HİSSELERİ",
     }
-    wanted |= dependency_names
 
     for node in tree.body:
         if isinstance(node, ast.Assign):
@@ -45,8 +44,8 @@ def _load_app_namespace(names):
         elif isinstance(node, ast.FunctionDef) and node.name in wanted:
             selected.append(node)
 
-    module = ast.Module(body=selected, type_ignores=[])
-    ast.fix_missing_locations(module)
+    extracted_module = ast.Module(body=selected, type_ignores=[])
+    ast.fix_missing_locations(extracted_module)
 
     ns = {
         "html": html,
@@ -55,7 +54,13 @@ def _load_app_namespace(names):
         "math": math,
         "re": re,
     }
-    exec(compile(module, str(APP_PATH), "exec"), ns, ns)
+    for core_module in (market_universe, decision_engine):
+        ns.update({
+            name: getattr(core_module, name)
+            for name in wanted
+            if hasattr(core_module, name)
+        })
+    exec(compile(extracted_module, str(APP_PATH), "exec"), ns, ns)
     return SimpleNamespace(**ns)
 
 

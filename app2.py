@@ -24,6 +24,25 @@ import extra_streamlit_components as stx
 import streamlit.components.v1 as components
 from pathlib import Path
 
+from izfin_core.decision_engine import (
+    karar_motoru_ozeti,
+    merkezi_karar_motoru,
+    nihai_karar_motoru,
+    sinyal_guven_skoru,
+    sinyal_yonu_belirle,
+    volatilite_rejimi,
+)
+from izfin_core.market_universe import (
+    ABD_HİSSELERİ,
+    BIST_30,
+    BIST_100,
+    VARSAYILAN_TICKERS,
+    bist_ticker_guncelle,
+    bist_ticker_listesi_guncelle,
+    finnhub_symbol as _finnhub_symbol,
+    ticker_girdisini_dogrula as _ticker_girdisini_dogrula,
+)
+
 try:
     import sentry_sdk
     from sentry_sdk.integrations.logging import LoggingIntegration
@@ -478,8 +497,6 @@ if (not st.session_state.user_email) and saved_session_cookie and not st.session
         st.session_state.pop("izfin_yasal_onayli", None)
         st.session_state.pop("izfin_export_json", None)
 
-VARSAYILAN_TICKERS = ["AAPL", "MSFT", "TSLA", "NVDA", "AMD", "INTC", "THYAO.IS", "FROTO.IS", "TOASO.IS"]
-
 # --- IZFIN STRATEJİ SÜRÜMÜ ---
 STRATEJI_SURUMU = "IZFIN-v1.7.5-auth-switch-fixed"
 PERFORMANS_UFUKLARI = (1, 5, 10, 20, 45)
@@ -627,68 +644,6 @@ def izfin_qa_release_status(metrics):
     }
 
 
-# --- HAZIR VARLIK LİSTELERİ ---
-
-# Endeks bileşen dönemi: 01.07.2026 - 30.09.2026 (2026 Q3)
-# BIST 30 ve BIST 100 sabit listeleri bu dönem için günceldir.
-# Yeni dönemsel Borsa İstanbul duyurusunda bu iki liste yeniden gözden geçirilmelidir.
-BIST_ENDEKS_DONEMI = "2026-Q3"
-BIST_ENDEKS_GECERLILIK = "01.07.2026-30.09.2026"
-
-BIST_30 = [
-    "AEFES.IS", "AKBNK.IS", "ASELS.IS", "ASTOR.IS", "BIMAS.IS", "CIMSA.IS",
-    "DSTKF.IS", "EKGYO.IS", "ENKAI.IS", "EREGL.IS", "FROTO.IS", "GARAN.IS",
-    "HEKTS.IS", "ISCTR.IS", "KCHOL.IS", "KRDMD.IS", "MGROS.IS", "PETKM.IS",
-    "PGSUS.IS", "SAHOL.IS", "SASA.IS", "SISE.IS", "TAVHL.IS", "TCELL.IS",
-    "THYAO.IS", "TOASO.IS", "TTKOM.IS", "TUPRS.IS", "ULKER.IS", "YKBNK.IS"
-]
-
-BIST_100 = [
-    "AEFES.IS", "AKBNK.IS", "AKSA.IS", "AKSEN.IS", "ALARK.IS", "ALTNY.IS",
-    "ANSGR.IS", "ARCLK.IS", "ASELS.IS", "ASTOR.IS", "BALSU.IS", "BERA.IS",
-    "BIMAS.IS", "BRSAN.IS", "BRYAT.IS", "BSOKE.IS", "BTCIM.IS", "CANTE.IS",
-    "CCOLA.IS", "CIMSA.IS", "CVKMD.IS", "CWENE.IS", "DAPGM.IS", "DOAS.IS",
-    "DOHOL.IS", "DSTKF.IS", "ECILC.IS", "EFOR.IS", "EKGYO.IS", "ENERY.IS",
-    "ENJSA.IS", "ENKAI.IS", "EREGL.IS", "ESEN.IS", "EUPWR.IS", "EUREN.IS",
-    "FENER.IS", "FROTO.IS", "GARAN.IS", "GENIL.IS", "GESAN.IS", "GLRMK.IS",
-    "GRSEL.IS", "GRTHO.IS", "GSRAY.IS", "GUBRF.IS", "HALKB.IS", "HEKTS.IS",
-    "IEYHO.IS", "ISCTR.IS", "ISMEN.IS", "IZENR.IS", "KCHOL.IS", "KLRHO.IS",
-    "KRDMD.IS", "KTLEV.IS", "KUYAS.IS", "MAGEN.IS", "MAVI.IS", "MGROS.IS",
-    "MIATK.IS", "MPARK.IS", "OBAMS.IS", "ODAS.IS", "ODINE.IS", "OTKAR.IS",
-    "OYAKC.IS", "PAHOL.IS", "PASEU.IS", "PATEK.IS", "PETKM.IS", "PGSUS.IS",
-    "PSGYO.IS", "QUAGR.IS", "RALYH.IS", "REEDR.IS", "SAHOL.IS", "SARKY.IS",
-    "SASA.IS", "SISE.IS", "SKBNK.IS", "SOKM.IS", "TAVHL.IS", "TCELL.IS",
-    "THYAO.IS", "TKFEN.IS", "TOASO.IS", "TRALT.IS", "TRENJ.IS", "TRMET.IS",
-    "TSKB.IS", "TTKOM.IS", "TUKAS.IS", "TUPRS.IS", "TURSG.IS", "ULKER.IS",
-    "VAKBN.IS", "VESTL.IS", "YKBNK.IS", "ZOREN.IS"
-]
-
-ABD_HİSSELERİ = ["AAPL", "MSFT", "GOOGL", "AMZN", "META", "TSLA", "NVDA", "AMD", "INTC", "NFLX"]
-
-# --- BORSA İSTANBUL KOD DEĞİŞİKLİKLERİ ---
-BIST_TICKER_ALIAS = {
-    "KOZAA.IS": "TRMET.IS",
-    "KOZAL.IS": "TRALT.IS",
-    "IPEKE.IS": "TRENJ.IS",
-}
-
-def bist_ticker_guncelle(ticker):
-    """Eski BIST işlem kodlarını güncel Yahoo/BIST kodlarına normalize eder."""
-    t = str(ticker or "").strip().upper()
-    return BIST_TICKER_ALIAS.get(t, t)
-
-def bist_ticker_listesi_guncelle(tickers):
-    """Liste sırasını koruyarak eski işlem kodlarını günceller ve mükerrerleri siler."""
-    sonuc = []
-    gorulen = set()
-    for ticker in tickers or []:
-        guncel = bist_ticker_guncelle(ticker)
-        if guncel and guncel not in gorulen:
-            sonuc.append(guncel)
-            gorulen.add(guncel)
-    return sonuc
-
-
 # --- OTURUM DURUMU (SESSION STATE) ---
 if "opsiyon_sonuclar" not in st.session_state:
     st.session_state.opsiyon_sonuclar = None
@@ -708,12 +663,6 @@ def _normalize_yf_columns(df):
         df = df.copy()
         df.columns = df.columns.get_level_values(0)
     return df
-
-def _finnhub_symbol(ticker):
-    # Finnhub ücretsiz planda ABD hisseleri güvenilir biçimde desteklenir.
-    # BIST sembollerinde kapsama sınırlı olabildiği için Yahoo fallback kullanılır.
-    ticker = str(ticker or "").strip()
-    return ticker.replace(".IS", "") if ticker.endswith(".IS") else ticker
 
 @st.cache_data(ttl=21600, show_spinner=False)
 def peg_degeri_cek(ticker):
@@ -1483,179 +1432,6 @@ def coklu_zaman_dilimi_analizi(intraday, daily):
     return sonuclar, uyum
 
 
-def volatilite_rejimi(fiyat, atr, hv20):
-    atrp=(atr/fiyat*100) if fiyat>0 else 0
-    if atrp>=5 or hv20>=0.75: return 'PANİK / ÇOK YÜKSEK'
-    if atrp>=3 or hv20>=0.45: return 'YÜKSEK'
-    if atrp>=1.5 or hv20>=0.25: return 'NORMAL'
-    return 'SAKİN'
-
-
-def sinyal_guven_skoru(panel, temel_skor):
-    puan=50.0
-    puan += min(12,max(-12,(temel_skor-50)*0.35))
-    puan += 8 if panel.get('adx',0)>=25 and panel.get('plus_di',0)>panel.get('minus_di',0) else (-5 if panel.get('adx',0)<18 else 0)
-    puan += 7 if panel.get('cmf',0)>0.05 else (-7 if panel.get('cmf',0)<-0.05 else 0)
-    puan += 6 if panel.get('supertrend',0)==1 else -6
-    puan += 5 if panel.get('fiyat',0)>panel.get('vwap',float('inf')) else (-3 if np.isfinite(panel.get('vwap',np.nan)) else 0)
-    puan += (panel.get('mtf_uyum',50)-50)*0.20
-    sektorel_fark_v = panel.get('sektorel_fark', np.nan)
-    if pd.notna(sektorel_fark_v) and np.isfinite(float(sektorel_fark_v)):
-        puan += 4 if float(sektorel_fark_v) > 0 else -3
-    puan += 3 if panel.get('risk_odul',0)>=2 else (-3 if panel.get('risk_odul',0)<1.2 else 0)
-    return int(round(min(95,max(20,puan))))
-
-
-def _safe_float(value, default=0.0):
-    """Karar motorunu NaN/None/string kaynaklı tek-varlık hatalarına karşı korur."""
-    try:
-        x = float(value)
-        return x if np.isfinite(x) else float(default)
-    except (TypeError, ValueError, OverflowError):
-        return float(default)
-
-
-def _safe_int(value, default=0):
-    try:
-        x = float(value)
-        return int(round(x)) if np.isfinite(x) else int(default)
-    except (TypeError, ValueError, OverflowError):
-        return int(default)
-
-
-def merkezi_karar_motoru(panel):
-    """IZFIN'in tek karar beyni.
-
-    Profil, hibrit skor, giriş kalitesi, algoritma güveni, MTF uyumu,
-    trend/momentum/para akışı ve risk verilerini birlikte değerlendirir.
-    Görsel paneller karar üretmez; yalnızca bu fonksiyonun sonucunu gösterir.
-    """
-    profil = str(panel.get('profil', panel.get('on_sinyal', 'NÖTR')))
-    profil_u = profil.upper()
-    skor = _safe_int(panel.get('nihai_skor', panel.get('cezali_skor', panel.get('skor', 50))), 50)
-    giris = _safe_int(panel.get('giris_puani', panel.get('tetik_puani', 0)), 0)
-    guven = _safe_int(panel.get('guven_skoru', 50), 50)
-    mtf = _safe_int(panel.get('mtf_uyum', 50), 50)
-    risk = str(panel.get('risk_seviyesi', 'ORTA') or 'ORTA').upper()
-    vol_rejimi = str(panel.get('volatilite_rejimi', '') or '').upper()
-
-    fiyat = _safe_float(panel.get('fiyat', 0), 0)
-    ema9 = _safe_float(panel.get('ema9', fiyat), fiyat)
-    ema21 = _safe_float(panel.get('ema21', fiyat), fiyat)
-    ema50 = _safe_float(panel.get('ema50', fiyat), fiyat)
-    sma200 = _safe_float(panel.get('sma200', fiyat), fiyat)
-    rsi = _safe_float(panel.get('rsi', 50), 50)
-    mfi = _safe_float(panel.get('mfi', 50), 50)
-    macd = _safe_float(panel.get('macd', 0), 0)
-    macd_signal = _safe_float(panel.get('macd_signal', 0), 0)
-    cmf = _safe_float(panel.get('cmf', 0), 0)
-    adx = _safe_float(panel.get('adx', 0), 0)
-    plus_di = _safe_float(panel.get('plus_di', 0), 0)
-    minus_di = _safe_float(panel.get('minus_di', 0), 0)
-    supertrend = _safe_int(panel.get('supertrend', 0), 0)
-    bb_raw = panel.get('bb_ust', None)
-    bb_ust = _safe_float(bb_raw, float('inf')) if bb_raw is not None else float('inf')
-    risk_odul = _safe_float(panel.get('risk_odul', 0), 0)
-    sahte_kirilim = bool(panel.get('tetik_sahte_kirilim', False))
-
-    trend_ana = fiyat > sma200 and fiyat > ema50
-    trend_kisa = ema9 > ema21
-    trend_guclu = trend_ana and trend_kisa and supertrend == 1
-    momentum_pozitif = macd > macd_signal and plus_di >= minus_di
-    para_akisi_pozitif = cmf >= 0
-    asiri_isinmis = rsi >= 70 and np.isfinite(bb_ust) and fiyat >= bb_ust * 0.995
-    momentum_bozuluyor = macd <= macd_signal or fiyat < ema9 or cmf < -0.03 or mfi < 45
-    yuksek_risk = risk in {'YÜKSEK', 'ÇOK YÜKSEK', 'PANİK / ÇOK YÜKSEK'} or 'PANİK' in vol_rejimi
-    alim_profili = any(x in profil_u for x in ['ALIM', 'KIRILIM', 'ADAY'])
-    tepki_profili = 'HACİMLİ TEPKİ' in profil_u or 'KURTULUŞ' in profil_u
-
-    olumlu, olumsuz = [], []
-    if trend_ana: olumlu.append('ana trend yukarı')
-    else: olumsuz.append('ana trend teyidi yok')
-    if trend_kisa: olumlu.append('EMA9/EMA21 kısa trend uyumlu')
-    else: olumsuz.append('kısa trend zayıf')
-    if adx >= 25: olumlu.append('trend gücü yüksek')
-    elif adx < 18: olumsuz.append('trend gücü sınırlı')
-    if cmf > 0.05: olumlu.append('CMF para girişini destekliyor')
-    elif cmf < -0.05: olumsuz.append('CMF para akışı zayıf')
-    if supertrend == 1: olumlu.append('SuperTrend yukarı')
-    else: olumsuz.append('SuperTrend aşağı')
-    if mtf >= 70: olumlu.append(f'zaman dilimleri güçlü uyumlu (%{mtf})')
-    elif mtf >= 60: olumlu.append(f'zaman dilimleri uyumlu (%{mtf})')
-    elif mtf <= 40: olumsuz.append(f'zaman dilimleri çatışıyor (%{mtf})')
-    if giris >= 80: olumlu.append(f'giriş bölgesi güçlü ({giris}/100)')
-    elif giris >= 55: olumlu.append(f'giriş kalitesi gelişiyor ({giris}/100)')
-    elif alim_profili: olumsuz.append(f'giriş teyidi yetersiz ({giris}/100)')
-    if guven >= 75: olumlu.append(f'algoritma güveni yüksek (%{guven})')
-    elif guven < 65: olumsuz.append(f'algoritma güveni sınırlı (%{guven})')
-    if sahte_kirilim: olumsuz.append('sahte kırılım riski var')
-    if yuksek_risk: olumsuz.append(f'risk seviyesi {risk.lower()}')
-    if risk_odul and risk_odul < 1.2: olumsuz.append('risk/ödül zayıf')
-
-    if (not trend_ana and skor < 45) or (supertrend == -1 and mtf <= 40 and guven < 55):
-        karar, aksiyon = 'SAT / KAÇIN 🔴', 'SAT_KACIN'
-    elif asiri_isinmis and momentum_bozuluyor:
-        karar, aksiyon = 'KÂR AL / RİSK AZALT 🟠', 'KAR_AL'
-    elif 'MOMENTUM AŞIRI ISINDI' in profil_u and (rsi >= 68 or yuksek_risk):
-        karar, aksiyon = 'KÂR KORU / YENİ GİRİŞ BEKLE 🟠', 'KAR_KORU'
-    elif (alim_profili and trend_guclu and momentum_pozitif and para_akisi_pozitif
-          and guven >= 80 and giris >= 80 and mtf >= 70 and not yuksek_risk
-          and not sahte_kirilim and not asiri_isinmis):
-        karar, aksiyon = 'GÜÇLÜ AL 🚀', 'GUCLU_AL'
-    elif (alim_profili and trend_ana and supertrend == 1 and guven >= 70 and giris >= 65
-          and mtf >= 60 and cmf >= -0.03 and not yuksek_risk and not sahte_kirilim and not asiri_isinmis):
-        karar, aksiyon = 'AL 🟢', 'AL'
-    elif (alim_profili and trend_ana and guven >= 62 and giris >= 55 and mtf >= 55
-          and not yuksek_risk and cmf >= -0.05 and not sahte_kirilim and not asiri_isinmis):
-        karar, aksiyon = 'ERKEN AL 🟢', 'ERKEN_AL'
-    elif alim_profili:
-        karar, aksiyon = 'TEYİT BEKLE 🟡', 'TEYIT_BEKLE'
-    elif tepki_profili and guven >= 45:
-        karar, aksiyon = 'İZLE / TEYİT BEKLE 🟡', 'IZLE'
-    elif guven < 40 or (supertrend == -1 and not trend_ana):
-        karar, aksiyon = 'RİSKTEN KAÇIN 🔴', 'RISK_KACIN'
-    else:
-        karar, aksiyon = 'İZLE / NÖTR ⚪', 'IZLE'
-
-    nedenler = []
-    if aksiyon in {'GUCLU_AL', 'AL', 'ERKEN_AL'}:
-        nedenler = olumlu[:4]
-        if olumsuz:
-            nedenler.append('Sınırlayıcı: ' + olumsuz[0])
-    elif aksiyon in {'TEYIT_BEKLE', 'IZLE'}:
-        if olumlu:
-            nedenler.append('Olumlu: ' + ', '.join(olumlu[:2]))
-        if olumsuz:
-            nedenler.append('Bekleme nedeni: ' + ', '.join(olumsuz[:3]))
-    elif aksiyon in {'KAR_AL', 'KAR_KORU'}:
-        if asiri_isinmis:
-            nedenler.append('Fiyat/RSI kısa vadede aşırı ısınmış görünüyor')
-        if momentum_bozuluyor:
-            nedenler.append('Momentum teyidi zayıflıyor')
-        if yuksek_risk:
-            nedenler.append(f'Risk seviyesi {risk.lower()}')
-        if not nedenler:
-            nedenler.append('Yeni giriş yerine mevcut kazancı koruma öncelikli')
-    else:
-        nedenler = olumsuz[:4] or ['Risk profili yeni pozisyon için yeterli değil']
-
-    ozet = ' · '.join(nedenler) if nedenler else 'Karar, mevcut teknik verilerin ortak değerlendirmesinden üretildi.'
-    return {
-        'karar': karar, 'aksiyon': aksiyon, 'profil': profil,
-        'guven': guven, 'risk': risk, 'mtf_uyum': mtf,
-        'giris_puani': giris, 'hibrit_skor': skor,
-        'olumlu': olumlu, 'olumsuz': olumsuz, 'ozet': ozet,
-    }
-
-
-def karar_motoru_ozeti(panel):
-    """Şeffaf panel ikinci bir karar üretmez; merkezi kararın aynısını döndürür."""
-    karar = panel.get('merkezi_karar') if isinstance(panel, dict) else None
-    if isinstance(karar, dict) and karar.get('karar'):
-        return karar
-    return merkezi_karar_motoru(panel or {})
-
-
 def _backtest_supertrend_serisi(df, period=10, multiplier=3.0):
     """Canlı SuperTrend mantığının tüm geçmiş için nedensel (causal) seri karşılığı."""
     high = pd.to_numeric(df['High'], errors='coerce')
@@ -2152,32 +1928,6 @@ def teknik_seviyeler_hesapla(df, fiyat, atr, ema50, bb_alt, bb_mid, bb_ust, hv20
     }
 
 
-def nihai_karar_motoru(on_sinyal, skor, tetik_puani, fiyat, ema9, ema21, ema50,
-                       sma200, rsi, macd, macd_sinyal, cmf, mfi, bb_ust, adx):
-    """Trend, momentum, risk ve giriş kalitesi çelişkilerini tek bir nihai kararda çözer."""
-    trend_guclu = fiyat > sma200 and fiyat > ema50 and ema9 > ema21
-    momentum_pozitif = macd > macd_sinyal and cmf >= 0
-    asiri_isinmis = rsi >= 68 and fiyat >= bb_ust * 0.995
-    momentum_bozuluyor = macd <= macd_sinyal or fiyat < ema9 or cmf < 0 or mfi < 45
-
-    if asiri_isinmis and trend_guclu and momentum_pozitif and tetik_puani >= 60:
-        return 'MOMENTUM AŞIRI ISINDI 🟡'
-    if rsi >= 70 and momentum_bozuluyor and tetik_puani < 60:
-        return 'KAR REALİZASYONU 🔴'
-    if tetik_puani >= 80 and trend_guclu and momentum_pozitif:
-        return 'GÜÇLÜ KIRILIM 🚀'
-    if tetik_puani >= 60 and 'KIRILIM' in str(on_sinyal):
-        return 'YÜKSELİŞ KIRILIMI 🚀'
-    if 'KUSURSUZ ALIM' in str(on_sinyal) and not momentum_bozuluyor:
-        return on_sinyal
-    if 'KADEMELİ ALIM' in str(on_sinyal):
-        return on_sinyal
-    if trend_guclu and skor >= 70 and not asiri_isinmis:
-        return 'UZUN VADELİ ADAY 🌟'
-    if not trend_guclu and skor < 45:
-        return 'UZAK DUR! 🛑'
-    return on_sinyal
-
 def sozlu_teknik_analiz_olustur(ticker, fiyat, gunluk_degisim, rsi, macd, macd_sinyal,
                                   ema9, ema21, ema50, sma200, bb_alt, bb_mid, bb_ust,
                                   hacim_oran, mfi, sektorel_fark, destek, direnc, stop,
@@ -2350,18 +2100,6 @@ def gelismis_teknik_panel_olustur(d):
       <div class="hp-decision"><div class="hp-decision-title">🧭 Nihai karar: <span class="hp-pill {karar_cls}">{sinyal_html}</span></div><div class="hp-mt-5"><b>Teknik profil:</b> {profil_html}</div><div>Hibrit skor: <b>{skor}/100</b> · Algoritma güveni: <b>%{guven}</b> · Giriş kalitesi: <b>{tetik_puani}/100</b></div><div class="hp-small hp-mt-6">Profil ve skorlar açıklayıcıdır; işlem aksiyonu merkezi karar motorundan gelir.</div></div>
     </div>
     """
-
-def sinyal_yonu_belirle(sinyal):
-    """Nihai aksiyonu işlem yönüne çevirir; eski kayıt etiketleriyle de uyumludur."""
-    metin = str(sinyal).upper()
-    if any(x in metin for x in ['SAT / KAÇIN', 'RİSKTEN KAÇIN', 'UZAK DUR', 'KAR REALİZASYONU', 'KÂR REALİZASYONU', 'KAR AL', 'KÂR AL']):
-        return 'SATIŞ'
-    if any(x in metin for x in ['TEYİT BEKLE', 'İZLE', 'NÖTR', 'KÂR KORU', 'KAR KORU']):
-        return 'NÖTR'
-    if any(x in metin for x in ['GÜÇLÜ AL', 'ERKEN AL', 'AL 🟢', 'KUSURSUZ ALIM', 'KADEMELİ ALIM', 'YÜKSELİŞ KIRILIMI', 'GÜÇLÜ KIRILIM']):
-        return 'ALIM'
-    return 'NÖTR'
-
 
 @st.cache_data(ttl=1800, show_spinner=False)
 def _donem_ohlc_cek(ticker, baslangic_iso, bitis_iso):
@@ -3445,18 +3183,6 @@ def profil_degisti():
     p = st.session_state.profil_selectbox_key
     st.session_state.aktif_profil = p
     st.session_state.secilen_varliklar = preset_options[p].copy()
-
-def _ticker_girdisini_dogrula(raw):
-    """Kullanıcı ticker girişini normalize eder; HTML/bozuk karakterleri engeller."""
-    symbol = str(raw or "").strip().upper()
-    if not symbol:
-        return None, "Lütfen önce bir hisse sembolü yazın."
-    if len(symbol) > 20:
-        return None, "Sembol beklenenden uzun görünüyor."
-    # AAPL, BRK-B, THYAO.IS, ^IXIC, BTC-USD, ES=F benzeri yaygın sembolleri destekler.
-    if not re.fullmatch(r"[A-Z0-9.\^=_-]+", symbol):
-        return None, "Sembol yalnızca harf, rakam ve . - _ ^ = karakterlerini içerebilir."
-    return symbol, None
 
 def hisse_ekle_callback():
     """Manuel hisse ekleme + doğrulama + gerçek kalıcı kayıt geri bildirimi."""

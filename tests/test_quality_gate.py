@@ -8,6 +8,7 @@ ROOT = Path(__file__).resolve().parents[1]
 APP = ROOT / "app2.py"
 CSS = ROOT / "styles" / "izfin.css"
 BASELINE = ROOT / "qa" / "quality_baseline.json"
+MARKET_UNIVERSE = ROOT / "izfin_core" / "market_universe.py"
 
 def _metrics():
     app = APP.read_text(encoding="utf-8")
@@ -68,7 +69,7 @@ def test_critical_ui_markers_remain_present():
         assert marker in source
 
 def test_no_legacy_koza_codes_return_to_presets():
-    tree = ast.parse(APP.read_text(encoding="utf-8"))
+    tree = ast.parse(MARKET_UNIVERSE.read_text(encoding="utf-8"))
     vals = {}
     for node in tree.body:
         if isinstance(node, ast.Assign) and len(node.targets) == 1 and isinstance(node.targets[0], ast.Name):
