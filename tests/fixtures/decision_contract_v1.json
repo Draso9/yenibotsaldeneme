@@ -1,0 +1,226 @@
+{
+  "contract_version": 1,
+  "description": "Synthetic frozen BIST/US decision cases; not live market recommendations.",
+  "base_panel": {
+    "profil": "ALIM ADAYI",
+    "nihai_skor": 82,
+    "giris_puani": 84,
+    "guven_skoru": 85,
+    "mtf_uyum": 78,
+    "risk_seviyesi": "ORTA",
+    "volatilite_rejimi": "NORMAL",
+    "fiyat": 120.0,
+    "ema9": 116.0,
+    "ema21": 112.0,
+    "ema50": 105.0,
+    "sma200": 95.0,
+    "rsi": 62.0,
+    "mfi": 60.0,
+    "macd": 3.0,
+    "macd_signal": 2.0,
+    "cmf": 0.12,
+    "adx": 31.0,
+    "plus_di": 28.0,
+    "minus_di": 16.0,
+    "supertrend": 1,
+    "bb_ust": 130.0,
+    "risk_odul": 2.2,
+    "tetik_sahte_kirilim": false
+  },
+  "cases": [
+    {
+      "id": "guclu_al",
+      "ticker": "THYAO.IS",
+      "overrides": {},
+      "expected_direction": "ALIM",
+      "expected": {
+        "karar": "GÜÇLÜ AL 🚀",
+        "aksiyon": "GUCLU_AL",
+        "profil": "ALIM ADAYI",
+        "guven": 85,
+        "risk": "ORTA",
+        "mtf_uyum": 78,
+        "giris_puani": 84,
+        "hibrit_skor": 82,
+        "olumlu": [
+          "ana trend yukarı",
+          "EMA9/EMA21 kısa trend uyumlu",
+          "trend gücü yüksek",
+          "CMF para girişini destekliyor",
+          "SuperTrend yukarı",
+          "zaman dilimleri güçlü uyumlu (%78)",
+          "giriş bölgesi güçlü (84/100)",
+          "algoritma güveni yüksek (%85)"
+        ],
+        "olumsuz": [],
+        "ozet": "ana trend yukarı · EMA9/EMA21 kısa trend uyumlu · trend gücü yüksek · CMF para girişini destekliyor"
+      }
+    },
+    {
+      "id": "al",
+      "ticker": "GARAN.IS",
+      "overrides": {
+        "giris_puani": 72,
+        "guven_skoru": 76,
+        "mtf_uyum": 68
+      },
+      "expected_direction": "ALIM",
+      "expected": {
+        "karar": "AL 🟢",
+        "aksiyon": "AL",
+        "profil": "ALIM ADAYI",
+        "guven": 76,
+        "risk": "ORTA",
+        "mtf_uyum": 68,
+        "giris_puani": 72,
+        "hibrit_skor": 82,
+        "olumlu": [
+          "ana trend yukarı",
+          "EMA9/EMA21 kısa trend uyumlu",
+          "trend gücü yüksek",
+          "CMF para girişini destekliyor",
+          "SuperTrend yukarı",
+          "zaman dilimleri uyumlu (%68)",
+          "giriş kalitesi gelişiyor (72/100)",
+          "algoritma güveni yüksek (%76)"
+        ],
+        "olumsuz": [],
+        "ozet": "ana trend yukarı · EMA9/EMA21 kısa trend uyumlu · trend gücü yüksek · CMF para girişini destekliyor"
+      }
+    },
+    {
+      "id": "erken_al",
+      "ticker": "ASELS.IS",
+      "overrides": {
+        "giris_puani": 58,
+        "guven_skoru": 66,
+        "mtf_uyum": 58,
+        "cmf": 0.02
+      },
+      "expected_direction": "ALIM",
+      "expected": {
+        "karar": "ERKEN AL 🟢",
+        "aksiyon": "ERKEN_AL",
+        "profil": "ALIM ADAYI",
+        "guven": 66,
+        "risk": "ORTA",
+        "mtf_uyum": 58,
+        "giris_puani": 58,
+        "hibrit_skor": 82,
+        "olumlu": [
+          "ana trend yukarı",
+          "EMA9/EMA21 kısa trend uyumlu",
+          "trend gücü yüksek",
+          "SuperTrend yukarı",
+          "giriş kalitesi gelişiyor (58/100)"
+        ],
+        "olumsuz": [],
+        "ozet": "ana trend yukarı · EMA9/EMA21 kısa trend uyumlu · trend gücü yüksek · SuperTrend yukarı"
+      }
+    },
+    {
+      "id": "teyit_bekle",
+      "ticker": "AAPL",
+      "overrides": {
+        "giris_puani": 42,
+        "guven_skoru": 58,
+        "mtf_uyum": 45,
+        "cmf": -0.04
+      },
+      "expected_direction": "NÖTR",
+      "expected": {
+        "karar": "TEYİT BEKLE 🟡",
+        "aksiyon": "TEYIT_BEKLE",
+        "profil": "ALIM ADAYI",
+        "guven": 58,
+        "risk": "ORTA",
+        "mtf_uyum": 45,
+        "giris_puani": 42,
+        "hibrit_skor": 82,
+        "olumlu": [
+          "ana trend yukarı",
+          "EMA9/EMA21 kısa trend uyumlu",
+          "trend gücü yüksek",
+          "SuperTrend yukarı"
+        ],
+        "olumsuz": [
+          "giriş teyidi yetersiz (42/100)",
+          "algoritma güveni sınırlı (%58)"
+        ],
+        "ozet": "Olumlu: ana trend yukarı, EMA9/EMA21 kısa trend uyumlu · Bekleme nedeni: giriş teyidi yetersiz (42/100), algoritma güveni sınırlı (%58)"
+      }
+    },
+    {
+      "id": "kar_al",
+      "ticker": "NVDA",
+      "overrides": {
+        "profil": "NÖTR",
+        "rsi": 74,
+        "fiyat": 130,
+        "bb_ust": 130,
+        "macd": 1.0,
+        "macd_signal": 1.5
+      },
+      "expected_direction": "SATIŞ",
+      "expected": {
+        "karar": "KÂR AL / RİSK AZALT 🟠",
+        "aksiyon": "KAR_AL",
+        "profil": "NÖTR",
+        "guven": 85,
+        "risk": "ORTA",
+        "mtf_uyum": 78,
+        "giris_puani": 84,
+        "hibrit_skor": 82,
+        "olumlu": [
+          "ana trend yukarı",
+          "EMA9/EMA21 kısa trend uyumlu",
+          "trend gücü yüksek",
+          "CMF para girişini destekliyor",
+          "SuperTrend yukarı",
+          "zaman dilimleri güçlü uyumlu (%78)",
+          "giriş bölgesi güçlü (84/100)",
+          "algoritma güveni yüksek (%85)"
+        ],
+        "olumsuz": [],
+        "ozet": "Fiyat/RSI kısa vadede aşırı ısınmış görünüyor · Momentum teyidi zayıflıyor"
+      }
+    },
+    {
+      "id": "sat_kacin",
+      "ticker": "MSFT",
+      "overrides": {
+        "nihai_skor": 38,
+        "fiyat": 80,
+        "ema50": 90,
+        "sma200": 100,
+        "supertrend": -1,
+        "mtf_uyum": 35,
+        "guven_skoru": 45
+      },
+      "expected_direction": "SATIŞ",
+      "expected": {
+        "karar": "SAT / KAÇIN 🔴",
+        "aksiyon": "SAT_KACIN",
+        "profil": "ALIM ADAYI",
+        "guven": 45,
+        "risk": "ORTA",
+        "mtf_uyum": 35,
+        "giris_puani": 84,
+        "hibrit_skor": 38,
+        "olumlu": [
+          "EMA9/EMA21 kısa trend uyumlu",
+          "trend gücü yüksek",
+          "CMF para girişini destekliyor",
+          "giriş bölgesi güçlü (84/100)"
+        ],
+        "olumsuz": [
+          "ana trend teyidi yok",
+          "SuperTrend aşağı",
+          "zaman dilimleri çatışıyor (%35)",
+          "algoritma güveni sınırlı (%45)"
+        ],
+        "ozet": "ana trend teyidi yok · SuperTrend aşağı · zaman dilimleri çatışıyor (%35) · algoritma güveni sınırlı (%45)"
+      }
+    }
+  ]
+}
