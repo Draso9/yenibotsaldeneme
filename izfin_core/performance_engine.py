@@ -34,6 +34,100 @@ def _guvenli_float(deger, varsayilan=np.nan):
         return varsayilan
 
 
+def kapanan_donem_istatistikleri_hesapla(
+    df,
+    giris,
+    acilis_zamani,
+    kapanis_zamani,
+    ilk_stop=None,
+    ilk_tp1=None,
+    ilk_tp2=None,
+    ilk_tp3=None,
+):
+    """Pozisyonun açık kaldığı OHLC döneminde uç değer ve hedef temaslarını ölçer."""
+    sonuc = {
+        "donem_max_kar": None,
+        "donem_max_dusus": None,
+        "ilk_tp1_gordu": None,
+        "ilk_tp2_gordu": None,
+        "ilk_tp3_gordu": None,
+        "ilk_stop_gordu": None,
+    }
+    try:
+        giris = float(giris)
+        if not np.isfinite(giris) or giris <= 0:
+            return sonuc
+        bas = pd.to_datetime(acilis_zamani, errors="coerce")
+        bit = pd.to_datetime(kapanis_zamani, errors="coerce")
+        if pd.isna(bas) or pd.isna(bit):
+            return sonuc
+        if df is None or df.empty or "High" not in df.columns or "Low" not in df.columns:
+            return sonuc
+
+        index = pd.to_datetime(df.index)
+        try:
+            if getattr(index, "tz", None) is not None:
+                index = index.tz_localize(None)
+        except Exception:
+            pass
+        donem = df.copy()
+        donem.index = index
+        baslangic = pd.Timestamp(bas)
+        bitis = pd.Timestamp(bit)
+        try:
+            if baslangic.tzinfo is not None:
+                baslangic = baslangic.tz_localize(None)
+            if bitis.tzinfo is not None:
+                bitis = bitis.tz_localize(None)
+        except Exception:
+            pass
+        donem = donem[
+            (donem.index.normalize() >= baslangic.normalize())
+            & (donem.index.normalize() <= bitis.normalize())
+        ]
+        if donem.empty:
+            return sonuc
+
+        max_high = float(pd.to_numeric(donem["High"], errors="coerce").max())
+        min_low = float(pd.to_numeric(donem["Low"], errors="coerce").min())
+        if np.isfinite(max_high):
+            sonuc["donem_max_kar"] = ((max_high / giris) - 1) * 100
+        if np.isfinite(min_low):
+            sonuc["donem_max_dusus"] = ((min_low / giris) - 1) * 100
+
+        def yukari_temasi(seviye):
+            try:
+                seviye = float(seviye)
+                return bool(
+                    np.isfinite(seviye)
+                    and seviye > 0
+                    and np.isfinite(max_high)
+                    and max_high >= seviye
+                )
+            except Exception:
+                return None
+
+        def asagi_temasi(seviye):
+            try:
+                seviye = float(seviye)
+                return bool(
+                    np.isfinite(seviye)
+                    and seviye > 0
+                    and np.isfinite(min_low)
+                    and min_low <= seviye
+                )
+            except Exception:
+                return None
+
+        sonuc["ilk_tp1_gordu"] = yukari_temasi(ilk_tp1)
+        sonuc["ilk_tp2_gordu"] = yukari_temasi(ilk_tp2)
+        sonuc["ilk_tp3_gordu"] = yukari_temasi(ilk_tp3)
+        sonuc["ilk_stop_gordu"] = asagi_temasi(ilk_stop)
+        return sonuc
+    except Exception:
+        return sonuc
+
+
 def performans_kayitlarini_tekillestir(kayitlar):
     """Firestore'daki eski mükerrer kayıtları ekranda güvenli biçimde birleştirir.
 
@@ -220,5 +314,4 @@ def performans_karnesi_ozeti(kayitlar, gun=20):
             "max_dusus": _guvenli_float(k.get("max_dusus_45g")),
         })
     return pd.DataFrame(satirlar)
-
 

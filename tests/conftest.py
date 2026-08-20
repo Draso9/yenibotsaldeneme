@@ -12,6 +12,7 @@ import pandas as pd
 import pytest
 
 from izfin_core import (
+    backtest_engine,
     decision_engine,
     entry_engine,
     market_data,
@@ -21,6 +22,7 @@ from izfin_core import (
     risk_engine,
     technical_analysis,
 )
+from izfin_ui import analysis_views
 
 
 APP_PATH = Path(__file__).resolve().parents[1] / "app2.py"
@@ -67,11 +69,13 @@ def _load_app_namespace(names):
         market_universe,
         market_data,
         decision_engine,
+        backtest_engine,
         entry_engine,
         technical_analysis,
         risk_engine,
         projection_engine,
         performance_engine,
+        analysis_views,
     ):
         ns.update({
             name: getattr(core_module, name)
@@ -100,11 +104,14 @@ def core():
         "sozlu_teknik_analiz_olustur",
         "gelismis_teknik_panel_olustur",
         "sinyal_yonu_belirle",
+        "daily_core_backtest_hesapla",
         "tetik_puani_hesapla",
         "giris_motoru_hesapla",
         "ogrenme_profili_olustur",
         "performans_kayitlarini_tekillestir",
         "performans_karnesi_ozeti",
+        "kapanan_donem_istatistikleri_hesapla",
+        "aksiyon_rehberi_olustur",
         "_guvenli_dict",
         "_guvenli_float",
     })
