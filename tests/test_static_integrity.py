@@ -65,3 +65,30 @@ def test_version_identifier_exists_and_is_valid():
     assert isinstance(version, str)
     assert version.startswith("v1.")
     assert len(version) >= 6
+
+
+def test_how_to_use_guide_uses_current_user_facing_language():
+    source = APP.read_text(encoding="utf-8")
+    guide_start = source.index('with st.expander("📘 IZFIN Rehberi')
+    guide_end = source.index('if "izfin_nav" not in st.session_state:', guide_start)
+    guide = source[guide_start:guide_end]
+
+    for current_label in (
+        "IZFIN SKORU",
+        "GÜVEN",
+        "GİRİŞ KALİTESİ",
+        "MTF UYUM",
+        "MERKEZİ KARAR SÖZLÜĞÜ",
+        "Sat / Kaçın",
+    ):
+        assert current_label in guide
+
+    for stale_label in (
+        "eski cezalı skor",
+        "Eski skorun ana kalemleri",
+        "Hibrit / Cezalı Skor",
+        "Derin Taramayı çalıştırın",
+    ):
+        assert stale_label not in guide
+
+    assert "%80 başarı ihtimali anlamına gelmez" in guide

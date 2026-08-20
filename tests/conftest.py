@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import ast
+import html
 import math
+import re
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -47,9 +49,11 @@ def _load_app_namespace(names):
     ast.fix_missing_locations(module)
 
     ns = {
+        "html": html,
         "np": np,
         "pd": pd,
         "math": math,
+        "re": re,
     }
     exec(compile(module, str(APP_PATH), "exec"), ns, ns)
     return SimpleNamespace(**ns)
@@ -67,6 +71,11 @@ def core():
         "merkezi_karar_motoru",
         "karar_motoru_ozeti",
         "nihai_karar_motoru",
+        "opsiyon_projeksiyonu_hesapla",
+        "_ticker_girdisini_dogrula",
+        "_firebase_auth_hata_mesaji",
+        "sozlu_teknik_analiz_olustur",
+        "gelismis_teknik_panel_olustur",
         "sinyal_yonu_belirle",
         "_guvenli_float",
     })

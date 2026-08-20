@@ -5431,108 +5431,96 @@ if not izfin_yasal_onay_kapisi():
 st.sidebar.markdown(izfin_brand_html(), unsafe_allow_html=True)
 st.markdown(izfin_market_bar_html(izfin_piyasa_bandi_verisi()), unsafe_allow_html=True)
 
-with st.expander("📘 Nasıl Kullanılır? — Tablo, skorlar, sinyaller ve risk yönetimi", expanded=False):
+with st.expander("📘 IZFIN Rehberi — Sonuçları doğru okuyun", expanded=False):
     st.markdown("""
-<div style="background:linear-gradient(135deg,#17191f,#20242d);border:1px solid #343a46;border-radius:14px;padding:20px 22px;margin-bottom:16px;">
-  <div style="font-size:20px;font-weight:700;color:#ffffff;margin-bottom:8px;">IZFIN kullanım rehberi</div>
-  <div style="color:#c8ced8;line-height:1.7;font-size:14px;">Bu ekran tek bir göstergeden “al” veya “sat” üretmez. Trend, momentum, hacim, para akışı, volatilite, likidite ve çoklu zaman dilimi verilerini birlikte değerlendirir. En sağlıklı kullanım; önce tabloyla adayları daraltmak, sonra detay paneliyle gerekçeyi okumak ve son olarak destek–stop–hedef planını kontrol etmektir.</div>
+<div class="iz-decision-center iz-decision-center-premium">
+  <div class="iz-decision-head">
+    <div>
+      <small>IZFIN KISA REHBER</small>
+      <h2>Bir sonucu 30 saniyede değerlendirin</h2>
+      <p>Önce merkezi kararı, sonra kararın güvenini ve risk planını okuyun.</p>
+    </div>
+    <span class="iz-decision-mode neutral">4 ADIM</span>
+  </div>
+  <div class="iz-decision-kpis">
+    <div><span>1 · TARAMA</span><b>Evreni seçin</b><small>İzlemek istediğiniz listeyle Akıllı Tarama'yı çalıştırın.</small></div>
+    <div><span>2 · KARAR</span><b>Aksiyonu okuyun</b><small>İlk referansınız puan değil, Merkezi Karar olsun.</small></div>
+    <div><span>3 · TEYİT</span><b>Nedeni kontrol edin</b><small>Güven, giriş kalitesi ve MTF uyumunu birlikte değerlendirin.</small></div>
+    <div><span>4 · PLAN</span><b>Riski belirleyin</b><small>Destek, stop ve hedefleri işlemden önce planlayın.</small></div>
+  </div>
+  <div class="iz-system-comment">
+    <span>ANA KURAL</span>
+    <p><b>Skorlar karar vermez; kararı açıklar.</b> İşlem yönünü trend, momentum, para akışı, zamanlama ve risk filtrelerini birlikte değerlendiren Merkezi Karar belirler.</p>
+  </div>
+</div>
+
+<div class="iz-decision-center iz-decision-center-premium">
+  <div class="iz-decision-head">
+    <div>
+      <small>DÖRT ANA GÖSTERGE</small>
+      <h2>Skorlar ne söylüyor?</h2>
+      <p>Her puan farklı bir soruya cevap verir; tek başına alım veya satım emri değildir.</p>
+    </div>
+    <span class="iz-decision-mode positive">0–100</span>
+  </div>
+  <div class="iz-decision-kpis">
+    <div><span>IZFIN SKORU</span><b>Teknik yapı</b><small>Tablodaki Gelişmiş Skor; trend, momentum, hacim ve risk bileşimini özetler.</small></div>
+    <div><span>GÜVEN</span><b>Kanıt uyumu</b><small>Kararı destekleyen teknik verilerin birbirleriyle ne kadar tutarlı olduğunu gösterir.</small></div>
+    <div><span>GİRİŞ KALİTESİ</span><b>Zamanlama</b><small>5 dakika, 15 dakika ve 1 saat verilerinde giriş koşullarının olgunluğunu ölçer.</small></div>
+    <div><span>MTF UYUM</span><b>Çoklu teyit</b><small>Farklı zaman dilimlerinin aynı yönü destekleyip desteklemediğini gösterir.</small></div>
+  </div>
+  <div class="iz-system-comment">
+    <span>ÖNEMLİ</span>
+    <p><b>80 puan, %80 başarı ihtimali anlamına gelmez.</b> Puanlar aynı taramadaki adayları karşılaştırmayı kolaylaştıran teknik ölçümlerdir.</p>
+  </div>
+</div>
+
+<div class="iz-decision-center iz-decision-center-premium">
+  <div class="iz-decision-head">
+    <div>
+      <small>MERKEZİ KARAR SÖZLÜĞÜ</small>
+      <h2>Karar etiketleri nasıl yorumlanır?</h2>
+      <p>Etiket, sistemin mevcut koşullarda önerdiği davranışı sade biçimde özetler.</p>
+    </div>
+    <span class="iz-decision-mode neutral">GÜNCEL</span>
+  </div>
+  <div class="iz-decision-kpis">
+    <div><span>EN GÜÇLÜ TEYİT</span><b>Güçlü Al</b><small>Trend, zamanlama, para akışı ve risk filtreleri birlikte olumlu.</small></div>
+    <div><span>YETERLİ TEYİT</span><b>Al</b><small>Teknik yapı alım yönünü destekliyor; risk planı yine korunmalı.</small></div>
+    <div><span>OLUMLU / ERKEN</span><b>Erken Al</b><small>Yapı olumlu ancak tüm güçlü teyitler henüz tamamlanmış değil.</small></div>
+    <div><span>ADAY / EKSİK TEYİT</span><b>Teyit Bekle</b><small>Olumlu unsurlar var; final alım koşulları henüz yeterli değil.</small></div>
+    <div><span>YÖN BELİRSİZ</span><b>İzle / Nötr</b><small>Göstergeler ortak ve yeterince güçlü bir işlem yönü üretmiyor.</small></div>
+    <div><span>YENİ GİRİŞ ZAYIF</span><b>Kâr Koru</b><small>Aşırı ısınma veya momentum kaybı nedeniyle mevcut kazancı koruma öncelikli.</small></div>
+    <div><span>SERMAYE KORUMA</span><b>Sat / Kaçın</b><small>Trend veya risk yapısı yeni pozisyon için yeterli avantaj sunmuyor.</small></div>
+    <div><span>SON KONTROL</span><b>Gerekçeyi açın</b><small>Detay panelindeki olumlu teyitleri ve riskleri mutlaka okuyun.</small></div>
+  </div>
+</div>
+
+<div class="iz-decision-center iz-decision-center-premium">
+  <div class="iz-decision-head">
+    <div>
+      <small>SONUÇ SATIRINI OKUMA</small>
+      <h2>Hangi alan ne işe yarar?</h2>
+      <p>Tek bir değere odaklanmak yerine kararın bütününü bu sırayla kontrol edin.</p>
+    </div>
+    <span class="iz-decision-mode caution">RİSK ÖNCE</span>
+  </div>
+  <div class="iz-market-factors">
+    <div><span>1 · KARAR</span><b>Ne yapmalı?</b></div>
+    <div><span>2 · RİSK</span><b>Ne bozabilir?</b></div>
+    <div><span>3 · TEYİT</span><b>Ne destekliyor?</b></div>
+    <div><span>4 · PLAN</span><b>Nerede vazgeçmeli?</b></div>
+  </div>
+  <div class="iz-system-comment"><span>RİSK</span><p>Risk seviyesi ve olumsuz gerekçeler, yüksek görünen bir skoru sınırlandırabilir. Merkezi Karar bu çelişkileri sizin yerinize birlikte değerlendirir.</p></div>
+  <div class="iz-system-comment"><span>PARA AKIŞI</span><p>Fiyat hareketinin hacim ve para katılımıyla desteklenip desteklenmediğini gösterir. Zayıf akış, güçlü görünen hareketin kalıcılığını azaltabilir.</p></div>
+  <div class="iz-system-comment"><span>PEG / DEĞERLEME</span><p>Teknik karardan ayrı, tamamlayıcı bir değerleme bilgisidir. IZFIN Skoru'na veya Merkezi Karar'a doğrudan puan eklemez.</p></div>
+  <div class="iz-system-comment"><span>SEANS DIŞI</span><p>ABD hisselerinde ek fiyat bilgisidir. Normal seans göstergelerini ve Giriş Kalitesi puanını değiştirmez.</p></div>
+  <div class="iz-system-comment"><span>STOP / HEDEFLER</span><p>Stop teknik iptal noktasıdır; TP1, TP2 ve TP3 risk–ödül planlama seviyeleridir. Bunlar fiyat garantisi veya kesin tahmin değildir.</p></div>
+  <div class="iz-decision-foot">Detay panelindeki göstergeler, Merkezi Karar'ın gerekçesini açıklar. Tek bir RSI, MACD, skor veya hedef değeriyle işlem kararı vermeyin.</div>
 </div>
 """, unsafe_allow_html=True)
 
-    st.markdown("### 1) Önerilen kullanım sırası")
-    st.markdown("""
-1. **Varlıkları seçin ve Derin Taramayı çalıştırın.** İlk tarama; trendi, skoru, para akışını ve sinyali aynı tabloda karşılaştırır.  
-2. **Sadece sinyal adına bakmayın.** Gelişmiş skor, risk seviyesi, MTF uyumu, veri kaynağı ve çok zaman dilimli giriş kalitesini birlikte okuyun.  
-3. **Detay panelinde göstergelerin birbiriyle uyumunu kontrol edin.** RSI düşükken MACD ve para akışı hâlâ zayıfsa dönüş teyidi tamamlanmamış olabilir.  
-4. **Destek, stop ve hedefleri işlemden önce birlikte okuyun.** Teknik seviyeler olasılık bölgesidir; tek bir hedef veya stop değeri kesin sonuç olarak görülmemelidir.  
-5. **Sinyal performansı ve backtest sonuçlarını izleyin.** Stratejinin hangi piyasa ve RSI bölgelerinde daha iyi çalıştığını zaman içinde ölçün.
-""")
-
-    st.markdown("### 2) Tarama tablosundaki sütunlar nasıl okunur?")
-    st.markdown("""
-| Alan | Ne anlatır? | Nasıl yorumlanmalı? |
-|---|---|---|
-| **Varlık / Fiyat** | Güncel sembol, fiyat ve günlük değişim | Fiyatın tek başına ucuz veya pahalı olduğunu göstermez. |
-| **Görec. Güç (Sektör)** | Yaklaşık 1 aylık performansın referans endekse göre farkı ve hacim oranı | Pozitif fark göreceli gücü; yüksek hacim oranı daha geniş katılımı gösterir. |
-| **Hibrit / Cezalı Skor** | Eski cezalı skor ile yeni teyit bonus ve cezalarının birleşimi | **70+ güçlü**, **50–69 nötr/karışık**, **50 altı cezalı** bölgedir; başarı olasılığı değildir. |
-| **Para Akışı** | MFI, OBV, CMF ve hacim davranışının özeti | Fiyat yükselirken para akışı zayıfsa hareketin kalıcılığı sorgulanmalıdır. |
-| **PEG / Değerleme** | Şirketin büyümesine göre değerleme oranını ve kısa etiketi gösterir | Teknik skora dahil edilmez. Düşük pozitif PEG büyümeye göre daha makul değerlemeye, yüksek PEG daha yüksek büyüme primine işaret edebilir. |
-| **Nihai Sinyal** | Algoritmanın teknik koşullara verdiği sınıflandırma | Emir değildir; sinyal açıklaması ve risk planıyla birlikte kullanılmalıdır. |
-| **Giriş Kalitesi** | Normal seanstaki 5 dk, 15 dk ve 1 saat zamanlamasının alım ön sinyalini destekleyip desteklemediği | Premarket/after-hours mumları puana girmez. 85+ ve üst zaman dilimi teyidi varsa “Teyit Edildi”; 75+ güçlü, 55+ erken, 35+ hazırlanıyor, altı uygun değil olarak sınıflanır. |
-| **Karma Destek / Direnç** | Tepe-dip, EMA50, Bollinger ve ATR’den türetilen karar seviyeleri | Destek altı kalıcılık riski; direnç üstü hacimli kapanış yükseliş senaryosunu güçlendirir. |
-| **Süren Stop** | ATR/Chandelier mantığıyla hesaplanan teknik iptal noktası | Gap ve sert haber hareketlerinde fiyat stop seviyesini atlayabilir. |
-| **TP1 / TP2 / TP3** | Giriş–stop riskinin gerçek teknik direnç ve volatilite seviyeleri | Fiyat tahmini değil, risk/ödül planlama seviyeleridir. |
-| **Seans Dışı** | ABD hisselerinde varsa premarket/after-hours son fiyatı | Yalnızca ek bilgidir; skora, RSI/MACD/ATR’ye ve Giriş Kalitesine dahil edilmez. |
-| **Veri Kaynağı** | Finnhub, Yahoo 5 dk veya fallback bilgisi | Teknik motor normal seans verisini kullanır; kaynaklar arasında küçük fiyat ve zaman farkları oluşabilir. |
-""")
-
-    st.markdown("### 3) Hibrit skor nasıl oluşur?")
-    st.markdown("""
-Skorun ana gövdesi **eski cezalı skor sistemidir**. Yeni göstergeler bu sistemi değiştirmek yerine kontrollü bonus veya ceza ekler.
-
-**Eski skorun ana kalemleri**
-- Fiyatın **SMA 200** üzerindeki konumu
-- Fiyatın **EMA 50** üzerindeki konumu
-- Hacim ve OBV uyumu
-- RSI bölgesi
-- MACD–sinyal çizgisi ilişkisi
-- Bollinger konumu
-- Likidite / sığ tahta cezası
-
-**Gelişmiş doğrulama katmanı**
-- ADX ve +DI/−DI ile trend gücü
-- CMF ve diğer para akışı teyitleri
-- SuperTrend yönü
-- Seans VWAP konumu
-- Sektöre/endekse göre göreceli güç
-- 5 dk, 15 dk, 1 saat, 4 saat ve günlük zaman dilimi uyumu
-
-Gelişmiş bonus ve cezalar sınırlandırılır; böylece yeni katman eski skorun karakterini bastırmaz. Detay panelindeki **“Skor nasıl oluştu?”** alanı puanları ayrı gösterir.
-""")
-
-    st.markdown("### 4) Sinyallerin doğru anlamı")
-    st.markdown("""
-- **🟢 Kusursuz Alım:** Uzun vadeli trend korunurken fiyatın Bollinger alt bandı/destek bölgesine güçlü biçimde geri çekildiği yüksek öncelikli adaydır. Düşük RSI dönüş garantisi değildir; hacim ve kısa vadeli tepki teyidi aranmalıdır.
-- **🔵 Kademeli Alım:** Ana trend pozitif kalmasına rağmen kısa vadeli zayıflık sürmektedir. Kesin dönüş teyidi olmadığı için tek seferde tam pozisyon yerine kontrollü kademeler önerir.
-- **🚀 Yükseliş Kırılımı:** Önceki direnç; hacim, EMA 9–21 ve trend desteğiyle aşılmıştır. Kırılan seviyenin destek olarak korunması kritiktir.
-- **🌟 Uzun Vadeli Teknik Aday:** SMA 200 üzerindeki güçlü teknik trend ve yüksek skor yapısını gösterir. **Temel analiz veya GARP sinyali değildir.**
-- **🟡 Hacimli Tepki:** Olağan dışı hacimli toparlanmadır; izleme sinyalidir, doğrudan alım sinyali değildir.
-- **🟡 Momentum Aşırı Isındı:** Trend güçlüdür ancak fiyat kısa vadede üst bant/yüksek RSI bölgesindedir. Yeni alım yerine geri çekilme veya kırılan seviyenin destek olarak çalışması beklenir.
-- **🟠 Kâr Realizasyonu:** Yüksek RSI ile birlikte MACD, kısa EMA veya para akışında bozulma oluştuğunda risk azaltma ve kısmi kâr koruma uyarısıdır.
-- **🧗 Kurtuluş Çabası:** Ana trend zayıfken kısa vadeli toparlanmadır. SMA 200 ve güçlü hacim teyidi gelmeden dönüş tamamlanmış sayılmaz.
-- **🔴 Uzak Dur:** Trend, momentum, para akışı veya likidite yapısında yeni alımı desteklemeyen ağır riskler vardır.
-- **⚪ Nötr:** Sistem ortak yön bulamamıştır; işlem üretmek yerine teyit bekler.
-""")
-
-    st.markdown("### 5) Göstergeler birlikte nasıl okunur?")
-    st.markdown("""
-- **RSI:** 30 altı aşırı satış, 70 üstü aşırı alım için klasik referanstır; tek başına dönüş sinyali değildir.
-- **MACD:** MACD'nin sinyal çizgisinin üzerinde olması momentum avantajını destekler; histogram yönü de önemlidir.
-- **ADX / DI:** ADX trend gücünü ölçer. +DI > −DI yükseliş, −DI > +DI düşüş yönünü destekler.
-- **MFI / OBV / CMF:** Fiyat hareketine para ve hacim katılımını ölçer. Ayrışma varsa sinyal güveni düşer.
-- **VWAP:** Gün içi ortalama işlem maliyetidir. Fiyatın üzerinde kalması kısa vadeli alıcı avantajını destekleyebilir.
-- **ATR:** Yön değil, hareket genişliği ve risk ölçüsüdür. ATR yükseldikçe teknik stop ve hedef aralıkları genişleyebilir.
-- **MTF uyumu:** Zaman dilimlerinin aynı yönde olması teyidi artırır; çatışma varsa daha küçük pozisyon veya bekleme uygundur.
-""")
-
-    st.markdown("### 6) Destek, stop ve teknik hedefler")
-    st.markdown("""
-- **Karma destek/direnç**, geçmiş tepe-dip, EMA50, Bollinger ve ATR bileşimidir.
-- **Süren stop**, ATR/Chandelier ve geçerli teknik destek yapısına göre dinamik biçimde güncellenir.
-- **TP1 / TP2 / TP3**, önceki 20/50/100 günlük tepeler, Bollinger üst bant, ATR uzantıları, swing seviyeleri ve tarihsel volatilite projeksiyonunun kümelenmesinden üretilen teknik hedeflerdir.
-- Yeni taramalarda güncel stop ve hedefler değişebilir. **Sinyal Performans Takibi** ise ilk alım anındaki stop ve TP1/TP2/TP3 değerlerini ayrıca dondurur ve geçmiş başarısını bu ilk plana göre ölçer.
-- Aynı yönde yüksek korelasyonlu hisseler toplam portföy riskini büyütebilir.
-""")
-
-    st.markdown("### 7) Uygulama yapısı")
-    st.markdown("""
-- **🚀 Analiz Merkezi:** Derin tarama, detaylı teknik analiz, şeffaf karar motoru ve isteğe bağlı projeksiyon/senaryo analizi tek akışta sunulur.
-- **📊 Takip & Performans:** Gerçekte oluşmuş alım dönemlerini, aktif/kapanmış pozisyonları ve 1/5/10/20/45 günlük performans karnesini birlikte izler.
-- **🧪 Strateji Laboratuvarı:** IZFIN Daily Core motorunu geçmiş veride yeniden çalıştırır; özet başarı ölçümleri ve geçmiş karar ayrıntıları aynı bölümde tutulur.
-- **Hesap güvenliği:** Email/Password girişi Firebase Authentication ile doğrulanır; “Beni hatırla” seçeneğinde Firebase session cookie kullanılır. Kişisel liste ve takip verileri kullanıcı UID'sine bağlı tutulur.
-""")
-
-    st.warning("Bu uygulama algoritmik teknik analiz ve karar desteği sağlar; yatırım tavsiyesi, kesin getiri veya zarar etmeme garantisi değildir. Haber, bilanço, makro gelişme, likidite ve piyasa boşlukları teknik seviyeleri geçersiz kılabilir.")
+    st.warning("IZFIN algoritmik teknik analiz ve karar desteği sağlar; yatırım tavsiyesi veya getiri garantisi değildir. Haber, bilanço, makro gelişme, likidite ve piyasa boşlukları teknik seviyeleri geçersiz kılabilir.")
 
 if "izfin_nav" not in st.session_state:
     st.session_state.izfin_nav = "🏠 Ana Sayfa"
