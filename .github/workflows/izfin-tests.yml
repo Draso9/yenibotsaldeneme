@@ -58,8 +58,8 @@ jobs:
       - name: Create CI-only Streamlit secrets file
         shell: bash
         run: |
-          mkdir -p .streamlit
-          cat > .streamlit/secrets.toml <<'EOF'
+          mkdir -p "${HOME}/.streamlit"
+          cat > "${HOME}/.streamlit/secrets.toml" <<'EOF'
           # CI smoke-test fixture only. Production secrets are never committed.
           FINNHUB_API_KEY = ""
           GOOGLE_OAUTH_CLIENT_ID = ""

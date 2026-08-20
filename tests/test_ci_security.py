@@ -15,6 +15,9 @@ def test_workflow_creates_ci_only_secrets_fixture():
     text = workflow.read_text(encoding="utf-8")
     assert "Create CI-only Streamlit secrets file" in text
     assert 'FINNHUB_API_KEY = ""' in text
+    assert 'mkdir -p "${HOME}/.streamlit"' in text
+    assert 'cat > "${HOME}/.streamlit/secrets.toml"' in text
+    assert "cat > .streamlit/secrets.toml" not in text
 
 
 def test_ci_runtime_matches_streamlit_cloud():
