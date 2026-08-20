@@ -4679,6 +4679,34 @@ hesap erişimi askıya alınabilir.
 """)
 
 
+@st.dialog("Gizlilik & KVKK", width="large", icon="🛡️")
+def izfin_gizlilik_modal_render():
+    """Giriş akışını bozmadan KVKK metnini ön planda gösterir."""
+    st.html('<span class="iz-legal-modal-marker" aria-hidden="true"></span>')
+    izfin_gizlilik_metni_render(kapida=True)
+    if st.button(
+        "Okudum, giriş ekranına dön",
+        key="close_privacy_modal",
+        type="primary",
+        use_container_width=True,
+    ):
+        st.rerun()
+
+
+@st.dialog("Kullanım Koşulları", width="large", icon="📑")
+def izfin_kullanim_kosullari_modal_render():
+    """Giriş akışını bozmadan kullanım koşullarını ön planda gösterir."""
+    st.html('<span class="iz-legal-modal-marker" aria-hidden="true"></span>')
+    izfin_kullanim_kosullari_render(kapida=True)
+    if st.button(
+        "Okudum, giriş ekranına dön",
+        key="close_terms_modal",
+        type="primary",
+        use_container_width=True,
+    ):
+        st.rerun()
+
+
 def _json_uyumlu(deger):
     """Firestore/pandas değerlerini indirilebilir, güvenli JSON biçimine dönüştürür."""
     if deger is None or isinstance(deger, (str, int, bool)):
@@ -5133,17 +5161,19 @@ def izfin_auth_ekrani():
 
         legal_col1, legal_col2 = st.columns(2)
         with legal_col1:
-            st.link_button(
+            if st.button(
                 "Gizlilik & KVKK",
-                _yasal_url("privacy"),
+                key="auth_privacy_modal",
                 use_container_width=True,
-            )
+            ):
+                izfin_gizlilik_modal_render()
         with legal_col2:
-            st.link_button(
+            if st.button(
                 "Kullanım Koşulları",
-                _yasal_url("terms"),
+                key="auth_terms_modal",
                 use_container_width=True,
-            )
+            ):
+                izfin_kullanim_kosullari_modal_render()
         st.markdown('<div class="iz-auth-security"><span>◈ <b>Firebase Auth</b></span><span>◈ <b>Kişisel veri alanı</b></span><span>◈ <b>14 gün güvenli oturum</b></span></div>', unsafe_allow_html=True)
 
     st.markdown('<div class="iz-auth-shell"><div class="iz-auth-footer">IZFIN · ANALYZE • PREDICT • INVEST &nbsp;·&nbsp; Yatırım karar destek platformu</div></div>', unsafe_allow_html=True)

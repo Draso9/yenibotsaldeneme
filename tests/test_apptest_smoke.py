@@ -76,6 +76,23 @@ def test_no_raw_python_traceback_is_rendered_to_user():
 
 
 @pytest.mark.parametrize(
+    ("button_label", "close_key"),
+    [
+        ("Gizlilik & KVKK", "close_privacy_modal"),
+        ("Kullanım Koşulları", "close_terms_modal"),
+    ],
+)
+def test_auth_legal_buttons_open_native_modal(button_label, close_key):
+    at = _run_app()
+    opener = next(button for button in at.button if button.label == button_label)
+
+    at = opener.click().run()
+
+    assert len(at.exception) == 0
+    assert any(button.key == close_key for button in at.button)
+
+
+@pytest.mark.parametrize(
     "required_file",
     ["app2.py", "styles/izfin.css", "styles/izfin-legal.css"],
 )

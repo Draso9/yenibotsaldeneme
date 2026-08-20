@@ -228,6 +228,52 @@ div[data-testid="stVerticalBlockBorderWrapper"]:has(.iz-legal-shell-marker) [dat
     font-weight:750;
     white-space:nowrap;
 }
+
+/* Login ekranındaki yasal belgeler: sayfadan ayrılmadan native modal deneyimi. */
+.iz-legal-modal-marker{
+    display:block;
+    width:52px;
+    height:3px;
+    margin:-2px 0 13px;
+    border-radius:999px;
+    background:linear-gradient(90deg,var(--iz-blue),var(--iz-cyan));
+    box-shadow:0 0 18px rgba(24,224,232,.28);
+}
+div[data-testid="stDialog"]:has(.iz-legal-modal-marker){
+    background:rgba(1,8,14,.72);
+    backdrop-filter:blur(9px);
+}
+div[data-testid="stDialog"]:has(.iz-legal-modal-marker) [role="dialog"]{
+    overflow:hidden;
+    border:1px solid rgba(39,201,218,.32);
+    border-radius:22px;
+    background:
+        radial-gradient(circle at 92% 4%,rgba(24,224,232,.11),transparent 25%),
+        linear-gradient(150deg,rgba(8,24,37,.99),rgba(4,13,22,.995));
+    box-shadow:0 32px 100px rgba(0,0,0,.62),inset 0 1px 0 rgba(255,255,255,.04);
+}
+div[data-testid="stDialog"]:has(.iz-legal-modal-marker) [role="dialog"]>div{
+    scrollbar-width:thin;
+    scrollbar-color:#1d6781 rgba(4,14,23,.75);
+}
+div[data-testid="stDialog"]:has(.iz-legal-modal-marker) h3{
+    margin:19px 0 7px!important;
+    padding-bottom:7px;
+    color:#ecf8fd!important;
+    border-bottom:1px solid rgba(45,100,136,.24);
+    font-size:16px!important;
+}
+div[data-testid="stDialog"]:has(.iz-legal-modal-marker) [data-testid="stMarkdownContainer"] p,
+div[data-testid="stDialog"]:has(.iz-legal-modal-marker) [data-testid="stMarkdownContainer"] li{
+    color:#a6bac8!important;
+    font-size:13px!important;
+    line-height:1.72!important;
+}
+div[data-testid="stDialog"]:has(.iz-legal-modal-marker) button[kind="primary"]{
+    min-height:48px!important;
+    margin-top:8px;
+    border-radius:12px!important;
+}
 div[data-testid="stVerticalBlockBorderWrapper"]:has(.iz-legal-shell-marker) h3{
     margin:18px 0 6px!important;
     padding:0 0 7px;
@@ -386,6 +432,14 @@ div[data-testid="stVerticalBlockBorderWrapper"]:has(.iz-legal-approval-marker) b
     div[data-testid="stVerticalBlockBorderWrapper"]:has(.iz-legal-approval-marker){
         padding:15px 13px 14px;
         border-radius:15px!important;
+    }
+    div[data-testid="stDialog"]:has(.iz-legal-modal-marker) [role="dialog"]{
+        border-radius:17px;
+    }
+    div[data-testid="stDialog"]:has(.iz-legal-modal-marker) [data-testid="stMarkdownContainer"] p,
+    div[data-testid="stDialog"]:has(.iz-legal-modal-marker) [data-testid="stMarkdownContainer"] li{
+        font-size:12px!important;
+        line-height:1.65!important;
     }
 }
 

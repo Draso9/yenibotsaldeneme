@@ -86,6 +86,25 @@ def test_legal_gate_uses_versioned_professional_experience():
     assert "font-size:9px" not in css
 
 
+def test_auth_legal_documents_open_in_native_modals():
+    source = _source()
+    auth_start = source.index("def izfin_auth_ekrani():")
+    auth_end = source.index("def _iz_sort_num", auth_start)
+    auth_source = source[auth_start:auth_end]
+    css = (APP.parent / "styles" / "izfin-legal.css").read_text(encoding="utf-8")
+
+    assert '@st.dialog("Gizlilik & KVKK", width="large"' in source
+    assert '@st.dialog("Kullanım Koşulları", width="large"' in source
+    assert 'key="auth_privacy_modal"' in auth_source
+    assert 'key="auth_terms_modal"' in auth_source
+    assert "izfin_gizlilik_modal_render()" in auth_source
+    assert "izfin_kullanim_kosullari_modal_render()" in auth_source
+    assert 'st.link_button(\n                "Gizlilik & KVKK"' not in auth_source
+    assert 'st.link_button(\n                "Kullanım Koşulları"' not in auth_source
+    assert '.iz-legal-modal-marker' in css
+    assert 'div[data-testid="stDialog"]' in css
+
+
 def test_user_export_and_delete_cover_every_user_collection():
     source = _source()
     for collection in (
