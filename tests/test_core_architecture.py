@@ -89,6 +89,7 @@ def test_app_imports_extracted_core_modules():
         "izfin_core.performance_engine",
         "izfin_ui.analysis_views",
         "izfin_ui.home_dashboard",
+        "izfin_ui.projection_view",
         "izfin_ui.scan_results",
         "izfin_services.yahoo_client",
         "izfin_services.finnhub_client",
@@ -255,4 +256,15 @@ def test_home_dashboard_orchestration_stays_outside_streamlit_shell():
     assert "home_scan_bos_mu(" in source
     assert "setup_rank = skor * .52" not in source
     assert "adaylar.append((setup_rank" not in source
+
+
+def test_projection_view_model_stays_outside_streamlit_shell():
+    source = APP.read_text(encoding="utf-8")
+    assert "projection_hazir_mi(" in source
+    assert "projection_varliklari_hazirla(" in source
+    assert "projection_senaryo_hazirla(" in source
+    assert "if not st.session_state.tarama_durumu or not st.session_state.teknik_paneller:" not in source
+    assert 'destek = float(panel.get("destek"' not in source
+    assert "model_farki = abs(proj['atr_yuzde'] - proj['volatilite_yuzde'])" not in source
+    assert 'yon_class = "neutral"' not in source
 
