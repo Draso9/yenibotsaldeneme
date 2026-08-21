@@ -1,5 +1,5 @@
 Scanner P7 diagnostic
-commit=efe5341e33368f7e49db94c7117086643b6e49cc
+commit=852bab890f7db2fa9923e6922e71b20ba3f00980
 python=Python 3.14.7
 
 === APPLY ===
@@ -8,6 +8,7 @@ APPLY_CODE=0
 
 === DIFF ===
 app2.py
+qa/scanner-p7-diagnostic.txt
 
 VERIFY_SCOPE=PASS
 VERIFY_CODE=0
