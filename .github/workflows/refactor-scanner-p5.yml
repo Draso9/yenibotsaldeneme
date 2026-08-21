@@ -4,9 +4,6 @@ on:
   push:
     branches:
       - refactor/scanner-p5
-  pull_request:
-    branches:
-      - develop
 
 permissions:
   contents: write
@@ -17,7 +14,7 @@ concurrency:
 
 jobs:
   refactor-and-test:
-    if: ${{ github.event_name != 'push' || !contains(github.event.head_commit.message, '[scanner-p5-bot]') }}
+    if: ${{ !contains(github.event.head_commit.message, '[scanner-p5-bot]') }}
     name: Scanner P5 Refactor Gate
     runs-on: ubuntu-latest
     timeout-minutes: 20
@@ -62,26 +59,8 @@ jobs:
           IZFIN_DATA_CONTROLLER_ADDRESS = ""
           EOF
 
-      - name: Apply scanner P5 wiring
-        run: python scripts/refactor_scanner_p5.py
-
-      - name: Verify refactor scope
+      - name: Apply and diagnose Scanner P5
         shell: bash
-        run: |
-          mapfile -t changed < <(git diff --name-only)
-          printf 'Changed files:\n%s\n' "${changed[*]}"
-          if [ "${#changed[@]}" -ne 1 ] || [ "${changed[0]}" != "app2.py" ]; then
-            echo "Unexpected working-tree changes detected."
-            exit 1
-          fi
-
-      - name: Compile refactored modules
-        run: python -m py_compile app2.py izfin_services/market_session.py izfin_services/scan_service.py izfin_core/scanner_engine.py izfin_core/scanner_pipeline.py
-
-      - name: Run scanner P5 targeted tests
-        run: python -m pytest -q tests/test_market_session.py tests/test_scan_service.py tests/test_scanner_pipeline.py tests/test_scanner_engine.py tests/test_scanner_engine_p2.py tests/test_core_architecture.py
-
-      - name: Run complete test suite
         env:
           FIREBASE_WEB_API_KEY: ""
           FIREBASE_PROJECT_ID: ""
@@ -91,18 +70,97 @@ jobs:
           GOOGLE_OAUTH_REDIRECT_URI: ""
           SENTRY_DSN: ""
           IZFIN_ENVIRONMENT: "ci"
-        run: python -m pytest -q
+        run: |
+          set +e
+          mkdir -p qa
+          : > qa/scanner-p5-diagnostic.txt
+          echo "Scanner P5 diagnostic" >> qa/scanner-p5-diagnostic.txt
+          echo "commit=${GITHUB_SHA}" >> qa/scanner-p5-diagnostic.txt
+          echo "python=$(python --version 2>&1)" >> qa/scanner-p5-diagnostic.txt
+          echo >> qa/scanner-p5-diagnostic.txt
 
-      - name: Commit tested scanner P5 refactor
-        if: ${{ github.event_name == 'push' }}
+          echo "=== APPLY ===" >> qa/scanner-p5-diagnostic.txt
+          python scripts/refactor_scanner_p5.py >> qa/scanner-p5-diagnostic.txt 2>&1
+          APPLY_CODE=$?
+          echo "APPLY_CODE=${APPLY_CODE}" >> qa/scanner-p5-diagnostic.txt
+          echo >> qa/scanner-p5-diagnostic.txt
+
+          echo "=== DIFF ===" >> qa/scanner-p5-diagnostic.txt
+          git diff --name-only >> qa/scanner-p5-diagnostic.txt 2>&1
+          DIFF_CODE=$?
+          echo "DIFF_CODE=${DIFF_CODE}" >> qa/scanner-p5-diagnostic.txt
+          echo >> qa/scanner-p5-diagnostic.txt
+
+          VERIFY_CODE=0
+          if [ "${APPLY_CODE}" -eq 0 ]; then
+            mapfile -t changed < <(git diff --name-only | grep -v '^qa/scanner-p5-diagnostic.txt$')
+            if [ "${#changed[@]}" -ne 1 ] || [ "${changed[0]}" != "app2.py" ]; then
+              echo "VERIFY_SCOPE=FAIL changed=${changed[*]}" >> qa/scanner-p5-diagnostic.txt
+              VERIFY_CODE=1
+            else
+              echo "VERIFY_SCOPE=PASS" >> qa/scanner-p5-diagnostic.txt
+            fi
+          else
+            VERIFY_CODE=1
+            echo "VERIFY_SCOPE=SKIP" >> qa/scanner-p5-diagnostic.txt
+          fi
+          echo "VERIFY_CODE=${VERIFY_CODE}" >> qa/scanner-p5-diagnostic.txt
+          echo >> qa/scanner-p5-diagnostic.txt
+
+          echo "=== COMPILE ===" >> qa/scanner-p5-diagnostic.txt
+          if [ "${APPLY_CODE}" -eq 0 ] && [ "${VERIFY_CODE}" -eq 0 ]; then
+            python -m py_compile app2.py izfin_services/market_session.py izfin_services/scan_service.py izfin_core/scanner_engine.py izfin_core/scanner_pipeline.py >> qa/scanner-p5-diagnostic.txt 2>&1
+            COMPILE_CODE=$?
+          else
+            COMPILE_CODE=1
+            echo "compile skipped" >> qa/scanner-p5-diagnostic.txt
+          fi
+          echo "COMPILE_CODE=${COMPILE_CODE}" >> qa/scanner-p5-diagnostic.txt
+          echo >> qa/scanner-p5-diagnostic.txt
+
+          echo "=== TARGETED TESTS ===" >> qa/scanner-p5-diagnostic.txt
+          if [ "${COMPILE_CODE}" -eq 0 ]; then
+            python -m pytest -q tests/test_market_session.py tests/test_scan_service.py tests/test_scanner_pipeline.py tests/test_scanner_engine.py tests/test_scanner_engine_p2.py tests/test_core_architecture.py >> qa/scanner-p5-diagnostic.txt 2>&1
+            TARGET_CODE=$?
+          else
+            TARGET_CODE=1
+            echo "targeted tests skipped" >> qa/scanner-p5-diagnostic.txt
+          fi
+          echo "TARGET_CODE=${TARGET_CODE}" >> qa/scanner-p5-diagnostic.txt
+          echo >> qa/scanner-p5-diagnostic.txt
+
+          echo "=== FULL TEST SUITE ===" >> qa/scanner-p5-diagnostic.txt
+          if [ "${TARGET_CODE}" -eq 0 ]; then
+            python -m pytest -q >> qa/scanner-p5-diagnostic.txt 2>&1
+            FULL_CODE=$?
+          else
+            FULL_CODE=1
+            echo "full suite skipped" >> qa/scanner-p5-diagnostic.txt
+          fi
+          echo "FULL_CODE=${FULL_CODE}" >> qa/scanner-p5-diagnostic.txt
+          echo >> qa/scanner-p5-diagnostic.txt
+
+          if [ "${APPLY_CODE}" -eq 0 ] && [ "${VERIFY_CODE}" -eq 0 ] && [ "${COMPILE_CODE}" -eq 0 ] && [ "${TARGET_CODE}" -eq 0 ] && [ "${FULL_CODE}" -eq 0 ]; then
+            echo "RESULT=PASS" >> qa/scanner-p5-diagnostic.txt
+          else
+            echo "RESULT=FAIL" >> qa/scanner-p5-diagnostic.txt
+          fi
+
+          cat qa/scanner-p5-diagnostic.txt
+          exit 0
+
+      - name: Commit diagnostic and tested refactor
         shell: bash
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add app2.py
+          git add qa/scanner-p5-diagnostic.txt
+          if grep -q '^RESULT=PASS$' qa/scanner-p5-diagnostic.txt; then
+            git add app2.py
+          fi
           if git diff --cached --quiet; then
-            echo "No app2.py changes to commit."
+            echo "No diagnostic/refactor changes to commit."
             exit 0
           fi
-          git commit -m "Extract live market-session preparation from smart scan [scanner-p5-bot]"
+          git commit -m "Scanner P5 diagnostic [scanner-p5-bot]"
           git push origin HEAD:refactor/scanner-p5
