@@ -5,6 +5,8 @@ import pandas as pd
 
 from izfin_core.scanner_engine import hibrit_skor_hesapla
 from izfin_core.scanner_pipeline import (
+    gelismis_teyit_paketi_hesapla,
+    karar_paketi_olustur,
     risk_volatilite_hazirla,
     teknik_panel_paketi_olustur,
     temel_teknik_gostergeleri_hesapla,
@@ -21,6 +23,21 @@ def _ohlcv_ornek(periods=240):
             "Low": close - 1.1,
             "Close": close,
             "Volume": np.linspace(1_000_000, 1_800_000, periods),
+        },
+        index=idx,
+    )
+
+
+def _intraday_ornek(periods=360):
+    idx = pd.date_range("2025-09-01 10:00", periods=periods, freq="5min")
+    close = np.linspace(116.0, 121.0, periods) + np.sin(np.arange(periods) / 17.0) * 0.3
+    return pd.DataFrame(
+        {
+            "Open": close - 0.1,
+            "High": close + 0.25,
+            "Low": close - 0.25,
+            "Close": close,
+            "Volume": np.linspace(30_000, 60_000, periods),
         },
         index=idx,
     )
@@ -83,6 +100,46 @@ def test_risk_volatilite_package_contains_levels_and_risk_metadata():
     assert {"s1", "s2", "s3", "r1", "r2", "r3"}.issubset(risk["seviyeler"])
 
 
+def test_gelismis_teyit_paketi_tek_sozlesmede_uretilir():
+    sonuc = gelismis_teyit_paketi_hesapla(_ohlcv_ornek(), _intraday_ornek())
+    assert {"adx", "plus_di", "minus_di", "cmf", "ad_line"}.issubset(sonuc)
+    assert {"supertrend", "supertrend_line", "vwap", "mtf_detay", "mtf_uyum"}.issubset(sonuc)
+    assert np.isfinite(sonuc["adx"])
+    assert np.isfinite(sonuc["cmf"])
+    assert sonuc["supertrend"] in {-1, 1}
+    assert 0 <= sonuc["mtf_uyum"] <= 100
+
+
+def test_karar_paketi_profil_guven_ve_merkezi_karari_birlestirir():
+    df = _ohlcv_ornek()
+    temel = temel_teknik_gostergeleri_hesapla(df)
+    gelismis = gelismis_teyit_paketi_hesapla(df, _intraday_ornek())
+    risk = risk_volatilite_hazirla(
+        df,
+        fiyat=float(df["Close"].iloc[-1]),
+        ema50=temel["ema50"],
+        bb_alt=temel["bb_alt"],
+        bb_mid=temel["bb_mid"],
+        bb_ust=temel["bb_ust"],
+        adx=gelismis["adx"],
+    )
+    karar = karar_paketi_olustur(
+        on_sinyal="KADEMELİ ALIM 🔵",
+        skor=76,
+        tetik={"puan": 68, "asama": "TEYİTLİ", "sahte_kirilim": False},
+        fiyat=float(df["Close"].iloc[-1]),
+        temel=temel,
+        gelismis=gelismis,
+        risk=risk,
+        sektorel_fark=2.5,
+    )
+    assert karar["profil"]
+    assert 20 <= karar["guven_skoru"] <= 95
+    assert karar["sinyal"] == karar["merkezi_karar"]["karar"]
+    assert karar["merkezi_girdi"]["giris_puani"] == 68
+    assert karar["hata"] is None
+
+
 def test_teknik_panel_paketi_preserves_core_contract():
     df = _ohlcv_ornek()
     temel = temel_teknik_gostergeleri_hesapla(df)
@@ -113,7 +170,6 @@ def test_teknik_panel_paketi_preserves_core_contract():
             "vwap": 118.0,
             "mtf_detay": {},
             "mtf_uyum": 75,
-            "guven_skoru": 82,
         },
         tetik={"puan": 70, "seviye": "GÜÇLÜ", "detay": [], "asama": "TEYİTLİ"},
         karar={
@@ -121,6 +177,7 @@ def test_teknik_panel_paketi_preserves_core_contract():
             "profil": "Trend",
             "on_sinyal": "KADEMELİ ALIM 🔵",
             "merkezi_karar": {"aksiyon": "AL"},
+            "guven_skoru": 82,
         },
         piyasa={
             "hacim": 1_800_000,

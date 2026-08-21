@@ -65,6 +65,11 @@ from izfin_core.scanner_engine import (
     risk_volatilite_hazirla,
     temel_teknik_gostergeleri_hesapla,
 )
+from izfin_core.scanner_pipeline import (
+    gelismis_teyit_paketi_hesapla,
+    karar_paketi_olustur,
+    teknik_panel_paketi_olustur,
+)
 from izfin_core.technical_analysis import (
     _backtest_adx_serileri,
     _backtest_daily_mtf_proxy,
@@ -4253,13 +4258,19 @@ if aktif_sayfa in ["🏠 Ana Sayfa", "🔎 Akıllı Tarama"]:
                         ema_21_val = temel["ema21"]
                         ema_50_val = temel["ema50"]
 
-                        # Gelişmiş teyitler: ADX, CMF, A/D, SuperTrend, VWAP ve çoklu zaman dilimi.
-                        adx, plus_di, minus_di = adx_hesapla(df_long)
-                        cmf, ad_line = cmf_hesapla(df_long)
-                        supertrend, supertrend_line = supertrend_hesapla(df_long)
-                        vwap = seans_vwap_hesapla(df_intraday)
-                        mtf_detay, mtf_uyum = coklu_zaman_dilimi_analizi(df_intraday, df_long)
-                        
+                        # Gelişmiş teyitler tek scanner pipeline paketinde hazırlanır.
+                        gelismis_paket = gelismis_teyit_paketi_hesapla(df_long, df_intraday)
+                        adx = gelismis_paket["adx"]
+                        plus_di = gelismis_paket["plus_di"]
+                        minus_di = gelismis_paket["minus_di"]
+                        cmf = gelismis_paket["cmf"]
+                        ad_line = gelismis_paket["ad_line"]
+                        supertrend = gelismis_paket["supertrend"]
+                        supertrend_line = gelismis_paket["supertrend_line"]
+                        vwap = gelismis_paket["vwap"]
+                        mtf_detay = gelismis_paket["mtf_detay"]
+                        mtf_uyum = gelismis_paket["mtf_uyum"]
+
                         para_durumu = f"Yoğun Para Girişi 🐋 (MFI:{mfi_val:.0f})" if mfi_val >= 70 else (f"Yoğun Para Çıkışı 📉 (MFI:{mfi_val:.0f})" if mfi_val <= 30 else f"Dengeli Akış ⚖️ (MFI:{mfi_val:.0f})")
                         if is_sig_tahta: para_durumu += " | Sığ Tahta ⚠️"
 
@@ -4380,89 +4391,47 @@ if aktif_sayfa in ["🏠 Ana Sayfa", "🔎 Akıllı Tarama"]:
                                 izfin_hata_logla("giris_motoru", e, ticker)
                                 mikro_teyit = "⚠️ Giriş motoru verisi alınamadı"
 
-                        # Eski motor artık işlem kararı vermek yerine teknik PROFİL üretir.
-                        # Yapı tanımları korunur; gerçek aksiyon tek merkezi motordan gelir.
-                        profil_sinyali = nihai_karar_motoru(
-                            on_sinyal, skor, int(tetik_sonucu.get("puan", 0)), bugun_kapanis,
-                            ema_9_val, ema_21_val, ema_50_val, sma_200, rsi,
-                            float(macd_serisi.iloc[-1]), float(macd_sinyal.iloc[-1]),
-                            cmf, mfi_val, bb_ust, adx
+                        # Profil, güven ve merkezi karar artık tek scanner pipeline sözleşmesinden gelir.
+                        karar_paketi = karar_paketi_olustur(
+                            on_sinyal=on_sinyal,
+                            skor=skor,
+                            tetik=tetik_sonucu,
+                            fiyat=bugun_kapanis,
+                            temel=temel,
+                            gelismis=gelismis_paket,
+                            risk=risk_paket,
+                            sektorel_fark=sektorel_fark,
                         )
-
-                        panel_ek = {
-                            'fiyat': float(bugun_kapanis), 'adx': adx, 'plus_di': plus_di, 'minus_di': minus_di,
-                            'cmf': cmf, 'supertrend': supertrend, 'vwap': vwap, 'mtf_uyum': mtf_uyum,
-                            'sektorel_fark': float(sektorel_fark), 'risk_odul': float(risk_odul),
-                            'risk_seviyesi': risk_seviyesi
-                        }
-                        guven_skoru = sinyal_guven_skoru(panel_ek, skor)
-
-                        merkezi_girdi = {
-                            **panel_ek,
-                            'profil': profil_sinyali, 'on_sinyal': on_sinyal,
-                            'nihai_skor': int(skor),
-                            'giris_puani': int(tetik_sonucu.get("puan", 0)),
-                            'giris_asamasi': tetik_sonucu.get("asama", "YOK"),
-                            'tetik_sahte_kirilim': bool(tetik_sonucu.get("sahte_kirilim", False)),
-                            'guven_skoru': int(guven_skoru), 'volatilite_rejimi': vol_rejimi,
-                            'ema9': float(ema_9_val), 'ema21': float(ema_21_val),
-                            'ema50': float(ema_50_val), 'sma200': float(sma_200),
-                            'rsi': float(rsi), 'mfi': float(mfi_val),
-                            'macd': float(macd_serisi.iloc[-1]), 'macd_signal': float(macd_sinyal.iloc[-1]),
-                            'bb_ust': float(bb_ust),
-                        }
-                        try:
-                            merkezi_karar = merkezi_karar_motoru(merkezi_girdi)
-                        except Exception as e:
-                            # Merkezi katman hiçbir zaman veri taramasını düşürmemeli.
-                            # Hata loglanır, varlık eski teknik profille görünmeye devam eder.
-                            izfin_hata_logla("merkezi_karar_motoru", e, ticker)
-                            merkezi_karar = {
-                                'karar': 'İZLE / TEYİT BEKLE 🟡',
-                                'aksiyon': 'IZLE',
-                                'profil': profil_sinyali,
-                                'guven': int(guven_skoru),
-                                'risk': risk_seviyesi,
-                                'mtf_uyum': int(mtf_uyum),
-                                'giris_puani': int(tetik_sonucu.get("puan", 0) or 0),
-                                'hibrit_skor': int(skor),
-                                'olumlu': [],
-                                'olumsuz': ['merkezi karar katmanında hesaplama hatası; güvenli izleme moduna geçildi'],
-                                'ozet': 'Karar katmanı hata verdiği için varlık taramadan atılmadı; güvenli izleme modu kullanıldı.'
-                            }
-                        sinyal = merkezi_karar['karar']
+                        if karar_paketi.get("hata") is not None:
+                            izfin_hata_logla("merkezi_karar_motoru", karar_paketi["hata"], ticker)
+                        profil_sinyali = karar_paketi["profil"]
+                        guven_skoru = karar_paketi["guven_skoru"]
+                        merkezi_karar = karar_paketi["merkezi_karar"]
+                        sinyal = karar_paketi["sinyal"]
                         if merkezi_karar.get('aksiyon') in {'GUCLU_AL', 'AL', 'ERKEN_AL'}:
                             alim_firsati += 1
 
-                        gecici_teknik_paneller[ticker] = {
-                            "ticker": ticker, "fiyat": float(bugun_kapanis), "gunluk_degisim": float(gunluk_degisim),
-                            "ema9": float(ema_9_val), "ema21": float(ema_21_val), "ema50": float(ema_50_val), "sma200": float(sma_200),
-                            "rsi": float(rsi), "mfi": float(mfi_val), "macd": float(macd_serisi.iloc[-1]), "macd_signal": float(macd_sinyal.iloc[-1]),
-                            "atr": float(atr), "hv20": float(hv20), "hv60": float(hv60), "obv": float(obv[-1]), "obv_ema": float(obv_ema.iloc[-1]),
-                            "bb_alt": float(bb_alt), "bb_mid": float(bb_mid), "bb_ust": float(bb_ust),
-                            "destek": float(karma_destek), "direnc": float(karma_direnc), "stop": float(trailing_stop),
-                            "tp1": float(tp1), "tp2": float(tp2), "tp3": float(tp3), "swing_low": float(swing_low), "swing_high": float(swing_high),
-                            "s1": float(seviyeler["s1"]), "s2": float(seviyeler["s2"]), "s3": float(seviyeler["s3"]),
-                            "r1": float(seviyeler["r1"]), "r2": float(seviyeler["r2"]), "r3": float(seviyeler["r3"]),
-                            "tp1_yildiz": int(seviyeler["tp1_yildiz"]), "tp2_yildiz": int(seviyeler["tp2_yildiz"]), "tp3_yildiz": int(seviyeler["tp3_yildiz"]),
-                            "hacim": float(bugun_hacim), "hacim_ort": float(hacim_sma20), "hacim_oran": float(hacim_oran),
-                            "sektorel_fark": float(sektorel_fark), "sinyal": sinyal, "profil": profil_sinyali, "on_sinyal": on_sinyal, "merkezi_karar": merkezi_karar, "veri_kaynagi": veri_kaynagi, "teyit": mikro_teyit,
-                            "tetik_puani": int(tetik_sonucu.get("puan", 0)), "tetik_seviyesi": tetik_sonucu.get("seviye", "⏳ TETİK YOK"),
-                            "tetik_detay": tetik_sonucu.get("detay", []), "tetik_direnc": tetik_sonucu.get("direnc"),
-                            "tetik_hacim_orani": float(tetik_sonucu.get("hacim_orani", 0.0)), "tetik_rsi": tetik_sonucu.get("rsi"),
-                            "tetik_mum_kalitesi": float(tetik_sonucu.get("mum_kalitesi", 0.0)), "tetik_sahte_kirilim": bool(tetik_sonucu.get("sahte_kirilim", False)),
-                            "giris_puani": int(tetik_sonucu.get("puan", 0)), "giris_seviyesi": tetik_sonucu.get("seviye", "⏳ GİRİŞ UYGUN DEĞİL"),
-                            "giris_asamasi": tetik_sonucu.get("asama", "YOK"), "giris_zaman_dilimleri": tetik_sonucu.get("zaman_dilimleri", {}),
-                            "giris_detay": tetik_sonucu.get("detay", []),
-                            "adx": float(adx), "plus_di": float(plus_di), "minus_di": float(minus_di), "cmf": float(cmf), "ad_line": float(ad_line),
-                            "supertrend": int(supertrend), "supertrend_line": float(supertrend_line), "vwap": float(vwap) if np.isfinite(vwap) else np.nan,
-                            "mtf_detay": mtf_detay, "mtf_uyum": int(mtf_uyum), "guven_skoru": int(guven_skoru),
-                            "risk_odul": float(risk_odul), "risk_yuzde": float(risk_yuzde), "risk_seviyesi": risk_seviyesi, "volatilite_rejimi": vol_rejimi,
-                            "sinyal_yonu": sinyal_yonu_belirle(sinyal), "cezali_skor": int(skor), "nihai_skor": int(skor),
-                            "eski_cezali_skor": int(eski_skor), "skor_bonus": int(gelismis_bonus),
-                            "skor_ceza": int(gelismis_ceza), "skor_aciklama": skor_aciklama,
-                            "seans_disi": seans_disi_metin, "seans_disi_fiyat": seans_disi_fiyat
-                        }
+                        gecici_teknik_paneller[ticker] = teknik_panel_paketi_olustur(
+                            ticker=ticker,
+                            fiyat=bugun_kapanis,
+                            gunluk_degisim=gunluk_degisim,
+                            temel=temel,
+                            risk=risk_paket,
+                            gelismis=gelismis_paket,
+                            tetik=tetik_sonucu,
+                            karar=karar_paketi,
+                            piyasa={
+                                "hacim": bugun_hacim,
+                                "hacim_ort": hacim_sma20,
+                                "hacim_oran": hacim_oran,
+                                "sektorel_fark": sektorel_fark,
+                                "veri_kaynagi": veri_kaynagi,
+                                "teyit": mikro_teyit,
+                                "seans_disi": seans_disi_metin,
+                                "seans_disi_fiyat": seans_disi_fiyat,
+                            },
+                            skor_aciklama=skor_aciklama,
+                        )
 
                         gecici_sozlu_analizler[ticker] = sozlu_teknik_analiz_olustur(
                             ticker=ticker, fiyat=bugun_kapanis, gunluk_degisim=gunluk_degisim,
