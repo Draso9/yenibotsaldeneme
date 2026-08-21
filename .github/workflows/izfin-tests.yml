@@ -2,15 +2,13 @@ name: IZFIN CI
 
 on:
   # Her develop güncellemesi main'e alınmadan önce tam kalite kapısından geçer.
-  # Scanner P2 refactor branch'i yalnızca bu geçici branch üzerinde aynı kapıyı kullanır.
   push:
     branches:
       - develop
-      - refactor/scanner-p2
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
   group: izfin-ci-${{ github.workflow }}-${{ github.ref }}
@@ -18,16 +16,13 @@ concurrency:
 
 jobs:
   quality-gate:
-    if: ${{ github.ref != 'refs/heads/refactor/scanner-p2' || !contains(github.event.head_commit.message, '[scanner-p2-bot]') }}
     name: IZFIN Quality Gate
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 15
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
-        with:
-          fetch-depth: 0
 
       - name: Set up Python
         uses: actions/setup-python@v7
@@ -78,25 +73,6 @@ jobs:
           IZFIN_DATA_CONTROLLER_ADDRESS = ""
           EOF
 
-      - name: Apply scanner P2 refactor
-        if: ${{ github.ref == 'refs/heads/refactor/scanner-p2' }}
-        run: python scripts/refactor_scanner_p2.py
-
-      - name: Verify scanner refactor working tree
-        if: ${{ github.ref == 'refs/heads/refactor/scanner-p2' }}
-        shell: bash
-        run: |
-          mapfile -t changed < <(git diff --name-only)
-          printf 'Changed files:\n%s\n' "${changed[*]}"
-          if [ "${#changed[@]}" -ne 1 ] || [ "${changed[0]}" != "app2.py" ]; then
-            echo "Unexpected working-tree changes detected."
-            exit 1
-          fi
-
-      - name: Compile scanner refactor
-        if: ${{ github.ref == 'refs/heads/refactor/scanner-p2' }}
-        run: python -m py_compile app2.py izfin_core/scanner_engine.py
-
       - name: Run complete test suite
         env:
           # Empty values keep CI away from live Firebase, Finnhub and Sentry writes.
@@ -109,21 +85,3 @@ jobs:
           SENTRY_DSN: ""
           IZFIN_ENVIRONMENT: "ci"
         run: python -m pytest -q
-
-      - name: Validate patch formatting
-        if: ${{ github.ref == 'refs/heads/refactor/scanner-p2' }}
-        run: git diff --check
-
-      - name: Commit tested scanner refactor
-        if: ${{ github.ref == 'refs/heads/refactor/scanner-p2' }}
-        shell: bash
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add app2.py
-          if git diff --cached --quiet; then
-            echo "No app2.py changes to commit."
-            exit 0
-          fi
-          git commit -m "Wire scanner engine into smart scan [scanner-p2-bot]"
-          git push origin HEAD:refactor/scanner-p2
