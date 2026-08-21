@@ -64,3 +64,5 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
+
+# Workflow trigger marker; remove together with this temporary helper.
