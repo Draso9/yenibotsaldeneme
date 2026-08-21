@@ -25,41 +25,68 @@ TARGET_MARKERS = (
 )
 
 
+def _newline_variants(text: str) -> tuple[tuple[str, str], ...]:
+    """Return LF and CRLF forms so the patch can preserve app2.py's mixed endings."""
+    return ((text, "\n"), (text.replace("\n", "\r\n"), "\r\n"))
+
+
+def _unique_match(text: str, marker: str, label: str) -> tuple[str, str]:
+    matches: list[tuple[str, str]] = []
+    for variant, newline in _newline_variants(marker):
+        count = text.count(variant)
+        matches.extend((variant, newline) for _ in range(count))
+    if len(matches) != 1:
+        raise RuntimeError(f"{label}: expected exactly one newline-preserving match, found {len(matches)}")
+    return matches[0]
+
+
+def _use_newline(text: str, newline: str) -> str:
+    return text if newline == "\n" else text.replace("\n", "\r\n")
+
+
 def replace_exact_once(text: str, old: str, new: str, label: str) -> str:
-    count = text.count(old)
-    if count != 1:
-        raise RuntimeError(f"{label}: expected exactly one match, found {count}")
-    return text.replace(old, new, 1)
+    matched, newline = _unique_match(text, old, label)
+    return text.replace(matched, _use_newline(new, newline), 1)
 
 
 def replace_between(text: str, start_marker: str, end_marker: str, replacement: str, label: str) -> str:
-    start_count = text.count(start_marker)
-    end_count = text.count(end_marker)
-    if start_count != 1 or end_count != 1:
-        raise RuntimeError(f"{label}: marker mismatch (start={start_count}, end={end_count})")
-    start = text.index(start_marker)
-    end = text.index(end_marker, start)
-    return text[:start] + replacement + text[end:]
+    start_match, newline = _unique_match(text, start_marker, f"{label} start")
+    end_match, _ = _unique_match(text, end_marker, f"{label} end")
+    start = text.index(start_match)
+    end = text.index(end_match, start)
+    return text[:start] + _use_newline(replacement, newline) + text[end:]
+
+
+def _read_preserving_newlines(path: Path) -> str:
+    with path.open("r", encoding="utf-8", newline="") as handle:
+        return handle.read()
+
+
+def _write_preserving_newlines(path: Path, text: str) -> None:
+    with path.open("w", encoding="utf-8", newline="") as handle:
+        handle.write(text)
 
 
 def main() -> None:
-    text = APP.read_text(encoding="utf-8")
-    if all(marker in text for marker in TARGET_MARKERS) and NEW_IMPORT in text:
+    text = _read_preserving_newlines(APP)
+    normalized = text.replace("\r\n", "\n")
+    if all(marker in normalized for marker in TARGET_MARKERS) and NEW_IMPORT in normalized:
         print("scanner P2 already applied; nothing to do")
-        ast.parse(text, filename=str(APP))
+        ast.parse(normalized, filename=str(APP))
         return
-    partial = [marker for marker in TARGET_MARKERS if marker in text]
+    partial = [marker for marker in TARGET_MARKERS if marker in normalized]
     if partial:
         raise RuntimeError(f"scanner P2 appears partially applied: {partial}")
     text = replace_exact_once(text, OLD_IMPORT, NEW_IMPORT, "scanner import block")
     text = replace_between(text, INDICATOR_START, INDICATOR_END, NEW_INDICATORS, "technical indicator block")
     text = replace_between(text, RISK_START, RISK_END, NEW_RISK, "risk/breakout block")
-    ast.parse(text, filename=str(APP))
+    normalized = text.replace("\r\n", "\n")
+    ast.parse(normalized, filename=str(APP))
     for marker in TARGET_MARKERS:
-        if marker not in text:
+        if marker not in normalized:
             raise RuntimeError(f"missing target marker after refactor: {marker}")
-    APP.write_text(text, encoding="utf-8")
-    print("scanner P2 refactor applied successfully")
+    _write_preserving_newlines(APP, text)
+    print("scanner P2 refactor applied successfully without normalizing untouched line endings")
 
 
 if __name__ == "__main__":
