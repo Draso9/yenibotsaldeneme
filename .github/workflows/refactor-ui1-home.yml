@@ -40,8 +40,14 @@ jobs:
           python -m pip install -r requirements.txt
           python -m pip install -r requirements-test.txt
 
-      - name: Apply UI1 home extraction
-        run: python scripts/refactor_ui1_home.py
+      - name: Reset generated files to develop baseline
+        shell: bash
+        run: |
+          git fetch origin develop --depth=1
+          git checkout FETCH_HEAD -- app2.py tests/test_core_architecture.py
+
+      - name: Apply clean UI1 home extraction
+        run: python scripts/refactor_ui1_home_v2.py
 
       - name: Compile changed Python modules
         run: |
@@ -88,7 +94,7 @@ jobs:
           IZFIN_ENVIRONMENT: "ci"
         run: python -m pytest -q
 
-      - name: Verify permanent change scope
+      - name: Verify permanent change scope and diff size
         shell: bash
         run: |
           git status --short
@@ -101,6 +107,9 @@ jobs:
               *) echo "Unexpected generated path: $path"; exit 1 ;;
             esac
           done <<< "$changed"
+          app_changes="$(git diff --numstat -- app2.py | awk '{print $1+$2}')"
+          echo "app2 changed lines: ${app_changes:-0}"
+          test "${app_changes:-99999}" -lt 400
 
       - name: Commit tested shell wiring
         shell: bash
@@ -108,5 +117,5 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add -- app2.py tests/test_core_architecture.py
-          git commit -m "Wire home dashboard view models [ui1-bot]"
+          git commit -m "Wire home dashboard view models cleanly [ui1-bot]"
           git push origin HEAD:refactor/ui1-home-dashboard
