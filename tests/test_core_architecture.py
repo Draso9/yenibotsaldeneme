@@ -91,6 +91,7 @@ def test_app_imports_extracted_core_modules():
         "izfin_ui.projection_view",
         "izfin_ui.performance_view",
         "izfin_ui.backtest_view",
+        "izfin_ui.backtest_results",
         "izfin_ui.scan_results",
         "izfin_services.backtest_service",
         "izfin_services.yahoo_client",
@@ -297,4 +298,15 @@ def test_backtest_runner_orchestration_stays_outside_streamlit_shell():
     assert "bt_havuz = sorted(" not in source
     assert "baslayanlar = [x for x in bt_havuz" not in source
     assert "stats['islem_basarisi']" not in source
+
+
+def test_backtest_result_presenter_stays_outside_streamlit_shell():
+    source = APP.read_text(encoding="utf-8")
+    assert "from izfin_ui.backtest_results import backtest_sonuc_paketi_hazirla" in source
+    assert "backtest_sonuc_paketi_hazirla(bt)" in source
+    assert 'bt.groupby("Sinyal")' not in source
+    assert "detay_kolonlar = [" not in source
+    assert 'pd.to_datetime(detay_bt["Tarih"]' not in source
+    assert "height=min(520, 82 + 35 * len(detay_bt))" not in source
+    assert "Bu test artık eski basit dört koşulu değil" not in source
 
