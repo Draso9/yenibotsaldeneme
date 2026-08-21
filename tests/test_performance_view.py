@@ -142,7 +142,7 @@ def test_closed_position_view_calculates_fallback_return_and_target_hits():
 
     gorunum = kapanmis_pozisyon_gorunumu_hazirla(kapali_df)
 
-    assert gorunum.iloc[0]["Kâr / Zarar %"] == 8.0
+    assert np.isclose(gorunum.iloc[0]["Kâr / Zarar %"], 8.0)
     assert gorunum.iloc[0]["Pozisyonda Gün"] == 10.0
     assert gorunum.iloc[0]["Maks. Kâr %"] == 14.0
     assert gorunum.iloc[0]["TP1"] == "✅"
