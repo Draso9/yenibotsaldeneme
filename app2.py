@@ -83,6 +83,13 @@ from izfin_ui.projection_view import (
     projection_senaryo_hazirla,
     projection_varliklari_hazirla,
 )
+from izfin_ui.performance_view import (
+    aktif_pozisyon_gorunumu_hazirla,
+    kapanmis_performans_ozeti_hazirla,
+    kapanmis_pozisyon_gorunumu_hazirla,
+    performans_karne_paketi_hazirla,
+    performans_pozisyon_paketi_hazirla,
+)
 from izfin_services.firebase_auth_client import (
     FirebaseAuthClient,
     firebase_auth_hata_mesaji as _firebase_auth_hata_mesaji,
@@ -4470,70 +4477,14 @@ if aktif_sayfa == "📊 Takip & Performans":
                 "Henüz takip edilen bir alım pozisyonu yok. İlk ALIM, KIRILIM veya ADAY sinyali oluştuğunda burada görüntülenecek."
             )
         else:
-            df_perf = pd.DataFrame(kayitlar).reset_index(drop=True)
-            for col in ["giris_fiyati", "son_fiyat", "kapanis_fiyati", "getiri_yuzde"]:
-                if col in df_perf.columns:
-                    df_perf[col] = pd.to_numeric(df_perf[col], errors="coerce")
-
-            if "durum" not in df_perf.columns:
-                df_perf["durum"] = "ACIK"
-            df_perf["durum"] = (
-                df_perf["durum"].fillna("ACIK")
-                .replace({"None": "ACIK", "": "ACIK"})
-                .astype(str).str.upper()
-            )
-            df_perf["_tarih"] = pd.to_datetime(df_perf.get("olusturma_zamani"), errors="coerce")
-            df_perf["_kapanis_tarih"] = pd.to_datetime(df_perf.get("kapanis_zamani"), errors="coerce")
-
-            # Ana tabloda her hisse için yalnızca en eski ilk alım kaydı tutulur.
-            # Böylece eski sürümlerden kalan mükerrer açık belgeler ekranda çoğalmaz.
-            acik_df = df_perf[df_perf["durum"].eq("ACIK")].copy()
-            if not acik_df.empty:
-                acik_df["ticker"] = acik_df["ticker"].fillna("").astype(str).str.strip().str.upper()
-            acik_df = (
-                acik_df.sort_values(["ticker", "_tarih"], ascending=[True, True])
-                .drop_duplicates(subset=["ticker"], keep="first")
-                .sort_values("_tarih", ascending=False)
-                .reset_index(drop=True)
-            )
-            kapali_df = df_perf[df_perf["durum"].eq("KAPALI")].copy()
-            if not kapali_df.empty:
-                kapali_df["_giris_gun"] = kapali_df["_tarih"].dt.floor("D")
-                kapali_df["_kapanis_gun"] = kapali_df["_kapanis_tarih"].dt.floor("D")
-                kapali_df["_giris_fiyat_key"] = pd.to_numeric(
-                    kapali_df.get("giris_fiyati"), errors="coerce"
-                ).round(4)
-                kapali_df["_doluluk"] = kapali_df.notna().sum(axis=1)
-                kapali_df = (
-                    kapali_df
-                    .sort_values(
-                        ["_doluluk", "_kapanis_tarih", "_tarih"],
-                        ascending=[False, False, True],
-                        na_position="last"
-                    )
-                    .drop_duplicates(
-                        subset=["ticker", "_giris_gun", "_giris_fiyat_key", "_kapanis_gun"],
-                        keep="first"
-                    )
-                    .sort_values(["_kapanis_tarih", "_tarih"], ascending=False)
-                    .drop(columns=["_giris_gun", "_kapanis_gun", "_giris_fiyat_key", "_doluluk"], errors="ignore")
-                    .reset_index(drop=True)
-                )
-
-            simdi_ts = pd.Timestamp.now(tz=None)
-
-            def naive_tarih(seri):
-                if seri.empty:
-                    return seri
-                return seri.dt.tz_localize(None) if getattr(seri.dt, "tz", None) is not None else seri
-
-            acik_tarih = naive_tarih(acik_df["_tarih"]) if not acik_df.empty else pd.Series(dtype="datetime64[ns]")
-            acik_gecen = ((simdi_ts.normalize() - acik_tarih.dt.normalize()).dt.days.clip(lower=0)
-                           if not acik_df.empty else pd.Series(dtype=float))
-
-            pozitif = int((acik_df.get("getiri_yuzde", pd.Series(dtype=float)) > 0).sum())
-            negatif = int((acik_df.get("getiri_yuzde", pd.Series(dtype=float)) < 0).sum())
-            ort_getiri = float(acik_df["getiri_yuzde"].mean()) if not acik_df.empty else 0.0
+            performans_paketi = performans_pozisyon_paketi_hazirla(kayitlar)
+            df_perf = performans_paketi["df_perf"]
+            acik_df = performans_paketi["acik_df"]
+            kapali_df = performans_paketi["kapali_df"]
+            acik_gecen = performans_paketi["acik_gecen"]
+            pozitif = performans_paketi["pozitif"]
+            negatif = performans_paketi["negatif"]
+            ort_getiri = performans_paketi["ort_getiri"]
 
             kp1, kp2, kp3, kp4 = st.columns(4)
             kp1.metric("Aktif Hisse", int(len(acik_df)))
@@ -4581,17 +4532,7 @@ if aktif_sayfa == "📊 Takip & Performans":
             if acik_df.empty:
                 st.html(izfin_active_positions_table_html(pd.DataFrame()))
             else:
-                aktif_gorunum = pd.DataFrame({
-                    "İlk Alım Tarihi": acik_df["_tarih"].dt.strftime("%d.%m.%Y %H:%M"),
-                    "Varlık": acik_df.get("ticker"),
-                    "İlk Sinyal": acik_df.get("ilk_sinyal").fillna("— Eski kayıt") if "ilk_sinyal" in acik_df.columns else pd.Series(["— Eski kayıt"] * len(acik_df)),
-                    "Güncel Sinyal": acik_df.get("sinyal"),
-                    "İlk Alım Fiyatı": acik_df.get("giris_fiyati"),
-                    "Güncel Fiyat": acik_df.get("son_fiyat"),
-                    "Kâr / Zarar %": acik_df.get("getiri_yuzde"),
-                    "Geçen Gün": acik_gecen.reset_index(drop=True),
-                    "Durum": "🟢 Açık",
-                })
+                aktif_gorunum = aktif_pozisyon_gorunumu_hazirla(acik_df, acik_gecen)
                 st.html(izfin_active_positions_table_html(aktif_gorunum))
                 st.caption(
                     "Performans, hissenin bu alım dönemindeki ilk sinyal fiyatından güncel fiyata göre hesaplanır. "
@@ -4602,140 +4543,20 @@ if aktif_sayfa == "📊 Takip & Performans":
                 if kapali_df.empty:
                     st.info("Henüz kapanmış alım dönemi bulunmuyor.")
                 else:
-                    # Kapanmış dönemin yalnızca çıkış getirisini değil,
-                    # süreç içindeki kaliteyi de göster.
-                    giris_fiyat_seri = pd.to_numeric(
-                        kapali_df.get("giris_fiyati"), errors="coerce"
-                    )
-                    kapanis_fiyat_seri = pd.to_numeric(
-                        kapali_df.get("kapanis_fiyati", kapali_df.get("son_fiyat")),
-                        errors="coerce"
-                    )
-                    hesaplanan_getiri = (
-                        (kapanis_fiyat_seri / giris_fiyat_seri) - 1.0
-                    ) * 100.0
-                    mevcut_getiri = pd.to_numeric(
-                        kapali_df.get("getiri_yuzde"), errors="coerce"
-                    )
-                    kapanis_getiri = mevcut_getiri.where(
-                        mevcut_getiri.notna(), hesaplanan_getiri
-                    )
-
-                    pozisyonda_gun = (
-                        (kapali_df["_kapanis_tarih"] - kapali_df["_tarih"])
-                        .dt.total_seconds() / 86400.0
-                    ).clip(lower=0)
-
-                    def _ufuk_extreme(row, tip="max"):
-                        ufuklar = _guvenli_dict(row.get("performans_ufuklari"))
-                        vals = []
-                        if isinstance(ufuklar, dict):
-                            for item in ufuklar.values():
-                                try:
-                                    g = float((item or {}).get("getiri"))
-                                    if np.isfinite(g):
-                                        vals.append(g)
-                                except Exception:
-                                    pass
-
-                        direkt_alan = (
-                            "max_yukselis_45g" if tip == "max"
-                            else "max_dusus_45g"
-                        )
-                        try:
-                            direkt = float(row.get(direkt_alan))
-                            if np.isfinite(direkt):
-                                return direkt
-                        except Exception:
-                            pass
-
-                        if not vals:
-                            return np.nan
-                        return max(vals) if tip == "max" else min(vals)
-
-                    def _hedef_gordu(row, hedef_no):
-                        kayitli = row.get(f"ilk_tp{hedef_no}_gordu")
-                        if isinstance(kayitli, (bool, np.bool_)):
-                            return "✅" if bool(kayitli) else "❌"
-                        try:
-                            giris=float(row.get("giris_fiyati")); hedef=float(row.get(f"ilk_tp{hedef_no}"))
-                        except Exception:
-                            return "—"
-                        if not np.isfinite(giris) or giris<=0 or not np.isfinite(hedef) or hedef<=0: return "—"
-                        gorulen=_ufuk_extreme(row,"max")
-                        if not np.isfinite(gorulen): return "—"
-                        return "✅" if gorulen >= ((hedef/giris)-1)*100 else "❌"
-
-                    max_kar = pd.to_numeric(
-                        kapali_df.get("donem_max_kar", pd.Series(np.nan, index=kapali_df.index)), errors="coerce"
-                    )
-                    max_dusus = pd.to_numeric(
-                        kapali_df.get("donem_max_dusus", pd.Series(np.nan, index=kapali_df.index)), errors="coerce"
-                    )
-                    eski_max = kapali_df.apply(lambda r: _ufuk_extreme(r, "max"), axis=1)
-                    eski_min = kapali_df.apply(lambda r: _ufuk_extreme(r, "min"), axis=1)
-                    max_kar = max_kar.where(max_kar.notna(), eski_max)
-                    max_dusus = max_dusus.where(max_dusus.notna(), eski_min)
-
-                    kapanmis_gorunum = pd.DataFrame({
-                        "İlk Alım Tarihi": kapali_df["_tarih"].dt.strftime("%d.%m.%Y %H:%M"),
-                        "Kapanış Tarihi": kapali_df["_kapanis_tarih"].dt.strftime("%d.%m.%Y %H:%M"),
-                        "Varlık": kapali_df.get("ticker"),
-                        "Son Alım Sinyali": kapali_df.get("sinyal"),
-                        "Kapanış Nedeni": kapali_df.get("kapanis_sinyali"),
-                        "İlk Alım Fiyatı": giris_fiyat_seri,
-                        "Kapanış Fiyatı": kapanis_fiyat_seri,
-                        "Kâr / Zarar %": kapanis_getiri,
-                        "Pozisyonda Gün": pozisyonda_gun.round(1),
-                        "Maks. Kâr %": max_kar,
-                        "Maks. Düşüş %": max_dusus,
-                        "İlk Stop": pd.to_numeric(kapali_df.get("ilk_stop", pd.Series(np.nan, index=kapali_df.index)), errors="coerce"),
-                        "İlk TP1": pd.to_numeric(kapali_df.get("ilk_tp1", pd.Series(np.nan, index=kapali_df.index)), errors="coerce"),
-                        "İlk TP2": pd.to_numeric(kapali_df.get("ilk_tp2", pd.Series(np.nan, index=kapali_df.index)), errors="coerce"),
-                        "İlk TP3": pd.to_numeric(kapali_df.get("ilk_tp3", pd.Series(np.nan, index=kapali_df.index)), errors="coerce"),
-                        "TP1": kapali_df.apply(lambda r: _hedef_gordu(r, 1), axis=1),
-                        "TP2": kapali_df.apply(lambda r: _hedef_gordu(r, 2), axis=1),
-                        "TP3": kapali_df.apply(lambda r: _hedef_gordu(r, 3), axis=1),
-                        "Stop": kapali_df.apply(lambda r: ("✅" if bool(r.get("ilk_stop_gordu")) else "❌") if isinstance(r.get("ilk_stop_gordu"), (bool, np.bool_)) else "—", axis=1),
-                        "Durum": "⚪ Kapalı",
-                    })
-                    # v1.7.27 — Kapanmış geçmişi Streamlit'in beyaz grid temasından bağımsız
-                    # özel IZFIN tablosu olarak göster.
+                    # Kapanmış dönem hesaplarını presenter katmanı hazırlar.
+                    kapanmis_gorunum = kapanmis_pozisyon_gorunumu_hazirla(kapali_df)
                     _kg = kapanmis_gorunum.copy()
 
-                    # Kapanmış dönem özetleri.
-                    _ret = pd.to_numeric(_kg["Kâr / Zarar %"], errors="coerce")
-                    _days = pd.to_numeric(_kg["Pozisyonda Gün"], errors="coerce")
-                    _valid_ret = _ret.dropna()
-                    _win_rate = float((_valid_ret > 0).mean() * 100) if not _valid_ret.empty else np.nan
-                    _avg_ret = float(_valid_ret.mean()) if not _valid_ret.empty else np.nan
-                    _med_days = float(_days.dropna().median()) if not _days.dropna().empty else np.nan
-
-                    # Daha zengin kapanmış dönem istatistikleri.
-                    _unique_tickers = int(_kg["Varlık"].nunique()) if "Varlık" in _kg.columns else 0
-
-                    _tp1_rate = np.nan
-                    if "TP1" in _kg.columns:
-                        _tp1_vals = _kg["TP1"].astype(str).str.upper()
-                        _tp1_rate = float(_tp1_vals.isin(["EVET", "TRUE", "1", "✓", "✅"]).mean() * 100)
-
-                    _stop_rate = np.nan
-                    if "Stop" in _kg.columns:
-                        _stop_vals = _kg["Stop"].astype(str).str.upper()
-                        _stop_rate = float(_stop_vals.isin(["EVET", "TRUE", "1", "✓", "✅"]).mean() * 100)
-
-                    _best_txt = "—"
-                    _worst_txt = "—"
-                    if not _valid_ret.empty:
-                        try:
-                            _best_i = _ret.idxmax()
-                            _worst_i = _ret.idxmin()
-                            _best_txt = f"{_kg.loc[_best_i, 'Varlık']} %{float(_ret.loc[_best_i]):+.1f}"
-                            _worst_txt = f"{_kg.loc[_worst_i, 'Varlık']} %{float(_ret.loc[_worst_i]):+.1f}"
-                        except Exception:
-                            pass
-
-                    _median_ret = float(_valid_ret.median()) if not _valid_ret.empty else np.nan
+                    _closed_ozet = kapanmis_performans_ozeti_hazirla(_kg)
+                    _unique_tickers = _closed_ozet["unique_tickers"]
+                    _win_rate = _closed_ozet["win_rate"]
+                    _avg_ret = _closed_ozet["avg_ret"]
+                    _median_ret = _closed_ozet["median_ret"]
+                    _med_days = _closed_ozet["median_days"]
+                    _tp1_rate = _closed_ozet["tp1_rate"]
+                    _stop_rate = _closed_ozet["stop_rate"]
+                    _best_txt = _closed_ozet["best_txt"]
+                    _worst_txt = _closed_ozet["worst_txt"]
 
                     st.markdown(
                         f"""
@@ -4754,40 +4575,9 @@ if aktif_sayfa == "📊 Takip & Performans":
                     )
 
                     # Kullanıcıya ham tablodan önce kısa ve anlaşılır sistem yorumu.
-                    _yorum_parcalari = []
-
-                    if np.isfinite(_win_rate):
-                        if _win_rate >= 65:
-                            _yorum_parcalari.append(f"Kapanmış alım dönemlerinin %{_win_rate:.0f}'i pozitif sonuçlanmış; geçmiş sinyal seçimi güçlü görünüyor.")
-                        elif _win_rate >= 50:
-                            _yorum_parcalari.append(f"Kapanmış alım dönemlerinin %{_win_rate:.0f}'i pozitif; sistem geçmişte hafif pozitif bir seçicilik göstermiş.")
-                        else:
-                            _yorum_parcalari.append(f"Pozitif kapanış oranı %{_win_rate:.0f}; geçmiş sinyal seçimi daha seçici filtrelere ihtiyaç duyabilir.")
-
-                    if np.isfinite(_avg_ret) and np.isfinite(_median_ret):
-                        if _avg_ret > _median_ret + 2:
-                            _yorum_parcalari.append("Ortalama getiri medyanın belirgin üzerinde; birkaç güçlü kazanan toplam performansı yukarı taşıyor.")
-                        elif _median_ret > _avg_ret + 2:
-                            _yorum_parcalari.append("Medyan getiri ortalamanın üzerinde; birkaç zayıf dönem genel ortalamayı aşağı çekiyor.")
-                        elif _avg_ret > 0:
-                            _yorum_parcalari.append("Ortalama ve medyan getiri birbirine yakın; sonuç dağılımı görece dengeli.")
-                        else:
-                            _yorum_parcalari.append("Ortalama ve medyan getirinin birlikte zayıf olması, kapanış disiplininin ayrıca incelenmesini gerektiriyor.")
-
-                    if np.isfinite(_tp1_rate) and np.isfinite(_stop_rate):
-                        if _tp1_rate > _stop_rate + 10:
-                            _yorum_parcalari.append("TP1 görülme oranı stop görülme oranından belirgin yüksek; giriş sonrası olumlu hareket üretme kapasitesi iyi.")
-                        elif _stop_rate > _tp1_rate + 10:
-                            _yorum_parcalari.append("Stop görülme oranı TP1 oranından yüksek; giriş zamanlaması veya risk filtresi geliştirilebilir.")
-                        else:
-                            _yorum_parcalari.append("TP1 ve stop görülme oranları birbirine yakın; sinyal sonrası yön ayrışması sınırlı.")
-
-                    if _unique_tickers <= 3 and len(_kg) >= 5:
-                        _yorum_parcalari.append("Sonuçların önemli bölümü az sayıda hissede yoğunlaşmış; genelleme yaparken örneklem çeşitliliğine dikkat edilmeli.")
-
                     _yorum_html = "".join(
                         f"<li>{html.escape(str(x))}</li>"
-                        for x in _yorum_parcalari[:4]
+                        for x in _closed_ozet["yorumlar"]
                     ) or "<li>Yeterli kapanmış dönem biriktikçe sistem yorumu burada daha anlamlı hale gelecek.</li>"
 
                     st.markdown(
@@ -4861,25 +4651,21 @@ if aktif_sayfa == "📊 Takip & Performans":
                     )
                     st.markdown(_closed_html, unsafe_allow_html=True)
 
-                    # Kapanış nedenleri dağılımı — kullanıcıya sistemin neden pozisyon kapattığını gösterir.
-                    if "Kapanış Nedeni" in _kg.columns:
-                        try:
-                            _reason_counts = _kg["Kapanış Nedeni"].fillna("Belirsiz").astype(str).value_counts().head(5)
-                            _reason_chips = "".join(
-                                f"<span><b>{html.escape(str(k))}</b> {int(v)}</span>"
-                                for k, v in _reason_counts.items()
-                            )
-                            st.markdown(
-                                f"""
-                                <div class="iz-close-reason-summary">
-                                    <small>EN SIK KAPANIŞ NEDENLERİ</small>
-                                    <div>{_reason_chips}</div>
-                                </div>
-                                """,
-                                unsafe_allow_html=True,
-                            )
-                        except Exception:
-                            pass
+                    # Kapanış nedenleri dağılımı — presenter sıralı ilk 5 nedeni verir.
+                    if _closed_ozet["reason_counts"]:
+                        _reason_chips = "".join(
+                            f"<span><b>{html.escape(str(k))}</b> {int(v)}</span>"
+                            for k, v in _closed_ozet["reason_counts"]
+                        )
+                        st.markdown(
+                            f"""
+                            <div class="iz-close-reason-summary">
+                                <small>EN SIK KAPANIŞ NEDENLERİ</small>
+                                <div>{_reason_chips}</div>
+                            </div>
+                            """,
+                            unsafe_allow_html=True,
+                        )
 
                     st.caption(
                         "Aynı hissede alım sinyali sona erip daha sonra yeniden oluşursa yeni dönem aktif tabloda açılır; "
@@ -4912,18 +4698,20 @@ if aktif_sayfa == "📊 Takip & Performans":
                     kayitlar = performans_karnelerini_guncelle(kayitlar)
                 st.success("Karne güncellendi. Yeterli işlem günü oluşan sinyaller donduruldu.")
 
-            karne_df = performans_karnesi_ozeti(kayitlar, gun=int(ufuk_secimi))
+            karne_paketi = performans_karne_paketi_hazirla(
+                kayitlar, gun=int(ufuk_secimi)
+            )
+            karne_df = karne_paketi["karne_df"]
             if karne_df.empty:
                 st.info(
                     f"Henüz +{ufuk_secimi} işlem günü tamamlamış ölçülebilir sinyal yok. "
                     "Yeni IZFIN sinyalleri biriktikçe bu bölüm otomatik anlam kazanacak."
                 )
             else:
-                pozitif_oran = float((karne_df["getiri"] > 0).mean() * 100)
-                medyan_getiri = float(karne_df["getiri"].median())
-                alfa_seri = pd.to_numeric(karne_df["alfa"], errors="coerce").dropna()
-                benchmark_ustu = float((alfa_seri > 0).mean() * 100) if not alfa_seri.empty else np.nan
-                medyan_alfa = float(alfa_seri.median()) if not alfa_seri.empty else np.nan
+                pozitif_oran = karne_paketi["pozitif_oran"]
+                medyan_getiri = karne_paketi["medyan_getiri"]
+                benchmark_ustu = karne_paketi["benchmark_ustu"]
+                medyan_alfa = karne_paketi["medyan_alfa"]
 
                 c1, c2, c3, c4 = st.columns(4)
                 c1.metric("Ölçülen Sinyal", len(karne_df))
@@ -4937,27 +4725,8 @@ if aktif_sayfa == "📊 Takip & Performans":
                 if np.isfinite(medyan_alfa):
                     st.caption(f"Medyan göreceli performans (alfa): %{medyan_alfa:+.2f}")
 
-                # Ana karne olay değil varlık bazında gösterilir. Böylece aynı hissedeki
-                # farklı gerçek sinyal dönemleri kopya satır gibi görünmez; eksik eski
-                # eksik geçmiş metadata da kullanıcıya ham değer olarak yansımaz.
-                detay_karne = karne_df.copy()
-                detay_karne["getiri"] = pd.to_numeric(detay_karne["getiri"], errors="coerce")
-                detay_karne["alfa"] = pd.to_numeric(detay_karne["alfa"], errors="coerce")
-
-                gorunum = (
-                    detay_karne.groupby("ticker", dropna=False)
-                    .agg(
-                        **{
-                            "Sinyal Sayısı": ("getiri", "size"),
-                            "Başarı Oranı %": ("getiri", lambda x: float((x > 0).mean() * 100)),
-                            f"+{ufuk_secimi}G Medyan Getiri %": ("getiri", "median"),
-                            "Medyan Benchmark Farkı %": ("alfa", "median"),
-                        }
-                    )
-                    .reset_index()
-                    .rename(columns={"ticker": "Varlık"})
-                    .sort_values(f"+{ufuk_secimi}G Medyan Getiri %", ascending=False)
-                )
+                # Ana karne olay değil varlık bazında gösterilir.
+                gorunum = karne_paketi["gorunum"]
 
                 st.dataframe(
                     izfin_dataframe_tema(
@@ -4973,26 +4742,8 @@ if aktif_sayfa == "📊 Takip & Performans":
                 )
 
                 with st.expander("Ölçüm dönemlerini göster", expanded=False):
-                    detay = detay_karne.copy()
-                    detay["sinyal_tarihi"] = pd.to_datetime(
-                        detay["sinyal_tarihi"], errors="coerce"
-                    ).dt.strftime("%d.%m.%Y")
-                    detay = detay.rename(columns={
-                        "ticker": "Varlık",
-                        "sinyal_tarihi": "Sinyal Tarihi",
-                        "sinyal": "Sinyal",
-                        "getiri": f"+{ufuk_secimi}G Getiri %",
-                        "alfa": "Benchmark Farkı %",
-                    })
-                    detay_kolonlari = [
-                        "Varlık", "Sinyal Tarihi", "Sinyal",
-                        f"+{ufuk_secimi}G Getiri %", "Benchmark Farkı %"
-                    ]
-                    # Tamamı eksik olan tarih/sinyal alanlarını boş sütun olarak gösterme.
-                    detay_kolonlari = [
-                        c for c in detay_kolonlari
-                        if c in detay.columns and not detay[c].isna().all()
-                    ]
+                    detay = karne_paketi["detay"]
+                    detay_kolonlari = karne_paketi["detay_kolonlari"]
                     st.dataframe(
                         izfin_dataframe_tema(
                             detay[detay_kolonlari].sort_values(
@@ -5006,7 +4757,7 @@ if aktif_sayfa == "📊 Takip & Performans":
                         hide_index=True,
                     )
 
-                if len(karne_df) < 30:
+                if karne_paketi["kucuk_orneklem"]:
                     st.warning(
                         "Örneklem henüz küçük. Başarı oranlarını karar vermek için kullanmadan önce "
                         "en az 30, tercihen 100+ bağımsız sinyal biriktirmek daha sağlıklıdır."

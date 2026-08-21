@@ -90,6 +90,7 @@ def test_app_imports_extracted_core_modules():
         "izfin_ui.analysis_views",
         "izfin_ui.home_dashboard",
         "izfin_ui.projection_view",
+        "izfin_ui.performance_view",
         "izfin_ui.scan_results",
         "izfin_services.yahoo_client",
         "izfin_services.finnhub_client",
@@ -267,4 +268,19 @@ def test_projection_view_model_stays_outside_streamlit_shell():
     assert 'destek = float(panel.get("destek"' not in source
     assert "model_farki = abs(proj['atr_yuzde'] - proj['volatilite_yuzde'])" not in source
     assert 'yon_class = "neutral"' not in source
+
+
+def test_performance_view_model_stays_outside_streamlit_shell():
+    source = APP.read_text(encoding="utf-8")
+    assert "performans_pozisyon_paketi_hazirla(" in source
+    assert "aktif_pozisyon_gorunumu_hazirla(" in source
+    assert "kapanmis_pozisyon_gorunumu_hazirla(" in source
+    assert "kapanmis_performans_ozeti_hazirla(" in source
+    assert "performans_karne_paketi_hazirla(" in source
+    assert "df_perf = pd.DataFrame(kayitlar).reset_index(drop=True)" not in source
+    assert "def naive_tarih(" not in source
+    assert "def _ufuk_extreme(" not in source
+    assert "def _hedef_gordu(" not in source
+    assert 'pozitif_oran = float((karne_df["getiri"] > 0).mean() * 100)' not in source
+    assert "detay_karne = karne_df.copy()" not in source
 
