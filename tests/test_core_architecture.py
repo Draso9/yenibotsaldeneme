@@ -88,6 +88,7 @@ def test_app_imports_extracted_core_modules():
         "izfin_core.projection_engine",
         "izfin_core.performance_engine",
         "izfin_ui.analysis_views",
+        "izfin_ui.home_dashboard",
         "izfin_ui.scan_results",
         "izfin_services.yahoo_client",
         "izfin_services.finnhub_client",
@@ -237,3 +238,21 @@ def test_streamlit_shell_has_no_scanner_implementation_imports():
         for alias in node.names
     }
     assert not forbidden_names & imported_names
+
+
+def test_home_dashboard_orchestration_stays_outside_streamlit_shell():
+    tree = ast.parse(APP.read_text(encoding="utf-8"))
+    app_functions = {
+        node.name for node in tree.body if isinstance(node, ast.FunctionDef)
+    }
+    assert "_iz_panel_metrics" not in app_functions
+
+    source = APP.read_text(encoding="utf-8")
+    assert "home_karar_ozeti_hazirla(" in source
+    assert "home_top_signals_hazirla(" in source
+    assert "home_movers_hazirla(" in source
+    assert "home_panel_metrics_hazirla(" in source
+    assert "home_scan_bos_mu(" in source
+    assert "setup_rank = skor * .52" not in source
+    assert "adaylar.append((setup_rank" not in source
+

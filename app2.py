@@ -71,6 +71,13 @@ from izfin_ui.scan_results import (
     tarama_hata_ozeti,
     tarama_sonuclarini_filtrele,
 )
+from izfin_ui.home_dashboard import (
+    home_karar_ozeti_hazirla,
+    home_movers_hazirla,
+    home_panel_metrics_hazirla,
+    home_scan_bos_mu,
+    home_top_signals_hazirla,
+)
 from izfin_services.firebase_auth_client import (
     FirebaseAuthClient,
     firebase_auth_hata_mesaji as _firebase_auth_hata_mesaji,
@@ -1946,22 +1953,6 @@ def izfin_market_bar_html(bant_paketi):
         kutular.append(f'''<div class="iz-ticker"><div class="n">{x['ad']}</div><div class="v">{_iz_num(x.get('fiyat'))}</div><div class="{cls}" style="font-size:10px;margin-top:2px">{ok} {_iz_num(deg,True)}</div><div style="font-size:7px;color:#526f84;margin-top:3px">{x.get('kaynak','')}</div></div>''')
     return f'''<div class="iz-live-shell"><div class="iz-live-status"><div class="s1">PİYASALAR</div><div class="s2">● {durum}</div><div class="s3">Tazelik {gec_txt} · {saat}</div></div><div class="iz-livebar">{''.join(kutular)}</div></div>'''
 
-def _iz_panel_metrics():
-    paneller = list((st.session_state.get("teknik_paneller") or {}).values())
-    if not paneller:
-        bant = izfin_piyasa_bandi_verisi().get("items", [])
-        degler = [float(x["deg"]) for x in bant if x.get("deg") is not None and np.isfinite(float(x["deg"])) and x["ad"] != "VIX"]
-        ort = np.mean(degler) if degler else 0.0
-        pulse = int(np.clip(round(50 + ort * 8), 15, 85))
-        return pulse, pulse, int(np.clip(pulse-4,0,100)), int(np.clip(pulse-2,0,100)), 50, "PİYASA VERİSİ"
-    trend = np.mean([1 if float(p.get("fiyat",0)) > float(p.get("sma200",float("inf"))) else 0 for p in paneller]) * 100
-    momentum = np.mean([1 if float(p.get("macd",0)) > float(p.get("macd_signal",0)) else 0 for p in paneller]) * 100
-    flow = np.mean([1 if float(p.get("cmf",0)) > 0 else 0 for p in paneller]) * 100
-    risk_map = {"DÜŞÜK":25,"ORTA":50,"YÜKSEK":75,"ÇOK YÜKSEK":90}
-    risks = [risk_map.get(str(p.get("risk_seviyesi","ORTA")).upper(),50) for p in paneller]
-    risk = float(np.mean(risks)) if risks else 50
-    pulse = int(round(np.clip(.34*trend + .27*momentum + .24*flow + .15*(100-risk),0,100)))
-    return pulse,int(round(trend)),int(round(momentum)),int(round(flow)),int(round(risk)),"IZFIN TARAMASI"
 
 def _iz_pulse_label(p):
     if p >= 72: return "GÜÇLÜ POZİTİF"
@@ -1980,89 +1971,50 @@ def _iz_badge_class(s):
 
 def izfin_render_classic_dashboard_clickable():
     """Ana sayfa üst alanı: IZFIN Karar Merkezi. Isı haritası kaldırıldı."""
-    pulse,trend,momentum,flow,risk,kaynak = _iz_panel_metrics()
     sonuclar = st.session_state.get("sonuclar") or []
     paneller = st.session_state.get("teknik_paneller") or {}
+    panel_values = list(paneller.values())
 
-    # Karar dağılımı
-    guclu_al = 0
-    alim_tarafi = 0
-    teyit = 0
-    yuksek_risk = 0
-    adaylar = []
+    piyasa_degisimleri = None
+    if not panel_values:
+        piyasa_degisimleri = []
+        for item in izfin_piyasa_bandi_verisi().get("items", []):
+            try:
+                if item.get("ad") == "VIX":
+                    continue
+                degisim = item.get("deg")
+                if degisim is not None and np.isfinite(float(degisim)):
+                    piyasa_degisimleri.append(float(degisim))
+            except (TypeError, ValueError):
+                continue
 
-    for r in sonuclar:
-        t = str(r.get("Varlık",""))
-        p = paneller.get(t,{})
-        sinyal = str(r.get("Nihai Sinyal","") or "").upper()
-        skor = float(p.get("cezali_skor",0) or 0)
-        guven = float(p.get("guven_skoru",50) or 50)
-        mtf = float(p.get("mtf_uyum",50) or 50)
-        risk_txt = str(p.get("risk_seviyesi",r.get("Risk","")) or "").upper()
+    metrics = home_panel_metrics_hazirla(panel_values, piyasa_degisimleri)
+    pulse = metrics["pulse"]
+    trend = metrics["trend"]
+    momentum = metrics["momentum"]
+    flow = metrics["flow"]
+    risk = metrics["risk"]
+    kaynak = metrics["kaynak"]
 
-        yon = sinyal_yonu_belirle(sinyal)
-        if yon == "ALIM":
-            alim_tarafi += 1
-            if "GÜÇLÜ AL" in sinyal or "KUSURSUZ" in sinyal:
-                guclu_al += 1
-        elif yon == "NÖTR" and any(x in sinyal for x in ["BEKLE", "TEYİT", "ERKEN", "NÖTR", "İZLE"]):
-            teyit += 1
-
-        if "YÜKSEK" in risk_txt:
-            yuksek_risk += 1
-
-        # Öne çıkan setup satış/kaçın sinyali olamaz. Alım yönü önceliklidir;
-        # alım yoksa yalnızca nötr/teyit adayları değerlendirilir.
-        risk_ceza = 10 if "ÇOK YÜKSEK" in risk_txt else 6 if "YÜKSEK" in risk_txt else 0
-        yon_bonus = 18 if yon == "ALIM" else (0 if yon == "NÖTR" else -100)
-        setup_rank = skor * .52 + guven * .30 + mtf * .18 - risk_ceza + yon_bonus
-        if yon != "SATIŞ":
-            adaylar.append((setup_rank, t, skor, guven, mtf, risk_txt, sinyal))
-
-    adaylar.sort(reverse=True)
-    best = adaylar[0] if adaylar else None
-
-    # Piyasa modu
-    if pulse >= 72:
-        mod = "GÜÇLÜ POZİTİF"
-        mod_cls = "positive"
-    elif pulse >= 60:
-        mod = "SEÇİCİ POZİTİF"
-        mod_cls = "positive"
-    elif pulse >= 45:
-        mod = "DENGELİ / SEÇİCİ"
-        mod_cls = "neutral"
-    elif pulse >= 32:
-        mod = "TEMKİNLİ"
-        mod_cls = "caution"
-    else:
-        mod = "RİSKTEN KAÇIN"
-        mod_cls = "danger"
-
-    # Dinamik kısa sistem yorumu
-    yorum_parcalari = []
-    if trend >= 70:
-        yorum_parcalari.append("trend güçlü")
-    elif trend < 45:
-        yorum_parcalari.append("trend zayıf")
-    if momentum >= 65:
-        yorum_parcalari.append("momentum destekliyor")
-    elif momentum < 45:
-        yorum_parcalari.append("momentum zayıf")
-    if flow < 45:
-        yorum_parcalari.append("para akışı teyidi zayıf")
-    elif flow >= 60:
-        yorum_parcalari.append("para akışı pozitif")
-    if risk >= 65:
-        yorum_parcalari.append("risk seviyesi yüksek")
-    elif risk < 40:
-        yorum_parcalari.append("risk görece düşük")
-
-    yorum = ", ".join(yorum_parcalari[:4])
-    if yorum:
-        yorum = yorum[0].upper() + yorum[1:] + "."
-    else:
-        yorum = "Teknik bileşenler dengeli; güçlü setup'larda seçici ilerlemek uygun."
+    home_ozet = home_karar_ozeti_hazirla(
+        sonuclar,
+        paneller,
+        pulse=pulse,
+        trend=trend,
+        momentum=momentum,
+        flow=flow,
+        risk=risk,
+        kaynak=kaynak,
+        sinyal_yonu_belirle=sinyal_yonu_belirle,
+    )
+    guclu_al = home_ozet["guclu_al"]
+    alim_tarafi = home_ozet["alim_tarafi"]
+    teyit = home_ozet["teyit"]
+    yuksek_risk = home_ozet["yuksek_risk"]
+    best = home_ozet["best"]
+    mod = home_ozet["mod"]
+    mod_cls = home_ozet["mod_cls"]
+    yorum = home_ozet["yorum"]
 
     st.markdown(
         '<div class="iz-hero iz-market-hero">'
@@ -2153,13 +2105,15 @@ def izfin_render_classic_dashboard_clickable():
 def izfin_top_signals_html(max_n=7):
     sonuclar = st.session_state.get("sonuclar") or []
     paneller = st.session_state.get("teknik_paneller") or {}
-    sirali = sorted(sonuclar, key=lambda r: float(paneller.get(str(r.get("Varlık","")),{}).get("cezali_skor",0) or 0), reverse=True)[:max_n]
     rows = []
-    for r in sirali:
-        t = str(r.get("Varlık","")); p = paneller.get(t,{})
-        sin = str(r.get("Nihai Sinyal","—"))
-        skor = int(float(p.get("cezali_skor",0) or 0)); g = int(float(p.get("guven_skoru",50) or 50))
-        fiyat = r.get("Fiyat","—"); risk = p.get("risk_seviyesi",r.get("Risk","—")); mtf = int(float(p.get("mtf_uyum",50) or 50))
+    for item in home_top_signals_hazirla(sonuclar, paneller, max_n=max_n):
+        t = str(item["ticker"])
+        sin = str(item["sinyal"])
+        skor = int(item["skor"])
+        g = int(item["guven"])
+        fiyat = item["fiyat"]
+        risk = item["risk"]
+        mtf = int(item["mtf"])
         rows.append(f'<tr><td><b>{html.escape(t)}</b></td><td>{html.escape(str(fiyat))}</td><td><span class="iz-badge {_iz_badge_class(sin)}">{html.escape(sin)}</span></td><td><b style="color:#20e69a">{skor}</b></td><td><div class="iz-ring" style="--g:{g}"><span>{g}%</span></div></td><td>{mtf}%</td><td>{html.escape(str(risk))}</td></tr>')
     if not rows:
         return (
@@ -2191,13 +2145,10 @@ def izfin_top_signals_html(max_n=7):
 def izfin_movers_html(max_n=6):
     sonuclar = st.session_state.get("sonuclar") or []
     paneller = st.session_state.get("teknik_paneller") or {}
-    rows = []
-    for r in sonuclar:
-        t = str(r.get("Varlık", "")); p = paneller.get(t, {})
-        try: deg = float(p.get("gunluk_degisim", 0) or 0)
-        except Exception: deg = 0.0
-        rows.append((abs(deg), deg, t, r.get("Fiyat", "—")))
-    rows.sort(reverse=True)
+    rows = [
+        (abs(float(item["degisim"])), float(item["degisim"]), str(item["ticker"]), item["fiyat"])
+        for item in home_movers_hazirla(sonuclar, paneller, max_n=max_n)
+    ]
     if not rows:
         body = (
             '<div class="iz-feature-empty">'
@@ -2246,16 +2197,10 @@ def izfin_movers_render(max_n=5):
     """Büyük Hareketler'i soldaki ana sayfa kartıyla uyumlu, bağımsız bir gridde çizer."""
     sonuclar = st.session_state.get("sonuclar") or []
     paneller = st.session_state.get("teknik_paneller") or {}
-    rows = []
-    for sonuc in sonuclar:
-        ticker = str(sonuc.get("Varlık", ""))
-        panel = paneller.get(ticker, {})
-        try:
-            degisim = float(panel.get("gunluk_degisim", 0) or 0)
-        except Exception:
-            degisim = 0.0
-        rows.append((abs(degisim), degisim, ticker, sonuc.get("Fiyat", "—")))
-    rows.sort(reverse=True)
+    rows = [
+        (abs(float(item["degisim"])), float(item["degisim"]), str(item["ticker"]), item["fiyat"])
+        for item in home_movers_hazirla(sonuclar, paneller, max_n=max_n)
+    ]
 
     # Taranmamış durumda soldaki premium boş kartın birebir geometrisini kullan.
     # Böylece iki kart ve iki native tarama butonu aynı başlangıç/bitiş çizgisinde kalır.
@@ -2368,27 +2313,15 @@ def _izfin_click_strip(tickers, prefix):
 def izfin_top_signal_clicks(max_n=7):
     sonuclar = st.session_state.get("sonuclar") or []
     paneller = st.session_state.get("teknik_paneller") or {}
-    sirali = sorted(
-        sonuclar,
-        key=lambda r: float(paneller.get(str(r.get("Varlık","")),{}).get("cezali_skor",0) or 0),
-        reverse=True,
-    )[:max_n]
-    _izfin_click_strip([r.get("Varlık","") for r in sirali], "classic_signal_click")
+    rows = home_top_signals_hazirla(sonuclar, paneller, max_n=max_n)
+    _izfin_click_strip([row["ticker"] for row in rows], "classic_signal_click")
 
 
 def izfin_mover_clicks(max_n=6):
     sonuclar = st.session_state.get("sonuclar") or []
     paneller = st.session_state.get("teknik_paneller") or {}
-    rows = []
-    for r in sonuclar:
-        t = str(r.get("Varlık",""))
-        try:
-            d = float(paneller.get(t,{}).get("gunluk_degisim",0) or 0)
-        except Exception:
-            d = 0.0
-        rows.append((abs(d), t))
-    rows.sort(reverse=True)
-    _izfin_click_strip([t for _,t in rows[:max_n]], "classic_mover_click")
+    rows = home_movers_hazirla(sonuclar, paneller, max_n=max_n)
+    _izfin_click_strip([row["ticker"] for row in rows], "classic_mover_click")
 
 
 def _google_state_uret():
@@ -3632,7 +3565,7 @@ if aktif_sayfa in ["🏠 Ana Sayfa", "🔎 Akıllı Tarama"]:
         home_focus_left, home_focus_right = st.columns([1.0, 1.0], gap="small")
 
         with home_focus_left:
-            _home_scan_empty = not bool(st.session_state.get("sonuclar"))
+            _home_scan_empty = home_scan_bos_mu(st.session_state.get("sonuclar"))
             st.markdown(izfin_top_signals_html(max_n=5), unsafe_allow_html=True)
             if _home_scan_empty:
                 st.button(
