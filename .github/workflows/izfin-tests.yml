@@ -1,17 +1,14 @@
 name: IZFIN CI
 
 on:
+  # Her develop güncellemesi main'e alınmadan önce tam kalite kapısından geçer.
   push:
     branches:
       - develop
-  pull_request:
-    branches:
-      - develop
-    types: [opened, synchronize]
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
   group: izfin-ci-${{ github.workflow }}-${{ github.ref }}
@@ -26,8 +23,6 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
-        with:
-          ref: ${{ github.head_ref || github.ref_name }}
 
       - name: Set up Python
         uses: actions/setup-python@v7
@@ -60,15 +55,6 @@ jobs:
           print("IZFIN runtime imports: OK")
           PY
 
-      - name: Apply UI4A runner extraction
-        if: ${{ github.head_ref == 'refactor/ui4a-backtest-runner' }}
-        run: python scripts/refactor_ui4a_backtest_runner.py
-
-      - name: Compile UI4A paths
-        if: ${{ github.head_ref == 'refactor/ui4a-backtest-runner' }}
-        run: |
-          python -m py_compile app2.py izfin_services/backtest_service.py izfin_ui/backtest_view.py tests/test_backtest_runner_view.py tests/test_core_architecture.py
-
       - name: Create CI-only Streamlit secrets file
         shell: bash
         run: |
@@ -87,28 +73,9 @@ jobs:
           IZFIN_DATA_CONTROLLER_ADDRESS = ""
           EOF
 
-      - name: Run focused UI4A tests
-        if: ${{ github.head_ref == 'refactor/ui4a-backtest-runner' }}
-        env:
-          FIREBASE_WEB_API_KEY: ""
-          FIREBASE_PROJECT_ID: ""
-          FINNHUB_API_KEY: ""
-          GOOGLE_OAUTH_CLIENT_ID: ""
-          GOOGLE_OAUTH_CLIENT_SECRET: ""
-          GOOGLE_OAUTH_REDIRECT_URI: ""
-          SENTRY_DSN: ""
-          IZFIN_ENVIRONMENT: ci
-        run: python -m pytest -q tests/test_backtest_runner_view.py tests/test_backtest_presenter_core.py tests/test_core_architecture.py tests/test_apptest_smoke.py
-
-      - name: Restore production CI contract before full regression
-        if: ${{ github.head_ref == 'refactor/ui4a-backtest-runner' }}
-        shell: bash
-        run: |
-          git fetch origin develop --depth=1
-          git show origin/develop:.github/workflows/izfin-tests.yml > .github/workflows/izfin-tests.yml
-
       - name: Run complete test suite
         env:
+          # Empty values keep CI away from live Firebase, Finnhub and Sentry writes.
           FIREBASE_WEB_API_KEY: ""
           FIREBASE_PROJECT_ID: ""
           FINNHUB_API_KEY: ""
@@ -116,33 +83,5 @@ jobs:
           GOOGLE_OAUTH_CLIENT_SECRET: ""
           GOOGLE_OAUTH_REDIRECT_URI: ""
           SENTRY_DSN: ""
-          IZFIN_ENVIRONMENT: ci
+          IZFIN_ENVIRONMENT: "ci"
         run: python -m pytest -q
-
-      - name: Verify generated UI4A diff
-        if: ${{ github.head_ref == 'refactor/ui4a-backtest-runner' }}
-        shell: bash
-        run: |
-          git diff --stat
-          changed="$(git diff --name-only)"
-          echo "$changed"
-          test -n "$changed"
-          while IFS= read -r path; do
-            case "$path" in
-              .github/workflows/izfin-tests.yml|app2.py|tests/test_core_architecture.py) ;;
-              *) echo "Unexpected generated path: $path"; exit 1 ;;
-            esac
-          done <<< "$changed"
-          app_changes="$(git diff --numstat -- app2.py | awk '{print $1+$2}')"
-          echo "app2 changed lines: ${app_changes:-0}"
-          test "${app_changes:-99999}" -lt 250
-
-      - name: Commit tested UI4A shell wiring
-        if: ${{ github.head_ref == 'refactor/ui4a-backtest-runner' }}
-        shell: bash
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add -- .github/workflows/izfin-tests.yml app2.py tests/test_core_architecture.py
-          git commit -m "Wire backtest runner view models [ui4a-backtest-bot]"
-          git push origin HEAD:${{ github.head_ref }}

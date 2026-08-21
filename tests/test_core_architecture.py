@@ -81,7 +81,6 @@ def test_app_imports_extracted_core_modules():
     for module in (
         "izfin_core.market_universe",
         "izfin_core.market_data",
-        "izfin_core.backtest_engine",
         "izfin_core.decision_engine",
         "izfin_core.technical_analysis",
         "izfin_core.risk_engine",
@@ -91,7 +90,9 @@ def test_app_imports_extracted_core_modules():
         "izfin_ui.home_dashboard",
         "izfin_ui.projection_view",
         "izfin_ui.performance_view",
+        "izfin_ui.backtest_view",
         "izfin_ui.scan_results",
+        "izfin_services.backtest_service",
         "izfin_services.yahoo_client",
         "izfin_services.finnhub_client",
         "izfin_services.firebase_auth_client",
@@ -283,4 +284,17 @@ def test_performance_view_model_stays_outside_streamlit_shell():
     assert "def _hedef_gordu(" not in source
     assert 'pozitif_oran = float((karne_df["getiri"] > 0).mean() * 100)' not in source
     assert "detay_karne = karne_df.copy()" not in source
+
+
+def test_backtest_runner_orchestration_stays_outside_streamlit_shell():
+    source = APP.read_text(encoding="utf-8")
+    assert "from izfin_services.backtest_service import backtest_calistir" in source
+    assert "from izfin_ui.backtest_view import (" in source
+    assert "backtest_arama_paketi_hazirla(" in source
+    assert "backtest_kpi_paketi_hazirla(" in source
+    assert "from izfin_core.backtest_engine import daily_core_backtest_hesapla" not in source
+    assert "backtest_verisi_indir," not in source
+    assert "bt_havuz = sorted(" not in source
+    assert "baslayanlar = [x for x in bt_havuz" not in source
+    assert "stats['islem_basarisi']" not in source
 
