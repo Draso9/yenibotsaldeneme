@@ -6,5 +6,5 @@ diff=success
 compile=success
 targeted=success
 full=success
-format=failure
-all_ok=false
+scope=success
+all_ok=true

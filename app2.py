@@ -58,9 +58,12 @@ from izfin_core.performance_engine import (
 from izfin_core.projection_engine import opsiyon_projeksiyonu_hesapla
 from izfin_core.risk_engine import teknik_seviyeler_hesapla
 from izfin_core.scanner_engine import (
+    breakout_kosulu_hesapla,
     goreceli_guc_ve_hacim_hesapla,
     hibrit_skor_hesapla,
     on_sinyal_belirle,
+    risk_volatilite_hazirla,
+    temel_teknik_gostergeleri_hesapla,
 )
 from izfin_core.technical_analysis import (
     _backtest_adx_serileri,
@@ -4233,29 +4236,22 @@ if aktif_sayfa in ["🏠 Ana Sayfa", "🔎 Akıllı Tarama"]:
                         else:
                             gorec_guc_str = f"— Veri yok | Vol: %{hacim_oran:.0f}"
 
-                        delta = df_long['Close'].diff()
-                        rs = delta.where(delta>0, 0.0).ewm(alpha=1/14, adjust=False).mean() / (-delta.where(delta<0, 0.0).ewm(alpha=1/14, adjust=False).mean() + 1e-5)
-                        rsi = 100 - (100 / (1 + rs)).iloc[-1]
-                        
-                        macd_serisi = df_long['Close'].ewm(span=12, adjust=False).mean() - df_long['Close'].ewm(span=26, adjust=False).mean()
-                        macd_sinyal = macd_serisi.ewm(span=9, adjust=False).mean()
-                        
-                        sma_200 = df_long['Close'].rolling(200).mean().iloc[-1] if len(df_long) >= 200 else df_long['Close'].mean()
-                        uzun_vade_trend = bugun_kapanis > sma_200
-
-                        bb_mid = df_long['Close'].rolling(20).mean().iloc[-1]
-                        bb_ust = (df_long['Close'].rolling(20).mean() + (df_long['Close'].rolling(20).std() * 2)).iloc[-1]
-                        bb_alt = (df_long['Close'].rolling(20).mean() - (df_long['Close'].rolling(20).std() * 2)).iloc[-1]
-
-                        typical_price = (df_long['High'] + df_long['Low'] + df_long['Close']) / 3
-                        raw_money_flow = typical_price * df_long['Volume']
-                        pos_flow = pd.Series(np.where(typical_price > typical_price.shift(1), raw_money_flow, 0), index=df_long.index)
-                        neg_flow = pd.Series(np.where(typical_price < typical_price.shift(1), raw_money_flow, 0), index=df_long.index)
-                        mfi = 100 - (100 / (1 + (pos_flow.rolling(14).sum() / (neg_flow.rolling(14).sum() + 1e-5))))
-                        mfi_val = mfi.iloc[-1] if not pd.isna(mfi.iloc[-1]) else 50
-                        
-                        obv = np.where(df_long['Close'] > df_long['Close'].shift(1), df_long['Volume'], np.where(df_long['Close'] < df_long['Close'].shift(1), -df_long['Volume'], 0)).cumsum()
-                        obv_ema = pd.Series(obv, index=df_long.index).ewm(span=20, adjust=False).mean()
+                        # RSI, MACD, SMA200, Bollinger, MFI, OBV ve EMA'lar saf scanner motorunda.
+                        temel = temel_teknik_gostergeleri_hesapla(df_long)
+                        rsi = temel["rsi"]
+                        macd_serisi = temel["macd_serisi"]
+                        macd_sinyal = temel["macd_sinyal"]
+                        sma_200 = temel["sma200"]
+                        uzun_vade_trend = temel["uzun_vade_trend"]
+                        bb_mid = temel["bb_mid"]
+                        bb_ust = temel["bb_ust"]
+                        bb_alt = temel["bb_alt"]
+                        mfi_val = temel["mfi"]
+                        obv = temel["obv"]
+                        obv_ema = temel["obv_ema"]
+                        ema_9_val = temel["ema9"]
+                        ema_21_val = temel["ema21"]
+                        ema_50_val = temel["ema50"]
 
                         # Gelişmiş teyitler: ADX, CMF, A/D, SuperTrend, VWAP ve çoklu zaman dilimi.
                         adx, plus_di, minus_di = adx_hesapla(df_long)
@@ -4301,48 +4297,47 @@ if aktif_sayfa in ["🏠 Ana Sayfa", "🔎 Akıllı Tarama"]:
 
                         skor_etiket = f"{skor} Puan (Güçlü 🟢)" if skor >= 70 else (f"{skor} Puan (Nötr ⚖️)" if skor >= 50 else f"{skor} Puan (Cezalı 🔴)")
 
-                        # Destek/direnç referanslarında mevcut mumu hariç tutmak,
-                        # henüz tamamlanmamış gün içi mumdan kaynaklanan ileriye bakış
-                        # (look-ahead) etkisini azaltır.
-                        gecmis_df = df_long.iloc[:-1] if len(df_long) > 1 else df_long
-                        swing_high = gecmis_df['High'].tail(50).max()
-                        swing_low = gecmis_df['Low'].tail(50).min()
-                        tr = pd.concat([df_long['High'] - df_long['Low'], (df_long['High'] - df_long['Close'].shift()).abs(), (df_long['Low'] - df_long['Close'].shift()).abs()], axis=1).max(axis=1)
-                        atr = tr[-14:].mean() if len(tr) >= 14 else bugun_kapanis * 0.02
+                        # ATR, volatilite, stop, destek/direnç ve hedefler saf scanner motorunda.
+                        risk_paket = risk_volatilite_hazirla(
+                            df_long,
+                            fiyat=bugun_kapanis,
+                            ema50=ema_50_val,
+                            bb_alt=bb_alt,
+                            bb_mid=bb_mid,
+                            bb_ust=bb_ust,
+                            adx=adx,
+                        )
+                        swing_high = risk_paket["swing_high"]
+                        swing_low = risk_paket["swing_low"]
+                        atr = risk_paket["atr"]
+                        hv20 = risk_paket["hv20"]
+                        hv60 = risk_paket["hv60"]
+                        karma_destek = risk_paket["destek"]
+                        karma_direnc = risk_paket["direnc"]
+                        trailing_stop = risk_paket["stop"]
+                        risk_yuzde = risk_paket["risk_yuzde"]
+                        risk_seviyesi = risk_paket["risk_seviyesi"]
+                        vol_rejimi = risk_paket["volatilite_rejimi"]
+                        seviyeler = risk_paket["seviyeler"]
+                        tp1 = risk_paket["tp1"]
+                        tp2 = risk_paket["tp2"]
+                        tp3 = risk_paket["tp3"]
+                        risk_odul = risk_paket["risk_odul"]
+                        hibrit_tp = risk_paket["hibrit_tp"]
 
-                        # Tarihsel volatilite: günlük log getirilerin yıllıklandırılmış standart sapması.
-                        log_getiriler = np.log(df_long['Close'] / df_long['Close'].shift(1)).replace([np.inf, -np.inf], np.nan).dropna()
-                        hv20 = float(log_getiriler.tail(20).std(ddof=1) * np.sqrt(252)) if len(log_getiriler) >= 20 else 0.0
-                        hv60 = float(log_getiriler.tail(60).std(ddof=1) * np.sqrt(252)) if len(log_getiriler) >= 30 else hv20
-                        if not np.isfinite(hv20) or hv20 <= 0:
-                            hv20 = float((atr / bugun_kapanis) * np.sqrt(252)) if bugun_kapanis > 0 else 0.20
-                        if not np.isfinite(hv60) or hv60 <= 0:
-                            hv60 = hv20
-
-                        karma_destek = max([d for d in [swing_low, ema_50_val, bugun_kapanis - (atr * 2)] if pd.notna(d) and d < bugun_kapanis], default=bugun_kapanis - (atr * 1.5))
-                        karma_direnc = min([dir_val for dir_val in [swing_high, bb_ust] if pd.notna(dir_val) and dir_val > bugun_kapanis], default=bugun_kapanis + (atr * 2.5))
-
-                        # Teknik iptal seviyesi: fiyatın altındaki en yakın koruyucu ATR/Chandelier desteği.
-                        chandelier_stop = gecmis_df['High'].tail(22).max() - (atr * 3)
-                        stop_adaylari = [x for x in [chandelier_stop, bugun_kapanis - (atr * 1.5), karma_destek - (atr * 0.25)] if pd.notna(x) and x < bugun_kapanis]
-                        trailing_stop = max(stop_adaylari, default=bugun_kapanis - (atr * 1.5))
-                        risk_yuzde = (bugun_kapanis - trailing_stop) / max(bugun_kapanis, 1e-9) * 100
-                        risk_seviyesi = 'YÜKSEK' if risk_yuzde > 7 or adx < 18 else ('DÜŞÜK' if risk_yuzde < 3.5 and adx >= 25 else 'ORTA')
-                        vol_rejimi = volatilite_rejimi(bugun_kapanis, atr, hv20)
-
-                        seviyeler = teknik_seviyeler_hesapla(df_long, bugun_kapanis, atr, ema_50_val, bb_alt, bb_mid, bb_ust, hv20)
-                        tp1, tp2, tp3 = seviyeler['tp1'], seviyeler['tp2'], seviyeler['tp3']
-                        karma_destek, karma_direnc = seviyeler['s1'], seviyeler['r1']
-                        risk_odul = (tp2 - bugun_kapanis) / max(bugun_kapanis - trailing_stop, 1e-9)
-                        hibrit_tp = f"TP1: {tp1:.2f} | TP2: {tp2:.2f} | TP3: {tp3:.2f}"
-
-                        ema_9_val = df_long['Close'].ewm(span=9, adjust=False).mean().iloc[-1]
-                        ema_21_val = df_long['Close'].ewm(span=21, adjust=False).mean().iloc[-1]
-                        bb_ust_serisi = df_long['Close'].rolling(20).mean() + (df_long['Close'].rolling(20).std() * 2)
-                        onceki_bb_ust = bb_ust_serisi.shift(1).iloc[-1]
-                        kirilim_adaylari = [x for x in [swing_high, onceki_bb_ust] if pd.notna(x)]
-                        kirilim_referansi = min(kirilim_adaylari, default=bugun_kapanis + atr)
-                        breakout_kosulu = (bugun_kapanis >= kirilim_referansi) and (hacim_oran >= 120) and (ema_9_val > ema_21_val) and uzun_vade_trend
+                        # Kırılım referansı ve koşulu da tek saf hesapta değerlendirilir.
+                        breakout_paket = breakout_kosulu_hesapla(
+                            fiyat=bugun_kapanis,
+                            swing_high=swing_high,
+                            onceki_bb_ust=temel["onceki_bb_ust"],
+                            atr=atr,
+                            hacim_oran=hacim_oran,
+                            ema9=ema_9_val,
+                            ema21=ema_21_val,
+                            uzun_vade_trend=uzun_vade_trend,
+                        )
+                        kirilim_referansi = breakout_paket["referans"]
+                        breakout_kosulu = breakout_paket["kosul"]
 
                         # Ön sinyal öncelik sırası artık saf scanner motorunda tutulur.
                         on_sinyal = on_sinyal_belirle(
