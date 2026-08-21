@@ -98,11 +98,21 @@ def replace_exact_once(text: str, old: str, new: str, label: str) -> str:
     return text.replace(matched, _with_newline(new, newline), 1)
 
 
+def _first_match_after(text: str, marker: str, start: int, label: str) -> tuple[int, str]:
+    candidates = []
+    for variant, _ in _variants(marker):
+        pos = text.find(variant, start)
+        if pos >= 0:
+            candidates.append((pos, variant))
+    if not candidates:
+        raise RuntimeError(f"{label}: marker not found after start")
+    return min(candidates, key=lambda item: item[0])
+
+
 def replace_between(text: str, start_marker: str, end_marker: str, replacement: str, label: str) -> str:
     start_match, newline = _unique_match(text, start_marker, f"{label} start")
-    end_match, _ = _unique_match(text, end_marker, f"{label} end")
     start = text.index(start_match)
-    end = text.index(end_match, start)
+    end, _ = _first_match_after(text, end_marker, start + len(start_match), f"{label} end")
     return text[:start] + _with_newline(replacement, newline) + text[end:]
 
 
@@ -135,7 +145,6 @@ def _cleanup_unused_imports(text: str) -> str:
             try:
                 text = replace_exact_once(text, line, "", f"unused import {name}")
             except RuntimeError:
-                # İsim blokta yoksa zaten temizlenmiştir.
                 pass
     return text
 
