@@ -68,9 +68,7 @@ BACKTEST_DETAY_FORMAT = {
 def backtest_karar_ozeti_hazirla(bt: pd.DataFrame) -> pd.DataFrame:
     """Aggregate historical trades by the central IZFIN decision label."""
     if bt is None or bt.empty:
-        return pd.DataFrame(
-            columns=["Sinyal", *BACKTEST_OZET_FORMAT.keys()]
-        )
+        return pd.DataFrame(columns=["Sinyal", *BACKTEST_OZET_FORMAT.keys()])
 
     gerekli = {
         "Sinyal",
@@ -122,7 +120,7 @@ def backtest_detay_gorunumu_hazirla(bt: pd.DataFrame) -> pd.DataFrame:
     detay = bt[kolonlar].copy()
     if "Tarih" in detay.columns:
         detay["Tarih"] = pd.to_datetime(
-            detay["Tarih"], errors="coerce"
+            detay["Tarih"], errors="coerce", format="mixed"
         ).dt.strftime("%Y-%m-%d")
     return detay
 
