@@ -64,6 +64,20 @@ jobs:
         if: ${{ github.head_ref == 'refactor/ui3-performance-view' }}
         run: python scripts/refactor_ui3_performance_view.py
 
+      - name: Fix generated UI3 architecture assertion
+        if: ${{ github.head_ref == 'refactor/ui3-performance-view' }}
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p = Path("tests/test_core_architecture.py")
+          s = p.read_text(encoding="utf-8")
+          bad = '    assert "pozitif_oran = float((karne_df["getiri"] > 0).mean() * 100)" not in source'
+          good = "    assert 'pozitif_oran = float((karne_df[\"getiri\"] > 0).mean() * 100)' not in source"
+          if bad not in s:
+              raise SystemExit("generated UI3 assertion not found")
+          p.write_text(s.replace(bad, good, 1), encoding="utf-8")
+          PY
+
       - name: Compile UI3 paths
         if: ${{ github.head_ref == 'refactor/ui3-performance-view' }}
         run: |
