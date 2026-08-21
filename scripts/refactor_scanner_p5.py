@@ -35,7 +35,7 @@ MARKET_SESSION_IMPORT = '''from izfin_services.market_session import (
 '''
 
 SESSION_HELPERS_START = "def _intraday_local_index(ticker, df):\n"
-SESSION_HELPERS_END = '@st.cache_data(ttl=20, show_spinner=False)\ndef intraday_veri_cek(ticker, interval="5m", period="5d"):\n'
+SESSION_HELPERS_END = "@st.cache_data(ttl=20, show_spinner=False)"
 LIVE_HELPERS_START = "def canli_ohlcv_ile_guncelle(ticker, df_long, intraday_hazir=None, quote_hazir=None):\n"
 LIVE_HELPERS_END = "# --- GELİŞMİŞ TEKNİK / DOĞRULAMA MOTORU ---\n"
 
