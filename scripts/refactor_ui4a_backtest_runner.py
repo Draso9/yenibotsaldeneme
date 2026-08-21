@@ -150,6 +150,20 @@ def refactor_app() -> None:
 
 def update_architecture_gate() -> None:
     source = ARCH.read_text(encoding="utf-8")
+
+    # The Streamlit shell no longer owns the backtest engine/provider boundary.
+    source = source.replace('        "izfin_core.backtest_engine",\n', "", 1)
+    if '        "izfin_ui.backtest_view",\n' not in source:
+        anchor = '        "izfin_ui.performance_view",\n'
+        if anchor not in source:
+            raise SystemExit("architecture ui import anchor missing")
+        source = source.replace(anchor, anchor + '        "izfin_ui.backtest_view",\n', 1)
+    if '        "izfin_services.backtest_service",\n' not in source:
+        anchor = '        "izfin_services.yahoo_client",\n'
+        if anchor not in source:
+            raise SystemExit("architecture service import anchor missing")
+        source = source.replace(anchor, '        "izfin_services.backtest_service",\n' + anchor, 1)
+
     test_block = '''
 
 
