@@ -53,6 +53,9 @@ EXTRACTED_FUNCTIONS = {
     "aksiyon_rehberi_olustur",
     "sozlu_teknik_analiz_olustur",
     "gelismis_teknik_panel_olustur",
+    "goreceli_guc_ve_hacim_hesapla",
+    "hibrit_skor_hesapla",
+    "on_sinyal_belirle",
 }
 
 
@@ -71,6 +74,7 @@ def test_app_imports_extracted_core_modules():
         "izfin_core.decision_engine",
         "izfin_core.technical_analysis",
         "izfin_core.risk_engine",
+        "izfin_core.scanner_engine",
         "izfin_core.projection_engine",
         "izfin_core.performance_engine",
         "izfin_ui.analysis_views",

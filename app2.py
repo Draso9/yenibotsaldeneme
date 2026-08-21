@@ -57,6 +57,11 @@ from izfin_core.performance_engine import (
 )
 from izfin_core.projection_engine import opsiyon_projeksiyonu_hesapla
 from izfin_core.risk_engine import teknik_seviyeler_hesapla
+from izfin_core.scanner_engine import (
+    goreceli_guc_ve_hacim_hesapla,
+    hibrit_skor_hesapla,
+    on_sinyal_belirle,
+)
 from izfin_core.technical_analysis import (
     _backtest_adx_serileri,
     _backtest_daily_mtf_proxy,
@@ -4212,22 +4217,17 @@ if aktif_sayfa in ["🏠 Ana Sayfa", "🔎 Akıllı Tarama"]:
                         ortalama_ciro_tutar = ortalama_hacim_20 * bugun_kapanis if not pd.isna(ortalama_hacim_20) else 0
                         is_sig_tahta = ortalama_ciro_tutar < (50_000_000 if is_bist else 5_000_000)
 
-                        # Göreceli güç hesabında yalnızca geçerli kapanışları kullan.
-                        # Yahoo bazı sembollerde ilk/son satırı NaN döndürebildiği için
-                        # ham iloc kullanmak `%nan` üretebiliyordu.
-                        close_1m = pd.to_numeric(df_long['Close'], errors='coerce').replace([np.inf, -np.inf], np.nan).dropna().tail(21)
-                        hisse_1m_getiri = np.nan
-                        if len(close_1m) >= 2 and float(close_1m.iloc[0]) != 0:
-                            hisse_1m_getiri = ((float(close_1m.iloc[-1]) - float(close_1m.iloc[0])) / float(close_1m.iloc[0])) * 100
-
+                        # Göreceli güç ve hacim oranı saf scanner motorunda hesaplanır.
                         sek_sembol = "XU100.IS" if is_bist else "^IXIC"
-                        sektor_get = sektor_getirileri.get(sek_sembol, np.nan)
-                        sektor_get = float(sektor_get) if pd.notna(sektor_get) and np.isfinite(float(sektor_get)) else np.nan
-                        sektorel_fark = (hisse_1m_getiri - sektor_get) if np.isfinite(hisse_1m_getiri) and np.isfinite(sektor_get) else np.nan
+                        goreceli_paket = goreceli_guc_ve_hacim_hesapla(
+                            df_long, sektor_getirileri.get(sek_sembol, np.nan)
+                        )
+                        sektorel_fark = goreceli_paket["sektorel_fark"]
+                        hacim_oran = goreceli_paket["hacim_oran"]
 
+                        # Panel ayrıntıları için ham hacim değerleri korunur.
                         bugun_hacim = pd.to_numeric(pd.Series([df_long['Volume'].iloc[-1]]), errors='coerce').iloc[0]
                         hacim_sma20 = pd.to_numeric(df_long['Volume'], errors='coerce').replace([np.inf, -np.inf], np.nan).rolling(20, min_periods=5).mean().iloc[-1]
-                        hacim_oran = (float(bugun_hacim) / float(hacim_sma20)) * 100 if pd.notna(bugun_hacim) and pd.notna(hacim_sma20) and float(hacim_sma20) > 0 else 100.0
                         if pd.notna(sektorel_fark) and np.isfinite(float(sektorel_fark)):
                             gorec_guc_str = f"{'+' if sektorel_fark > 0 else ''}{sektorel_fark:.1f}% | Vol: %{hacim_oran:.0f}"
                         else:
@@ -4269,108 +4269,35 @@ if aktif_sayfa in ["🏠 Ana Sayfa", "🔎 Akıllı Tarama"]:
 
                         hacim_patlamasi_var = (hacim_oran >= 130) and (gunluk_degisim >= 4.0)
 
-                        # --- HİBRİT SKOR: ESKİ CEZALI SKOR + GELİŞMİŞ TEYİT KATMANI ---
-                        # Eski sistemin davranışı korunur: 50 puandan başlar; ana trend,
-                        # EMA50, hacim/OBV, RSI, MACD ve Bollinger konumuna göre artar/azalır.
-                        eski_skor = 50
-                        skor_kalemleri = []
-
-                        if uzun_vade_trend:
-                            eski_skor += 15; skor_kalemleri.append(("Ana trend (SMA200)", 15))
-                        else:
-                            ceza = -5 if hacim_patlamasi_var else -25
-                            eski_skor += ceza; skor_kalemleri.append(("Ana trend (SMA200)", ceza))
-
+                        # --- HİBRİT SKOR: SAF SCANNER MOTORU ---
                         ema_50_val = df_long['Close'].ewm(span=50, adjust=False).mean().iloc[-1]
-                        if bugun_kapanis > ema_50_val:
-                            eski_skor += 10; skor_kalemleri.append(("EMA50 konumu", 10))
-                        else:
-                            eski_skor -= 15; skor_kalemleri.append(("EMA50 konumu", -15))
-
-                        if hacim_oran >= 100 and obv[-1] > obv_ema.iloc[-1]:
-                            eski_skor += 15; skor_kalemleri.append(("Hacim + OBV", 15))
-                        else:
-                            eski_skor -= 20; skor_kalemleri.append(("Hacim + OBV", -20))
-
-                        if 35 <= rsi <= 55:
-                            eski_skor += 10; skor_kalemleri.append(("RSI dengesi", 10))
-                        elif rsi > 70:
-                            eski_skor -= 15; skor_kalemleri.append(("RSI aşırı alım", -15))
-                        else:
-                            skor_kalemleri.append(("RSI dengesi", 0))
-
-                        if macd_serisi.iloc[-1] > macd_sinyal.iloc[-1]:
-                            eski_skor += 10; skor_kalemleri.append(("MACD teyidi", 10))
-                        else:
-                            eski_skor -= 10; skor_kalemleri.append(("MACD teyidi", -10))
-
-                        if bugun_kapanis <= bb_mid:
-                            eski_skor += 10; skor_kalemleri.append(("Bollinger konumu", 10))
-                        elif bugun_kapanis >= bb_ust and rsi >= 65:
-                            eski_skor -= 15; skor_kalemleri.append(("Bollinger şişkinliği", -15))
-                        else:
-                            skor_kalemleri.append(("Bollinger konumu", 0))
-
-                        if is_sig_tahta:
-                            eski_skor -= 20; skor_kalemleri.append(("Likidite / sığ tahta", -20))
-
-                        eski_skor = int(min(100, max(0, eski_skor)))
-
-                        # Yeni doğrulama katmanı: eski skoru değiştirmek yerine kontrollü
-                        # bonus/ceza uygular. Böylece sevilen eski davranış korunur.
-                        gelismis_bonus = 0
-                        gelismis_ceza = 0
-                        bonus_kalemleri = []
-                        ceza_kalemleri = []
-
-                        if adx >= 25 and plus_di > minus_di:
-                            gelismis_bonus += 6; bonus_kalemleri.append(("ADX güçlü boğa trendi", 6))
-                        elif adx < 18:
-                            gelismis_ceza += 4; ceza_kalemleri.append(("ADX trend zayıf", -4))
-
-                        if cmf > 0.05:
-                            gelismis_bonus += 5; bonus_kalemleri.append(("CMF para girişi", 5))
-                        elif cmf < -0.05:
-                            gelismis_ceza += 5; ceza_kalemleri.append(("CMF para çıkışı", -5))
-
-                        if supertrend == 1:
-                            gelismis_bonus += 4; bonus_kalemleri.append(("SuperTrend yukarı", 4))
-                        else:
-                            gelismis_ceza += 4; ceza_kalemleri.append(("SuperTrend aşağı", -4))
-
-                        if np.isfinite(vwap):
-                            if bugun_kapanis > vwap:
-                                gelismis_bonus += 3; bonus_kalemleri.append(("Fiyat VWAP üzerinde", 3))
-                            else:
-                                gelismis_ceza += 2; ceza_kalemleri.append(("Fiyat VWAP altında", -2))
-
-                        mtf_etki = int(round((mtf_uyum - 50) * 0.10))
-                        if mtf_etki > 0:
-                            gelismis_bonus += mtf_etki; bonus_kalemleri.append(("Çoklu zaman dilimi uyumu", mtf_etki))
-                        elif mtf_etki < 0:
-                            gelismis_ceza += abs(mtf_etki); ceza_kalemleri.append(("Zaman dilimi çatışması", mtf_etki))
-
-                        if pd.notna(sektorel_fark) and np.isfinite(float(sektorel_fark)):
-                            if sektorel_fark > 0:
-                                gelismis_bonus += 2; bonus_kalemleri.append(("Sektöre göre güçlü", 2))
-                            else:
-                                gelismis_ceza += 2; ceza_kalemleri.append(("Sektöre göre zayıf", -2))
-                        # Referans verisi yoksa göreceli güç puanlamaya dahil edilmez.
-
-                        # Gelişmiş katmanın etkisini sınırlayarak eski skoru baskın tutuyoruz.
-                        gelismis_bonus = min(gelismis_bonus, 15)
-                        gelismis_ceza = min(gelismis_ceza, 15)
-                        skor = int(min(100, max(0, eski_skor + gelismis_bonus - gelismis_ceza)))
-
-                        skor_aciklama = {
-                            "eski_skor": eski_skor,
-                            "bonus": gelismis_bonus,
-                            "ceza": gelismis_ceza,
-                            "nihai_skor": skor,
-                            "eski_kalemler": skor_kalemleri,
-                            "bonus_kalemler": bonus_kalemleri,
-                            "ceza_kalemler": ceza_kalemleri,
-                        }
+                        skor_aciklama = hibrit_skor_hesapla(
+                            uzun_vade_trend=uzun_vade_trend,
+                            hacim_patlamasi_var=hacim_patlamasi_var,
+                            fiyat=bugun_kapanis,
+                            ema50=ema_50_val,
+                            hacim_oran=hacim_oran,
+                            obv=float(obv[-1]),
+                            obv_ema=float(obv_ema.iloc[-1]),
+                            rsi=float(rsi),
+                            macd=float(macd_serisi.iloc[-1]),
+                            macd_signal=float(macd_sinyal.iloc[-1]),
+                            bb_mid=float(bb_mid),
+                            bb_ust=float(bb_ust),
+                            is_sig_tahta=is_sig_tahta,
+                            adx=float(adx),
+                            plus_di=float(plus_di),
+                            minus_di=float(minus_di),
+                            cmf=float(cmf),
+                            supertrend=int(supertrend),
+                            vwap=vwap,
+                            mtf_uyum=float(mtf_uyum),
+                            sektorel_fark=sektorel_fark,
+                        )
+                        eski_skor = int(skor_aciklama["eski_skor"])
+                        gelismis_bonus = int(skor_aciklama["bonus"])
+                        gelismis_ceza = int(skor_aciklama["ceza"])
+                        skor = int(skor_aciklama["nihai_skor"])
 
                         skor_etiket = f"{skor} Puan (Güçlü 🟢)" if skor >= 70 else (f"{skor} Puan (Nötr ⚖️)" if skor >= 50 else f"{skor} Puan (Cezalı 🔴)")
 
@@ -4417,25 +4344,24 @@ if aktif_sayfa in ["🏠 Ana Sayfa", "🔎 Akıllı Tarama"]:
                         kirilim_referansi = min(kirilim_adaylari, default=bugun_kapanis + atr)
                         breakout_kosulu = (bugun_kapanis >= kirilim_referansi) and (hacim_oran >= 120) and (ema_9_val > ema_21_val) and uzun_vade_trend
 
-                        # Sinyal önceliği: önce kırılım ve risk/şişkinlik, ardından
-                        # dipten dönüş ve trend adaylığı. Böylece aşırı alım durumu
-                        # "uzun vadeli aday" etiketi tarafından gölgelenmez.
-                        on_sinyal = "Nötr (İzle) ⚖️"
-                        if breakout_kosulu:
-                            on_sinyal = "YÜKSELİŞ KIRILIMI 🚀"
-                        elif bugun_kapanis > bb_ust and rsi >= 68:
-                            on_sinyal = "MOMENTUM AŞIRI ISINDI 🟡"
-                        elif bugun_kapanis <= bb_alt and rsi <= 35 and uzun_vade_trend and (mfi_val <= 40 or gunluk_degisim > 0):
-                            on_sinyal = "KUSURSUZ ALIM 🟢"
-                        elif rsi <= 40 and uzun_vade_trend and bugun_kapanis <= bb_mid and bugun_kapanis <= (karma_destek + atr):
-                            on_sinyal = "KADEMELİ ALIM 🔵"
-                        elif uzun_vade_trend and skor >= 70:
-                            on_sinyal = "UZUN VADELİ ADAY 🌟"
-                        elif hacim_patlamasi_var and rsi < 50:
-                            on_sinyal = "HACİMLİ TEPKİ 🟡"
-                        elif not uzun_vade_trend:
-                            on_sinyal = "KURTULUŞ ÇABASI 🧗" if (bugun_kapanis > ema_50_val) else "UZAK DUR! 🛑"
-                            
+                        # Ön sinyal öncelik sırası artık saf scanner motorunda tutulur.
+                        on_sinyal = on_sinyal_belirle(
+                            breakout_kosulu=breakout_kosulu,
+                            fiyat=bugun_kapanis,
+                            bb_ust=bb_ust,
+                            bb_alt=bb_alt,
+                            bb_mid=bb_mid,
+                            rsi=rsi,
+                            uzun_vade_trend=uzun_vade_trend,
+                            mfi=mfi_val,
+                            gunluk_degisim=gunluk_degisim,
+                            karma_destek=karma_destek,
+                            atr=atr,
+                            skor=skor,
+                            hacim_patlamasi_var=hacim_patlamasi_var,
+                            ema50=ema_50_val,
+                        )
+
                         if uzun_vade_trend: boga_sayisi += 1
 
                         alim_yonlu_on_sinyal = any(x in on_sinyal for x in ["ALIM", "KIRILIM", "ADAY"])
