@@ -68,7 +68,6 @@ MARKET_BLOCK_REPLACEMENT = '''                        # Canlı seans/OHLCV ve te
                         bugun_hacim = piyasa_paketi["bugun_hacim"]
                         hacim_sma20 = piyasa_paketi["hacim_sma20"]
 
-                        # Göreceli güç ve hacim oranı saf scanner motorunda hesaplanır.
 '''
 
 RAW_VOLUME_START = "                        # Panel ayrıntıları için ham hacim değerleri korunur.\n"
@@ -164,14 +163,14 @@ def main() -> None:
         text,
         SESSION_HELPERS_START,
         SESSION_HELPERS_END,
-        SESSION_HELPERS_END,
+        "",
         "session helpers",
     )
     text = replace_between(
         text,
         LIVE_HELPERS_START,
         LIVE_HELPERS_END,
-        LIVE_HELPERS_END,
+        "",
         "live OHLCV helpers",
     )
     text = replace_between(
