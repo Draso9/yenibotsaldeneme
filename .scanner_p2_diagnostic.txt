@@ -1,0 +1,10 @@
+install=success
+secrets=success
+refactor=success
+boundary=success
+diff=success
+compile=success
+targeted=success
+full=success
+format=failure
+all_ok=false
