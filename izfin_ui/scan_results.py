@@ -9,6 +9,7 @@ import pandas as pd
 
 from izfin_core.decision_engine import sinyal_yonu_belirle
 
+# Bu modül bilinçli olarak Streamlit/session-state bağımlılığı taşımaz.
 
 SONUC_FILTRELERI = (
     "Tümü",
