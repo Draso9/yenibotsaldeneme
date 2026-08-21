@@ -40,8 +40,6 @@ from izfin_core.market_universe import (
     ticker_girdisini_dogrula as _ticker_girdisini_dogrula,
 )
 from izfin_core.market_data import (
-    abd_quote_regular_seans_mi,
-    normalize_yf_columns as _normalize_yf_columns,
     yalnizca_kapali_mumlar as _yalnizca_kapali_mumlar,
 )
 from izfin_core.backtest_engine import daily_core_backtest_hesapla
@@ -92,6 +90,10 @@ from izfin_services.scan_service import (
     gunluk_toplu_veriden_ticker_ayir,
     scan_veri_paketi_hazirla,
     toplu_veriden_ticker_ayir,
+)
+from izfin_services.market_session import (
+    tekil_normal_seans_veri_cek,
+    ticker_piyasa_paketi_hazirla,
 )
 from izfin_services.yahoo_client import (
     backtest_verisi_indir,
@@ -758,71 +760,6 @@ def finnhub_quote_cek(ticker):
         return None
     return FINNHUB_CLIENT.quote(_finnhub_symbol(ticker))
 
-def _intraday_local_index(ticker, df):
-    if df is None or df.empty:
-        return pd.DataFrame()
-    x = df.copy().sort_index()
-    try:
-        idx = pd.to_datetime(x.index)
-        tz = "Europe/Istanbul" if str(ticker).endswith(".IS") else "America/New_York"
-        if getattr(idx, "tz", None) is None:
-            idx = idx.tz_localize(tz)
-        else:
-            idx = idx.tz_convert(tz)
-        x.index = idx
-    except Exception as e:
-        izfin_hata_logla("silent_exception_line_557", e)
-    return x
-
-
-def regular_seans_intraday(ticker, df):
-    """Teknik hesaplarda yalnızca normal seans mumlarını kullanır."""
-    x = _intraday_local_index(ticker, df)
-    if x.empty:
-        return x
-    try:
-        if str(ticker).endswith(".IS"):
-            return x.between_time("10:00", "18:10", inclusive="both")
-        return x.between_time("09:30", "16:00", inclusive="both")
-    except Exception:
-        return x
-
-
-def seans_disi_ozet(ticker, ham_intraday, quote=None):
-    """ABD premarket/after-hours fiyatını yalnızca ek bilgi olarak verir."""
-    if str(ticker).endswith(".IS"):
-        return "—", None
-    x = _intraday_local_index(ticker, ham_intraday)
-    if x.empty or "Close" not in x.columns:
-        if quote and quote.get("close", 0) > 0 and not abd_quote_regular_seans_mi(quote):
-            try:
-                px = float(quote["close"])
-                return f"🌙 Seans dışı {px:.2f}", px
-            except Exception as e:
-                izfin_hata_logla("silent_exception_line_599", e)
-        return "—", None
-    try:
-        x = x.dropna(subset=["Close"]).sort_index()
-        if x.empty:
-            return "—", None
-        son_ts = x.index[-1]
-        son_dakika = son_ts.hour * 60 + son_ts.minute
-        if (9 * 60 + 30) <= son_dakika <= (16 * 60):
-            return "—", None
-        son_fiyat = float(x["Close"].iloc[-1])
-        tur = "PM" if son_dakika < (9 * 60 + 30) else "AH"
-        regular = regular_seans_intraday(ticker, x)
-        onceki_regular = regular[regular.index < son_ts] if not regular.empty else regular
-        if not onceki_regular.empty:
-            ref = float(onceki_regular["Close"].dropna().iloc[-1])
-            if ref > 0:
-                deg = ((son_fiyat / ref) - 1.0) * 100.0
-                return f"🌙 {tur} {son_fiyat:.2f} ({deg:+.2f}%)", son_fiyat
-        return f"🌙 {tur} {son_fiyat:.2f}", son_fiyat
-    except Exception:
-        return "—", None
-
-
 @st.cache_data(ttl=20, show_spinner=False)
 def intraday_veri_cek(ticker, interval="5m", period="5d"):
     try:
@@ -846,56 +783,6 @@ def toplu_intraday_veri_cek(tickers_tuple, interval="5m", period="5d"):
     except Exception as e:
         izfin_hata_logla("yahoo_intraday_toplu", e)
         return pd.DataFrame()
-
-
-def canli_ohlcv_ile_guncelle(ticker, df_long, intraday_hazir=None, quote_hazir=None):
-    """Günlük seriyi yalnızca NORMAL SEANS verisiyle günceller."""
-    df = df_long.copy().sort_index()
-    kaynak = "Yahoo günlük (fallback)"
-    quote = quote_hazir if quote_hazir is not None else finnhub_quote_cek(ticker)
-    ham_intraday = intraday_hazir.copy() if isinstance(intraday_hazir, pd.DataFrame) else pd.DataFrame()
-    if ham_intraday.empty:
-        ham_intraday = intraday_veri_cek(ticker, interval="5m", period="5d")
-    ham_intraday = _normalize_yf_columns(ham_intraday)
-    intraday = regular_seans_intraday(ticker, ham_intraday)
-    if not intraday.empty and "Close" in intraday.columns:
-        intraday = intraday.dropna(subset=["Close"]).sort_index()
-    if not intraday.empty:
-        seans_tarihi = intraday.index[-1].date()
-        seans_rows = intraday[intraday.index.date == seans_tarihi]
-        if not seans_rows.empty:
-            o = float(seans_rows["Open"].dropna().iloc[0])
-            h = float(seans_rows["High"].max())
-            l = float(seans_rows["Low"].min())
-            c = float(seans_rows["Close"].dropna().iloc[-1])
-            v = float(seans_rows["Volume"].fillna(0).sum()) if "Volume" in seans_rows else 0.0
-            kaynak = "Yahoo 5 dk (BIST normal seans)" if ticker.endswith(".IS") else "Yahoo 5 dk (ABD normal seans)"
-            if (not ticker.endswith(".IS")) and quote and quote.get("close", 0) > 0 and abd_quote_regular_seans_mi(quote):
-                c = float(quote["close"])
-                if quote.get("open", 0) > 0: o = float(quote["open"])
-                if quote.get("high", 0) > 0: h = max(h, float(quote["high"]))
-                if quote.get("low", 0) > 0: l = min(l, float(quote["low"]))
-                kaynak = "Finnhub fiyat + Yahoo 5 dk (normal seans)"
-            last_daily_date = pd.Timestamp(df.index[-1]).date()
-            if last_daily_date == seans_tarihi:
-                target_idx = df.index[-1]
-            else:
-                target_idx = pd.Timestamp(seans_tarihi)
-                if getattr(df.index, "tz", None) is not None:
-                    target_idx = target_idx.tz_localize(df.index.tz)
-            row = {"Open": o, "High": h, "Low": l, "Close": c, "Volume": v}
-            for col, val in row.items():
-                if col in df.columns and pd.notna(val):
-                    df.loc[target_idx, col] = val
-            df = df.sort_index()
-    elif quote and quote.get("close", 0) > 0:
-        # Quote-only fallback geçmiş günlük mumu bozmaz.
-        kaynak = "Yahoo günlük · Finnhub quote yalnızca ek fiyat"
-    return df, intraday, kaynak, ham_intraday
-
-def tekil_taze_veri_cek(ticker):
-    """Yalnızca toplu intraday başarısızlığında normal-seans fallback."""
-    return regular_seans_intraday(ticker, intraday_veri_cek(ticker, interval="5m", period="5d"))
 
 
 # --- GELİŞMİŞ TEKNİK / DOĞRULAMA MOTORU ---
@@ -4133,21 +4020,32 @@ if aktif_sayfa in ["🏠 Ana Sayfa", "🔎 Akıllı Tarama"]:
                         is_bist = ".IS" in ticker
                         para_birimi = "TL" if is_bist else "$"
                         
-                        # --- CANLI OHLCV: FINNHUB + YAHOO 5 DAKİKALIK FALLBACK ---
-                        intraday_ticker = toplu_veriden_ticker_ayir(toplu_intraday, ticker, len(selected_tickers))
-                        df_long, df_intraday, veri_kaynagi, ham_intraday = canli_ohlcv_ile_guncelle(
-                            ticker, df_long, intraday_hazir=intraday_ticker, quote_hazir=quote_haritasi.get(ticker)
+                        # Canlı seans/OHLCV ve temel piyasa metrikleri servis katmanında hazırlanır.
+                        intraday_ticker = toplu_veriden_ticker_ayir(
+                            toplu_intraday, ticker, len(selected_tickers)
                         )
-                        seans_disi_metin, seans_disi_fiyat = seans_disi_ozet(ticker, ham_intraday, quote_haritasi.get(ticker))
-                        bugun_kapanis = float(df_long['Close'].iloc[-1])
-
-                        onceki_kapanis = float(df_long['Close'].iloc[-2]) if len(df_long) >= 2 else bugun_kapanis
-                        gunluk_degisim = ((bugun_kapanis - onceki_kapanis) / onceki_kapanis) * 100 if onceki_kapanis > 0 else 0.0
-                        fiyat_str = f"{bugun_kapanis:.2f} {para_birimi} ({'+' if gunluk_degisim > 0 else ''}{gunluk_degisim:.2f}%)"
-
-                        ortalama_hacim_20 = df_long['Volume'].rolling(20).mean().iloc[-1]
-                        ortalama_ciro_tutar = ortalama_hacim_20 * bugun_kapanis if not pd.isna(ortalama_hacim_20) else 0
-                        is_sig_tahta = ortalama_ciro_tutar < (50_000_000 if is_bist else 5_000_000)
+                        piyasa_paketi = ticker_piyasa_paketi_hazirla(
+                            ticker,
+                            df_long,
+                            intraday_hazir=intraday_ticker,
+                            quote_hazir=quote_haritasi.get(ticker),
+                            intraday_fetcher=intraday_veri_cek,
+                            quote_fetcher=finnhub_quote_cek,
+                            error_handler=izfin_hata_logla,
+                        )
+                        df_long = piyasa_paketi["df_long"]
+                        df_intraday = piyasa_paketi["df_intraday"]
+                        veri_kaynagi = piyasa_paketi["veri_kaynagi"]
+                        seans_disi_metin = piyasa_paketi["seans_disi_metin"]
+                        seans_disi_fiyat = piyasa_paketi["seans_disi_fiyat"]
+                        bugun_kapanis = piyasa_paketi["bugun_kapanis"]
+                        gunluk_degisim = piyasa_paketi["gunluk_degisim"]
+                        is_bist = piyasa_paketi["is_bist"]
+                        para_birimi = piyasa_paketi["para_birimi"]
+                        fiyat_str = piyasa_paketi["fiyat_str"]
+                        is_sig_tahta = piyasa_paketi["is_sig_tahta"]
+                        bugun_hacim = piyasa_paketi["bugun_hacim"]
+                        hacim_sma20 = piyasa_paketi["hacim_sma20"]
 
                         # Göreceli güç ve hacim oranı saf scanner motorunda hesaplanır.
                         sek_sembol = "XU100.IS" if is_bist else "^IXIC"
@@ -4157,9 +4055,7 @@ if aktif_sayfa in ["🏠 Ana Sayfa", "🔎 Akıllı Tarama"]:
                         sektorel_fark = goreceli_paket["sektorel_fark"]
                         hacim_oran = goreceli_paket["hacim_oran"]
 
-                        # Panel ayrıntıları için ham hacim değerleri korunur.
-                        bugun_hacim = pd.to_numeric(pd.Series([df_long['Volume'].iloc[-1]]), errors='coerce').iloc[0]
-                        hacim_sma20 = pd.to_numeric(df_long['Volume'], errors='coerce').replace([np.inf, -np.inf], np.nan).rolling(20, min_periods=5).mean().iloc[-1]
+                        # Panel ayrıntıları için ham hacim değerleri piyasa paketinden gelir.
                         if pd.notna(sektorel_fark) and np.isfinite(float(sektorel_fark)):
                             gorec_guc_str = f"{'+' if sektorel_fark > 0 else ''}{sektorel_fark:.1f}% | Vol: %{hacim_oran:.0f}"
                         else:
@@ -4308,7 +4204,11 @@ if aktif_sayfa in ["🏠 Ana Sayfa", "🔎 Akıllı Tarama"]:
                             try:
                                 df_5dk = df_intraday
                                 if df_5dk is None or df_5dk.empty:
-                                    df_5dk = tekil_taze_veri_cek(ticker)
+                                    df_5dk = tekil_normal_seans_veri_cek(
+                                        ticker,
+                                        intraday_veri_cek,
+                                        error_handler=izfin_hata_logla,
+                                    )
                                 tetik_sonucu = giris_motoru_hesapla(df_5dk, uzun_vade_trend)
                                 mikro_teyit = tetik_sonucu["mesaj"]
                             except Exception as e:
