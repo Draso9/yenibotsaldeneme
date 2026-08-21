@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+import re
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -8,92 +9,239 @@ APP = ROOT / "app2.py"
 ARCH = ROOT / "tests" / "test_core_architecture.py"
 
 
-def _read_preserving_newline(path: Path) -> tuple[str, str]:
-    raw = path.read_bytes().decode("utf-8")
-    newline = "\r\n" if "\r\n" in raw else "\n"
-    return raw.replace("\r\n", "\n"), newline
-
-
-def _write_preserving_newline(path: Path, source: str, newline: str) -> None:
-    if newline == "\r\n":
-        source = source.replace("\n", "\r\n")
-    path.write_bytes(source.encode("utf-8"))
-
-
-def _replace_between(source: str, start_marker: str, end_marker: str, replacement: str) -> str:
-    start = source.index(start_marker)
-    end = source.index(end_marker, start)
-    return source[:start] + replacement + source[end:]
+def _sub_once(source: str, pattern: str, replacement, label: str, *, flags: int = 0) -> str:
+    updated, count = re.subn(pattern, replacement, source, count=1, flags=flags)
+    if count != 1:
+        raise SystemExit(f"{label}: expected exactly one match, found {count}")
+    return updated
 
 
 def refactor_app() -> None:
-    source, newline = _read_preserving_newline(APP)
+    # app2.py intentionally contains mixed line endings. Work on raw decoded bytes and
+    # replace only the touched spans; never normalize the whole 390 KB shell.
+    source = APP.read_bytes().decode("utf-8")
 
-    import_block = '''from izfin_ui.home_dashboard import (\n    home_karar_ozeti_hazirla,\n    home_movers_hazirla,\n    home_panel_metrics_hazirla,\n    home_scan_bos_mu,\n    home_top_signals_hazirla,\n)\n'''
-    import_anchor = "from izfin_ui.scan_results import (\n"
-    if import_block not in source:
-        source = source.replace(import_anchor, import_block + import_anchor, 1)
-
-    new_panel_metrics = '''def _iz_panel_metrics():\n    paneller = list((st.session_state.get("teknik_paneller") or {}).values())\n    piyasa_degisimleri = []\n    if not paneller:\n        bant = izfin_piyasa_bandi_verisi().get("items", [])\n        piyasa_degisimleri = [\n            x.get("deg")\n            for x in bant\n            if x.get("deg") is not None and x.get("ad") != "VIX"\n        ]\n    ozet = home_panel_metrics_hazirla(paneller, piyasa_degisimleri)\n    return (\n        ozet["pulse"],\n        ozet["trend"],\n        ozet["momentum"],\n        ozet["flow"],\n        ozet["risk"],\n        ozet["kaynak"],\n    )\n\n'''
-    if "home_panel_metrics_hazirla(paneller, piyasa_degisimleri)" not in source:
-        source = _replace_between(source, "def _iz_panel_metrics():\n", "def _iz_pulse_label(p):\n", new_panel_metrics)
-
-    dashboard_pos = source.index("def izfin_render_classic_dashboard_clickable():\n")
-    calc_start = source.index("    pulse,trend,momentum,flow,risk,kaynak = _iz_panel_metrics()\n", dashboard_pos)
-    render_start = source.index("    st.markdown(\n", calc_start)
-    if "home_karar_ozeti_hazirla(" not in source[dashboard_pos:render_start]:
-        new_calc = '''    pulse,trend,momentum,flow,risk,kaynak = _iz_panel_metrics()\n    sonuclar = st.session_state.get("sonuclar") or []\n    paneller = st.session_state.get("teknik_paneller") or {}\n    home_ozet = home_karar_ozeti_hazirla(\n        sonuclar,\n        paneller,\n        pulse=pulse,\n        trend=trend,\n        momentum=momentum,\n        flow=flow,\n        risk=risk,\n        kaynak=kaynak,\n        sinyal_yonu_belirle=sinyal_yonu_belirle,\n    )\n    guclu_al = home_ozet["guclu_al"]\n    alim_tarafi = home_ozet["alim_tarafi"]\n    teyit = home_ozet["teyit"]\n    yuksek_risk = home_ozet["yuksek_risk"]\n    best = home_ozet["best"]\n    mod = home_ozet["mod"]\n    mod_cls = home_ozet["mod_cls"]\n    yorum = home_ozet["yorum"]\n\n'''
-        source = source[:calc_start] + new_calc + source[render_start:]
-
-    top_start = source.index("def izfin_top_signals_html(max_n=7):\n")
-    top_empty = source.index("    if not rows:\n", top_start)
-    if "home_top_signals_hazirla(" not in source[top_start:top_empty]:
-        top_prefix = '''def izfin_top_signals_html(max_n=7):\n    sonuclar = st.session_state.get("sonuclar") or []\n    paneller = st.session_state.get("teknik_paneller") or {}\n    sirali = home_top_signals_hazirla(sonuclar, paneller, max_n=max_n)\n    rows = []\n    for item in sirali:\n        t = item["ticker"]\n        sin = item["sinyal"]\n        skor = item["skor"]\n        g = item["guven"]\n        fiyat = item["fiyat"]\n        risk = item["risk"]\n        mtf = item["mtf"]\n        rows.append(f'<tr><td><b>{html.escape(t)}</b></td><td>{html.escape(str(fiyat))}</td><td><span class="iz-badge {_iz_badge_class(sin)}">{html.escape(sin)}</span></td><td><b style="color:#20e69a">{skor}</b></td><td><div class="iz-ring" style="--g:{g}"><span>{g}%</span></div></td><td>{mtf}%</td><td>{html.escape(str(risk))}</td></tr>')\n'''
-        source = source[:top_start] + top_prefix + source[top_empty:]
-
-    mover_html_start = source.index("def izfin_movers_html(max_n=6):\n")
-    mover_html_empty = source.index("    if not rows:\n", mover_html_start)
-    if "home_movers_hazirla(" not in source[mover_html_start:mover_html_empty]:
-        mover_html_prefix = '''def izfin_movers_html(max_n=6):\n    sonuclar = st.session_state.get("sonuclar") or []\n    paneller = st.session_state.get("teknik_paneller") or {}\n    movers = home_movers_hazirla(sonuclar, paneller, max_n=max_n)\n    rows = [\n        (abs(item["degisim"]), item["degisim"], item["ticker"], item["fiyat"])\n        for item in movers\n    ]\n'''
-        source = source[:mover_html_start] + mover_html_prefix + source[mover_html_empty:]
-
-    mover_render_start = source.index("def izfin_movers_render(max_n=5):\n")
-    mover_render_comment = source.index("    # Taranmamış durumda", mover_render_start)
-    if "home_movers_hazirla(" not in source[mover_render_start:mover_render_comment]:
-        mover_render_prefix = '''def izfin_movers_render(max_n=5):\n    """Büyük Hareketler'i soldaki ana sayfa kartıyla uyumlu, bağımsız bir gridde çizer."""\n    sonuclar = st.session_state.get("sonuclar") or []\n    paneller = st.session_state.get("teknik_paneller") or {}\n    movers = home_movers_hazirla(sonuclar, paneller, max_n=max_n)\n    rows = [\n        (abs(item["degisim"]), item["degisim"], item["ticker"], item["fiyat"])\n        for item in movers\n    ]\n\n'''
-        source = source[:mover_render_start] + mover_render_prefix + source[mover_render_comment:]
-
-    click_top_start = source.index("def izfin_top_signal_clicks(max_n=7):\n")
-    click_mover_start = source.index("def izfin_mover_clicks(max_n=6):\n", click_top_start)
-    if "home_top_signals_hazirla(" not in source[click_top_start:click_mover_start]:
-        click_top = '''def izfin_top_signal_clicks(max_n=7):\n    sonuclar = st.session_state.get("sonuclar") or []\n    paneller = st.session_state.get("teknik_paneller") or {}\n    sirali = home_top_signals_hazirla(sonuclar, paneller, max_n=max_n)\n    _izfin_click_strip([item["ticker"] for item in sirali], "classic_signal_click")\n\n\n'''
-        source = source[:click_top_start] + click_top + source[click_mover_start:]
-
-    click_mover_start = source.index("def izfin_mover_clicks(max_n=6):\n")
-    google_start = source.index("def _google_state_uret():\n", click_mover_start)
-    if "home_movers_hazirla(" not in source[click_mover_start:google_start]:
-        click_mover = '''def izfin_mover_clicks(max_n=6):\n    sonuclar = st.session_state.get("sonuclar") or []\n    paneller = st.session_state.get("teknik_paneller") or {}\n    movers = home_movers_hazirla(sonuclar, paneller, max_n=max_n)\n    _izfin_click_strip([item["ticker"] for item in movers], "classic_mover_click")\n\n\n'''
-        source = source[:click_mover_start] + click_mover + source[google_start:]
-
-    source = source.replace(
-        '            _home_scan_empty = not bool(st.session_state.get("sonuclar"))\n',
-        '            _home_scan_empty = home_scan_bos_mu(st.session_state.get("sonuclar"))\n',
-        1,
+    scan_import_pattern = (
+        r"(from izfin_ui\.scan_results import \(\r?\n"
+        r"    detay_secimi_hazirla,\r?\n"
+        r"    peg_degerlendirilemeyen_varliklar,\r?\n"
+        r"    tarama_hata_ozeti,\r?\n"
+        r"    tarama_sonuclarini_filtrele,\r?\n"
+        r"\)\r?\n)"
     )
-    _write_preserving_newline(APP, source, newline)
+    home_import = (
+        "from izfin_ui.home_dashboard import (\n"
+        "    home_karar_ozeti_hazirla,\n"
+        "    home_movers_hazirla,\n"
+        "    home_panel_metrics_hazirla,\n"
+        "    home_scan_bos_mu,\n"
+        "    home_top_signals_hazirla,\n"
+        ")\n"
+    )
+    if "from izfin_ui.home_dashboard import (" not in source:
+        source = _sub_once(
+            source,
+            scan_import_pattern,
+            lambda match: match.group(1) + home_import,
+            "home dashboard import",
+        )
+
+    # Remove the old Streamlit-bound metric calculator. The renderer below keeps only
+    # the data-fetch fallback and passes raw values to the framework-neutral presenter.
+    if "def _iz_panel_metrics():" in source:
+        source = _sub_once(
+            source,
+            r"\r?\ndef _iz_panel_metrics\(\):\r?\n.*?(?=\r?\ndef _iz_pulse_label\(p\):)",
+            "\n",
+            "remove legacy home panel metrics",
+            flags=re.S,
+        )
+
+    decision_prefix = '''def izfin_render_classic_dashboard_clickable():
+    """Ana sayfa üst alanı: IZFIN Karar Merkezi. Isı haritası kaldırıldı."""
+    sonuclar = st.session_state.get("sonuclar") or []
+    paneller = st.session_state.get("teknik_paneller") or {}
+    panel_values = list(paneller.values())
+
+    piyasa_degisimleri = None
+    if not panel_values:
+        piyasa_degisimleri = []
+        for item in izfin_piyasa_bandi_verisi().get("items", []):
+            try:
+                if item.get("ad") == "VIX":
+                    continue
+                degisim = item.get("deg")
+                if degisim is not None and np.isfinite(float(degisim)):
+                    piyasa_degisimleri.append(float(degisim))
+            except (TypeError, ValueError):
+                continue
+
+    metrics = home_panel_metrics_hazirla(panel_values, piyasa_degisimleri)
+    pulse = metrics["pulse"]
+    trend = metrics["trend"]
+    momentum = metrics["momentum"]
+    flow = metrics["flow"]
+    risk = metrics["risk"]
+    kaynak = metrics["kaynak"]
+
+    home_ozet = home_karar_ozeti_hazirla(
+        sonuclar,
+        paneller,
+        pulse=pulse,
+        trend=trend,
+        momentum=momentum,
+        flow=flow,
+        risk=risk,
+        kaynak=kaynak,
+        sinyal_yonu_belirle=sinyal_yonu_belirle,
+    )
+    guclu_al = home_ozet["guclu_al"]
+    alim_tarafi = home_ozet["alim_tarafi"]
+    teyit = home_ozet["teyit"]
+    yuksek_risk = home_ozet["yuksek_risk"]
+    best = home_ozet["best"]
+    mod = home_ozet["mod"]
+    mod_cls = home_ozet["mod_cls"]
+    yorum = home_ozet["yorum"]
+
+'''
+    source = _sub_once(
+        source,
+        r"def izfin_render_classic_dashboard_clickable\(\):\r?\n.*?(?=    st\.markdown\(\r?\n        '<div class=\"iz-hero iz-market-hero\">')",
+        decision_prefix,
+        "decision center presenter wiring",
+        flags=re.S,
+    )
+
+    top_prefix = '''def izfin_top_signals_html(max_n=7):
+    sonuclar = st.session_state.get("sonuclar") or []
+    paneller = st.session_state.get("teknik_paneller") or {}
+    rows = []
+    for item in home_top_signals_hazirla(sonuclar, paneller, max_n=max_n):
+        t = str(item["ticker"])
+        sin = str(item["sinyal"])
+        skor = int(item["skor"])
+        g = int(item["guven"])
+        fiyat = item["fiyat"]
+        risk = item["risk"]
+        mtf = int(item["mtf"])
+        rows.append(f'<tr><td><b>{html.escape(t)}</b></td><td>{html.escape(str(fiyat))}</td><td><span class="iz-badge {_iz_badge_class(sin)}">{html.escape(sin)}</span></td><td><b style="color:#20e69a">{skor}</b></td><td><div class="iz-ring" style="--g:{g}"><span>{g}%</span></div></td><td>{mtf}%</td><td>{html.escape(str(risk))}</td></tr>')
+'''
+    source = _sub_once(
+        source,
+        r"def izfin_top_signals_html\(max_n=7\):\r?\n.*?(?=    if not rows:)",
+        top_prefix,
+        "top signals presenter wiring",
+        flags=re.S,
+    )
+
+    movers_html_prefix = '''def izfin_movers_html(max_n=6):
+    sonuclar = st.session_state.get("sonuclar") or []
+    paneller = st.session_state.get("teknik_paneller") or {}
+    rows = [
+        (abs(float(item["degisim"])), float(item["degisim"]), str(item["ticker"]), item["fiyat"])
+        for item in home_movers_hazirla(sonuclar, paneller, max_n=max_n)
+    ]
+'''
+    source = _sub_once(
+        source,
+        r"def izfin_movers_html\(max_n=6\):\r?\n.*?(?=    if not rows:)",
+        movers_html_prefix,
+        "movers html presenter wiring",
+        flags=re.S,
+    )
+
+    movers_render_prefix = '''def izfin_movers_render(max_n=5):
+    """Büyük Hareketler'i soldaki ana sayfa kartıyla uyumlu, bağımsız bir gridde çizer."""
+    sonuclar = st.session_state.get("sonuclar") or []
+    paneller = st.session_state.get("teknik_paneller") or {}
+    rows = [
+        (abs(float(item["degisim"])), float(item["degisim"]), str(item["ticker"]), item["fiyat"])
+        for item in home_movers_hazirla(sonuclar, paneller, max_n=max_n)
+    ]
+
+'''
+    source = _sub_once(
+        source,
+        r"def izfin_movers_render\(max_n=5\):\r?\n.*?(?=    # Taranmamış durumda)",
+        movers_render_prefix,
+        "movers renderer presenter wiring",
+        flags=re.S,
+    )
+
+    top_clicks = '''def izfin_top_signal_clicks(max_n=7):
+    sonuclar = st.session_state.get("sonuclar") or []
+    paneller = st.session_state.get("teknik_paneller") or {}
+    rows = home_top_signals_hazirla(sonuclar, paneller, max_n=max_n)
+    _izfin_click_strip([row["ticker"] for row in rows], "classic_signal_click")
+
+
+'''
+    source = _sub_once(
+        source,
+        r"def izfin_top_signal_clicks\(max_n=7\):\r?\n.*?(?=def izfin_mover_clicks\(max_n=6\):)",
+        top_clicks,
+        "top signal click presenter wiring",
+        flags=re.S,
+    )
+
+    mover_clicks = '''def izfin_mover_clicks(max_n=6):
+    sonuclar = st.session_state.get("sonuclar") or []
+    paneller = st.session_state.get("teknik_paneller") or {}
+    rows = home_movers_hazirla(sonuclar, paneller, max_n=max_n)
+    _izfin_click_strip([row["ticker"] for row in rows], "classic_mover_click")
+
+
+'''
+    source = _sub_once(
+        source,
+        r"def izfin_mover_clicks\(max_n=6\):\r?\n.*?(?=def _google_state_uret\(\):)",
+        mover_clicks,
+        "mover click presenter wiring",
+        flags=re.S,
+    )
+
+    source = _sub_once(
+        source,
+        r"            _home_scan_empty = not bool\(st\.session_state\.get\(\"sonuclar\"\)\)",
+        '            _home_scan_empty = home_scan_bos_mu(st.session_state.get("sonuclar"))',
+        "home empty state presenter wiring",
+    )
+
+    APP.write_bytes(source.encode("utf-8"))
 
 
 def update_architecture_gate() -> None:
-    source, newline = _read_preserving_newline(ARCH)
+    source = ARCH.read_text(encoding="utf-8")
     module_anchor = '        "izfin_ui.scan_results",\n'
     module_line = '        "izfin_ui.home_dashboard",\n'
     if module_line not in source:
+        if module_anchor not in source:
+            raise SystemExit("architecture module anchor not found")
         source = source.replace(module_anchor, module_line + module_anchor, 1)
 
-    test_block = '''\n\ndef test_home_dashboard_orchestration_stays_outside_streamlit_shell():\n    source = APP.read_text(encoding="utf-8")\n    assert "home_karar_ozeti_hazirla(" in source\n    assert "home_top_signals_hazirla(" in source\n    assert "home_movers_hazirla(" in source\n    assert "home_panel_metrics_hazirla(" in source\n    assert "setup_rank = skor * .52" not in source\n    assert "adaylar.append((setup_rank" not in source\n'''
+    test_block = '''
+
+
+def test_home_dashboard_orchestration_stays_outside_streamlit_shell():
+    tree = ast.parse(APP.read_text(encoding="utf-8"))
+    app_functions = {
+        node.name for node in tree.body if isinstance(node, ast.FunctionDef)
+    }
+    assert "_iz_panel_metrics" not in app_functions
+
+    source = APP.read_text(encoding="utf-8")
+    assert "home_karar_ozeti_hazirla(" in source
+    assert "home_top_signals_hazirla(" in source
+    assert "home_movers_hazirla(" in source
+    assert "home_panel_metrics_hazirla(" in source
+    assert "home_scan_bos_mu(" in source
+    assert "setup_rank = skor * .52" not in source
+    assert "adaylar.append((setup_rank" not in source
+'''
     if "def test_home_dashboard_orchestration_stays_outside_streamlit_shell():" not in source:
         source = source.rstrip() + test_block + "\n"
-    _write_preserving_newline(ARCH, source, newline)
+    ARCH.write_text(source, encoding="utf-8")
 
 
 if __name__ == "__main__":
