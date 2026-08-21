@@ -1,5 +1,5 @@
 Scanner P7 diagnostic
-commit=852bab890f7db2fa9923e6922e71b20ba3f00980
+commit=1057ced97655cd6461da3f8ef2bdaf61254e6997
 python=Python 3.14.7
 
 === APPLY ===
@@ -16,38 +16,13 @@ VERIFY_CODE=0
 COMPILE_CODE=0
 
 === TARGETED TESTS ===
-.F.....................................                                  [100%]
-=================================== FAILURES ===================================
-____________ test_filter_buy_signals_uses_central_signal_direction _____________
-
-    def test_filter_buy_signals_uses_central_signal_direction():
-        df = tarama_sonuclarini_filtrele(_rows(), "AL Sinyalleri")
->       assert list(df["Varlık"]) == ["AAA"]
-E       AssertionError: assert [] == ['AAA']
-E         
-E         Right contains one more item: 'AAA'
-E         
-E         Full diff:
-E         + []
-E         - [
-E         -     'AAA',
-E         - ]
-
-tests/test_scan_results.py:49: AssertionError
-=========================== short test summary info ============================
-FAILED tests/test_scan_results.py::test_filter_buy_signals_uses_central_signal_direction - AssertionError: assert [] == ['AAA']
-  
-  Right contains one more item: 'AAA'
-  
-  Full diff:
-  + []
-  - [
-  -     'AAA',
-  - ]
-TARGET_CODE=1
+.......................................                                  [100%]
+TARGET_CODE=0
 
 === FULL TEST SUITE ===
-full suite skipped
-FULL_CODE=1
+........................................................................ [ 45%]
+........................................................................ [ 91%]
+.............                                                            [100%]
+FULL_CODE=0
 
-RESULT=FAIL
+RESULT=PASS

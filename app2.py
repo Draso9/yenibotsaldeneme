@@ -80,6 +80,12 @@ from izfin_ui.analysis_views import (
     gelismis_teknik_panel_olustur,
     sozlu_teknik_analiz_olustur,
 )
+from izfin_ui.scan_results import (
+    detay_secimi_hazirla,
+    peg_degerlendirilemeyen_varliklar,
+    tarama_hata_ozeti,
+    tarama_sonuclarini_filtrele,
+)
 from izfin_services.firebase_auth_client import (
     FirebaseAuthClient,
     firebase_auth_hata_mesaji as _firebase_auth_hata_mesaji,
@@ -4115,17 +4121,15 @@ if aktif_sayfa in ["🏠 Ana Sayfa", "🔎 Akıllı Tarama"]:
         if st.session_state.basarisiz_taramalar:
             st.warning(f"⚠️ Veri/hesaplama sorunu nedeniyle es geçilen varlıklar: **{', '.join(st.session_state.basarisiz_taramalar)}**")
         if st.session_state.get("taramada_hatalar"):
-            tipler = {}
-            for h in st.session_state.taramada_hatalar:
-                tip = h.get("tip", "Hata")
-                tipler[tip] = tipler.get(tip, 0) + 1
-            st.caption("Teknik hata özeti (ayrıntılar Streamlit Cloud loglarında): " + " · ".join(f"{k}: {v}" for k, v in sorted(tipler.items())))
-            ornek_hatalar = st.session_state.taramada_hatalar[:5]
-            if ornek_hatalar:
-                st.caption("İlk hata bağlamları: " + " · ".join(
-                    f"{h.get('ticker') or 'genel'} / {h.get('baglam','?')} / {h.get('tip','Hata')}: {h.get('mesaj','')}" for h in ornek_hatalar
-                ))
-            
+            hata_ozeti = tarama_hata_ozeti(st.session_state.taramada_hatalar)
+            if hata_ozeti["tip_ozeti"]:
+                st.caption(
+                    "Teknik hata özeti (ayrıntılar Streamlit Cloud loglarında): "
+                    + hata_ozeti["tip_ozeti"]
+                )
+            if hata_ozeti["ornekler"]:
+                st.caption("İlk hata bağlamları: " + " · ".join(hata_ozeti["ornekler"]))
+
         if not st.session_state.sonuclar:
             st.error("❌ Veriler çekilemedi. Yukarıdaki Tarama Evreni bölümünden farklı bir profil veya varlık grubu seçip tekrar deneyin.")
         else:
@@ -4147,34 +4151,11 @@ if aktif_sayfa in ["🏠 Ana Sayfa", "🔎 Akıllı Tarama"]:
                 ),
             )
 
-            df_sonuc = pd.DataFrame(st.session_state.sonuclar)
-
-            if sonuc_filtresi == "AL Sinyalleri":
-                df_sonuc = df_sonuc[
-                    df_sonuc["Nihai Sinyal"].apply(lambda x: sinyal_yonu_belirle(x) == "ALIM")
-                ]
-            elif sonuc_filtresi == "Uzun Vadeli Adaylar":
-                if "Teknik Profil" in df_sonuc.columns:
-                    df_sonuc = df_sonuc[
-                        df_sonuc["Teknik Profil"].astype(str).str.upper().str.contains("UZUN VADELİ ADAY", na=False)
-                    ]
-                else:
-                    df_sonuc = df_sonuc.iloc[0:0]
-            elif sonuc_filtresi == "Teyit Bekleyenler":
-                df_sonuc = df_sonuc[
-                    df_sonuc["Nihai Sinyal"].astype(str).str.upper().apply(
-                        lambda s: ("TEYİT" in s) or ("İZLE" in s) or ("BEKLE" in s)
-                    )
-                ]
-
+            df_sonuc = tarama_sonuclarini_filtrele(
+                st.session_state.sonuclar,
+                sonuc_filtresi,
+            )
             st.caption(f"{len(df_sonuc)} sonuç gösteriliyor · Filtre: {sonuc_filtresi}")
-
-            def color_df(row):
-                c = ''
-                if any(x in str(row['Nihai Sinyal']) for x in ['🟢', '🔵', '🚀', '🌟']): c = 'background-color: rgba(39, 174, 96, 0.15)'
-                elif any(x in str(row['Nihai Sinyal']) for x in ['🟡', '🟠']): c = 'background-color: rgba(243, 156, 18, 0.2)'
-                elif any(x in str(row['Nihai Sinyal']) for x in ['🛑', '🔴']): c = 'background-color: rgba(192, 57, 43, 0.15)'
-                return [c] * len(row)
 
             if not df_sonuc.empty:
                 if "izfin_scan_table_focus" not in st.session_state:
@@ -4273,27 +4254,24 @@ if aktif_sayfa in ["🏠 Ana Sayfa", "🔎 Akıllı Tarama"]:
                 )
                 izfin_sortable_table_js()
 
-                peg_degerlendirilemeyenler = [
-                    str(v) for v in df_sonuc.loc[
-                        df_sonuc.get("PEG / Değerleme", pd.Series(index=df_sonuc.index, dtype=str)).astype(str).str.contains("değerlendirilemedi", case=False, na=False),
-                        "Varlık"
-                    ].tolist()
-                ] if "PEG / Değerleme" in df_sonuc.columns else []
+                peg_degerlendirilemeyenler = peg_degerlendirilemeyen_varliklar(df_sonuc)
                 if peg_degerlendirilemeyenler:
                     st.caption(
                         "ℹ️ PEG değeri alınamayan veya anlamlı olmayan varlıklar: "
                         + ", ".join(peg_degerlendirilemeyenler)
                         + ". Bu durum teknik analiz ve skorlamayı etkilemez; PEG yalnızca ayrı bir temel değerleme göstergesidir."
                     )
-                
+
                 st.markdown('<div id="izfin-detail-anchor"></div>', unsafe_allow_html=True)
                 st.markdown("### 📊 Detaylı Teknik Analiz & Gösterge Paneli")
-                _detay_options = df_sonuc["Varlık"].tolist()
-                _pending_detail = st.session_state.pop("izfin_pending_detail_ticker", None)
-                if _pending_detail in _detay_options:
-                    st.session_state["detay_hisse_secici"] = _pending_detail
-                elif st.session_state.get("detay_hisse_secici") not in _detay_options and _detay_options:
-                    st.session_state["detay_hisse_secici"] = _detay_options[0]
+                _detay_paketi = detay_secimi_hazirla(
+                    df_sonuc,
+                    pending_ticker=st.session_state.pop("izfin_pending_detail_ticker", None),
+                    mevcut_ticker=st.session_state.get("detay_hisse_secici"),
+                )
+                _detay_options = _detay_paketi["options"]
+                if _detay_paketi["selected"] is not None:
+                    st.session_state["detay_hisse_secici"] = _detay_paketi["selected"]
 
                 secilen_detay_hisse = st.selectbox(
                     "İncelemek İçin Varlık Seçin:",
