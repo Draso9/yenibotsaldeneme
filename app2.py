@@ -15,7 +15,6 @@ import hashlib
 import hmac
 from urllib.parse import urlencode
 from zoneinfo import ZoneInfo
-from concurrent.futures import ThreadPoolExecutor, as_completed
 import firebase_admin
 from firebase_admin import credentials, firestore, auth
 import extra_streamlit_components as stx
@@ -77,11 +76,6 @@ from izfin_core.technical_analysis import (
     _backtest_supertrend_serisi,
     _resample_ohlcv,
     _rsi_serisi,
-    adx_hesapla,
-    cmf_hesapla,
-    coklu_zaman_dilimi_analizi,
-    seans_vwap_hesapla,
-    supertrend_hesapla,
 )
 from izfin_ui.analysis_views import (
     aksiyon_rehberi_olustur,
@@ -94,6 +88,11 @@ from izfin_services.firebase_auth_client import (
     google_oauth_kodu_tokena_cevir,
 )
 from izfin_services.finnhub_client import FinnhubClient
+from izfin_services.scan_service import (
+    gunluk_toplu_veriden_ticker_ayir,
+    scan_veri_paketi_hazirla,
+    toplu_veriden_ticker_ayir,
+)
 from izfin_services.yahoo_client import (
     backtest_verisi_indir,
     donem_ohlc_indir,
@@ -742,24 +741,6 @@ def peg_yorumu(peg):
     return f"{peg:.2f}", etiket
 
 
-def peg_verilerini_paralel_cek(tickers, max_workers=6):
-    """PEG sorgularını taramanın geri kalanını mümkün olduğunca yavaşlatmadan paralel çeker."""
-    tickers = list(dict.fromkeys(tickers or []))
-    if not tickers:
-        return {}
-    sonuc = {}
-    with ThreadPoolExecutor(max_workers=min(max_workers, len(tickers))) as executor:
-        futures = {executor.submit(peg_degeri_cek, t): t for t in tickers}
-        for future in as_completed(futures):
-            ticker = futures[future]
-            try:
-                sonuc[ticker] = future.result()
-            except Exception as e:
-                izfin_hata_logla("peg_parallel_fetch", e, ticker=ticker)
-                sonuc[ticker] = None
-    return sonuc
-
-
 def _finnhub_get(endpoint, params, timeout=3, max_retry=2):
     return FINNHUB_CLIENT.get(endpoint, params, timeout=timeout, max_retry=max_retry)
 
@@ -866,46 +847,6 @@ def toplu_intraday_veri_cek(tickers_tuple, interval="5m", period="5d"):
         izfin_hata_logla("yahoo_intraday_toplu", e)
         return pd.DataFrame()
 
-
-def toplu_veriden_ticker_ayir(toplu_df, ticker, toplam_adet):
-    if toplu_df is None or toplu_df.empty:
-        return pd.DataFrame()
-    try:
-        if toplam_adet == 1 and not isinstance(toplu_df.columns, pd.MultiIndex):
-            return _normalize_yf_columns(toplu_df.copy())
-        if isinstance(toplu_df.columns, pd.MultiIndex):
-            # group_by='ticker' biçimi
-            if ticker in toplu_df.columns.get_level_values(0):
-                return _normalize_yf_columns(toplu_df[ticker].copy())
-            # Bazı yfinance sürümlerinde ticker ikinci seviyede olabilir.
-            if ticker in toplu_df.columns.get_level_values(-1):
-                return _normalize_yf_columns(toplu_df.xs(ticker, axis=1, level=-1).copy())
-    except Exception as e:
-        izfin_hata_logla("silent_exception_line_676", e)
-    return pd.DataFrame()
-
-
-def gunluk_toplu_veriden_ticker_ayir(toplu_df, ticker, toplam_adet):
-    """Yahoo'nun tek/çok sembolde değişebilen kolon düzenini güvenle ayırır."""
-    return toplu_veriden_ticker_ayir(toplu_df, ticker, toplam_adet)
-
-
-def finnhub_quotelari_paralel_cek(tickers, max_workers=6):
-    """ABD hisselerinin quote verisini paralel çeker; BIST Yahoo ile devam eder."""
-    abd = [t for t in tickers if not str(t).endswith('.IS')]
-    sonuc = {t: None for t in tickers}
-    if not FINNHUB_API_KEY or not abd:
-        return sonuc
-    with ThreadPoolExecutor(max_workers=min(max_workers, len(abd))) as executor:
-        futures = {executor.submit(finnhub_quote_cek, t): t for t in abd}
-        for future in as_completed(futures):
-            t = futures[future]
-            try:
-                sonuc[t] = future.result()
-            except Exception as e:
-                izfin_hata_logla("finnhub_parallel_quote", e, ticker=t)
-                sonuc[t] = None
-    return sonuc
 
 def canli_ohlcv_ile_guncelle(ticker, df_long, intraday_hazir=None, quote_hazir=None):
     """Günlük seriyi yalnızca NORMAL SEANS verisiyle günceller."""
@@ -4129,15 +4070,22 @@ if aktif_sayfa in ["🏠 Ana Sayfa", "🔎 Akıllı Tarama"]:
                 st.session_state.opsiyon_sonuclar = None
                 st.session_state.taramada_hatalar = []
                 
-                # Günlük ve gün içi veriler toplu indirilir; her hisse için ayrı Yahoo
-                # isteği açılmadığı için büyük listelerde tarama belirgin biçimde hızlanır.
-                toplu_df = taze_veri_indir(tuple(selected_tickers))
-                toplu_intraday = toplu_intraday_veri_cek(tuple(selected_tickers), interval="5m", period="5d")
-                quote_haritasi = finnhub_quotelari_paralel_cek(list(selected_tickers))
-                # PEG, teknik skordan tamamen bağımsız bir temel değerleme katmanıdır.
-                # 6 saat önbelleğe alınır ve hisseler paralel sorgulanır.
-                peg_haritasi = peg_verilerini_paralel_cek(list(selected_tickers))
-                
+                # Günlük, intraday, quote, PEG ve sektör referansları tek servis sözleşmesinde hazırlanır.
+                veri_paketi = scan_veri_paketi_hazirla(
+                    tuple(selected_tickers),
+                    gunluk_fetcher=taze_veri_indir,
+                    intraday_fetcher=toplu_intraday_veri_cek,
+                    quote_fetcher=finnhub_quote_cek,
+                    peg_fetcher=peg_degeri_cek,
+                    sektor_fetcher=sektor_referanslari_indir,
+                    error_handler=izfin_hata_logla,
+                )
+                toplu_df = veri_paketi["toplu_df"]
+                toplu_intraday = veri_paketi["toplu_intraday"]
+                quote_haritasi = veri_paketi["quote_haritasi"]
+                peg_haritasi = veri_paketi["peg_haritasi"]
+                sektor_getirileri = veri_paketi["sektor_getirileri"]
+
                 tarama_overlay.markdown(
                     izfin_tarama_overlay_html(
                         12,
@@ -4154,30 +4102,6 @@ if aktif_sayfa in ["🏠 Ana Sayfa", "🔎 Akıllı Tarama"]:
                 basarisi_cekilemeyen_varliklar = []
                 boga_sayisi = alim_firsati = 0
                 
-                sektor_referanslari = {"XU100.IS": "BIST100", "^IXIC": "NASDAQ", "XBANK.IS": "Banka", "XUSIN.IS": "Sanayi"}
-                sektor_getirileri = {}
-                
-                try:
-                    sektor_toplu = sektor_referanslari_indir(
-                        tuple(sektor_referanslari.keys())
-                    )
-                except Exception as e:
-                    izfin_hata_logla("yahoo_sektor_toplu", e)
-                    sektor_toplu = pd.DataFrame()
-                for sembol in sektor_referanslari.keys():
-                    try:
-                        df_sek = toplu_veriden_ticker_ayir(sektor_toplu, sembol, len(sektor_referanslari))
-                        if 'Close' in df_sek:
-                            sek_close = pd.to_numeric(df_sek['Close'], errors='coerce').replace([np.inf, -np.inf], np.nan).dropna()
-                            if len(sek_close) >= 21 and float(sek_close.iloc[-21]) != 0:
-                                sektor_getirileri[sembol] = ((float(sek_close.iloc[-1]) - float(sek_close.iloc[-21])) / float(sek_close.iloc[-21])) * 100
-                            else:
-                                sektor_getirileri[sembol] = np.nan
-                        else:
-                            sektor_getirileri[sembol] = np.nan
-                    except Exception:
-                        sektor_getirileri[sembol] = np.nan
-
                 ilerleme = st.progress(0, text="Tarama hazırlanıyor...")
                 toplam_ticker = max(len(selected_tickers), 1)
                 for sira, ticker in enumerate(selected_tickers, start=1):
