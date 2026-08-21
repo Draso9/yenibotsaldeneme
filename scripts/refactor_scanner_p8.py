@@ -10,6 +10,7 @@ from pathlib import Path
 
 
 APP = Path("app2.py")
+# Final phase changes imports only; application behavior must remain unchanged.
 
 ENTRY_IMPORT = "from izfin_core.entry_engine import giris_motoru_hesapla, tetik_puani_hesapla\n"
 
