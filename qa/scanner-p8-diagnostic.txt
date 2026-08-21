@@ -1,0 +1,27 @@
+Scanner P8 diagnostic
+commit=fd7f2bb7da743fdd627528b46734acf2db29b3d0
+python=Python 3.14.7
+
+=== APPLY ===
+scanner P8 cleanup applied
+APPLY_CODE=0
+
+=== DIFF ===
+app2.py
+
+VERIFY_SCOPE=PASS
+VERIFY_CODE=0
+
+COMPILE_CODE=0
+
+=== TARGETED TESTS ===
+.......................................................                  [100%]
+TARGET_CODE=0
+
+=== FULL TEST SUITE ===
+........................................................................ [ 45%]
+........................................................................ [ 91%]
+..............                                                           [100%]
+FULL_CODE=0
+
+RESULT=PASS
