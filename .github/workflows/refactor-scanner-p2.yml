@@ -111,9 +111,20 @@ jobs:
         run: python -m pytest -q
 
       - id: format
-        name: Validate patch formatting
+        name: Validate focused app2 diff size
         continue-on-error: true
-        run: git diff --check
+        shell: bash
+        run: |
+          read -r added deleted path < <(git diff --numstat -- app2.py)
+          echo "app2.py diff: +${added} -${deleted}"
+          if [ "$path" != "app2.py" ]; then
+            echo "app2.py diff could not be measured."
+            exit 1
+          fi
+          if [ "$added" -gt 350 ] || [ "$deleted" -gt 350 ]; then
+            echo "Refactor diff is unexpectedly large; refusing to commit."
+            exit 1
+          fi
 
       - name: Persist diagnostic and tested refactor
         if: always()
@@ -128,7 +139,7 @@ jobs:
           compile=${{ steps.compile.outcome }}
           targeted=${{ steps.targeted.outcome }}
           full=${{ steps.full.outcome }}
-          format=${{ steps.format.outcome }}
+          scope=${{ steps.format.outcome }}
           EOF
 
           all_ok=true
