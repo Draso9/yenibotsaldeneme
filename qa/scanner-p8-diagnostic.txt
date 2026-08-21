@@ -1,27 +1,26 @@
 Scanner P8 diagnostic
-commit=fd7f2bb7da743fdd627528b46734acf2db29b3d0
+commit=450a6d75793926e7abb61065e78c9a3403f98ade
 python=Python 3.14.7
 
 === APPLY ===
-scanner P8 cleanup applied
+scanner P8 already applied
 APPLY_CODE=0
 
 === DIFF ===
-app2.py
+qa/scanner-p8-diagnostic.txt
 
-VERIFY_SCOPE=PASS
-VERIFY_CODE=0
+VERIFY_SCOPE=FAIL changed=
+VERIFY_CODE=1
 
-COMPILE_CODE=0
+compile skipped
+COMPILE_CODE=1
 
 === TARGETED TESTS ===
-.......................................................                  [100%]
-TARGET_CODE=0
+targeted tests skipped
+TARGET_CODE=1
 
 === FULL TEST SUITE ===
-........................................................................ [ 45%]
-........................................................................ [ 91%]
-..............                                                           [100%]
-FULL_CODE=0
+full suite skipped
+FULL_CODE=1
 
-RESULT=PASS
+RESULT=FAIL
