@@ -78,6 +78,9 @@ jobs:
       - name: Apply scanner P2 refactor
         run: python scripts/refactor_scanner_p2.py
 
+      - name: Validate scanner architecture boundaries
+        run: python scripts/validate_scanner_boundaries.py
+
       - name: Verify only app2.py changed
         shell: bash
         run: |
