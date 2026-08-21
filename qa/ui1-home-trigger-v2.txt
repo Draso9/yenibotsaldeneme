@@ -1,0 +1,1 @@
+Trigger clean UI1 regeneration using line-ending-preserving transform.
