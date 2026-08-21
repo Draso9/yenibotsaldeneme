@@ -95,6 +95,7 @@ from izfin_services.market_session import (
     tekil_normal_seans_veri_cek,
     ticker_piyasa_paketi_hazirla,
 )
+from izfin_services.ticker_analysis import ticker_analiz_paketi_hazirla
 from izfin_services.yahoo_client import (
     backtest_verisi_indir,
     donem_ohlc_indir,
@@ -4047,240 +4048,27 @@ if aktif_sayfa in ["🏠 Ana Sayfa", "🔎 Akıllı Tarama"]:
                         bugun_hacim = piyasa_paketi["bugun_hacim"]
                         hacim_sma20 = piyasa_paketi["hacim_sma20"]
 
-                        # Göreceli güç ve hacim oranı saf scanner motorunda hesaplanır.
-                        sek_sembol = "XU100.IS" if is_bist else "^IXIC"
-                        goreceli_paket = goreceli_guc_ve_hacim_hesapla(
-                            df_long, sektor_getirileri.get(sek_sembol, np.nan)
-                        )
-                        sektorel_fark = goreceli_paket["sektorel_fark"]
-                        hacim_oran = goreceli_paket["hacim_oran"]
-
-                        # Panel ayrıntıları için ham hacim değerleri piyasa paketinden gelir.
-                        if pd.notna(sektorel_fark) and np.isfinite(float(sektorel_fark)):
-                            gorec_guc_str = f"{'+' if sektorel_fark > 0 else ''}{sektorel_fark:.1f}% | Vol: %{hacim_oran:.0f}"
-                        else:
-                            gorec_guc_str = f"— Veri yok | Vol: %{hacim_oran:.0f}"
-
-                        # RSI, MACD, SMA200, Bollinger, MFI, OBV ve EMA'lar saf scanner motorunda.
-                        temel = temel_teknik_gostergeleri_hesapla(df_long)
-                        rsi = temel["rsi"]
-                        macd_serisi = temel["macd_serisi"]
-                        macd_sinyal = temel["macd_sinyal"]
-                        sma_200 = temel["sma200"]
-                        uzun_vade_trend = temel["uzun_vade_trend"]
-                        bb_mid = temel["bb_mid"]
-                        bb_ust = temel["bb_ust"]
-                        bb_alt = temel["bb_alt"]
-                        mfi_val = temel["mfi"]
-                        obv = temel["obv"]
-                        obv_ema = temel["obv_ema"]
-                        ema_9_val = temel["ema9"]
-                        ema_21_val = temel["ema21"]
-                        ema_50_val = temel["ema50"]
-
-                        # Gelişmiş teyitler tek scanner pipeline paketinde hazırlanır.
-                        gelismis_paket = gelismis_teyit_paketi_hesapla(df_long, df_intraday)
-                        adx = gelismis_paket["adx"]
-                        plus_di = gelismis_paket["plus_di"]
-                        minus_di = gelismis_paket["minus_di"]
-                        cmf = gelismis_paket["cmf"]
-                        ad_line = gelismis_paket["ad_line"]
-                        supertrend = gelismis_paket["supertrend"]
-                        supertrend_line = gelismis_paket["supertrend_line"]
-                        vwap = gelismis_paket["vwap"]
-                        mtf_detay = gelismis_paket["mtf_detay"]
-                        mtf_uyum = gelismis_paket["mtf_uyum"]
-
-                        para_durumu = f"Yoğun Para Girişi 🐋 (MFI:{mfi_val:.0f})" if mfi_val >= 70 else (f"Yoğun Para Çıkışı 📉 (MFI:{mfi_val:.0f})" if mfi_val <= 30 else f"Dengeli Akış ⚖️ (MFI:{mfi_val:.0f})")
-                        if is_sig_tahta: para_durumu += " | Sığ Tahta ⚠️"
-
-                        hacim_patlamasi_var = (hacim_oran >= 130) and (gunluk_degisim >= 4.0)
-
-                        # --- HİBRİT SKOR: SAF SCANNER MOTORU ---
-                        ema_50_val = df_long['Close'].ewm(span=50, adjust=False).mean().iloc[-1]
-                        skor_aciklama = hibrit_skor_hesapla(
-                            uzun_vade_trend=uzun_vade_trend,
-                            hacim_patlamasi_var=hacim_patlamasi_var,
-                            fiyat=bugun_kapanis,
-                            ema50=ema_50_val,
-                            hacim_oran=hacim_oran,
-                            obv=float(obv[-1]),
-                            obv_ema=float(obv_ema.iloc[-1]),
-                            rsi=float(rsi),
-                            macd=float(macd_serisi.iloc[-1]),
-                            macd_signal=float(macd_sinyal.iloc[-1]),
-                            bb_mid=float(bb_mid),
-                            bb_ust=float(bb_ust),
-                            is_sig_tahta=is_sig_tahta,
-                            adx=float(adx),
-                            plus_di=float(plus_di),
-                            minus_di=float(minus_di),
-                            cmf=float(cmf),
-                            supertrend=int(supertrend),
-                            vwap=vwap,
-                            mtf_uyum=float(mtf_uyum),
-                            sektorel_fark=sektorel_fark,
-                        )
-                        eski_skor = int(skor_aciklama["eski_skor"])
-                        gelismis_bonus = int(skor_aciklama["bonus"])
-                        gelismis_ceza = int(skor_aciklama["ceza"])
-                        skor = int(skor_aciklama["nihai_skor"])
-
-                        skor_etiket = f"{skor} Puan (Güçlü 🟢)" if skor >= 70 else (f"{skor} Puan (Nötr ⚖️)" if skor >= 50 else f"{skor} Puan (Cezalı 🔴)")
-
-                        # ATR, volatilite, stop, destek/direnç ve hedefler saf scanner motorunda.
-                        risk_paket = risk_volatilite_hazirla(
-                            df_long,
-                            fiyat=bugun_kapanis,
-                            ema50=ema_50_val,
-                            bb_alt=bb_alt,
-                            bb_mid=bb_mid,
-                            bb_ust=bb_ust,
-                            adx=adx,
-                        )
-                        swing_high = risk_paket["swing_high"]
-                        swing_low = risk_paket["swing_low"]
-                        atr = risk_paket["atr"]
-                        hv20 = risk_paket["hv20"]
-                        hv60 = risk_paket["hv60"]
-                        karma_destek = risk_paket["destek"]
-                        karma_direnc = risk_paket["direnc"]
-                        trailing_stop = risk_paket["stop"]
-                        risk_yuzde = risk_paket["risk_yuzde"]
-                        risk_seviyesi = risk_paket["risk_seviyesi"]
-                        vol_rejimi = risk_paket["volatilite_rejimi"]
-                        seviyeler = risk_paket["seviyeler"]
-                        tp1 = risk_paket["tp1"]
-                        tp2 = risk_paket["tp2"]
-                        tp3 = risk_paket["tp3"]
-                        risk_odul = risk_paket["risk_odul"]
-                        hibrit_tp = risk_paket["hibrit_tp"]
-
-                        # Kırılım referansı ve koşulu da tek saf hesapta değerlendirilir.
-                        breakout_paket = breakout_kosulu_hesapla(
-                            fiyat=bugun_kapanis,
-                            swing_high=swing_high,
-                            onceki_bb_ust=temel["onceki_bb_ust"],
-                            atr=atr,
-                            hacim_oran=hacim_oran,
-                            ema9=ema_9_val,
-                            ema21=ema_21_val,
-                            uzun_vade_trend=uzun_vade_trend,
-                        )
-                        kirilim_referansi = breakout_paket["referans"]
-                        breakout_kosulu = breakout_paket["kosul"]
-
-                        # Ön sinyal öncelik sırası artık saf scanner motorunda tutulur.
-                        on_sinyal = on_sinyal_belirle(
-                            breakout_kosulu=breakout_kosulu,
-                            fiyat=bugun_kapanis,
-                            bb_ust=bb_ust,
-                            bb_alt=bb_alt,
-                            bb_mid=bb_mid,
-                            rsi=rsi,
-                            uzun_vade_trend=uzun_vade_trend,
-                            mfi=mfi_val,
-                            gunluk_degisim=gunluk_degisim,
-                            karma_destek=karma_destek,
-                            atr=atr,
-                            skor=skor,
-                            hacim_patlamasi_var=hacim_patlamasi_var,
-                            ema50=ema_50_val,
-                        )
-
-                        if uzun_vade_trend: boga_sayisi += 1
-
-                        alim_yonlu_on_sinyal = any(x in on_sinyal for x in ["ALIM", "KIRILIM", "ADAY"])
-                        tetik_sonucu = {
-                            "puan": 0, "seviye": "— UYGULANMAZ",
-                            "mesaj": "— Giriş motoru değerlendirilmez: alım yönlü sinyal yok",
-                            "detay": ["Giriş kalitesi yalnızca alım yönlü ön sinyallerde hesaplanır."],
-                            "zaman_dilimleri": {}, "asama": "UYGULANMAZ",
-                            "direnc": None, "hacim_orani": 0.0,
-                            "rsi": None, "mum_kalitesi": 0.0, "sahte_kirilim": False,
-                        }
-                        mikro_teyit = tetik_sonucu["mesaj"]
-                        if alim_yonlu_on_sinyal:
-                            try:
-                                df_5dk = df_intraday
-                                if df_5dk is None or df_5dk.empty:
-                                    df_5dk = tekil_normal_seans_veri_cek(
-                                        ticker,
-                                        intraday_veri_cek,
-                                        error_handler=izfin_hata_logla,
-                                    )
-                                tetik_sonucu = giris_motoru_hesapla(df_5dk, uzun_vade_trend)
-                                mikro_teyit = tetik_sonucu["mesaj"]
-                            except Exception as e:
-                                izfin_hata_logla("giris_motoru", e, ticker)
-                                mikro_teyit = "⚠️ Giriş motoru verisi alınamadı"
-
-                        # Profil, güven ve merkezi karar artık tek scanner pipeline sözleşmesinden gelir.
-                        karar_paketi = karar_paketi_olustur(
-                            on_sinyal=on_sinyal,
-                            skor=skor,
-                            tetik=tetik_sonucu,
-                            fiyat=bugun_kapanis,
-                            temel=temel,
-                            gelismis=gelismis_paket,
-                            risk=risk_paket,
-                            sektorel_fark=sektorel_fark,
-                        )
-                        if karar_paketi.get("hata") is not None:
-                            izfin_hata_logla("merkezi_karar_motoru", karar_paketi["hata"], ticker)
-                        profil_sinyali = karar_paketi["profil"]
-                        guven_skoru = karar_paketi["guven_skoru"]
-                        merkezi_karar = karar_paketi["merkezi_karar"]
-                        sinyal = karar_paketi["sinyal"]
-                        if merkezi_karar.get('aksiyon') in {'GUCLU_AL', 'AL', 'ERKEN_AL'}:
-                            alim_firsati += 1
-
-                        gecici_teknik_paneller[ticker] = teknik_panel_paketi_olustur(
+                        # Ticker bazlı teknik analiz, karar ve sonuç sözleşmesi servis katmanında hazırlanır.
+                        ticker_analizi = ticker_analiz_paketi_hazirla(
                             ticker=ticker,
-                            fiyat=bugun_kapanis,
-                            gunluk_degisim=gunluk_degisim,
-                            temel=temel,
-                            risk=risk_paket,
-                            gelismis=gelismis_paket,
-                            tetik=tetik_sonucu,
-                            karar=karar_paketi,
-                            piyasa={
-                                "hacim": bugun_hacim,
-                                "hacim_ort": hacim_sma20,
-                                "hacim_oran": hacim_oran,
-                                "sektorel_fark": sektorel_fark,
-                                "veri_kaynagi": veri_kaynagi,
-                                "teyit": mikro_teyit,
-                                "seans_disi": seans_disi_metin,
-                                "seans_disi_fiyat": seans_disi_fiyat,
-                            },
-                            skor_aciklama=skor_aciklama,
+                            df_long=df_long,
+                            df_intraday=df_intraday,
+                            piyasa=piyasa_paketi,
+                            sektor_getirisi=sektor_getirileri.get(
+                                "XU100.IS" if is_bist else "^IXIC", np.nan
+                            ),
+                            peg_degeri=peg_haritasi.get(ticker),
+                            intraday_fetcher=intraday_veri_cek,
+                            peg_formatter=peg_yorumu,
+                            error_handler=izfin_hata_logla,
                         )
-
-                        gecici_sozlu_analizler[ticker] = sozlu_teknik_analiz_olustur(
-                            ticker=ticker, fiyat=bugun_kapanis, gunluk_degisim=gunluk_degisim,
-                            rsi=float(rsi), macd=float(macd_serisi.iloc[-1]), macd_sinyal=float(macd_sinyal.iloc[-1]),
-                            ema9=float(ema_9_val), ema21=float(ema_21_val), ema50=float(ema_50_val), sma200=float(sma_200),
-                            bb_alt=float(bb_alt), bb_mid=float(bb_mid), bb_ust=float(bb_ust),
-                            hacim_oran=float(hacim_oran), mfi=float(mfi_val), sektorel_fark=float(sektorel_fark),
-                            destek=float(karma_destek), direnc=float(karma_direnc), stop=float(trailing_stop),
-                            tp1=float(tp1), tp2=float(tp2), tp3=float(tp3), sinyal=sinyal, veri_kaynagi=veri_kaynagi
-                        )
-
-                        peg_degeri = peg_haritasi.get(ticker)
-                        peg_sayi, peg_etiket = peg_yorumu(peg_degeri)
-                        peg_gosterim = f"{peg_sayi} · {peg_etiket}" if peg_degeri is not None else peg_etiket
-                        gecici_teknik_paneller[ticker]["peg"] = float(peg_degeri) if peg_degeri is not None else None
-                        gecici_teknik_paneller[ticker]["peg_etiket"] = peg_etiket
-
-                        gecici_sonuclar.append({
-                            "Varlık": ticker, "Fiyat": fiyat_str, "Görec. Güç (Sektör)": gorec_guc_str,
-                            "Gelişmiş Skor": skor_etiket, "Güven": f"%{guven_skoru}", "MTF Uyum": f"%{mtf_uyum}", "Risk": risk_seviyesi, "Para Akışı": para_durumu,
-                            "PEG / Değerleme": peg_gosterim, "Teknik Profil": profil_sinyali, "Nihai Sinyal": sinyal, "🎯 Giriş Kalitesi": mikro_teyit,
-                            "Seans Dışı": seans_disi_metin, "Veri Kaynağı": veri_kaynagi,
-                            "Karma Destek": f"{karma_destek:.2f}", "Karma Direnç": f"{karma_direnc:.2f}",
-                            "Süren Stop": f"{trailing_stop:.2f}", "Teknik Hedefler": hibrit_tp
-                        })
+                        if ticker_analizi["uzun_vade_trend"]:
+                            boga_sayisi += 1
+                        if ticker_analizi["alim_firsati"]:
+                            alim_firsati += 1
+                        gecici_teknik_paneller[ticker] = ticker_analizi["teknik_panel"]
+                        gecici_sozlu_analizler[ticker] = ticker_analizi["sozlu_analiz"]
+                        gecici_sonuclar.append(ticker_analizi["sonuc"])
                     except Exception as e:
                         izfin_hata_logla("ana_tarama", e, ticker)
                         basarisi_cekilemeyen_varliklar.append(ticker)

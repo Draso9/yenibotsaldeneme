@@ -1,0 +1,29 @@
+Scanner P6 diagnostic
+commit=9af64754a98e9510003b141fc1cc816406798c81
+python=Python 3.14.7
+
+=== APPLY ===
+scanner P6 refactor applied
+APPLY_CODE=0
+
+=== DIFF ===
+app2.py
+DIFF_CODE=0
+
+VERIFY_SCOPE=PASS
+VERIFY_CODE=0
+
+=== COMPILE ===
+COMPILE_CODE=0
+
+=== TARGETED TESTS ===
+..........................................                               [100%]
+TARGET_CODE=0
+
+=== FULL TEST SUITE ===
+........................................................................ [ 49%]
+........................................................................ [ 99%]
+.                                                                        [100%]
+FULL_CODE=0
+
+RESULT=PASS
