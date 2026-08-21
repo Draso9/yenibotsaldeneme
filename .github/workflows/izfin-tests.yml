@@ -80,7 +80,7 @@ jobs:
 
       - name: Apply scanner P3 wiring
         if: ${{ github.ref == 'refs/heads/refactor/scanner-p3' }}
-        run: python scripts/refactor_scanner_p3.py
+        run: python scripts/run_refactor_scanner_p3.py
 
       - name: Verify scanner P3 working tree
         if: ${{ github.ref == 'refs/heads/refactor/scanner-p3' }}
