@@ -58,9 +58,16 @@ jobs:
           print("IZFIN runtime imports: OK")
           PY
 
-      - name: Apply UI1 extraction on feature branch
+      - name: Reset generated files to develop baseline
         if: ${{ github.ref_name == 'refactor/ui1-home-dashboard' }}
-        run: python scripts/refactor_ui1_home.py
+        shell: bash
+        run: |
+          git fetch origin develop --depth=1
+          git checkout FETCH_HEAD -- app2.py tests/test_core_architecture.py
+
+      - name: Apply clean UI1 extraction
+        if: ${{ github.ref_name == 'refactor/ui1-home-dashboard' }}
+        run: python scripts/refactor_ui1_home_v2.py
 
       - name: Compile UI1 paths
         if: ${{ github.ref_name == 'refactor/ui1-home-dashboard' }}
@@ -110,12 +117,12 @@ jobs:
           IZFIN_ENVIRONMENT: "ci"
         run: python -m pytest -q
 
-      - name: Commit tested UI1 shell wiring
+      - name: Verify clean UI1 diff
         if: ${{ github.ref_name == 'refactor/ui1-home-dashboard' }}
         shell: bash
         run: |
+          git diff --stat
           changed="$(git diff --name-only)"
-          echo "$changed"
           test -n "$changed"
           while IFS= read -r path; do
             case "$path" in
@@ -123,8 +130,15 @@ jobs:
               *) echo "Unexpected generated path: $path"; exit 1 ;;
             esac
           done <<< "$changed"
+          app_changes="$(git diff --numstat -- app2.py | awk '{print $1+$2}')"
+          test "${app_changes:-99999}" -lt 400
+
+      - name: Commit tested UI1 shell wiring
+        if: ${{ github.ref_name == 'refactor/ui1-home-dashboard' }}
+        shell: bash
+        run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add -- app2.py tests/test_core_architecture.py
-          git commit -m "Wire home dashboard view models [ui1-bot]"
+          git commit -m "Wire home dashboard view models cleanly [ui1-bot]"
           git push origin HEAD:refactor/ui1-home-dashboard
