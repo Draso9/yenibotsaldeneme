@@ -1,3 +1,4 @@
+# Temporary feature-branch gate; removed before merge.
 name: Scanner P7 Refactor
 
 on:
