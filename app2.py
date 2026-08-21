@@ -42,7 +42,6 @@ from izfin_core.market_universe import (
 from izfin_core.market_data import (
     yalnizca_kapali_mumlar as _yalnizca_kapali_mumlar,
 )
-from izfin_core.backtest_engine import daily_core_backtest_hesapla
 from izfin_core.performance_engine import (
     _guvenli_dict,
     _guvenli_float,
@@ -90,6 +89,11 @@ from izfin_ui.performance_view import (
     performans_karne_paketi_hazirla,
     performans_pozisyon_paketi_hazirla,
 )
+from izfin_ui.backtest_view import (
+    backtest_arama_paketi_hazirla,
+    backtest_kpi_paketi_hazirla,
+)
+from izfin_services.backtest_service import backtest_calistir
 from izfin_services.firebase_auth_client import (
     FirebaseAuthClient,
     firebase_auth_hata_mesaji as _firebase_auth_hata_mesaji,
@@ -104,7 +108,6 @@ from izfin_services.scan_service import (
 from izfin_services.market_session import ticker_piyasa_paketi_hazirla
 from izfin_services.ticker_analysis import ticker_analiz_paketi_hazirla
 from izfin_services.yahoo_client import (
-    backtest_verisi_indir,
     donem_ohlc_indir,
     gunluk_kapanis_serisi_indir,
     intraday_veri_indir,
@@ -796,13 +799,9 @@ def toplu_intraday_veri_cek(tickers_tuple, interval="5m", period="5d"):
 # --- GELİŞMİŞ TEKNİK / DOĞRULAMA MOTORU ---
 @st.cache_data(ttl=3600, show_spinner=False)
 def basit_backtest(ticker, period='5y'):
-    """Yahoo verisini indirir ve sağlayıcıdan bağımsız Daily Core motorunu çalıştırır."""
-    try:
-        df = backtest_verisi_indir(ticker, period=period)
-    except Exception as e:
-        izfin_hata_logla("backtest_veri", e, ticker)
-        return pd.DataFrame(), {}
-    return daily_core_backtest_hesapla(df, ticker)
+    return backtest_calistir(
+        ticker, period=period, error_handler=izfin_hata_logla
+    )
 
 # --- KAPANAN DÖNEM PERFORMANS VERİSİ ---
 @st.cache_data(ttl=1800, show_spinner=False)
@@ -4776,7 +4775,6 @@ if aktif_sayfa == "🧪 Strateji Laboratuvarı":
     with bt_c1:
         # Uzun listelerde klasik selectbox yerine arama odaklı seçim kullanılır.
         # Kullanıcı kayıtlı havuzda olmayan geçerli bir Yahoo sembolünü de doğrudan test edebilir.
-        bt_havuz = sorted(set(str(x).strip().upper() for x in tum_varliklar_havuzu if str(x).strip()))
         bt_arama = st.text_input(
             "Test edilecek varlık · yazıp Enter'a basın",
             value=st.session_state.get("bt_son_ticker", ""),
@@ -4785,26 +4783,23 @@ if aktif_sayfa == "🧪 Strateji Laboratuvarı":
             help="Sembolü yazdıktan sonra Enter'a basın. Kayıtlı varlıklarda eşleşmeler daraltılır; listede olmayan geçerli Yahoo sembolleri de test edilebilir.",
         ).strip().upper()
 
-        bt_ticker = ""
-        if bt_arama:
-            # Önce sembolün başından eşleşenleri, sonra içinde geçenleri getir.
-            baslayanlar = [x for x in bt_havuz if x.startswith(bt_arama)]
-            icerenler = [x for x in bt_havuz if bt_arama in x and x not in baslayanlar]
-            bt_eslesmeler = (baslayanlar + icerenler)[:25]
-
-            if bt_arama in bt_havuz:
-                bt_ticker = bt_arama
-                st.caption(f"✅ Seçilen varlık: {bt_ticker}")
-            elif bt_eslesmeler:
-                bt_ticker = st.selectbox(
-                    "Eşleşen varlıklar",
-                    options=bt_eslesmeler,
-                    key="bt_ticker_eslesme",
-                    help="Aramayı daraltmak için sembolden daha fazla karakter yazabilirsiniz.",
-                )
-            else:
-                bt_ticker = bt_arama
-                st.caption(f"🔎 {bt_ticker} kayıtlı havuzda yok; geçerli bir Yahoo sembolüyse doğrudan test edilecek.")
+        bt_arama_paketi = backtest_arama_paketi_hazirla(
+            tum_varliklar_havuzu, bt_arama
+        )
+        bt_ticker = bt_arama_paketi["ticker"]
+        if bt_arama_paketi["durum"] == "tam_eslesme":
+            st.caption(f"✅ Seçilen varlık: {bt_ticker}")
+        elif bt_arama_paketi["durum"] == "secim_gerekli":
+            bt_ticker = st.selectbox(
+                "Eşleşen varlıklar",
+                options=bt_arama_paketi["eslesmeler"],
+                key="bt_ticker_eslesme",
+                help="Aramayı daraltmak için sembolden daha fazla karakter yazabilirsiniz.",
+            )
+        elif bt_arama_paketi["durum"] == "dogrudan":
+            st.caption(
+                f"🔎 {bt_ticker} kayıtlı havuzda yok; geçerli bir Yahoo sembolüyse doğrudan test edilecek."
+            )
         else:
             st.caption("Bir sembol yazıp Enter'a basın; örneğin NVDA veya THYAO.IS.")
 
@@ -4826,23 +4821,13 @@ if aktif_sayfa == "🧪 Strateji Laboratuvarı":
         if bt.empty:
             st.warning("Seçilen dönem için yeterli veri veya alım sinyali bulunamadı.")
         else:
-            q1, q2, q3, q4 = st.columns(4)
-            q1.metric("Bağımsız Test İşlemi", f"{int(stats['sinyal'])}")
-            q2.metric("İşlem Başarı Oranı", f"%{stats['islem_basarisi']:.1f}")
-            q3.metric("Ort. İşlem Sonucu", f"%{stats['islem_ort']:+.2f}")
-            q4.metric("TP1 / Stop", f"%{stats['tp1_oran']:.1f} / %{stats['stop_oran']:.1f}")
-
-            s1, s2, s3, s4 = st.columns(4)
-            s1.metric("20G Kârda", f"%{stats['kazanma20']:.1f}")
-            s2.metric("20G Ort.", f"%{stats['ort20']:+.2f}")
-            s3.metric("45G Kârda", f"%{stats['kazanma45']:.1f}")
-            s4.metric("45G Ort.", f"%{stats['ort45']:+.2f}")
-
-            if stats.get("belirsiz", 0):
-                st.caption(
-                    f"ℹ️ {stats['belirsiz']} örnekte aynı günlük mum içinde hem Stop hem TP1 görüldü. "
-                    "Günlük veri sıralamayı göstermediği için muhafazakâr biçimde Stop önce kabul edildi."
-                )
+            kpi_paketi = backtest_kpi_paketi_hazirla(stats)
+            for kpi_col, kpi in zip(st.columns(4), kpi_paketi["birincil"]):
+                kpi_col.metric(kpi["label"], kpi["value"])
+            for kpi_col, kpi in zip(st.columns(4), kpi_paketi["ikincil"]):
+                kpi_col.metric(kpi["label"], kpi["value"])
+            if kpi_paketi["belirsizlik_mesaji"]:
+                st.caption(kpi_paketi["belirsizlik_mesaji"])
 
             st.markdown("### 📌 Merkezi karar türlerine göre özet")
             ozet = (
