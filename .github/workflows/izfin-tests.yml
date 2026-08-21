@@ -1,11 +1,13 @@
 name: IZFIN CI
 
 on:
-  # Her develop güncellemesi main'e alınmadan önce tam kalite kapısından geçer.
   push:
     branches:
       - develop
-      - refactor/ui3-performance-view
+  pull_request:
+    branches:
+      - develop
+    types: [opened]
   workflow_dispatch:
 
 permissions:
@@ -17,7 +19,6 @@ concurrency:
 
 jobs:
   quality-gate:
-    if: ${{ !contains(github.event.head_commit.message, '[ui3-performance-bot]') }}
     name: IZFIN Quality Gate
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -26,7 +27,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v6
         with:
-          ref: ${{ github.ref_name }}
+          ref: ${{ github.head_ref || github.ref_name }}
 
       - name: Set up Python
         uses: actions/setup-python@v7
@@ -60,11 +61,11 @@ jobs:
           PY
 
       - name: Apply UI3 performance extraction
-        if: ${{ github.ref_name == 'refactor/ui3-performance-view' }}
+        if: ${{ github.head_ref == 'refactor/ui3-performance-view' }}
         run: python scripts/refactor_ui3_performance_view.py
 
       - name: Compile UI3 paths
-        if: ${{ github.ref_name == 'refactor/ui3-performance-view' }}
+        if: ${{ github.head_ref == 'refactor/ui3-performance-view' }}
         run: |
           python -m py_compile app2.py izfin_ui/performance_view.py tests/test_performance_view.py tests/test_core_architecture.py
 
@@ -87,7 +88,7 @@ jobs:
           EOF
 
       - name: Run focused UI3 tests
-        if: ${{ github.ref_name == 'refactor/ui3-performance-view' }}
+        if: ${{ github.head_ref == 'refactor/ui3-performance-view' }}
         env:
           FIREBASE_WEB_API_KEY: ""
           FIREBASE_PROJECT_ID: ""
@@ -112,7 +113,7 @@ jobs:
         run: python -m pytest -q
 
       - name: Verify generated UI3 diff
-        if: ${{ github.ref_name == 'refactor/ui3-performance-view' }}
+        if: ${{ github.head_ref == 'refactor/ui3-performance-view' }}
         shell: bash
         run: |
           git diff --stat
@@ -130,11 +131,11 @@ jobs:
           test "${app_changes:-99999}" -lt 700
 
       - name: Commit tested UI3 shell wiring
-        if: ${{ github.ref_name == 'refactor/ui3-performance-view' }}
+        if: ${{ github.head_ref == 'refactor/ui3-performance-view' }}
         shell: bash
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add -- app2.py tests/test_core_architecture.py
           git commit -m "Wire performance view models [ui3-performance-bot]"
-          git push origin HEAD:refactor/ui3-performance-view
+          git push origin HEAD:${{ github.head_ref }}
