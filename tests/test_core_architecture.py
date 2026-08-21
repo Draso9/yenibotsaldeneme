@@ -56,6 +56,13 @@ EXTRACTED_FUNCTIONS = {
     "goreceli_guc_ve_hacim_hesapla",
     "hibrit_skor_hesapla",
     "on_sinyal_belirle",
+    "toplu_veriden_ticker_ayir",
+    "gunluk_toplu_veriden_ticker_ayir",
+}
+
+LEGACY_SCAN_HELPERS = {
+    "peg_verilerini_paralel_cek",
+    "finnhub_quotelari_paralel_cek",
 }
 
 
@@ -81,6 +88,7 @@ def test_app_imports_extracted_core_modules():
         "izfin_services.yahoo_client",
         "izfin_services.finnhub_client",
         "izfin_services.firebase_auth_client",
+        "izfin_services.scan_service",
         "izfin_repositories.user_repository",
         "izfin_repositories.signal_repository",
     ):
@@ -93,6 +101,7 @@ def test_extracted_functions_are_not_redefined_in_streamlit_app():
         node.name for node in tree.body if isinstance(node, ast.FunctionDef)
     }
     assert not EXTRACTED_FUNCTIONS & app_functions
+    assert not LEGACY_SCAN_HELPERS & app_functions
 
 
 def test_core_modules_have_no_ui_or_provider_dependencies():
@@ -159,3 +168,10 @@ def test_streamlit_app_has_no_direct_provider_or_collection_queries():
     assert "yf.download(" not in source
     assert "db.collection(" not in source
     assert "session.get(" not in source
+
+
+def test_scan_provider_orchestration_stays_outside_streamlit_button_flow():
+    source = APP.read_text(encoding="utf-8")
+    assert "scan_veri_paketi_hazirla(" in source
+    assert "sektor_getirileri[sembol] =" not in source
+    assert "ThreadPoolExecutor(max_workers=min(max_workers" not in source
