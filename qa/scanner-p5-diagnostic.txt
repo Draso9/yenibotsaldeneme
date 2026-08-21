@@ -1,5 +1,5 @@
 Scanner P5 diagnostic
-commit=ebd978da21e2038d5303b9a703764e37ac6d2bd9
+commit=c872c8778c08084c503c232bd02131476ddcb278
 python=Python 3.14.7
 
 === APPLY ===
@@ -18,10 +18,11 @@ Traceback (most recent call last):
                    ~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
   File "/home/runner/work/yenibotsaldeneme/yenibotsaldeneme/scripts/refactor_scanner_p5.py", line 114, in _unique_match
     raise RuntimeError(f"{label}: expected one marker, found {len(matches)}")
-RuntimeError: session helpers end: expected one marker, found 0
+RuntimeError: session helpers end: expected one marker, found 2
 APPLY_CODE=1
 
 === DIFF ===
+qa/scanner-p5-diagnostic.txt
 DIFF_CODE=0
 
 VERIFY_SCOPE=SKIP
