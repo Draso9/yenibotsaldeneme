@@ -14,7 +14,7 @@ def _rows():
     return [
         {
             "Varlık": "AAA",
-            "Nihai Sinyal": "🟢 AL",
+            "Nihai Sinyal": "AL 🟢",
             "Teknik Profil": "UZUN VADELİ ADAY",
             "PEG / Değerleme": "1.20 · Makul",
         },
