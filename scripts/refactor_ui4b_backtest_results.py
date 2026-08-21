@@ -9,13 +9,6 @@ APP = ROOT / "app2.py"
 ARCH = ROOT / "tests" / "test_core_architecture.py"
 
 
-def _sub_once(source: str, pattern: str, replacement: str, label: str, *, flags: int = 0) -> str:
-    updated, count = re.subn(pattern, replacement, source, count=1, flags=flags)
-    if count != 1:
-        raise SystemExit(f"{label}: expected exactly one match, found {count}")
-    return updated
-
-
 def refactor_app() -> None:
     source = APP.read_bytes().decode("utf-8")
 
@@ -33,15 +26,20 @@ def refactor_app() -> None:
             + source[anchor.end() :]
         )
 
-    results_pattern = (
-        r"            st\.markdown\(\"### 📌 Merkezi karar türlerine göre özet\"\)\r?\n"
-        r".*?"
-        r"            with st\.expander\(\"ℹ️ Backtest sonuçları nasıl okunur\?\", expanded=False\):\r?\n"
-        r"                st\.markdown\(\"\"\"\r?\n"
-        r".*?"
-        r"                - Komisyon, vergi, spread ve gerçek emir kayması modellenmez; sonuçlar gerçek işlem getirisi garantisi değildir\.\r?\n"
-        r"\"\"\"\)"
-    )
+    start_anchor = '            st.markdown("### 📌 Merkezi karar türlerine göre özet")'
+    help_anchor = '            with st.expander("ℹ️ Backtest sonuçları nasıl okunur?", expanded=False):'
+    end_sentence = "- Komisyon, vergi, spread ve gerçek emir kayması modellenmez; sonuçlar gerçek işlem getirisi garantisi değildir."
+
+    start = source.find(start_anchor)
+    help_start = source.find(help_anchor, start if start >= 0 else 0)
+    sentence_pos = source.find(end_sentence, help_start if help_start >= 0 else 0)
+    end = source.find('""")', sentence_pos if sentence_pos >= 0 else 0)
+    if min(start, help_start, sentence_pos, end) < 0:
+        raise SystemExit(
+            f"backtest result anchors missing: start={start}, help={help_start}, sentence={sentence_pos}, end={end}"
+        )
+    end += len('""")')
+
     results_replacement = (
         "            sonuc_paketi = backtest_sonuc_paketi_hazirla(bt)\n"
         "            st.markdown(\"### 📌 Merkezi karar türlerine göre özet\")\n"
@@ -69,13 +67,7 @@ def refactor_app() -> None:
         "            with st.expander(\"ℹ️ Backtest sonuçları nasıl okunur?\", expanded=False):\n"
         "                st.markdown(sonuc_paketi[\"okuma_notlari\"])"
     )
-    source = _sub_once(
-        source,
-        results_pattern,
-        results_replacement,
-        "backtest result presenter wiring",
-        flags=re.S,
-    )
+    source = source[:start] + results_replacement + source[end:]
 
     APP.write_bytes(source.encode("utf-8"))
 
