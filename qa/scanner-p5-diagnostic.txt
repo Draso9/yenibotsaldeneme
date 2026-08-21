@@ -1,43 +1,29 @@
 Scanner P5 diagnostic
-commit=c872c8778c08084c503c232bd02131476ddcb278
+commit=03d0dd2f5762a911f8f2d0e79400e1550e63382f
 python=Python 3.14.7
 
 === APPLY ===
-Traceback (most recent call last):
-  File "/home/runner/work/yenibotsaldeneme/yenibotsaldeneme/scripts/refactor_scanner_p5.py", line 228, in <module>
-    main()
-    ~~~~^^
-  File "/home/runner/work/yenibotsaldeneme/yenibotsaldeneme/scripts/refactor_scanner_p5.py", line 162, in main
-    text = replace_between(
-        text,
-    ...<3 lines>...
-        "session helpers",
-    )
-  File "/home/runner/work/yenibotsaldeneme/yenibotsaldeneme/scripts/refactor_scanner_p5.py", line 129, in replace_between
-    end_match, _ = _unique_match(text, end_marker, f"{label} end")
-                   ~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/home/runner/work/yenibotsaldeneme/yenibotsaldeneme/scripts/refactor_scanner_p5.py", line 114, in _unique_match
-    raise RuntimeError(f"{label}: expected one marker, found {len(matches)}")
-RuntimeError: session helpers end: expected one marker, found 2
-APPLY_CODE=1
+scanner P5 refactor applied
+APPLY_CODE=0
 
 === DIFF ===
+app2.py
 qa/scanner-p5-diagnostic.txt
 DIFF_CODE=0
 
-VERIFY_SCOPE=SKIP
-VERIFY_CODE=1
+VERIFY_SCOPE=PASS
+VERIFY_CODE=0
 
 === COMPILE ===
-compile skipped
-COMPILE_CODE=1
+COMPILE_CODE=0
 
 === TARGETED TESTS ===
-targeted tests skipped
-TARGET_CODE=1
+......................................                                   [100%]
+TARGET_CODE=0
 
 === FULL TEST SUITE ===
-full suite skipped
-FULL_CODE=1
+........................................................................ [ 51%]
+.....................................................................    [100%]
+FULL_CODE=0
 
-RESULT=FAIL
+RESULT=PASS
