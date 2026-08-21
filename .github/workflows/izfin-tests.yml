@@ -1,14 +1,14 @@
 name: IZFIN CI
 
 on:
+  # Her develop güncellemesi main'e alınmadan önce tam kalite kapısından geçer.
   push:
     branches:
       - develop
-      - refactor/scanner-p8
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
   group: izfin-ci-${{ github.workflow }}-${{ github.ref }}
@@ -16,7 +16,6 @@ concurrency:
 
 jobs:
   quality-gate:
-    if: ${{ !contains(github.event.head_commit.message, '[scanner-p8-bot]') }}
     name: IZFIN Quality Gate
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -24,8 +23,6 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
-        with:
-          fetch-depth: 0
 
       - name: Set up Python
         uses: actions/setup-python@v7
@@ -63,6 +60,7 @@ jobs:
         run: |
           mkdir -p "${HOME}/.streamlit"
           cat > "${HOME}/.streamlit/secrets.toml" <<'EOF'
+          # CI smoke-test fixture only. Production secrets are never committed.
           FINNHUB_API_KEY = ""
           GOOGLE_OAUTH_CLIENT_ID = ""
           GOOGLE_OAUTH_CLIENT_SECRET = ""
@@ -75,21 +73,9 @@ jobs:
           IZFIN_DATA_CONTROLLER_ADDRESS = ""
           EOF
 
-      - name: Apply Scanner P8 cleanup
-        run: python scripts/refactor_scanner_p8.py
-
-      - name: Verify Scanner P8 scope and compile
-        shell: bash
-        run: |
-          mapfile -t changed < <(git diff --name-only)
-          if [ "${#changed[@]}" -ne 1 ] || [ "${changed[0]}" != "app2.py" ]; then
-            echo "Unexpected P8 scope: ${changed[*]}"
-            exit 1
-          fi
-          python -m py_compile app2.py izfin_services/ticker_analysis.py izfin_services/market_session.py izfin_services/scan_service.py izfin_ui/scan_results.py
-
       - name: Run complete test suite
         env:
+          # Empty values keep CI away from live Firebase, Finnhub and Sentry writes.
           FIREBASE_WEB_API_KEY: ""
           FIREBASE_PROJECT_ID: ""
           FINNHUB_API_KEY: ""
@@ -99,17 +85,3 @@ jobs:
           SENTRY_DSN: ""
           IZFIN_ENVIRONMENT: "ci"
         run: python -m pytest -q
-
-      - name: Commit tested Scanner P8 cleanup
-        if: ${{ github.ref == 'refs/heads/refactor/scanner-p8' }}
-        shell: bash
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add app2.py
-          if git diff --cached --quiet; then
-            echo "No P8 app changes to commit."
-            exit 0
-          fi
-          git commit -m "Scanner P8 tested cleanup [scanner-p8-bot]"
-          git push origin HEAD:refactor/scanner-p8
