@@ -95,6 +95,7 @@ def test_app_imports_extracted_core_modules():
         "izfin_services.firebase_auth_client",
         "izfin_services.scan_service",
         "izfin_services.market_session",
+        "izfin_services.ticker_analysis",
         "izfin_repositories.user_repository",
         "izfin_repositories.signal_repository",
     ):
@@ -191,3 +192,11 @@ def test_market_session_orchestration_stays_outside_streamlit_shell():
     assert "def seans_disi_ozet(" not in source
     assert "def canli_ohlcv_ile_guncelle(" not in source
     assert "def tekil_taze_veri_cek(" not in source
+
+
+def test_per_ticker_analysis_orchestration_stays_outside_streamlit_shell():
+    source = APP.read_text(encoding="utf-8")
+    assert "ticker_analiz_paketi_hazirla(" in source
+    assert "goreceli_paket = goreceli_guc_ve_hacim_hesapla(" not in source
+    assert "karar_paketi = karar_paketi_olustur(" not in source
+    assert "gecici_sonuclar.append({" not in source
