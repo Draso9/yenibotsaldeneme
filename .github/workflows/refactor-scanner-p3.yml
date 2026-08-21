@@ -5,6 +5,7 @@ on:
     branches:
       - refactor/scanner-p3
 
+# One-shot feature-branch gate; removed before merge to develop.
 permissions:
   contents: write
 
