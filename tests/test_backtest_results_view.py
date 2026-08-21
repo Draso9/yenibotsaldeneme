@@ -124,7 +124,8 @@ def test_backtest_result_presenter_handles_empty_frame():
     assert paket["ozet"].empty
     assert paket["detay"].empty
     assert paket["detay_height"] == 82
-    assert paket["detay_format"] == {}
+    assert paket["detay_format"]["İşlem Sonucu %"] == "{:+.2f}%"
+    assert paket["detay_format"]["Hibrit Skor"] == "{:.0f}"
 
 
 def test_backtest_summary_rejects_incomplete_engine_contract():
