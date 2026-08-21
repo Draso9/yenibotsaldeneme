@@ -1,0 +1,1 @@
+Trigger UI3 performance view-model extraction quality gate.
