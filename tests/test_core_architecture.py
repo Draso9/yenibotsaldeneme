@@ -82,14 +82,13 @@ def test_app_imports_extracted_core_modules():
         "izfin_core.market_universe",
         "izfin_core.market_data",
         "izfin_core.backtest_engine",
-        "izfin_core.entry_engine",
         "izfin_core.decision_engine",
         "izfin_core.technical_analysis",
         "izfin_core.risk_engine",
-        "izfin_core.scanner_engine",
         "izfin_core.projection_engine",
         "izfin_core.performance_engine",
         "izfin_ui.analysis_views",
+        "izfin_ui.scan_results",
         "izfin_services.yahoo_client",
         "izfin_services.finnhub_client",
         "izfin_services.firebase_auth_client",
@@ -200,3 +199,41 @@ def test_per_ticker_analysis_orchestration_stays_outside_streamlit_shell():
     assert "goreceli_paket = goreceli_guc_ve_hacim_hesapla(" not in source
     assert "karar_paketi = karar_paketi_olustur(" not in source
     assert "gecici_sonuclar.append({" not in source
+
+
+def test_streamlit_shell_has_no_scanner_implementation_imports():
+    tree = ast.parse(APP.read_text(encoding="utf-8"))
+    forbidden_modules = {
+        "izfin_core.entry_engine",
+        "izfin_core.scanner_engine",
+        "izfin_core.scanner_pipeline",
+    }
+    imported_modules = {
+        node.module
+        for node in tree.body
+        if isinstance(node, ast.ImportFrom) and node.module
+    }
+    assert not forbidden_modules & imported_modules
+
+    forbidden_names = {
+        "giris_motoru_hesapla",
+        "tetik_puani_hesapla",
+        "breakout_kosulu_hesapla",
+        "goreceli_guc_ve_hacim_hesapla",
+        "hibrit_skor_hesapla",
+        "on_sinyal_belirle",
+        "risk_volatilite_hazirla",
+        "temel_teknik_gostergeleri_hesapla",
+        "gelismis_teyit_paketi_hesapla",
+        "karar_paketi_olustur",
+        "teknik_panel_paketi_olustur",
+        "sozlu_teknik_analiz_olustur",
+        "tekil_normal_seans_veri_cek",
+    }
+    imported_names = {
+        alias.asname or alias.name
+        for node in tree.body
+        if isinstance(node, ast.ImportFrom)
+        for alias in node.names
+    }
+    assert not forbidden_names & imported_names
