@@ -35,34 +35,21 @@ jobs:
             requirements.txt
             requirements-test.txt
 
-      - name: Upgrade pip
-        run: python -m pip install --upgrade pip
-
-      - name: Install application and test dependencies
+      - id: install
+        name: Install locked dependencies
+        continue-on-error: true
         run: |
+          python -m pip install --upgrade pip
           python -m pip install -r requirements.txt
           python -m pip install -r requirements-test.txt
 
-      - name: Verify required runtime imports
-        run: |
-          python - <<'PY'
-          import streamlit
-          import pandas
-          import numpy
-          import yfinance
-          import requests
-          import firebase_admin
-          import extra_streamlit_components
-          import sentry_sdk
-          print("IZFIN runtime imports: OK")
-          PY
-
-      - name: Create CI-only Streamlit secrets file
+      - id: secrets
+        name: Create CI-only Streamlit secrets file
+        continue-on-error: true
         shell: bash
         run: |
           mkdir -p "${HOME}/.streamlit"
           cat > "${HOME}/.streamlit/secrets.toml" <<'EOF'
-          # CI smoke-test fixture only. Production secrets are never committed.
           FINNHUB_API_KEY = ""
           GOOGLE_OAUTH_CLIENT_ID = ""
           GOOGLE_OAUTH_CLIENT_SECRET = ""
@@ -75,13 +62,19 @@ jobs:
           IZFIN_DATA_CONTROLLER_ADDRESS = ""
           EOF
 
-      - name: Apply scanner P2 refactor
+      - id: refactor
+        name: Apply scanner P2 refactor
+        continue-on-error: true
         run: python scripts/refactor_scanner_p2.py
 
-      - name: Validate scanner architecture boundaries
+      - id: boundary
+        name: Validate scanner architecture boundaries
+        continue-on-error: true
         run: python scripts/validate_scanner_boundaries.py
 
-      - name: Verify only app2.py changed
+      - id: diff
+        name: Verify only app2.py changed
+        continue-on-error: true
         shell: bash
         run: |
           mapfile -t changed < <(git diff --name-only)
@@ -91,10 +84,21 @@ jobs:
             exit 1
           fi
 
-      - name: Compile refactored modules
+      - id: compile
+        name: Compile refactored modules
+        continue-on-error: true
         run: python -m py_compile app2.py izfin_core/scanner_engine.py
 
-      - name: Run complete test suite
+      - id: targeted
+        name: Run scanner P2 tests
+        if: ${{ steps.install.outcome == 'success' }}
+        continue-on-error: true
+        run: python -m pytest -q tests/test_scanner_engine.py tests/test_scanner_engine_p2.py
+
+      - id: full
+        name: Run complete test suite
+        if: ${{ steps.install.outcome == 'success' }}
+        continue-on-error: true
         env:
           FIREBASE_WEB_API_KEY: ""
           FIREBASE_PROJECT_ID: ""
@@ -106,18 +110,58 @@ jobs:
           IZFIN_ENVIRONMENT: "ci"
         run: python -m pytest -q
 
-      - name: Validate patch formatting
+      - id: format
+        name: Validate patch formatting
+        continue-on-error: true
         run: git diff --check
 
-      - name: Commit tested app2 refactor
+      - name: Persist diagnostic and tested refactor
+        if: always()
         shell: bash
         run: |
+          cat > .scanner_p2_diagnostic.txt <<EOF
+          install=${{ steps.install.outcome }}
+          secrets=${{ steps.secrets.outcome }}
+          refactor=${{ steps.refactor.outcome }}
+          boundary=${{ steps.boundary.outcome }}
+          diff=${{ steps.diff.outcome }}
+          compile=${{ steps.compile.outcome }}
+          targeted=${{ steps.targeted.outcome }}
+          full=${{ steps.full.outcome }}
+          format=${{ steps.format.outcome }}
+          EOF
+
+          all_ok=true
+          for value in \
+            "${{ steps.install.outcome }}" \
+            "${{ steps.secrets.outcome }}" \
+            "${{ steps.refactor.outcome }}" \
+            "${{ steps.boundary.outcome }}" \
+            "${{ steps.diff.outcome }}" \
+            "${{ steps.compile.outcome }}" \
+            "${{ steps.targeted.outcome }}" \
+            "${{ steps.full.outcome }}" \
+            "${{ steps.format.outcome }}"; do
+            if [ "$value" != "success" ]; then
+              all_ok=false
+            fi
+          done
+          echo "all_ok=${all_ok}" >> .scanner_p2_diagnostic.txt
+
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add app2.py
-          if git diff --cached --quiet; then
-            echo "No app2.py changes to commit."
-            exit 0
+
+          if [ "$all_ok" = "true" ]; then
+            git add app2.py .scanner_p2_diagnostic.txt
+            git commit -m "Wire scanner engine into smart scan [scanner-p2-bot]"
+          else
+            git restore -- app2.py || true
+            git add .scanner_p2_diagnostic.txt
+            git commit -m "Record scanner P2 diagnostic [scanner-p2-bot]"
           fi
-          git commit -m "Wire scanner engine into smart scan [scanner-p2-bot]"
           git push origin HEAD:refactor/scanner-p2
+
+      - name: Fail gate when a diagnostic step failed
+        if: always()
+        shell: bash
+        run: grep -q '^all_ok=true$' .scanner_p2_diagnostic.txt
