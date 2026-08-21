@@ -1,0 +1,42 @@
+Scanner P5 diagnostic
+commit=ebd978da21e2038d5303b9a703764e37ac6d2bd9
+python=Python 3.14.7
+
+=== APPLY ===
+Traceback (most recent call last):
+  File "/home/runner/work/yenibotsaldeneme/yenibotsaldeneme/scripts/refactor_scanner_p5.py", line 228, in <module>
+    main()
+    ~~~~^^
+  File "/home/runner/work/yenibotsaldeneme/yenibotsaldeneme/scripts/refactor_scanner_p5.py", line 162, in main
+    text = replace_between(
+        text,
+    ...<3 lines>...
+        "session helpers",
+    )
+  File "/home/runner/work/yenibotsaldeneme/yenibotsaldeneme/scripts/refactor_scanner_p5.py", line 129, in replace_between
+    end_match, _ = _unique_match(text, end_marker, f"{label} end")
+                   ~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/runner/work/yenibotsaldeneme/yenibotsaldeneme/scripts/refactor_scanner_p5.py", line 114, in _unique_match
+    raise RuntimeError(f"{label}: expected one marker, found {len(matches)}")
+RuntimeError: session helpers end: expected one marker, found 0
+APPLY_CODE=1
+
+=== DIFF ===
+DIFF_CODE=0
+
+VERIFY_SCOPE=SKIP
+VERIFY_CODE=1
+
+=== COMPILE ===
+compile skipped
+COMPILE_CODE=1
+
+=== TARGETED TESTS ===
+targeted tests skipped
+TARGET_CODE=1
+
+=== FULL TEST SUITE ===
+full suite skipped
+FULL_CODE=1
+
+RESULT=FAIL
