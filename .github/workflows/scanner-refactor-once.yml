@@ -1,0 +1,157 @@
+name: IZFIN Scanner Refactor Once
+
+on:
+  push:
+    branches:
+      - develop
+    paths:
+      - .github/workflows/scanner-refactor-once.yml
+
+permissions:
+  contents: write
+
+jobs:
+  refactor:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout develop
+        uses: actions/checkout@v6
+        with:
+          ref: develop
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.14"
+          cache: pip
+          cache-dependency-path: |
+            requirements.txt
+            requirements-test.txt
+
+      - name: Apply scanner refactor package
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import ast
+          import re
+
+          app_path = Path("app2.py")
+          test_path = Path("tests/test_core_architecture.py")
+
+          with app_path.open("r", encoding="utf-8", newline="") as fh:
+              app = fh.read()
+
+          scanner_import = (
+              "from izfin_core.scanner_engine import (\n"
+              "    goreceli_guc_ve_hacim_hesapla,\n"
+              "    hibrit_skor_hesapla,\n"
+              "    on_sinyal_belirle,\n"
+              ")\n"
+          )
+          import_anchor = "from izfin_core.risk_engine import teknik_seviyeler_hesapla\n"
+          if scanner_import not in app:
+              if import_anchor not in app:
+                  raise SystemExit("scanner import anchor bulunamadı")
+              app = app.replace(import_anchor, import_anchor + scanner_import, 1)
+
+          relative_pattern = re.compile(
+              r"(?ms)^ {24}# Göreceli güç hesabında yalnızca geçerli kapanışları kullan\.\r?\n"
+              r".*?"
+              r"^ {24}delta = df_long\['Close'\]\.diff\(\)\r?\n"
+          )
+          relative_replacement = """                        # Göreceli güç ve hacim oranı saf scanner motorunda hesaplanır.\n                        sek_sembol = \"XU100.IS\" if is_bist else \"^IXIC\"\n                        goreceli_paket = goreceli_guc_ve_hacim_hesapla(\n                            df_long, sektor_getirileri.get(sek_sembol, np.nan)\n                        )\n                        sektorel_fark = goreceli_paket[\"sektorel_fark\"]\n                        hacim_oran = goreceli_paket[\"hacim_oran\"]\n\n                        # Panel ayrıntıları için ham hacim değerleri korunur.\n                        bugun_hacim = pd.to_numeric(pd.Series([df_long['Volume'].iloc[-1]]), errors='coerce').iloc[0]\n                        hacim_sma20 = pd.to_numeric(df_long['Volume'], errors='coerce').replace([np.inf, -np.inf], np.nan).rolling(20, min_periods=5).mean().iloc[-1]\n                        if pd.notna(sektorel_fark) and np.isfinite(float(sektorel_fark)):\n                            gorec_guc_str = f\"{'+' if sektorel_fark > 0 else ''}{sektorel_fark:.1f}% | Vol: %{hacim_oran:.0f}\"\n                        else:\n                            gorec_guc_str = f\"— Veri yok | Vol: %{hacim_oran:.0f}\"\n\n                        delta = df_long['Close'].diff()\n"""
+          app, relative_count = relative_pattern.subn(relative_replacement, app, count=1)
+          if relative_count != 1:
+              raise SystemExit(f"göreceli güç bloğu eşleşmedi: {relative_count}")
+
+          score_pattern = re.compile(
+              r"(?ms)^ {24}# --- HİBRİT SKOR: ESKİ CEZALI SKOR \+ GELİŞMİŞ TEYİT KATMANI ---\r?\n"
+              r".*?"
+              r"^ {24}skor_etiket = f\"\{skor\} Puan \(Güçlü 🟢\)\" if skor >= 70 else \(f\"\{skor\} Puan \(Nötr ⚖️\)\" if skor >= 50 else f\"\{skor\} Puan \(Cezalı 🔴\)\"\)\r?\n"
+          )
+          score_replacement = """                        # --- HİBRİT SKOR: SAF SCANNER MOTORU ---\n                        ema_50_val = df_long['Close'].ewm(span=50, adjust=False).mean().iloc[-1]\n                        skor_aciklama = hibrit_skor_hesapla(\n                            uzun_vade_trend=uzun_vade_trend,\n                            hacim_patlamasi_var=hacim_patlamasi_var,\n                            fiyat=bugun_kapanis,\n                            ema50=ema_50_val,\n                            hacim_oran=hacim_oran,\n                            obv=float(obv[-1]),\n                            obv_ema=float(obv_ema.iloc[-1]),\n                            rsi=float(rsi),\n                            macd=float(macd_serisi.iloc[-1]),\n                            macd_signal=float(macd_sinyal.iloc[-1]),\n                            bb_mid=float(bb_mid),\n                            bb_ust=float(bb_ust),\n                            is_sig_tahta=is_sig_tahta,\n                            adx=float(adx),\n                            plus_di=float(plus_di),\n                            minus_di=float(minus_di),\n                            cmf=float(cmf),\n                            supertrend=int(supertrend),\n                            vwap=vwap,\n                            mtf_uyum=float(mtf_uyum),\n                            sektorel_fark=sektorel_fark,\n                        )\n                        eski_skor = int(skor_aciklama[\"eski_skor\"])\n                        gelismis_bonus = int(skor_aciklama[\"bonus\"])\n                        gelismis_ceza = int(skor_aciklama[\"ceza\"])\n                        skor = int(skor_aciklama[\"nihai_skor\"])\n\n                        skor_etiket = f\"{skor} Puan (Güçlü 🟢)\" if skor >= 70 else (f\"{skor} Puan (Nötr ⚖️)\" if skor >= 50 else f\"{skor} Puan (Cezalı 🔴)\")\n"""
+          app, score_count = score_pattern.subn(score_replacement, app, count=1)
+          if score_count != 1:
+              raise SystemExit(f"hibrit skor bloğu eşleşmedi: {score_count}")
+
+          signal_pattern = re.compile(
+              r"(?ms)^ {24}# Sinyal önceliği: önce kırılım ve risk/şişkinlik, ardından\r?\n"
+              r".*?"
+              r"(?=^ {24}if uzun_vade_trend: boga_sayisi \+= 1)"
+          )
+          signal_replacement = """                        # Ön sinyal öncelik sırası artık saf scanner motorunda tutulur.\n                        on_sinyal = on_sinyal_belirle(\n                            breakout_kosulu=breakout_kosulu,\n                            fiyat=bugun_kapanis,\n                            bb_ust=bb_ust,\n                            bb_alt=bb_alt,\n                            bb_mid=bb_mid,\n                            rsi=rsi,\n                            uzun_vade_trend=uzun_vade_trend,\n                            mfi=mfi_val,\n                            gunluk_degisim=gunluk_degisim,\n                            karma_destek=karma_destek,\n                            atr=atr,\n                            skor=skor,\n                            hacim_patlamasi_var=hacim_patlamasi_var,\n                            ema50=ema_50_val,\n                        )\n\n"""
+          app, signal_count = signal_pattern.subn(signal_replacement, app, count=1)
+          if signal_count != 1:
+              raise SystemExit(f"ön sinyal bloğu eşleşmedi: {signal_count}")
+
+          if app.count("goreceli_guc_ve_hacim_hesapla(") != 1:
+              raise SystemExit("göreceli güç çağrı sayısı beklenenden farklı")
+          if app.count("hibrit_skor_hesapla(") != 1:
+              raise SystemExit("hibrit skor çağrı sayısı beklenenden farklı")
+          if app.count("on_sinyal_belirle(") != 1:
+              raise SystemExit("ön sinyal çağrı sayısı beklenenden farklı")
+          ast.parse(app)
+
+          with app_path.open("w", encoding="utf-8", newline="") as fh:
+              fh.write(app)
+
+          test = test_path.read_text(encoding="utf-8")
+          function_anchor = '    "gelismis_teknik_panel_olustur",\n}'
+          if '    "hibrit_skor_hesapla",\n' not in test:
+              if function_anchor not in test:
+                  raise SystemExit("architecture function anchor bulunamadı")
+              test = test.replace(
+                  function_anchor,
+                  '    "gelismis_teknik_panel_olustur",\n'
+                  '    "goreceli_guc_ve_hacim_hesapla",\n'
+                  '    "hibrit_skor_hesapla",\n'
+                  '    "on_sinyal_belirle",\n'
+                  '}',
+                  1,
+              )
+          module_anchor = '        "izfin_core.risk_engine",\n'
+          if '        "izfin_core.scanner_engine",\n' not in test:
+              if module_anchor not in test:
+                  raise SystemExit("architecture module anchor bulunamadı")
+              test = test.replace(
+                  module_anchor,
+                  module_anchor + '        "izfin_core.scanner_engine",\n',
+                  1,
+              )
+          ast.parse(test)
+          test_path.write_text(test, encoding="utf-8")
+          PY
+
+      - name: Install test dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt
+          python -m pip install -r requirements-test.txt
+
+      - name: Run full regression suite on refactored working tree
+        env:
+          FIREBASE_WEB_API_KEY: ""
+          FIREBASE_PROJECT_ID: ""
+          FINNHUB_API_KEY: ""
+          GOOGLE_OAUTH_CLIENT_ID: ""
+          GOOGLE_OAUTH_CLIENT_SECRET: ""
+          GOOGLE_OAUTH_REDIRECT_URI: ""
+          SENTRY_DSN: ""
+          IZFIN_ENVIRONMENT: "ci"
+        run: python -m pytest -q
+
+      - name: Commit refactor to develop
+        shell: bash
+        run: |
+          if git diff --quiet -- app2.py tests/test_core_architecture.py; then
+            echo "No refactor changes to commit"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add app2.py tests/test_core_architecture.py
+          git commit -m "Wire scanner engine into Streamlit scan flow"
+          git push origin HEAD:develop
