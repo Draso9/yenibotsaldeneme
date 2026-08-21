@@ -78,6 +78,11 @@ from izfin_ui.home_dashboard import (
     home_scan_bos_mu,
     home_top_signals_hazirla,
 )
+from izfin_ui.projection_view import (
+    projection_hazir_mi,
+    projection_senaryo_hazirla,
+    projection_varliklari_hazirla,
+)
 from izfin_services.firebase_auth_client import (
     FirebaseAuthClient,
     firebase_auth_hata_mesaji as _firebase_auth_hata_mesaji,
@@ -4287,7 +4292,7 @@ if aktif_sayfa == "🎯 Projeksiyon & Senaryo":
         """
     )
 
-    if not st.session_state.tarama_durumu or not st.session_state.teknik_paneller:
+    if not projection_hazir_mi(st.session_state.tarama_durumu, st.session_state.teknik_paneller):
         st.markdown(
             """
             <div class="iz-proj-empty">
@@ -4306,7 +4311,7 @@ if aktif_sayfa == "🎯 Projeksiyon & Senaryo":
             _izfin_nav_to("🔎 Akıllı Tarama")
             st.rerun()
     else:
-        varliklar = list(st.session_state.teknik_paneller.keys())
+        varliklar = projection_varliklari_hazirla(st.session_state.teknik_paneller)
 
         top_left, top_right = st.columns([1.15, .85], gap="large")
         with top_left:
@@ -4352,12 +4357,17 @@ if aktif_sayfa == "🎯 Projeksiyon & Senaryo":
                 f"60 günlük: %{proj['hv60']*100:.1f} · Karma: %{proj['hv_karma']*100:.1f}"
             )
 
-            sinyal = panel.get("sinyal", "Nötr")
-            destek = float(panel.get("destek", proj['alt_1s']))
-            direnc = float(panel.get("direnc", proj['ust_1s']))
-            stop = float(panel.get("stop", proj['alt_1s']))
-            tp1 = float(panel.get("tp1", proj['ust_1s']))
-            tp2 = float(panel.get("tp2", proj['ust_2s']))
+            senaryo = projection_senaryo_hazirla(
+                panel,
+                proj,
+                sinyal_yonu_belirle=sinyal_yonu_belirle,
+            )
+            sinyal = senaryo["sinyal"]
+            destek = senaryo["destek"]
+            direnc = senaryo["direnc"]
+            stop = senaryo["stop"]
+            tp1 = senaryo["tp1"]
+            tp2 = senaryo["tp2"]
 
             st.markdown('<div class="iz-proj-section-title">Teknik Senaryolar</div>', unsafe_allow_html=True)
 
@@ -4395,24 +4405,9 @@ if aktif_sayfa == "🎯 Projeksiyon & Senaryo":
                 )
                 st.markdown(_down_html, unsafe_allow_html=True)
 
-            yon = sinyal_yonu_belirle(sinyal)
-            model_farki = abs(proj['atr_yuzde'] - proj['volatilite_yuzde'])
-
-            if model_farki <= 3:
-                model_yorumu = "ATR ve volatilite modelleri birbirine yakın; hareket tahmini görece tutarlı."
-            elif proj['volatilite_yuzde'] > proj['atr_yuzde']:
-                model_yorumu = "Tarihsel volatilite, güncel ATR'den daha geniş hareket ihtimali gösteriyor; ani fiyat genişlemelerine karşı temkinli olunmalı."
-            else:
-                model_yorumu = "Güncel ATR, tarihsel volatiliteden daha yüksek; kısa vadede olağandışı hareketlilik yaşanıyor olabilir."
-
-            yon_class = "neutral"
-            yon_title = "Dengeli / İzle"
-            if yon == "ALIM":
-                yon_class = "up"
-                yon_title = "Yükseliş öncelikli"
-            elif yon == "SATIŞ":
-                yon_class = "down"
-                yon_title = "Sermaye koruma öncelikli"
+            model_yorumu = senaryo["model_yorumu"]
+            yon_class = senaryo["yon_class"]
+            yon_title = senaryo["yon_title"]
 
             _direction_html = (
                 f'<div class="iz-direction-card iz-direction-{yon_class}">'
