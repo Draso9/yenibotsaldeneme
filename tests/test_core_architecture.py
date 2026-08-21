@@ -58,6 +58,11 @@ EXTRACTED_FUNCTIONS = {
     "on_sinyal_belirle",
     "toplu_veriden_ticker_ayir",
     "gunluk_toplu_veriden_ticker_ayir",
+    "_intraday_local_index",
+    "regular_seans_intraday",
+    "seans_disi_ozet",
+    "canli_ohlcv_ile_guncelle",
+    "tekil_taze_veri_cek",
 }
 
 LEGACY_SCAN_HELPERS = {
@@ -89,6 +94,7 @@ def test_app_imports_extracted_core_modules():
         "izfin_services.finnhub_client",
         "izfin_services.firebase_auth_client",
         "izfin_services.scan_service",
+        "izfin_services.market_session",
         "izfin_repositories.user_repository",
         "izfin_repositories.signal_repository",
     ):
@@ -175,3 +181,13 @@ def test_scan_provider_orchestration_stays_outside_streamlit_button_flow():
     assert "scan_veri_paketi_hazirla(" in source
     assert "sektor_getirileri[sembol] =" not in source
     assert "ThreadPoolExecutor(max_workers=min(max_workers" not in source
+
+
+def test_market_session_orchestration_stays_outside_streamlit_shell():
+    source = APP.read_text(encoding="utf-8")
+    assert "ticker_piyasa_paketi_hazirla(" in source
+    assert "def _intraday_local_index(" not in source
+    assert "def regular_seans_intraday(" not in source
+    assert "def seans_disi_ozet(" not in source
+    assert "def canli_ohlcv_ile_guncelle(" not in source
+    assert "def tekil_taze_veri_cek(" not in source
