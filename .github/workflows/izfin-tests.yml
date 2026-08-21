@@ -1,17 +1,14 @@
 name: IZFIN CI
 
 on:
+  # Her develop güncellemesi main'e alınmadan önce tam kalite kapısından geçer.
   push:
     branches:
       - develop
-  pull_request:
-    branches:
-      - develop
-    types: [opened, synchronize]
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
   group: izfin-ci-${{ github.workflow }}-${{ github.ref }}
@@ -26,8 +23,6 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
-        with:
-          ref: ${{ github.head_ref || github.ref_name }}
 
       - name: Set up Python
         uses: actions/setup-python@v7
@@ -60,29 +55,6 @@ jobs:
           print("IZFIN runtime imports: OK")
           PY
 
-      - name: Apply UI3 performance extraction
-        if: ${{ github.head_ref == 'refactor/ui3-performance-view' }}
-        run: python scripts/refactor_ui3_performance_view.py
-
-      - name: Fix generated UI3 architecture assertion
-        if: ${{ github.head_ref == 'refactor/ui3-performance-view' }}
-        run: |
-          python - <<'PY'
-          from pathlib import Path
-          p = Path("tests/test_core_architecture.py")
-          s = p.read_text(encoding="utf-8")
-          bad = '    assert "pozitif_oran = float((karne_df["getiri"] > 0).mean() * 100)" not in source'
-          good = "    assert 'pozitif_oran = float((karne_df[\"getiri\"] > 0).mean() * 100)' not in source"
-          if bad not in s:
-              raise SystemExit("generated UI3 assertion not found")
-          p.write_text(s.replace(bad, good, 1), encoding="utf-8")
-          PY
-
-      - name: Compile UI3 paths
-        if: ${{ github.head_ref == 'refactor/ui3-performance-view' }}
-        run: |
-          python -m py_compile app2.py izfin_ui/performance_view.py tests/test_performance_view.py tests/test_core_architecture.py
-
       - name: Create CI-only Streamlit secrets file
         shell: bash
         run: |
@@ -101,37 +73,9 @@ jobs:
           IZFIN_DATA_CONTROLLER_ADDRESS = ""
           EOF
 
-      - name: Run focused UI3 tests
-        if: ${{ github.head_ref == 'refactor/ui3-performance-view' }}
-        env:
-          FIREBASE_WEB_API_KEY: ""
-          FIREBASE_PROJECT_ID: ""
-          FINNHUB_API_KEY: ""
-          GOOGLE_OAUTH_CLIENT_ID: ""
-          GOOGLE_OAUTH_CLIENT_SECRET: ""
-          GOOGLE_OAUTH_REDIRECT_URI: ""
-          SENTRY_DSN: ""
-          IZFIN_ENVIRONMENT: "ci"
-        run: python -m pytest -q tests/test_performance_view.py tests/test_core_architecture.py tests/test_apptest_smoke.py
-
-      - name: Mask temporary PR trigger for full regression
-        if: ${{ github.head_ref == 'refactor/ui3-performance-view' }}
-        shell: bash
-        run: |
-          cp .github/workflows/izfin-tests.yml /tmp/izfin-tests-ui3.yml
-          python - <<'PY'
-          from pathlib import Path
-          p = Path(".github/workflows/izfin-tests.yml")
-          s = p.read_text(encoding="utf-8")
-          block = "  pull_request:\n    branches:\n      - develop\n    types: [opened, synchronize]\n"
-          if block not in s:
-              raise SystemExit("temporary UI3 pull_request block not found")
-          s = s.replace(block, "", 1)
-          p.write_text(s, encoding="utf-8")
-          PY
-
       - name: Run complete test suite
         env:
+          # Empty values keep CI away from live Firebase, Finnhub and Sentry writes.
           FIREBASE_WEB_API_KEY: ""
           FIREBASE_PROJECT_ID: ""
           FINNHUB_API_KEY: ""
@@ -141,35 +85,3 @@ jobs:
           SENTRY_DSN: ""
           IZFIN_ENVIRONMENT: "ci"
         run: python -m pytest -q
-
-      - name: Restore temporary UI3 workflow after regression
-        if: ${{ github.head_ref == 'refactor/ui3-performance-view' }}
-        run: cp /tmp/izfin-tests-ui3.yml .github/workflows/izfin-tests.yml
-
-      - name: Verify generated UI3 diff
-        if: ${{ github.head_ref == 'refactor/ui3-performance-view' }}
-        shell: bash
-        run: |
-          git diff --stat
-          changed="$(git diff --name-only)"
-          echo "$changed"
-          test -n "$changed"
-          while IFS= read -r path; do
-            case "$path" in
-              app2.py|tests/test_core_architecture.py) ;;
-              *) echo "Unexpected generated path: $path"; exit 1 ;;
-            esac
-          done <<< "$changed"
-          app_changes="$(git diff --numstat -- app2.py | awk '{print $1+$2}')"
-          echo "app2 changed lines: ${app_changes:-0}"
-          test "${app_changes:-99999}" -lt 700
-
-      - name: Commit tested UI3 shell wiring
-        if: ${{ github.head_ref == 'refactor/ui3-performance-view' }}
-        shell: bash
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add -- app2.py tests/test_core_architecture.py
-          git commit -m "Wire performance view models [ui3-performance-bot]"
-          git push origin HEAD:${{ github.head_ref }}
