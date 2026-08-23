@@ -105,6 +105,7 @@ def test_app_imports_extracted_core_modules():
         "izfin_services.firebase_auth_client",
         "izfin_services.scan_service",
         "izfin_services.scan_workflow",
+        "izfin_services.signal_tracking",
         "izfin_services.market_overview",
         "izfin_repositories.user_repository",
         "izfin_repositories.signal_repository",
@@ -403,4 +404,16 @@ def test_detail_analysis_view_model_stays_outside_streamlit_shell():
     assert "mtf = panel_verisi.get('mtf_detay'" not in source
     assert 'hisse_satiri = df_sonuc[df_sonuc["Varlık"] == secilen_detay_hisse]' not in source
     assert "aksiyon_rehberi_olustur(anlik_sinyal" not in source
+
+
+def test_signal_tracking_application_logic_stays_outside_streamlit_shell():
+    source = APP.read_text(encoding="utf-8")
+    assert "from izfin_services.signal_tracking import sinyal_kayitlarini_guncelle" in source
+    assert "return sinyal_kayitlarini_guncelle(" in source
+    assert "eski_acik_haritasi = {}" not in source
+    assert 'yeni_arsiv_id = f"{aktif_doc_id}_' not in source
+    assert 'onceki_sinyal = str(aktif.get("sinyal"' not in source
+    assert 'repository=SIGNAL_REPOSITORY' in source
+    assert 'signal_direction_resolver=sinyal_yonu_belirle' in source
+    assert 'period_stats_resolver=kapanan_donem_istatistikleri' in source
 

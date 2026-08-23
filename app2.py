@@ -127,6 +127,7 @@ from izfin_services.firebase_auth_client import (
 from izfin_services.finnhub_client import FinnhubClient
 from izfin_services.scan_service import toplu_veriden_ticker_ayir
 from izfin_services.scan_workflow import scan_workflow_calistir
+from izfin_services.signal_tracking import sinyal_kayitlarini_guncelle
 from izfin_services.market_overview import piyasa_bandi_paketi_hazirla
 from izfin_services.yahoo_client import (
     donem_ohlc_indir,
@@ -804,236 +805,17 @@ def kapanan_donem_istatistikleri(ticker, giris, acilis_zamani, kapanis_zamani, i
         return sonuc
 
 def sinyal_kayitlarini_firestore_yaz(sonuclar, teknik_paneller):
-    """İlk alım fiyatını koruyan, tekrar kayıt üretmeyen pozisyon takibi.
-
-    - İlk ALIM/KIRILIM/ADAY sinyalinde tek açık pozisyon oluşturur.
-    - Aynı pozisyon sürerken giriş tarihi ve giriş fiyatı asla değişmez.
-    - Sinyal türü değişirse yalnızca güncel sinyal/teknik alanlar güncellenir.
-    - Alım yönü kaybolursa pozisyon kapanır ve geçmişe taşınır.
-    - Aynı hissede daha sonra yeniden alım oluşursa yeni dönem kaydı açılır.
-    - Eski sürümlerden kalan açık arşiv kaydı varsa yeni kayıt açmak yerine
-      en eski açık kaydı aktif pozisyon olarak yeniden bağlar.
-    """
-    if not SIGNAL_REPOSITORY.available or not st.session_state.user_email:
-        return
-
-    simdi = datetime.now()
-    email = st.session_state.user_email
-    email_anahtari = str(email or "").replace("@", "_").replace(".", "_")
-
-    # Eski sürümlerden kalan, aktif_sinyaller belgesiyle bağlantısı kopmuş açık
-    # kayıtları bir kez okuyup ticker -> en eski açık pozisyon haritası oluştur.
-    eski_acik_haritasi = {}
-    try:
-        for doc_id, veri in SIGNAL_REPOSITORY.list_archive(email, limit=500):
-            if veri.get("yon") != "ALIM":
-                continue
-            durum = str(veri.get("durum", "ACIK") or "ACIK").upper()
-            if durum != "ACIK":
-                continue
-            ticker_eski = veri.get("ticker")
-            if not ticker_eski:
-                continue
-            tarih = str(veri.get("olusturma_zamani", ""))
-            mevcut = eski_acik_haritasi.get(ticker_eski)
-            if mevcut is None or tarih < mevcut[1]:
-                eski_acik_haritasi[ticker_eski] = (doc_id, tarih, veri)
-    except Exception as e:
-        izfin_hata_logla("acik_pozisyon_arsiv_okuma", e)
-        eski_acik_haritasi = {}
-
-    for sonuc in sonuclar:
-        ticker = sonuc.get("Varlık")
-        if not ticker:
-            continue
-
-        panel = teknik_paneller.get(ticker, {})
-        sinyal = sonuc.get("Nihai Sinyal", "Nötr")
-        yon = sinyal_yonu_belirle(sinyal)
-        aktif_doc_id = f"{email_anahtari}_{str(ticker or '').replace('.', '_')}"
-        try:
-            aktif = SIGNAL_REPOSITORY.get_active(aktif_doc_id)
-        except Exception as e:
-            izfin_hata_logla("aktif_pozisyon_okuma", e, ticker=ticker)
-            continue
-
-        aktif_mi = str(aktif.get("durum", "")).upper() == "ACIK"
-        onceki_sinyal = str(aktif.get("sinyal", ""))
-        arsiv_doc_id = aktif.get("arsiv_doc_id")
-        fiyat = float(panel.get("fiyat", 0) or 0)
-
-        # Aktif belge yok ama geçmişten açık arşiv kaydı varsa onu yeniden bağla.
-        if not aktif_mi and ticker in eski_acik_haritasi:
-            eski_id, _, eski_veri = eski_acik_haritasi[ticker]
-            arsiv_doc_id = eski_id
-            aktif_mi = True
-            onceki_sinyal = str(eski_veri.get("sinyal", ""))
-            try:
-                SIGNAL_REPOSITORY.set_active(
-                    aktif_doc_id,
-                    {
-                        "user_email": email,
-                        "ticker": ticker,
-                        "durum": "ACIK",
-                        "sinyal": onceki_sinyal,
-                        "arsiv_doc_id": eski_id,
-                        "acilis_zamani": eski_veri.get("olusturma_zamani"),
-                        "giris_fiyati": float(eski_veri.get("giris_fiyati", 0) or 0),
-                        "guncelleme_zamani": simdi.isoformat(),
-                    },
-                    merge=True,
-                )
-                aktif = {
-                    **aktif,
-                    "durum": "ACIK",
-                    "sinyal": onceki_sinyal,
-                    "arsiv_doc_id": eski_id,
-                    "giris_fiyati": float(eski_veri.get("giris_fiyati", 0) or 0),
-                }
-            except Exception as e:
-                izfin_hata_logla("aktif_pozisyon_eski_kaydi_ac", e, ticker=ticker)
-
-        if yon == "ALIM" and panel and fiyat > 0:
-            ortak_guncel = {
-                "sinyal": sinyal,
-                "yon": "ALIM",
-                "durum": "ACIK",
-                "son_fiyat": fiyat,
-                "stop": float(panel.get("stop", 0) or 0),
-                "tp1": float(panel.get("tp1", 0) or 0),
-                "tp2": float(panel.get("tp2", 0) or 0),
-                "tp3": float(panel.get("tp3", 0) or 0),
-                "rsi": float(panel.get("rsi", 0) or 0),
-                "tetik": panel.get("teyit", ""),
-                "tetik_puani": int(panel.get("tetik_puani", 0) or 0),
-                "hibrit_skor": int(panel.get("cezali_skor", panel.get("skor", 0)) or 0),
-                "veri_kaynagi": panel.get("veri_kaynagi", ""),
-                "guncelleme_zamani": simdi.isoformat(),
-            }
-
-            if aktif_mi and arsiv_doc_id:
-                # İlk giriş bilgileri değiştirilmez. Firestore maliyetini ve gereksiz
-                # belge sürümlerini azaltmak için aynı sinyal devam ederken yazma yapma.
-                # Canlı fiyat, tarama panelinden; kalıcı performans fiyatı ise ilgili
-                # kullanıcı düğmesinden ayrıca güncellenir.
-                if onceki_sinyal == sinyal:
-                    continue
-
-                # Sinyal gerçekten değiştiğinde güncel teknik bağlamı kaydet.
-                arsiv_guncelleme = dict(ortak_guncel)
-                aktif_guncelleme = {
-                    "user_email": email,
-                    "ticker": ticker,
-                    "durum": "ACIK",
-                    "sinyal": sinyal,
-                    "arsiv_doc_id": arsiv_doc_id,
-                    "guncelleme_zamani": simdi.isoformat(),
-                }
-                degisim_sayisi = int(aktif.get("sinyal_degisim_sayisi", 0) or 0) + 1
-                arsiv_guncelleme.update({
-                    "onceki_sinyal": onceki_sinyal,
-                    "son_sinyal_degisim_zamani": simdi.isoformat(),
-                    "sinyal_degisim_sayisi": degisim_sayisi,
-                })
-                aktif_guncelleme["sinyal_degisim_sayisi"] = degisim_sayisi
-                try:
-                    SIGNAL_REPOSITORY.set_archive(
-                        arsiv_doc_id,
-                        arsiv_guncelleme,
-                        merge=True,
-                    )
-                    SIGNAL_REPOSITORY.set_active(
-                        aktif_doc_id,
-                        aktif_guncelleme,
-                        merge=True,
-                    )
-                except Exception as e:
-                    izfin_hata_logla("aktif_pozisyon_sinyal_degisim_yaz", e, ticker=ticker)
-                continue
-
-            # Gerçekten açık pozisyon yoksa yeni dönem başlat.
-            yeni_arsiv_id = f"{aktif_doc_id}_{simdi.strftime('%Y%m%d_%H%M%S_%f')}"
-            yeni_veri = {
-                "user_email": email,
-                "ticker": ticker,
-                "sinyal": sinyal,
-                "yon": "ALIM",
-                "durum": "ACIK",
-                "giris_fiyati": fiyat,
-                "son_fiyat": fiyat,
-                "stop": float(panel.get("stop", 0) or 0),
-                "tp1": float(panel.get("tp1", 0) or 0),
-                "tp2": float(panel.get("tp2", 0) or 0),
-                "tp3": float(panel.get("tp3", 0) or 0),
-                "rsi": float(panel.get("rsi", 0) or 0),
-                "tetik": panel.get("teyit", ""),
-                "tetik_puani": int(panel.get("tetik_puani", 0) or 0),
-                "hibrit_skor": int(panel.get("cezali_skor", panel.get("skor", 0)) or 0),
-                "veri_kaynagi": panel.get("veri_kaynagi", ""),
-                "olusturma_zamani": simdi.isoformat(),
-                "guncelleme_zamani": simdi.isoformat(),
-                "getiri_yuzde": 0.0,
-                "sinyal_degisim_sayisi": 0,
-                # Performans karnesi için sinyal anındaki koşullar dondurulur.
-                # Bu alanlar sonraki taramalarda değiştirilmez.
-                "strategy_version": STRATEJI_SURUMU,
-                "ilk_sinyal": sinyal,
-                "ilk_stop": float(panel.get("stop", 0) or 0),
-                "ilk_tp1": float(panel.get("tp1", 0) or 0),
-                "ilk_tp2": float(panel.get("tp2", 0) or 0),
-                "ilk_tp3": float(panel.get("tp3", 0) or 0),
-                "ilk_hibrit_skor": int(panel.get("cezali_skor", panel.get("skor", 0)) or 0),
-                "ilk_giris_kalitesi": int(panel.get("giris_puani", panel.get("tetik_puani", 0)) or 0),
-                "ilk_algoritma_guveni": int(panel.get("guven_skoru", 0) or 0),
-                "ilk_peg": float(panel.get("peg")) if panel.get("peg") is not None and np.isfinite(panel.get("peg")) else None,
-                "ilk_sektorel_fark": float(panel.get("sektorel_fark")) if panel.get("sektorel_fark") is not None and np.isfinite(panel.get("sektorel_fark")) else None,
-                "benchmark_ticker": "XU100.IS" if ticker.endswith(".IS") else "^IXIC",
-                "performans_ufuklari": {},
-            }
-            try:
-                SIGNAL_REPOSITORY.set_archive(yeni_arsiv_id, yeni_veri)
-                SIGNAL_REPOSITORY.set_active(
-                    aktif_doc_id,
-                    {
-                        "user_email": email,
-                        "ticker": ticker,
-                        "durum": "ACIK",
-                        "sinyal": sinyal,
-                        "arsiv_doc_id": yeni_arsiv_id,
-                        "sinyal_degisim_sayisi": 0,
-                        "acilis_zamani": simdi.isoformat(),
-                        "giris_fiyati": fiyat,
-                        "guncelleme_zamani": simdi.isoformat(),
-                    },
-                )
-                eski_acik_haritasi[ticker] = (yeni_arsiv_id, simdi.isoformat(), yeni_veri)
-            except Exception as e:
-                izfin_hata_logla("aktif_pozisyon_yeni_donem_yaz", e, ticker=ticker)
-
-        elif aktif_mi and arsiv_doc_id:
-            arsiv_veri = {}
-            try:
-                arsiv_veri = SIGNAL_REPOSITORY.get_archive(arsiv_doc_id)
-            except Exception as e:
-                izfin_hata_logla("kapanis_arsiv_okuma", e, ticker)
-            giris = float(aktif.get("giris_fiyati", 0) or arsiv_veri.get("giris_fiyati", 0) or 0)
-            kapanis_getiri = ((fiyat - giris) / giris * 100) if fiyat > 0 and giris > 0 else 0.0
-            acilis_zamani = aktif.get("acilis_zamani") or arsiv_veri.get("olusturma_zamani") or simdi.isoformat()
-            donem_istat = kapanan_donem_istatistikleri(ticker, giris, acilis_zamani, simdi.isoformat(), arsiv_veri.get("ilk_stop"), arsiv_veri.get("ilk_tp1"), arsiv_veri.get("ilk_tp2"), arsiv_veri.get("ilk_tp3"))
-            try:
-                SIGNAL_REPOSITORY.set_archive(
-                    arsiv_doc_id,
-                    {"durum":"KAPALI","kapanis_sinyali":sinyal,"kapanis_fiyati":fiyat,"son_fiyat":fiyat,"getiri_yuzde":kapanis_getiri,"kapanis_zamani":simdi.isoformat(),"guncelleme_zamani":simdi.isoformat(),**donem_istat},
-                    merge=True,
-                )
-                SIGNAL_REPOSITORY.set_active(
-                    aktif_doc_id,
-                    {"durum":"KAPALI","sinyal":sinyal,"onceki_arsiv_doc_id":arsiv_doc_id,"arsiv_doc_id":None,"guncelleme_zamani":simdi.isoformat()},
-                    merge=True,
-                )
-                eski_acik_haritasi.pop(ticker, None)
-            except Exception as e:
-                izfin_hata_logla("pozisyon_kapatma", e, ticker)
+    """Tarama sonuçlarını signal-tracking application service üzerinden kalıcılaştırır."""
+    return sinyal_kayitlarini_guncelle(
+        sonuclar,
+        teknik_paneller,
+        repository=SIGNAL_REPOSITORY,
+        user_email=st.session_state.user_email,
+        strategy_version=STRATEJI_SURUMU,
+        signal_direction_resolver=sinyal_yonu_belirle,
+        period_stats_resolver=kapanan_donem_istatistikleri,
+        error_handler=izfin_hata_logla,
+    )
 
 def gecmis_mukerrer_kayitlari_temizle():
     """Mükerrerleri önce yedek koleksiyona kopyalar, sonra siler. Otomatik çalışmaz."""
