@@ -88,7 +88,7 @@ def test_wide_table_preserves_user_facing_sections_and_sort_metadata():
     assert "DEĞERLEME" in html
     assert "SEANS DIŞI" in html
     assert "data-sort='6'" in html
-    assert "class='long-term'" in html
+    assert "izw-profile long-term" in html
 
 
 def test_empty_tables_keep_existing_empty_state_messages():
