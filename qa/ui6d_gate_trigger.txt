@@ -1,1 +1,0 @@
-Trigger UI6D detailed-analysis presenter PR gate. Remove before merge.
