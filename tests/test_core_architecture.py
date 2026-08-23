@@ -88,6 +88,7 @@ def test_app_imports_extracted_core_modules():
         "izfin_core.performance_engine",
         "izfin_ui.analysis_views",
         "izfin_ui.home_dashboard",
+        "izfin_ui.market_bar",
         "izfin_ui.projection_view",
         "izfin_ui.performance_view",
         "izfin_ui.backtest_view",
@@ -104,6 +105,7 @@ def test_app_imports_extracted_core_modules():
         "izfin_services.firebase_auth_client",
         "izfin_services.scan_service",
         "izfin_services.market_session",
+        "izfin_services.market_overview",
         "izfin_services.ticker_analysis",
         "izfin_repositories.user_repository",
         "izfin_repositories.signal_repository",
@@ -365,4 +367,16 @@ def test_scan_table_presentation_stays_outside_streamlit_shell():
     assert "def _iz_sort_signal(" not in source
     assert "def _iz_sort_flow(" not in source
     assert 'const tables=[...doc.querySelectorAll("table.iz-client-sortable")]' not in source
+
+
+def test_market_overview_orchestration_stays_outside_streamlit_shell():
+    source = APP.read_text(encoding="utf-8")
+    assert "from izfin_services.market_overview import piyasa_bandi_paketi_hazirla" in source
+    assert "from izfin_ui.market_bar import market_bar_html" in source
+    assert "return piyasa_bandi_paketi_hazirla(" in source
+    assert "return market_bar_html(bant_paketi)" in source
+    assert "def _piyasa_bandi_tekil_fallback(" not in source
+    assert "def _iz_num(" not in source
+    assert '"BIST 100":"XU100.IS"' not in source
+    assert "np.median(tazelik_saniye)" not in source
 
