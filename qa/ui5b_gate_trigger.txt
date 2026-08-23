@@ -1,4 +1,4 @@
 UI5B navigation/bootstrap extraction gate trigger.
 Temporary PR synchronize trigger.
-Run 1.
+Run 2 after architecture assertion fix.
 Remove before merge.
