@@ -86,7 +86,7 @@ def test_app_imports_extracted_core_modules():
         "izfin_core.risk_engine",
         "izfin_core.projection_engine",
         "izfin_core.performance_engine",
-        "izfin_ui.analysis_views",
+        "izfin_ui.detail_analysis",
         "izfin_ui.home_dashboard",
         "izfin_ui.market_bar",
         "izfin_ui.projection_view",
@@ -390,4 +390,17 @@ def test_scan_application_workflow_stays_outside_streamlit_shell():
     assert "ticker_piyasa_paketi_hazirla(" not in source
     assert "ticker_analiz_paketi_hazirla(" not in source
     assert "sektor_getirileri.get(" not in source
+
+
+def test_detail_analysis_view_model_stays_outside_streamlit_shell():
+    source = APP.read_text(encoding="utf-8")
+    assert "from izfin_ui.detail_analysis import (" in source
+    assert "detay_view = detay_analiz_paketi_hazirla(" in source
+    assert "detay_aktif_baslik_html(secilen_detay_hisse)" in source
+    assert "karar_motoru_ozeti(panel_verisi)" not in source
+    assert 'eski_v = int(panel_verisi.get("eski_cezali_skor"' not in source
+    assert 'aciklama = panel_verisi.get("skor_aciklama"' not in source
+    assert "mtf = panel_verisi.get('mtf_detay'" not in source
+    assert 'hisse_satiri = df_sonuc[df_sonuc["Varlık"] == secilen_detay_hisse]' not in source
+    assert "aksiyon_rehberi_olustur(anlik_sinyal" not in source
 
