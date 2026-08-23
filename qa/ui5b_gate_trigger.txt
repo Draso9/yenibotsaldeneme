@@ -1,0 +1,2 @@
+UI5B navigation/bootstrap extraction gate trigger.
+Temporary; remove before merge.
