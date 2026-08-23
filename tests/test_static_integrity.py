@@ -71,7 +71,7 @@ def test_version_identifier_exists_and_is_valid():
 def test_how_to_use_guide_uses_current_user_facing_language():
     source = APP.read_text(encoding="utf-8")
     guide_start = source.index('with st.expander("📘 IZFIN Rehberi')
-    guide_end = source.index('if "izfin_nav" not in st.session_state:', guide_start)
+    guide_end = source.index('_izfin_nav_admin = izfin_admin_mi()', guide_start)
     guide = source[guide_start:guide_end]
 
     for current_label in (

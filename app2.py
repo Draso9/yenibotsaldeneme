@@ -90,11 +90,23 @@ from izfin_ui.backtest_view import (
     backtest_kpi_paketi_hazirla,
 )
 from izfin_ui.backtest_results import backtest_sonuc_paketi_hazirla
+from izfin_ui.navigation import (
+    admin_email_listesi_hazirla,
+    admin_mi as navigation_admin_mi,
+    navigation_paketi_hazirla,
+)
 from izfin_ui.auth_view import (
     captcha_paketi_uret,
     email_gecerli_mi,
     giris_formu_hatalari,
     kayit_formu_hatalari,
+)
+from izfin_services.bootstrap_service import (
+    kullanici_liste_doc_id,
+    kullanici_watchlist_bootstrap_hazirla,
+    kullanici_watchlist_kaydet,
+    logout_state_paketi,
+    session_defaults_hazirla,
 )
 from izfin_services.auth_service import (
     AccountService,
@@ -445,10 +457,6 @@ ACCOUNT_SERVICE = AccountService(
 
 
 
-def _kullanici_liste_doc_id():
-    uid = str(st.session_state.get("user_uid") or "").strip()
-    return uid or str(st.session_state.get("user_email") or "").strip().lower()
-
 def _kullanici_profilini_hazirla(uid, email):
     if not USER_REPOSITORY.available or not uid:
         return
@@ -551,39 +559,21 @@ PERFORMANS_UFUKLARI = (1, 5, 10, 20, 45)
 def izfin_admin_email_listesi():
     """Admin e-posta listesini Streamlit Secrets / environment üzerinden güvenle okur."""
     raw = None
-
     try:
         if "ADMIN_EMAILS" in st.secrets:
             raw = st.secrets.get("ADMIN_EMAILS")
     except Exception:
         raw = None
-
     if raw in (None, "", []):
         raw = os.getenv("ADMIN_EMAILS", "")
-
-    if isinstance(raw, str):
-        adaylar = re.split(r"[,;\n]+", raw)
-    elif isinstance(raw, (list, tuple, set)):
-        adaylar = list(raw)
-    else:
-        adaylar = []
-
-    sonuc = []
-    for item in adaylar:
-        email = str(item or "").strip().lower()
-        if email and email not in sonuc:
-            sonuc.append(email)
-    return sonuc
+    return admin_email_listesi_hazirla(raw)
 
 
 def izfin_admin_mi(email=None):
     """Aktif kullanıcının QA/Admin alanlarına erişim yetkisini döndürür."""
     if email is None:
         email = st.session_state.get("user_email", "")
-    email = str(email or "").strip().lower()
-    if not email:
-        return False
-    return email in izfin_admin_email_listesi()
+    return navigation_admin_mi(email, izfin_admin_email_listesi())
 
 
 def izfin_admin_erisim_kontrolu():
@@ -1285,23 +1275,7 @@ def performans_karnelerini_guncelle(kayitlar):
 # --- UYGULAMA OTURUM DURUMU VARSAYILANLARI ---
 # Streamlit her yeniden çalıştırmada bu alanları korur; ilk çalıştırmada ise
 # eksik anahtarların AttributeError üretmesini engeller.
-_SESSION_DEFAULTS = {
-    "tarama_durumu": False,
-    "sonuclar": [],
-    "sozlu_analizler": {},
-    "teknik_paneller": {},
-    "performans_kayitlari": [],
-    "performans_mesaji": "",
-    "custom_tickers": VARSAYILAN_TICKERS.copy(),
-    "basarisiz_taramalar": [],
-    "boga_sayisi": 0,
-    "alim_firsati": 0,
-    "aktif_profil": "Kendi Listem",
-    "secilen_varliklar": VARSAYILAN_TICKERS.copy(),
-    "kullanici_listesi_yuklendi": False,
-    "taramada_hatalar": [],
-    "performans_cache_epoch": 0,
-}
+_SESSION_DEFAULTS = session_defaults_hazirla(VARSAYILAN_TICKERS)
 for _key, _default in _SESSION_DEFAULTS.items():
     if _key not in st.session_state:
         st.session_state[_key] = _default.copy() if hasattr(_default, "copy") else _default
@@ -1311,105 +1285,46 @@ for _key, _default in _SESSION_DEFAULTS.items():
 # Eski belge ASLA silinmez; yalnızca yeni UID belgesine kopyalanır/birleştirilir.
 if st.session_state.user_email and USER_REPOSITORY.available and not st.session_state.kullanici_listesi_yuklendi:
     try:
-        _doc_id = _kullanici_liste_doc_id()
-        _email_id = str(st.session_state.user_email or "").strip().lower()
-        _watchlists = USER_REPOSITORY.get_primary_and_legacy_watchlists(
-            _doc_id,
-            _email_id,
+        _watchlist_bootstrap = kullanici_watchlist_bootstrap_hazirla(
+            USER_REPOSITORY,
+            uid=st.session_state.get("user_uid"),
+            email=st.session_state.get("user_email"),
+            default_tickers=VARSAYILAN_TICKERS,
         )
-        _uid_exists = _watchlists["primary_exists"]
-        _uid_data = _watchlists["primary_data"]
-        _legacy_data = _watchlists["legacy_data"]
-
-        _uid_ticks = [
-            str(x).strip().upper()
-            for x in (_uid_data.get("tickers") or [])
-            if str(x).strip()
-        ]
-        _legacy_ticks = [
-            str(x).strip().upper()
-            for x in (_legacy_data.get("tickers") or [])
-            if str(x).strip()
-        ]
-
-        _varsayilan_set = set(str(x).strip().upper() for x in VARSAYILAN_TICKERS)
-        _uid_set = set(_uid_ticks)
-        _legacy_set = set(_legacy_ticks)
-
-        # UID belgesi yoksa legacy doğrudan taşınır.
-        # UID belgesi yalnızca varsayılanlardan oluşuyorsa ama legacy daha zenginse,
-        # eski kişisel listenin üstüne yazılmış olma ihtimaline karşı legacy esas alınır.
-        # Her iki tarafta gerçek kişisel eklemeler varsa kayıp olmaması için union yapılır.
-        _kurtarma_gerekli = False
-        if _legacy_ticks:
-            if not _uid_exists or not _uid_ticks:
-                _final_ticks = _legacy_ticks
-                _kurtarma_gerekli = True
-            elif _uid_set.issubset(_varsayilan_set) and not _legacy_set.issubset(_varsayilan_set):
-                _final_ticks = list(dict.fromkeys(_legacy_ticks + _uid_ticks))
-                _kurtarma_gerekli = True
-            else:
-                # İki listede de kişisel içerik varsa güvenli birleşim.
-                _final_ticks = list(dict.fromkeys(_uid_ticks + _legacy_ticks))
-                if set(_final_ticks) != _uid_set:
-                    _kurtarma_gerekli = True
-        else:
-            _final_ticks = _uid_ticks
-
-        if not _final_ticks:
-            _final_ticks = VARSAYILAN_TICKERS.copy()
-
-        st.session_state.custom_tickers = _final_ticks
-
-        if _kurtarma_gerekli and st.session_state.get("user_uid"):
-            USER_REPOSITORY.upsert_watchlist(
-                _doc_id,
-                {
-                    "uid": st.session_state.user_uid,
-                    "email": st.session_state.user_email,
-                    "tickers": _final_ticks,
-                    "legacy_kurtarildi": True,
-                    "guncelleme_zamani": datetime.now().isoformat(),
-                },
-            )
+        st.session_state.custom_tickers = _watchlist_bootstrap["tickers"]
+        if _watchlist_bootstrap["recovered"]:
             st.session_state["liste_kurtarma_mesaji"] = True
-
         if st.session_state.aktif_profil == "Kendi Listem":
             st.session_state.secilen_varliklar = st.session_state.custom_tickers.copy()
-
         st.session_state.kullanici_listesi_yuklendi = True
-
     except Exception as _liste_hatasi:
         izfin_hata_logla("kullanici_listesi_yukle", _liste_hatasi)
         st.warning("Kayıtlı listeniz şu anda yüklenemedi. Varsayılan listeyle devam ediliyor.")
 
-def kullanici_listesini_kaydet(raise_on_error=False):
-    """Kişisel listeyi Firestore'a yazar ve gerçek başarı durumunu döndürür.
 
-    Eski sürüm Firestore hatasını içeride yuttuğu için çağıran kod yanlışlıkla
-    "başarıyla eklendi" diyebiliyordu. Bu sürümde yazma sonucu gözlemlenebilir.
-    """
-    if not USER_REPOSITORY.available:
-        hata = RuntimeError("Firebase veritabanı bağlantısı kullanılamıyor.")
-        if raise_on_error:
-            raise hata
-        return False, str(hata)
-    if not st.session_state.get("user_email"):
-        hata = RuntimeError("Kullanıcı oturumu bulunamadı.")
-        if raise_on_error:
-            raise hata
-        return False, str(hata)
+def kullanici_listesini_kaydet(raise_on_error=False):
+    """Kişisel listeyi kalıcı servis üzerinden yazar ve gerçek başarı durumunu döndürür."""
     try:
-        USER_REPOSITORY.upsert_watchlist(
-            _kullanici_liste_doc_id(),
-            {
-                "uid": st.session_state.get("user_uid"),
-                "email": st.session_state.user_email,
-                "tickers": list(dict.fromkeys(st.session_state.custom_tickers)),
-                "guncelleme_zamani": datetime.now().isoformat(),
-            },
+        kullanici_watchlist_kaydet(
+            USER_REPOSITORY,
+            uid=st.session_state.get("user_uid"),
+            email=st.session_state.get("user_email"),
+            tickers=st.session_state.get("custom_tickers", []),
         )
         return True, None
+    except RuntimeError as e:
+        mesaj = str(e)
+        if mesaj in {
+            "Firebase veritabanı bağlantısı kullanılamıyor.",
+            "Kullanıcı oturumu bulunamadı.",
+        }:
+            if raise_on_error:
+                raise
+            return False, mesaj
+        izfin_hata_logla("kullanici_listesi_yaz", e)
+        if raise_on_error:
+            raise RuntimeError("Firebase liste kaydı tamamlanamadı.") from e
+        return False, "Firebase liste kaydı tamamlanamadı."
     except Exception as e:
         izfin_hata_logla("kullanici_listesi_yaz", e)
         if raise_on_error:
@@ -3427,28 +3342,20 @@ with st.expander("📘 IZFIN Rehberi — Sonuçları doğru okuyun", expanded=Fa
 
     st.warning("IZFIN algoritmik teknik analiz ve karar desteği sağlar; yatırım tavsiyesi veya getiri garantisi değildir. Haber, bilanço, makro gelişme, likidite ve piyasa boşlukları teknik seviyeleri geçersiz kılabilir.")
 
-if "izfin_nav" not in st.session_state:
-    st.session_state.izfin_nav = "🏠 Ana Sayfa"
+_izfin_nav_admin = izfin_admin_mi()
+_izfin_nav_paketi = navigation_paketi_hazirla(
+    st.session_state.get("izfin_nav"),
+    is_admin=_izfin_nav_admin,
+)
+st.session_state.izfin_nav = _izfin_nav_paketi["aktif_sayfa"]
+
 
 def _izfin_nav_to(hedef):
     st.session_state.izfin_nav = hedef
 
+
 st.sidebar.markdown('<div class="iz-nav-label" style="margin-top:14px">NAVİGASYON</div>', unsafe_allow_html=True)
-_izfin_nav_items = [
-    "🏠 Ana Sayfa",
-    "🔎 Akıllı Tarama",
-    "🎯 Projeksiyon & Senaryo",
-    "📊 Takip & Performans",
-    "🧪 Strateji Laboratuvarı",
-    "⚖️ Gizlilik & Hesap",
-]
-if izfin_admin_mi():
-    _izfin_nav_items.append("🛠️ Sistem Sağlığı")
-
-# Eski bir session değerinde admin sayfası kalmışsa yetkisiz kullanıcıyı ana sayfaya döndür.
-if st.session_state.izfin_nav == "🛠️ Sistem Sağlığı" and not izfin_admin_mi():
-    st.session_state.izfin_nav = "🏠 Ana Sayfa"
-
+_izfin_nav_items = _izfin_nav_paketi["items"]
 for _nav_label in _izfin_nav_items:
     st.sidebar.button(
         _nav_label,
@@ -3459,7 +3366,6 @@ for _nav_label in _izfin_nav_items:
         args=(_nav_label,),
     )
 aktif_sayfa = st.session_state.izfin_nav
-
 st.sidebar.markdown("---")
 st.sidebar.markdown('<div class="iz-nav-label">KONTROL MERKEZİ</div>', unsafe_allow_html=True)
 st.sidebar.markdown(f'<div class="iz-account-chip"><b>{html.escape(st.session_state.user_email)}</b><span>Kişisel IZFIN hesabı · listeleriniz ve takip verileriniz size özeldir</span></div>', unsafe_allow_html=True)
@@ -3476,13 +3382,17 @@ if st.sidebar.button("🚪 Çıkış Yap", use_container_width=True):
     try:
         cookie_manager.delete("izfin_session", key="logout_delete_izfin_session")
         cookie_manager.delete("user_email", key="logout_delete_legacy_user_email")
-    except Exception: pass
-    st.session_state.user_email=None; st.session_state.user_uid=None
-    st.session_state.custom_tickers=VARSAYILAN_TICKERS.copy(); st.session_state.secilen_varliklar=VARSAYILAN_TICKERS.copy()
-    st.session_state.kullanici_listesi_yuklendi=False; st.session_state.logout_triggered=True
-    st.session_state.pop("izfin_export_json", None)
-    st.session_state.pop("izfin_yasal_onayli", None)
-    time.sleep(.8); st.rerun()
+    except Exception:
+        pass
+    _logout_state = logout_state_paketi(VARSAYILAN_TICKERS)
+    for _logout_key, _logout_value in _logout_state["set"].items():
+        st.session_state[_logout_key] = (
+            _logout_value.copy() if hasattr(_logout_value, "copy") else _logout_value
+        )
+    for _logout_key in _logout_state["pop"]:
+        st.session_state.pop(_logout_key, None)
+    time.sleep(.8)
+    st.rerun()
 
 
 def izfin_tarama_overlay_html(yuzde=0, baslik="IZFIN tarıyor", durum="Hazırlanıyor…", detay=""):
