@@ -126,14 +126,9 @@ from izfin_services.firebase_auth_client import (
     google_oauth_kodu_tokena_cevir,
 )
 from izfin_services.finnhub_client import FinnhubClient
-from izfin_services.scan_service import (
-    gunluk_toplu_veriden_ticker_ayir,
-    scan_veri_paketi_hazirla,
-    toplu_veriden_ticker_ayir,
-)
+from izfin_services.scan_service import toplu_veriden_ticker_ayir
+from izfin_services.scan_workflow import scan_workflow_calistir
 from izfin_services.market_overview import piyasa_bandi_paketi_hazirla
-from izfin_services.market_session import ticker_piyasa_paketi_hazirla
-from izfin_services.ticker_analysis import ticker_analiz_paketi_hazirla
 from izfin_services.yahoo_client import (
     donem_ohlc_indir,
     gunluk_kapanis_serisi_indir,
@@ -3382,123 +3377,61 @@ if aktif_sayfa in ["🏠 Ana Sayfa", "🔎 Akıllı Tarama"]:
                 st.session_state.opsiyon_sonuclar = None
                 st.session_state.taramada_hatalar = []
                 
-                # Günlük, intraday, quote, PEG ve sektör referansları tek servis sözleşmesinde hazırlanır.
-                veri_paketi = scan_veri_paketi_hazirla(
+                ilerleme = st.progress(0, text="Tarama hazırlanıyor...")
+
+                def _scan_workflow_progress(event):
+                    stage = event.get("stage")
+                    if stage == "data_ready":
+                        tarama_overlay.markdown(
+                            izfin_tarama_overlay_html(
+                                12,
+                                "Veriler hazır",
+                                "Teknik motor ve piyasa referansları hazırlanıyor…",
+                                "Trend · momentum · MTF · risk · para akışı",
+                            ),
+                            unsafe_allow_html=True,
+                        )
+                    elif stage == "ticker":
+                        sira = int(event.get("index", 1))
+                        toplam_ticker = max(int(event.get("total", 1)), 1)
+                        ticker = str(event.get("ticker", ""))
+                        ilerleme.progress(
+                            (sira - 1) / toplam_ticker,
+                            text=f"{ticker} analiz ediliyor ({sira}/{toplam_ticker})",
+                        )
+                        _overlay_pct = 15 + int(((sira - 1) / toplam_ticker) * 77)
+                        tarama_overlay.markdown(
+                            izfin_tarama_overlay_html(
+                                _overlay_pct,
+                                f"{ticker} analiz ediliyor",
+                                "IZFIN karar motoru göstergeleri değerlendiriyor…",
+                                f"{sira}/{toplam_ticker} varlık · skor · güven · MTF · risk",
+                            ),
+                            unsafe_allow_html=True,
+                        )
+                    elif stage == "complete":
+                        ilerleme.progress(1.0, text="Tarama tamamlandı")
+
+                tarama_paketi = scan_workflow_calistir(
                     tuple(selected_tickers),
                     gunluk_fetcher=taze_veri_indir,
-                    intraday_fetcher=toplu_intraday_veri_cek,
+                    intraday_bulk_fetcher=toplu_intraday_veri_cek,
                     quote_fetcher=finnhub_quote_cek,
                     peg_fetcher=peg_degeri_cek,
                     sektor_fetcher=sektor_referanslari_indir,
+                    intraday_fetcher=intraday_veri_cek,
+                    peg_formatter=peg_yorumu,
                     error_handler=izfin_hata_logla,
-                )
-                toplu_df = veri_paketi["toplu_df"]
-                toplu_intraday = veri_paketi["toplu_intraday"]
-                quote_haritasi = veri_paketi["quote_haritasi"]
-                peg_haritasi = veri_paketi["peg_haritasi"]
-                sektor_getirileri = veri_paketi["sektor_getirileri"]
-
-                tarama_overlay.markdown(
-                    izfin_tarama_overlay_html(
-                        12,
-                        "Veriler hazır",
-                        "Teknik motor ve piyasa referansları hazırlanıyor…",
-                        "Trend · momentum · MTF · risk · para akışı",
-                    ),
-                    unsafe_allow_html=True,
+                    progress_callback=_scan_workflow_progress,
                 )
 
-                gecici_sonuclar = []
-                gecici_sozlu_analizler = {}
-                gecici_teknik_paneller = {}
-                basarisi_cekilemeyen_varliklar = []
-                boga_sayisi = alim_firsati = 0
-                
-                ilerleme = st.progress(0, text="Tarama hazırlanıyor...")
-                toplam_ticker = max(len(selected_tickers), 1)
-                for sira, ticker in enumerate(selected_tickers, start=1):
-                    ilerleme.progress((sira - 1) / toplam_ticker, text=f"{ticker} analiz ediliyor ({sira}/{toplam_ticker})")
-                    _overlay_pct = 15 + int(((sira - 1) / toplam_ticker) * 77)
-                    tarama_overlay.markdown(
-                        izfin_tarama_overlay_html(
-                            _overlay_pct,
-                            f"{ticker} analiz ediliyor",
-                            "IZFIN karar motoru göstergeleri değerlendiriyor…",
-                            f"{sira}/{toplam_ticker} varlık · skor · güven · MTF · risk",
-                        ),
-                        unsafe_allow_html=True,
-                    )
-                    try:
-                        df_long = gunluk_toplu_veriden_ticker_ayir(
-                            toplu_df, ticker, len(selected_tickers)
-                        )
-                        
-                        if isinstance(df_long.columns, pd.MultiIndex): 
-                            df_long.columns = df_long.columns.get_level_values(0)
-                            
-                        df_long = df_long.dropna(subset=['Close', 'Volume'])
-                        
-                        if df_long.empty or len(df_long) < 30:
-                            basarisi_cekilemeyen_varliklar.append(ticker)
-                            continue
-                        
-                        is_bist = ".IS" in ticker
-                        para_birimi = "TL" if is_bist else "$"
-                        
-                        # Canlı seans/OHLCV ve temel piyasa metrikleri servis katmanında hazırlanır.
-                        intraday_ticker = toplu_veriden_ticker_ayir(
-                            toplu_intraday, ticker, len(selected_tickers)
-                        )
-                        piyasa_paketi = ticker_piyasa_paketi_hazirla(
-                            ticker,
-                            df_long,
-                            intraday_hazir=intraday_ticker,
-                            quote_hazir=quote_haritasi.get(ticker),
-                            intraday_fetcher=intraday_veri_cek,
-                            quote_fetcher=finnhub_quote_cek,
-                            error_handler=izfin_hata_logla,
-                        )
-                        df_long = piyasa_paketi["df_long"]
-                        df_intraday = piyasa_paketi["df_intraday"]
-                        veri_kaynagi = piyasa_paketi["veri_kaynagi"]
-                        seans_disi_metin = piyasa_paketi["seans_disi_metin"]
-                        seans_disi_fiyat = piyasa_paketi["seans_disi_fiyat"]
-                        bugun_kapanis = piyasa_paketi["bugun_kapanis"]
-                        gunluk_degisim = piyasa_paketi["gunluk_degisim"]
-                        is_bist = piyasa_paketi["is_bist"]
-                        para_birimi = piyasa_paketi["para_birimi"]
-                        fiyat_str = piyasa_paketi["fiyat_str"]
-                        is_sig_tahta = piyasa_paketi["is_sig_tahta"]
-                        bugun_hacim = piyasa_paketi["bugun_hacim"]
-                        hacim_sma20 = piyasa_paketi["hacim_sma20"]
+                gecici_sonuclar = tarama_paketi["sonuclar"]
+                gecici_sozlu_analizler = tarama_paketi["sozlu_analizler"]
+                gecici_teknik_paneller = tarama_paketi["teknik_paneller"]
+                basarisi_cekilemeyen_varliklar = tarama_paketi["basarisiz_taramalar"]
+                boga_sayisi = tarama_paketi["boga_sayisi"]
+                alim_firsati = tarama_paketi["alim_firsati"]
 
-                        # Ticker bazlı teknik analiz, karar ve sonuç sözleşmesi servis katmanında hazırlanır.
-                        ticker_analizi = ticker_analiz_paketi_hazirla(
-                            ticker=ticker,
-                            df_long=df_long,
-                            df_intraday=df_intraday,
-                            piyasa=piyasa_paketi,
-                            sektor_getirisi=sektor_getirileri.get(
-                                "XU100.IS" if is_bist else "^IXIC", np.nan
-                            ),
-                            peg_degeri=peg_haritasi.get(ticker),
-                            intraday_fetcher=intraday_veri_cek,
-                            peg_formatter=peg_yorumu,
-                            error_handler=izfin_hata_logla,
-                        )
-                        if ticker_analizi["uzun_vade_trend"]:
-                            boga_sayisi += 1
-                        if ticker_analizi["alim_firsati"]:
-                            alim_firsati += 1
-                        gecici_teknik_paneller[ticker] = ticker_analizi["teknik_panel"]
-                        gecici_sozlu_analizler[ticker] = ticker_analizi["sozlu_analiz"]
-                        gecici_sonuclar.append(ticker_analizi["sonuc"])
-                    except Exception as e:
-                        izfin_hata_logla("ana_tarama", e, ticker)
-                        basarisi_cekilemeyen_varliklar.append(ticker)
-                        continue
-
-                ilerleme.progress(1.0, text="Tarama tamamlandı")
                 st.session_state.sonuclar = gecici_sonuclar
                 st.session_state.sozlu_analizler = gecici_sozlu_analizler
                 st.session_state.teknik_paneller = gecici_teknik_paneller

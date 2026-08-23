@@ -104,9 +104,8 @@ def test_app_imports_extracted_core_modules():
         "izfin_services.finnhub_client",
         "izfin_services.firebase_auth_client",
         "izfin_services.scan_service",
-        "izfin_services.market_session",
+        "izfin_services.scan_workflow",
         "izfin_services.market_overview",
-        "izfin_services.ticker_analysis",
         "izfin_repositories.user_repository",
         "izfin_repositories.signal_repository",
     ):
@@ -190,14 +189,15 @@ def test_streamlit_app_has_no_direct_provider_or_collection_queries():
 
 def test_scan_provider_orchestration_stays_outside_streamlit_button_flow():
     source = APP.read_text(encoding="utf-8")
-    assert "scan_veri_paketi_hazirla(" in source
+    assert "scan_workflow_calistir(" in source
+    assert "scan_veri_paketi_hazirla(" not in source
     assert "sektor_getirileri[sembol] =" not in source
     assert "ThreadPoolExecutor(max_workers=min(max_workers" not in source
 
 
 def test_market_session_orchestration_stays_outside_streamlit_shell():
     source = APP.read_text(encoding="utf-8")
-    assert "ticker_piyasa_paketi_hazirla(" in source
+    assert "ticker_piyasa_paketi_hazirla(" not in source
     assert "def _intraday_local_index(" not in source
     assert "def regular_seans_intraday(" not in source
     assert "def seans_disi_ozet(" not in source
@@ -207,7 +207,7 @@ def test_market_session_orchestration_stays_outside_streamlit_shell():
 
 def test_per_ticker_analysis_orchestration_stays_outside_streamlit_shell():
     source = APP.read_text(encoding="utf-8")
-    assert "ticker_analiz_paketi_hazirla(" in source
+    assert "ticker_analiz_paketi_hazirla(" not in source
     assert "goreceli_paket = goreceli_guc_ve_hacim_hesapla(" not in source
     assert "karar_paketi = karar_paketi_olustur(" not in source
     assert "gecici_sonuclar.append({" not in source
@@ -379,4 +379,15 @@ def test_market_overview_orchestration_stays_outside_streamlit_shell():
     assert "def _iz_num(" not in source
     assert '"BIST 100":"XU100.IS"' not in source
     assert "np.median(tazelik_saniye)" not in source
+
+
+def test_scan_application_workflow_stays_outside_streamlit_shell():
+    source = APP.read_text(encoding="utf-8")
+    assert "from izfin_services.scan_workflow import scan_workflow_calistir" in source
+    assert "tarama_paketi = scan_workflow_calistir(" in source
+    assert "for sira, ticker in enumerate(selected_tickers" not in source
+    assert "gunluk_toplu_veriden_ticker_ayir(" not in source
+    assert "ticker_piyasa_paketi_hazirla(" not in source
+    assert "ticker_analiz_paketi_hazirla(" not in source
+    assert "sektor_getirileri.get(" not in source
 
