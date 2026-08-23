@@ -106,6 +106,7 @@ def test_app_imports_extracted_core_modules():
         "izfin_services.scan_service",
         "izfin_services.scan_workflow",
         "izfin_services.signal_tracking",
+        "izfin_services.performance_maintenance",
         "izfin_services.market_overview",
         "izfin_repositories.user_repository",
         "izfin_repositories.signal_repository",
@@ -416,4 +417,13 @@ def test_signal_tracking_application_logic_stays_outside_streamlit_shell():
     assert 'repository=SIGNAL_REPOSITORY' in source
     assert 'signal_direction_resolver=sinyal_yonu_belirle' in source
     assert 'period_stats_resolver=kapanan_donem_istatistikleri' in source
+
+
+def test_performance_archive_maintenance_stays_outside_streamlit_shell():
+    source = APP.read_text(encoding="utf-8")
+    assert "from izfin_services.performance_maintenance import (" in source
+    assert "return performans_mukerrer_kayitlari_temizle(" in source
+    assert "gruplar.setdefault(key" not in source
+    assert 'backup_id=f"{doc_id}_' not in source
+    assert 'repository=SIGNAL_REPOSITORY' in source
 
