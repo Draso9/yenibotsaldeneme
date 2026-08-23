@@ -10,7 +10,7 @@ on:
       - reopened
 
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
   group: ui5b-pr-gate-${{ github.event.pull_request.number }}
@@ -25,11 +25,11 @@ jobs:
     timeout-minutes: 15
 
     steps:
-      - name: Checkout UI5B head branch
+      - name: Checkout clean UI5B head branch
         uses: actions/checkout@v6
         with:
           ref: ${{ github.head_ref }}
-          fetch-depth: 0
+          fetch-depth: 1
 
       - name: Set up Python
         uses: actions/setup-python@v7
@@ -46,54 +46,6 @@ jobs:
           python -m pip install -r requirements.txt
           python -m pip install -r requirements-test.txt
 
-      - name: Run pure UI5B unit tests before shell wiring
-        run: |
-          python -m pytest -q \
-            tests/test_bootstrap_service.py \
-            tests/test_navigation.py \
-            tests/test_ui5b_architecture_contract.py
-
-      - name: Apply UI5B shell extraction when needed
-        run: |
-          python - <<'PY'
-          from pathlib import Path
-          import subprocess
-          import sys
-
-          source = Path("app2.py").read_text(encoding="utf-8")
-          required = (
-              "from izfin_services.bootstrap_service import (",
-              "from izfin_ui.navigation import (",
-              "session_defaults_hazirla(VARSAYILAN_TICKERS)",
-              "kullanici_watchlist_bootstrap_hazirla(",
-              "kullanici_watchlist_kaydet(",
-              "navigation_paketi_hazirla(",
-              "logout_state_paketi(VARSAYILAN_TICKERS)",
-          )
-          legacy = (
-              "def _kullanici_liste_doc_id():",
-              "_varsayilan_set = set(",
-              "_izfin_nav_items = [",
-          )
-          if all(marker in source for marker in required) and all(marker not in source for marker in legacy):
-              print("UI5B shell wiring already present; transform skipped.")
-          else:
-              subprocess.check_call([sys.executable, "scripts/refactor_ui5b_navigation_bootstrap.py"])
-          PY
-
-      - name: Repair generated architecture assertion quoting
-        run: |
-          python - <<'PY'
-          from pathlib import Path
-          path = Path("tests/test_core_architecture.py")
-          source = path.read_text(encoding="utf-8")
-          broken = '    assert "re.split(r"[,;\\n]+", raw)" not in source\n'
-          fixed = "    assert 're.split(r\"[,;' not in source\n"
-          if broken in source:
-              source = source.replace(broken, fixed, 1)
-              path.write_text(source, encoding="utf-8")
-          PY
-
       - name: Compile UI5B paths
         run: |
           python -m py_compile \
@@ -103,7 +55,9 @@ jobs:
             tests/test_bootstrap_service.py \
             tests/test_navigation.py \
             tests/test_ui5b_architecture_contract.py \
-            tests/test_core_architecture.py
+            tests/test_core_architecture.py \
+            tests/test_admin_qa.py \
+            tests/test_static_integrity.py
 
       - name: Create CI-only Streamlit secrets file
         shell: bash
@@ -122,7 +76,7 @@ jobs:
           IZFIN_DATA_CONTROLLER_ADDRESS = ""
           EOF
 
-      - name: Run focused UI5B integration tests
+      - name: Run focused UI5B tests
         env:
           FIREBASE_WEB_API_KEY: ""
           FIREBASE_PROJECT_ID: ""
@@ -139,6 +93,8 @@ jobs:
             tests/test_ui5b_architecture_contract.py \
             tests/test_firestore_repositories.py \
             tests/test_core_architecture.py \
+            tests/test_admin_qa.py \
+            tests/test_static_integrity.py \
             tests/test_apptest_smoke.py
 
       - name: Run complete test suite
@@ -153,31 +109,5 @@ jobs:
           IZFIN_ENVIRONMENT: "ci"
         run: python -m pytest -q
 
-      - name: Verify generated UI5B diff
-        shell: bash
-        run: |
-          changed="$(git diff --name-only)"
-          echo "$changed"
-          test -n "$changed"
-          while IFS= read -r path; do
-            case "$path" in
-              app2.py|tests/test_core_architecture.py) ;;
-              *) echo "Unexpected generated path: $path"; exit 1 ;;
-            esac
-          done <<< "$changed"
-          app_changes="$(git diff --numstat -- app2.py | awk '{print $1+$2}')"
-          echo "app2 changed lines: ${app_changes:-0}"
-          test "${app_changes:-99999}" -lt 420
-
-      - name: Commit tested UI5B shell wiring when generated
-        shell: bash
-        run: |
-          if git diff --quiet -- app2.py tests/test_core_architecture.py; then
-            echo "UI5B product wiring already committed; no bot commit required."
-            exit 0
-          fi
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add -- app2.py tests/test_core_architecture.py
-          git commit -m "Wire navigation and bootstrap services [ui5b-bot]"
-          git push origin HEAD:refactor/ui5b-navigation-bootstrap
+      - name: Verify clean checkout
+        run: git diff --exit-code
