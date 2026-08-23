@@ -139,6 +139,11 @@ def update_architecture_gate() -> None:
             raise SystemExit("UI6C architecture scan_service anchor missing")
         source = source.replace(anchor, anchor + '        "izfin_services.scan_workflow",\n', 1)
 
+    # market_session ve ticker_analysis artık application workflow'un iç bağımlılıklarıdır;
+    # Streamlit shell'in doğrudan import sözleşmesinde yer almamalıdır.
+    source = source.replace('        "izfin_services.market_session",\n', "", 1)
+    source = source.replace('        "izfin_services.ticker_analysis",\n', "", 1)
+
     source = source.replace(
         '    assert "scan_veri_paketi_hazirla(" in source\n',
         '    assert "scan_workflow_calistir(" in source\n    assert "scan_veri_paketi_hazirla(" not in source\n',
