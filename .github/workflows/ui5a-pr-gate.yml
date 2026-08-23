@@ -62,6 +62,31 @@ jobs:
           print("IZFIN runtime imports: OK")
           PY
 
+      - name: Harden temporary UI5A transform idempotency
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path("scripts/refactor_ui5a_auth_session.py")
+          source = path.read_text(encoding="utf-8")
+          old = '''def _remove_import_token(source: str, token: str) -> str:
+              if source.count(token) != 1:
+                  raise SystemExit(f"auth stdlib import extraction failed: {token}")
+              return source.replace(token, "", 1)
+          '''
+          new = '''def _remove_import_token(source: str, token: str) -> str:
+              count = source.count(token)
+              if count == 0:
+                  return source
+              if count == 1:
+                  return source.replace(token, "", 1)
+              raise SystemExit(f"auth stdlib import extraction duplicate: {token} x{count}")
+          '''
+          if old not in source:
+              raise SystemExit("temporary idempotency patch anchor missing")
+          path.write_text(source.replace(old, new, 1), encoding="utf-8")
+          PY
+
       - name: Apply UI5A auth/session extraction
         run: python scripts/refactor_ui5a_auth_session.py
 
@@ -136,7 +161,7 @@ jobs:
           test -n "$changed"
           while IFS= read -r path; do
             case "$path" in
-              app2.py|tests/test_core_architecture.py|.github/workflows/izfin-tests.yml) ;;
+              app2.py|tests/test_core_architecture.py|.github/workflows/izfin-tests.yml|scripts/refactor_ui5a_auth_session.py) ;;
               *) echo "Unexpected generated path: $path"; exit 1 ;;
             esac
           done <<< "$changed"
@@ -147,6 +172,7 @@ jobs:
       - name: Commit tested UI5A shell wiring
         shell: bash
         run: |
+          git restore -- scripts/refactor_ui5a_auth_session.py
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add -- app2.py tests/test_core_architecture.py
