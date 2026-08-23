@@ -1,4 +1,0 @@
-UI5A auth/session extraction quality gate trigger.
-Base-side PR gate synchronize trigger.
-Committed wiring validation pass.
-Temporary file; remove before merge.
