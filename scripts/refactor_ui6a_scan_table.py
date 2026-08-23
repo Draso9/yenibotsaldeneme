@@ -8,15 +8,13 @@ APP = ROOT / "app2.py"
 ARCH = ROOT / "tests" / "test_core_architecture.py"
 
 
-def _read_preserving_newline(path: Path) -> tuple[str, str]:
-    raw = path.read_bytes().decode("utf-8")
-    newline = "\r\n" if "\r\n" in raw else "\n"
-    return raw.replace("\r\n", "\n"), newline
+def _read_exact(path: Path) -> str:
+    """Read without normalizing the repository's intentionally mixed line endings."""
+    return path.read_bytes().decode("utf-8")
 
 
-def _write_preserving_newline(path: Path, source: str, newline: str) -> None:
-    if newline == "\r\n":
-        source = source.replace("\n", "\r\n")
+def _write_exact(path: Path, source: str) -> None:
+    """Write only the transformed slices; untouched source bytes stay untouched."""
     path.write_bytes(source.encode("utf-8"))
 
 
@@ -38,7 +36,7 @@ def _replace_between(source: str, start_anchor: str, end_anchor: str, replacemen
 
 
 def refactor_app() -> None:
-    source, newline = _read_preserving_newline(APP)
+    source = _read_exact(APP)
 
     source = _insert_before_once(
         source,
@@ -78,7 +76,7 @@ def izfin_sortable_table_js():
             "scan table presenter extraction",
         )
 
-    _write_preserving_newline(APP, source, newline)
+    _write_exact(APP, source)
 
 
 def update_architecture_gate() -> None:
