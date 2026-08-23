@@ -9,14 +9,25 @@ APP = ROOT / "app2.py"
 ARCH = ROOT / "tests" / "test_core_architecture.py"
 
 
-def _replace_once(source: str, old: str, new: str, label: str) -> str:
-    count = source.count(old)
+def _replace_logical(source: str, old: str, new: str, label: str) -> str:
+    """Replace one logical text block without normalizing the rest of the file."""
+    if source.count(old) == 1:
+        return source.replace(old, new, 1)
+    pattern = re.escape(old).replace(r"\
+", r"\r?\n")
+    updated, count = re.subn(pattern, lambda _m: new, source, count=1)
     if count != 1:
-        raise SystemExit(f"{label}: expected one literal match, found {count}")
-    return source.replace(old, new, 1)
+        raise SystemExit(f"{label}: expected one logical match, found {count}")
+    return updated
 
 
-def _replace_between(source: str, start_anchor: str, end_anchor: str, replacement: str, label: str) -> str:
+def _replace_between(
+    source: str,
+    start_anchor: str,
+    end_anchor: str,
+    replacement: str,
+    label: str,
+) -> str:
     start = source.find(start_anchor)
     end = source.find(end_anchor, start + 1 if start >= 0 else 0)
     if start < 0 or end < 0 or end <= start:
@@ -27,23 +38,21 @@ def _replace_between(source: str, start_anchor: str, end_anchor: str, replacemen
 def refactor_app() -> None:
     source = APP.read_bytes().decode("utf-8")
 
-    # Standard-library crypto/captcha helpers move behind extracted auth helpers.
     for pattern in (
         r"(?m)^import secrets as pysecrets\r?\n",
         r"(?m)^import hashlib\r?\n",
         r"(?m)^import hmac\r?\n",
         r"(?m)^from urllib\.parse import urlencode\r?\n",
     ):
-        source = re.sub(pattern, "", source, count=1)
+        source, count = re.subn(pattern, "", source, count=1)
+        if count != 1:
+            raise SystemExit(f"auth stdlib import extraction failed: {pattern}")
 
-    source = source.replace(
-        "    firebase_auth_hata_mesaji as _firebase_auth_hata_mesaji,\n",
+    source = re.sub(
+        r"(?m)^\s*firebase_auth_hata_mesaji as _firebase_auth_hata_mesaji,\r?\n",
         "",
-        1,
-    ).replace(
-        "    firebase_auth_hata_mesaji as _firebase_auth_hata_mesaji,\r\n",
-        "",
-        1,
+        source,
+        count=1,
     )
 
     if "from izfin_ui.auth_view import (" not in source:
@@ -52,39 +61,38 @@ def refactor_app() -> None:
         if pos < 0:
             raise SystemExit("auth_view import anchor missing")
         line_end = source.find("\n", pos) + 1
-        block = (
+        source = source[:line_end] + (
             "from izfin_ui.auth_view import (\n"
             "    captcha_paketi_uret,\n"
             "    email_gecerli_mi,\n"
             "    giris_formu_hatalari,\n"
             "    kayit_formu_hatalari,\n"
             ")\n"
-        )
-        source = source[:line_end] + block + source[line_end:]
+        ) + source[line_end:]
 
     if "from izfin_services.auth_service import (" not in source:
         anchor = "from izfin_services.backtest_service import backtest_calistir"
         pos = source.find(anchor)
         if pos < 0:
             raise SystemExit("auth_service import anchor missing")
-        block = (
+        source = source[:pos] + (
             "from izfin_services.auth_service import (\n"
             "    AccountService,\n"
             "    AuthSessionService,\n"
             "    google_oauth_state_dogrula,\n"
             "    google_oauth_url_olustur,\n"
             ")\n"
-        )
-        source = source[:pos] + block + source[pos:]
+        ) + source[pos:]
 
-    # Thin shell no longer needs a generic Firebase REST wrapper.
-    source = re.sub(
+    source, count = re.subn(
         r"\r?\ndef _firebase_auth_post\(action, payload\):\r?\n"
         r"    return FIREBASE_AUTH_CLIENT\.post\(action, payload\)\r?\n",
         "\n",
         source,
         count=1,
     )
+    if count != 1:
+        raise SystemExit("firebase auth wrapper extraction failed")
 
     service_anchor = 'GOOGLE_OAUTH_TOKEN_URL = "https://oauth2.googleapis.com/token"'
     if "AUTH_SESSION_SERVICE = AuthSessionService(" not in source:
@@ -92,7 +100,7 @@ def refactor_app() -> None:
         if pos < 0:
             raise SystemExit("auth service initialization anchor missing")
         line_end = source.find("\n", pos) + 1
-        block = (
+        source = source[:line_end] + (
             "\nAUTH_SESSION_SERVICE = AuthSessionService(\n"
             "    verify_id_token=auth.verify_id_token,\n"
             "    verify_session_cookie=auth.verify_session_cookie,\n"
@@ -108,10 +116,13 @@ def refactor_app() -> None:
             "    privacy_version=IZFIN_PRIVACY_VERSION,\n"
             "    error_handler=lambda context, error: izfin_hata_logla(context, error),\n"
             ")\n"
-        )
-        source = source[:line_end] + block + source[line_end:]
+        ) + source[line_end:]
 
-    new_session_functions = '''def _oturum_ac(data, beni_hatirla=False):
+    source = _replace_between(
+        source,
+        "def _oturum_ac(data, beni_hatirla=False):",
+        "def _captcha_hazirla():",
+        '''def _oturum_ac(data, beni_hatirla=False):
     oturum, hata = AUTH_SESSION_SERVICE.id_token_oturumu_hazirla(
         data,
         remember=beni_hatirla,
@@ -141,7 +152,10 @@ def refactor_app() -> None:
             )
         else:
             try:
-                cookie_manager.delete("izfin_session", key="delete_izfin_session_no_remember")
+                cookie_manager.delete(
+                    "izfin_session",
+                    key="delete_izfin_session_no_remember",
+                )
             except Exception as e:
                 izfin_hata_logla("silent_exception_line_249", e)
         return True, None
@@ -157,16 +171,15 @@ def _captcha_yenile():
     st.session_state.captcha_nonce = paket["nonce"]
 
 
-'''
-    source = _replace_between(
-        source,
-        "def _oturum_ac(data, beni_hatirla=False):",
-        "def _captcha_hazirla():",
-        new_session_functions,
+''',
         "auth session/account helper extraction",
     )
 
-    restored_block = '''if (not st.session_state.user_email) and saved_session_cookie and not st.session_state.logout_triggered:
+    source = _replace_between(
+        source,
+        "if (not st.session_state.user_email) and saved_session_cookie and not st.session_state.logout_triggered:",
+        "# --- IZFIN STRATEJİ SÜRÜMÜ ---",
+        '''if (not st.session_state.user_email) and saved_session_cookie and not st.session_state.logout_triggered:
     oturum, _oturum_hatasi = AUTH_SESSION_SERVICE.session_cookie_oturumu_hazirla(
         saved_session_cookie
     )
@@ -189,16 +202,15 @@ def _captcha_yenile():
         st.session_state.pop("izfin_yasal_onayli", None)
         st.session_state.pop("izfin_export_json", None)
 
-'''
-    source = _replace_between(
-        source,
-        "if (not st.session_state.user_email) and saved_session_cookie and not st.session_state.logout_triggered:",
-        "# --- IZFIN STRATEJİ SÜRÜMÜ ---",
-        restored_block,
+''',
         "remembered session restore extraction",
     )
 
-    oauth_adapter = '''def _google_oauth_url():
+    source = _replace_between(
+        source,
+        "def _google_state_uret():",
+        "def _google_tokenu_firebase_tokenina_cevir(google_id_token):",
+        '''def _google_oauth_url():
     return google_oauth_url_olustur(
         client_id=GOOGLE_OAUTH_CLIENT_ID,
         client_secret=GOOGLE_OAUTH_CLIENT_SECRET,
@@ -207,21 +219,19 @@ def _captcha_yenile():
     )
 
 
-'''
-    source = _replace_between(
-        source,
-        "def _google_state_uret():",
-        "def _google_tokenu_firebase_tokenina_cevir(google_id_token):",
-        oauth_adapter,
+''',
         "google oauth crypto extraction",
     )
-    source = source.replace(
+    source = _replace_logical(
+        source,
         "not GOOGLE_OAUTH_CLIENT_SECRET or not _google_state_dogrula(state)",
         "not GOOGLE_OAUTH_CLIENT_SECRET or not google_oauth_state_dogrula(state, GOOGLE_OAUTH_CLIENT_SECRET)",
-        1,
+        "google oauth callback state validation",
     )
 
-    old_login = '''            if login_btn:
+    source = _replace_logical(
+        source,
+        '''            if login_btn:
                 if not email or not password:
                     st.error("E-posta ve şifre gerekli.")
                 else:
@@ -236,8 +246,8 @@ def _captcha_yenile():
                             st.rerun()
                         else:
                             st.error(msg)
-'''
-    new_login = '''            if login_btn:
+''',
+        '''            if login_btn:
                 login_errors = giris_formu_hatalari(email, password)
                 if login_errors:
                     for hata in login_errors:
@@ -257,23 +267,24 @@ def _captcha_yenile():
                             st.rerun()
                         else:
                             st.error(msg)
-'''
-    source = _replace_once(source, old_login, new_login, "login form wiring")
-
-    source = _replace_once(
+''',
+        "login form wiring",
+    )
+    source = _replace_logical(
         source,
         '                    if "@" not in reset_email or "." not in reset_email.split("@")[-1]:\n',
         '                    if not email_gecerli_mi(reset_email):\n',
         "reset email validation",
     )
-    source = _replace_once(
+    source = _replace_logical(
         source,
         "                        ok, msg = _sifre_sifirlama_maili(reset_email)\n",
         "                        ok, msg = ACCOUNT_SERVICE.sifre_sifirlama_maili(reset_email)\n",
         "password reset service wiring",
     )
-
-    old_validation = '''            if register_btn:
+    source = _replace_logical(
+        source,
+        '''            if register_btn:
                 errors = []
                 if "@" not in reg_email or "." not in reg_email.split("@")[-1]: errors.append("Geçerli bir e-posta girin.")
                 if reg_pass != reg_pass2: errors.append("Şifreler eşleşmiyor.")
@@ -283,8 +294,8 @@ def _captcha_yenile():
                 if not captcha_ok: errors.append("Doğrulama işlemi yanlış.")
                 if not terms: errors.append("Kullanım koşulları onaylanmalı.")
                 if not privacy_notice_seen: errors.append("KVKK Aydınlatma Metni görüntülenip doğrulanmalı.")
-'''
-    new_validation = '''            if register_btn:
+''',
+        '''            if register_btn:
                 errors = kayit_formu_hatalari(
                     email=reg_email,
                     password=reg_pass,
@@ -295,12 +306,14 @@ def _captcha_yenile():
                     terms_accepted=terms,
                     privacy_notice_seen=privacy_notice_seen,
                 )
-'''
-    source = _replace_once(source, old_validation, new_validation, "registration validation wiring")
-    source = source.replace(
+''',
+        "registration validation wiring",
+    )
+    source = _replace_logical(
+        source,
         "                    data, err = _kayit_ol(\n",
         "                    data, err = ACCOUNT_SERVICE.kayit_ol(\n",
-        1,
+        "registration account service wiring",
     )
 
     APP.write_bytes(source.encode("utf-8"))
@@ -310,19 +323,17 @@ def update_architecture_gate() -> None:
     source = ARCH.read_text(encoding="utf-8")
 
     if '        "izfin_ui.auth_view",\n' not in source:
-        anchor = '        "izfin_ui.backtest_results",\n'
-        source = _replace_once(
+        source = _replace_logical(
             source,
-            anchor,
-            anchor + '        "izfin_ui.auth_view",\n',
+            '        "izfin_ui.backtest_results",\n',
+            '        "izfin_ui.backtest_results",\n        "izfin_ui.auth_view",\n',
             "auth ui architecture import",
         )
     if '        "izfin_services.auth_service",\n' not in source:
-        anchor = '        "izfin_services.backtest_service",\n'
-        source = _replace_once(
+        source = _replace_logical(
             source,
-            anchor,
-            '        "izfin_services.auth_service",\n' + anchor,
+            '        "izfin_services.backtest_service",\n',
+            '        "izfin_services.auth_service",\n        "izfin_services.backtest_service",\n',
             "auth service architecture import",
         )
 
