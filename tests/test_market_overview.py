@@ -4,6 +4,7 @@ from datetime import datetime
 from zoneinfo import ZoneInfo
 
 import pandas as pd
+import pytest
 
 from izfin_services.market_overview import piyasa_bandi_paketi_hazirla
 
@@ -36,7 +37,7 @@ def test_intraday_price_uses_previous_daily_close_and_reports_freshness():
 
     item = result["items"][0]
     assert item["fiyat"] == 105.0
-    assert item["deg"] == 5.0
+    assert item["deg"] == pytest.approx(5.0)
     assert item["kaynak"] == "Yahoo 1 dk"
     assert result["gecikme_sn"] == 60.0
     assert result["durum"] == "YAKIN CANLI"
@@ -61,7 +62,7 @@ def test_single_symbol_fallback_is_used_when_bulk_intraday_is_empty():
 
     item = result["items"][0]
     assert item["fiyat"] == 102.0
-    assert item["deg"] == 2.0
+    assert item["deg"] == pytest.approx(2.0)
     assert item["kaynak"] == "Yahoo 5 dk fallback"
     assert result["gecikme_sn"] == 600.0
     assert result["durum"] == "GECİKMELİ"
@@ -89,7 +90,7 @@ def test_daily_data_is_last_resort_and_no_intraday_freshness_means_data_check():
 
     item = result["items"][0]
     assert item["fiyat"] == 100.0
-    assert round(item["deg"], 6) == round(((100.0 / 98.0) - 1.0) * 100.0, 6)
+    assert item["deg"] == pytest.approx(((100.0 / 98.0) - 1.0) * 100.0)
     assert item["kaynak"] == "Yahoo günlük fallback"
     assert result["gecikme_sn"] is None
     assert result["durum"] == "VERİ KONTROL"
