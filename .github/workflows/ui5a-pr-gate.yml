@@ -82,13 +82,39 @@ jobs:
                   return source.replace(token, "", 1)
               raise SystemExit(f"auth stdlib import extraction duplicate: {token} x{count}")
           '''
-          if old not in source:
-              raise SystemExit("temporary idempotency patch anchor missing")
-          path.write_text(source.replace(old, new, 1), encoding="utf-8")
+          if old in source:
+              path.write_text(source.replace(old, new, 1), encoding="utf-8")
           PY
 
-      - name: Apply UI5A auth/session extraction
-        run: python scripts/refactor_ui5a_auth_session.py
+      - name: Apply UI5A auth/session extraction when needed
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import subprocess
+          import sys
+
+          source = Path("app2.py").read_text(encoding="utf-8")
+          required = (
+              "from izfin_services.auth_service import (",
+              "from izfin_ui.auth_view import (",
+              "AUTH_SESSION_SERVICE.id_token_oturumu_hazirla(",
+              "AUTH_SESSION_SERVICE.session_cookie_oturumu_hazirla(",
+              "ACCOUNT_SERVICE.kayit_ol(",
+              "ACCOUNT_SERVICE.sifre_sifirlama_maili(",
+              "google_oauth_state_dogrula(",
+          )
+          legacy = (
+              "def _firebase_auth_post(",
+              "def _kayit_ol(",
+              "def _sifre_sifirlama_maili(",
+              "def _google_state_uret(",
+              "def _google_state_dogrula(",
+          )
+          if all(marker in source for marker in required) and all(marker not in source for marker in legacy):
+              print("UI5A shell wiring already present; transform skipped.")
+          else:
+              subprocess.check_call([sys.executable, "scripts/refactor_ui5a_auth_session.py"])
+          PY
 
       - name: Compile UI5A paths
         run: |
@@ -158,21 +184,25 @@ jobs:
         run: |
           changed="$(git diff --name-only)"
           echo "$changed"
-          test -n "$changed"
           while IFS= read -r path; do
+            [ -z "$path" ] && continue
             case "$path" in
               app2.py|tests/test_core_architecture.py|.github/workflows/izfin-tests.yml|scripts/refactor_ui5a_auth_session.py) ;;
               *) echo "Unexpected generated path: $path"; exit 1 ;;
             esac
           done <<< "$changed"
           app_changes="$(git diff --numstat -- app2.py | awk '{print $1+$2}')"
-          echo "app2 changed lines: ${app_changes:-0}"
-          test "${app_changes:-99999}" -lt 450
+          echo "app2 generated changed lines: ${app_changes:-0}"
+          test "${app_changes:-0}" -lt 450
 
-      - name: Commit tested UI5A shell wiring
+      - name: Commit tested UI5A shell wiring when generated
         shell: bash
         run: |
           git restore -- scripts/refactor_ui5a_auth_session.py
+          if git diff --quiet -- app2.py tests/test_core_architecture.py; then
+            echo "UI5A product wiring was already committed; no bot commit required."
+            exit 0
+          fi
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add -- app2.py tests/test_core_architecture.py
