@@ -93,8 +93,10 @@ def test_app_imports_extracted_core_modules():
         "izfin_ui.backtest_view",
         "izfin_ui.backtest_results",
         "izfin_ui.auth_view",
+        "izfin_ui.navigation",
         "izfin_ui.scan_results",
         "izfin_services.auth_service",
+        "izfin_services.bootstrap_service",
         "izfin_services.backtest_service",
         "izfin_services.yahoo_client",
         "izfin_services.finnhub_client",
@@ -332,4 +334,21 @@ def test_auth_session_orchestration_stays_outside_streamlit_shell():
     assert "hashlib.sha256" not in source
     assert "pysecrets." not in source
     assert "len(reg_pass) < 8" not in source
+
+
+def test_navigation_and_bootstrap_orchestration_stays_outside_streamlit_shell():
+    source = APP.read_text(encoding="utf-8")
+    assert "from izfin_services.bootstrap_service import (" in source
+    assert "from izfin_ui.navigation import (" in source
+    assert "session_defaults_hazirla(VARSAYILAN_TICKERS)" in source
+    assert "kullanici_watchlist_bootstrap_hazirla(" in source
+    assert "kullanici_watchlist_kaydet(" in source
+    assert "navigation_paketi_hazirla(" in source
+    assert "logout_state_paketi(VARSAYILAN_TICKERS)" in source
+    assert "def _kullanici_liste_doc_id(" not in source
+    assert "_varsayilan_set = set(" not in source
+    assert "_legacy_set = set(" not in source
+    assert "_uid_set = set(" not in source
+    assert "_izfin_nav_items = [" not in source
+    assert 're.split(r"[,;' not in source
 
