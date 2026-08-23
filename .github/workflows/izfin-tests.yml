@@ -1,14 +1,14 @@
 name: IZFIN CI
 
 on:
+  # Her develop güncellemesi main'e alınmadan önce tam kalite kapısından geçer.
   push:
     branches:
       - develop
-      - refactor/ui5a-auth-session
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
   group: izfin-ci-${{ github.workflow }}-${{ github.ref }}
@@ -16,7 +16,6 @@ concurrency:
 
 jobs:
   quality-gate:
-    if: ${{ !contains(github.event.head_commit.message, '[ui5a-auth-bot]') }}
     name: IZFIN Quality Gate
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -24,9 +23,6 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
-        with:
-          ref: ${{ github.ref_name }}
-          fetch-depth: 1
 
       - name: Set up Python
         uses: actions/setup-python@v7
@@ -59,20 +55,12 @@ jobs:
           print("IZFIN runtime imports: OK")
           PY
 
-      - name: Apply UI5A auth/session extraction
-        if: ${{ github.ref_name == 'refactor/ui5a-auth-session' }}
-        run: python scripts/refactor_ui5a_auth_session.py
-
-      - name: Compile UI5A paths
-        if: ${{ github.ref_name == 'refactor/ui5a-auth-session' }}
-        run: |
-          python -m py_compile app2.py izfin_services/auth_service.py izfin_ui/auth_view.py tests/test_auth_service.py tests/test_auth_view.py tests/test_core_architecture.py
-
       - name: Create CI-only Streamlit secrets file
         shell: bash
         run: |
           mkdir -p "${HOME}/.streamlit"
           cat > "${HOME}/.streamlit/secrets.toml" <<'EOF'
+          # CI smoke-test fixture only. Production secrets are never committed.
           FINNHUB_API_KEY = ""
           GOOGLE_OAUTH_CLIENT_ID = ""
           GOOGLE_OAUTH_CLIENT_SECRET = ""
@@ -85,29 +73,9 @@ jobs:
           IZFIN_DATA_CONTROLLER_ADDRESS = ""
           EOF
 
-      - name: Run focused UI5A tests
-        if: ${{ github.ref_name == 'refactor/ui5a-auth-session' }}
-        env:
-          FIREBASE_WEB_API_KEY: ""
-          FIREBASE_PROJECT_ID: ""
-          FINNHUB_API_KEY: ""
-          GOOGLE_OAUTH_CLIENT_ID: ""
-          GOOGLE_OAUTH_CLIENT_SECRET: ""
-          GOOGLE_OAUTH_REDIRECT_URI: ""
-          SENTRY_DSN: ""
-          IZFIN_ENVIRONMENT: "ci"
-        run: |
-          python -m pytest -q tests/test_auth_service.py tests/test_auth_view.py tests/test_firestore_repositories.py tests/test_core_architecture.py tests/test_apptest_smoke.py
-
-      - name: Restore production CI contract before full regression
-        if: ${{ github.ref_name == 'refactor/ui5a-auth-session' }}
-        shell: bash
-        run: |
-          git fetch origin develop --depth=1
-          git show origin/develop:.github/workflows/izfin-tests.yml > .github/workflows/izfin-tests.yml
-
       - name: Run complete test suite
         env:
+          # Empty values keep CI away from live Firebase, Finnhub and Sentry writes.
           FIREBASE_WEB_API_KEY: ""
           FIREBASE_PROJECT_ID: ""
           FINNHUB_API_KEY: ""
@@ -117,30 +85,3 @@ jobs:
           SENTRY_DSN: ""
           IZFIN_ENVIRONMENT: "ci"
         run: python -m pytest -q
-
-      - name: Verify generated UI5A diff
-        if: ${{ github.ref_name == 'refactor/ui5a-auth-session' }}
-        shell: bash
-        run: |
-          changed="$(git diff --name-only)"
-          echo "$changed"
-          test -n "$changed"
-          while IFS= read -r path; do
-            case "$path" in
-              app2.py|tests/test_core_architecture.py|.github/workflows/izfin-tests.yml) ;;
-              *) echo "Unexpected generated path: $path"; exit 1 ;;
-            esac
-          done <<< "$changed"
-          app_changes="$(git diff --numstat -- app2.py | awk '{print $1+$2}')"
-          echo "app2 changed lines: ${app_changes:-0}"
-          test "${app_changes:-99999}" -lt 450
-
-      - name: Commit tested UI5A shell wiring
-        if: ${{ github.ref_name == 'refactor/ui5a-auth-session' }}
-        shell: bash
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add -- app2.py tests/test_core_architecture.py
-          git commit -m "Wire auth application services [ui5a-auth-bot]"
-          git push origin HEAD:refactor/ui5a-auth-session
