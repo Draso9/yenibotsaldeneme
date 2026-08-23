@@ -18,7 +18,6 @@ import streamlit.components.v1 as components
 from pathlib import Path
 
 from izfin_core.decision_engine import (
-    karar_motoru_ozeti,
     merkezi_karar_motoru,
     nihai_karar_motoru,
     sinyal_guven_skoru,
@@ -56,9 +55,9 @@ from izfin_core.technical_analysis import (
     _resample_ohlcv,
     _rsi_serisi,
 )
-from izfin_ui.analysis_views import (
-    aksiyon_rehberi_olustur,
-    gelismis_teknik_panel_olustur,
+from izfin_ui.detail_analysis import (
+    detay_aktif_baslik_html,
+    detay_analiz_paketi_hazirla,
 )
 from izfin_ui.scan_table import (
     sortable_table_script,
@@ -3644,60 +3643,57 @@ if aktif_sayfa in ["🏠 Ana Sayfa", "🔎 Akıllı Tarama"]:
                             height=0,
                         )
                     st.markdown(
-                        f'<div class="iz-detail-stock-classic"><small>AKTİF DETAY ANALİZİ</small><strong>{html.escape(str(secilen_detay_hisse))}</strong></div>',
+                        detay_aktif_baslik_html(secilen_detay_hisse),
                         unsafe_allow_html=True,
                     )
                     panel_verisi = st.session_state.teknik_paneller.get(secilen_detay_hisse)
                     if panel_verisi:
-                        st.markdown(gelismis_teknik_panel_olustur(panel_verisi), unsafe_allow_html=True)
+                        detay_view = detay_analiz_paketi_hazirla(
+                            df_sonuc,
+                            secilen_detay_hisse,
+                            panel_verisi,
+                        )
+                        st.markdown(detay_view["teknik_panel_html"], unsafe_allow_html=True)
 
+                        skor_view = detay_view["skor"]
                         with st.expander("🧮 Skor nasıl oluştu?", expanded=False):
-                            eski_v = int(panel_verisi.get("eski_cezali_skor", panel_verisi.get("cezali_skor", 50)))
-                            bonus_v = int(panel_verisi.get("skor_bonus", 0))
-                            ceza_v = int(panel_verisi.get("skor_ceza", 0))
-                            nihai_v = int(panel_verisi.get("cezali_skor", eski_v + bonus_v - ceza_v))
                             s1, s2, s3, s4 = st.columns(4)
-                            s1.metric("Eski Cezalı Skor", eski_v)
-                            s2.metric("Gelişmiş Bonus", f"+{bonus_v}")
-                            s3.metric("Gelişmiş Ceza", f"-{ceza_v}")
-                            s4.metric("Nihai Skor", nihai_v)
+                            s1.metric("Eski Cezalı Skor", skor_view["eski"])
+                            s2.metric("Gelişmiş Bonus", f'+{skor_view["bonus"]}')
+                            s3.metric("Gelişmiş Ceza", f'-{skor_view["ceza"]}')
+                            s4.metric("Nihai Skor", skor_view["nihai"])
 
-                            aciklama = panel_verisi.get("skor_aciklama", {})
                             sol, sag = st.columns(2)
                             with sol:
                                 st.markdown("**Eski sistem kalemleri**")
-                                for ad, deger in aciklama.get("eski_kalemler", []):
-                                    st.write(f"{ad}: {deger:+d}")
+                                for item in skor_view["eski_kalemler"]:
+                                    st.write(item["metin"])
                                 st.markdown("**Bonuslar**")
-                                if aciklama.get("bonus_kalemler"):
-                                    for ad, deger in aciklama.get("bonus_kalemler", []):
-                                        st.write(f"{ad}: +{deger}")
+                                if skor_view["bonus_kalemler"]:
+                                    for item in skor_view["bonus_kalemler"]:
+                                        st.write(item["metin"])
                                 else:
                                     st.caption("Ek bonus oluşmadı.")
                             with sag:
                                 st.markdown("**Cezalar**")
-                                if aciklama.get("ceza_kalemler"):
-                                    for ad, deger in aciklama.get("ceza_kalemler", []):
-                                        st.write(f"{ad}: {deger}")
+                                if skor_view["ceza_kalemler"]:
+                                    for item in skor_view["ceza_kalemler"]:
+                                        st.write(item["metin"])
                                 else:
                                     st.caption("Ek ceza oluşmadı.")
                                 st.info("Nihai skor = eski cezalı skor + sınırlı gelişmiş bonus − sınırlı gelişmiş ceza")
 
-                        karar = karar_motoru_ozeti(panel_verisi)
+                        karar_view = detay_view["karar"]
                         st.markdown("### 🧠 Şeffaf Karar Motoru")
                         k1,k2,k3,k4 = st.columns(4)
-                        k1.metric("Karar", karar['karar'])
-                        k2.metric("Algoritma Güveni", f"%{karar['guven']}")
-                        k3.metric("Risk", karar['risk'])
-                        k4.metric("MTF Uyum", f"%{panel_verisi.get('mtf_uyum',50)}")
-                        st.markdown(f"**Olumlu teyitler:** {', '.join(karar['olumlu']) or 'Yeterli teyit yok'}  \n**Riskler:** {', '.join(karar['olumsuz']) or 'Belirgin ek risk yok'}")
-                        mtf = panel_verisi.get('mtf_detay', {})
-                        if mtf:
-                            st.caption(" · ".join([f"{k}: {v.get('yon')}" for k,v in mtf.items()]))
-                        hisse_satiri = df_sonuc[df_sonuc["Varlık"] == secilen_detay_hisse]
-                        anlik_sinyal = hisse_satiri["Nihai Sinyal"].values[0] if not hisse_satiri.empty else "Nötr (İzle)"
-                        anlik_teyit = hisse_satiri["🎯 Giriş Kalitesi"].values[0] if not hisse_satiri.empty else ""
-                        st.markdown(aksiyon_rehberi_olustur(anlik_sinyal, anlik_teyit, panel_verisi.get('profil'), karar), unsafe_allow_html=True)
+                        k1.metric("Karar", karar_view["karar"])
+                        k2.metric("Algoritma Güveni", f'%{karar_view["guven"]}')
+                        k3.metric("Risk", karar_view["risk"])
+                        k4.metric("MTF Uyum", f'%{karar_view["mtf_uyum"]}')
+                        st.markdown(karar_view["ozet_markdown"])
+                        if karar_view["mtf_metin"]:
+                            st.caption(karar_view["mtf_metin"])
+                        st.markdown(detay_view["aksiyon_html"], unsafe_allow_html=True)
                     else:
                         st.info("Bu varlık için teknik panel verisi bulunamadı. Derin taramayı yeniden çalıştırın.")
             else:
