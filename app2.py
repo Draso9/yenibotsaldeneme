@@ -128,6 +128,9 @@ from izfin_services.finnhub_client import FinnhubClient
 from izfin_services.scan_service import toplu_veriden_ticker_ayir
 from izfin_services.scan_workflow import scan_workflow_calistir
 from izfin_services.signal_tracking import sinyal_kayitlarini_guncelle
+from izfin_services.performance_maintenance import (
+    gecmis_mukerrer_kayitlari_temizle as performans_mukerrer_kayitlari_temizle,
+)
 from izfin_services.market_overview import piyasa_bandi_paketi_hazirla
 from izfin_services.yahoo_client import (
     donem_ohlc_indir,
@@ -818,47 +821,13 @@ def sinyal_kayitlarini_firestore_yaz(sonuclar, teknik_paneller):
     )
 
 def gecmis_mukerrer_kayitlari_temizle():
-    """Mükerrerleri önce yedek koleksiyona kopyalar, sonra siler. Otomatik çalışmaz."""
-    if not SIGNAL_REPOSITORY.available or not st.session_state.user_email:
-        return {"silinen":0,"yedeklenen":0,"grup":0}
-    email=st.session_state.user_email; docs=[]
-    try:
-        for doc_id, v in SIGNAL_REPOSITORY.list_archive(email, limit=1000):
-            if v.get("yon")=="ALIM": docs.append((doc_id,v))
-    except Exception as e:
-        izfin_hata_logla("gecmis_kayit_temizlik_okuma",e); return {"silinen":0,"yedeklenen":0,"grup":0}
-    gruplar={}
-    for doc_id,v in docs:
-        ticker=str(v.get("ticker","")).strip().upper(); durum=str(v.get("durum","ACIK") or "ACIK").upper()
-        if not ticker: continue
-        if durum=="ACIK": key=("ACIK",ticker)
-        else:
-            t=pd.to_datetime(v.get("olusturma_zamani"),errors="coerce"); k=pd.to_datetime(v.get("kapanis_zamani"),errors="coerce")
-            try: g=round(float(v.get("giris_fiyati",0) or 0),4)
-            except Exception: g=0.0
-            key=("KAPALI",ticker,t.floor("min").isoformat() if not pd.isna(t) else str(v.get("olusturma_zamani","")),k.floor("min").isoformat() if not pd.isna(k) else str(v.get("kapanis_zamani","")),g)
-        gruplar.setdefault(key,[]).append((doc_id,v))
-    silinen=yedeklenen=grup_sayisi=0; email_key=str(email or "").replace("@","_").replace(".","_")
-    for key,grup in gruplar.items():
-        if len(grup)<=1: continue
-        grup_sayisi+=1; ticker=key[1]; keep_id=None
-        if key[0]=="ACIK":
-            # İlk alım tarihi/fiyatı kaybolmasın: açık grubun daima en eski belgesi korunur.
-            keep_id=sorted(grup,key=lambda x:str(x[1].get("olusturma_zamani","")))[0][0]
-        else:
-            keep_id=sorted(grup,key=lambda x:sum(v is not None for v in x[1].values()),reverse=True)[0][0]
-        for doc_id,v in grup:
-            if doc_id==keep_id: continue
-            try:
-                backup_id=f"{doc_id}_{datetime.now().strftime('%Y%m%d%H%M%S%f')}"
-                SIGNAL_REPOSITORY.backup_archive(backup_id,{**v,"orijinal_doc_id":doc_id,"temizlik_zamani":datetime.now().isoformat(),"temizlik_nedeni":"gecmis_mukerrer_kayit","korunan_doc_id":keep_id})
-                yedeklenen+=1; SIGNAL_REPOSITORY.delete_archive(doc_id); silinen+=1
-            except Exception as e: izfin_hata_logla("gecmis_kayit_temizlik_silme",e,ticker)
-        if key[0]=="ACIK":
-            try:
-                aktif_id=f"{email_key}_{str(ticker or '').replace('.', '_')}"; SIGNAL_REPOSITORY.set_active(aktif_id,{"user_email":email,"ticker":ticker,"arsiv_doc_id":keep_id,"durum":"ACIK"},merge=True)
-            except Exception as e: izfin_hata_logla("gecmis_kayit_temizlik_aktif_bag",e,ticker)
-    return {"silinen":silinen,"yedeklenen":yedeklenen,"grup":grup_sayisi}
+    """Geçmiş arşiv bakımını repository service üzerinden yürütür."""
+    return performans_mukerrer_kayitlari_temizle(
+        repository=SIGNAL_REPOSITORY,
+        user_email=st.session_state.user_email,
+        error_handler=izfin_hata_logla,
+    )
+
 
 @st.cache_data(ttl=300, show_spinner=False)
 def _performans_kayitlarini_getir_cached(email, limit=250, cache_epoch=0):
