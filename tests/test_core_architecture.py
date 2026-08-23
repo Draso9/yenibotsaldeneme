@@ -95,6 +95,7 @@ def test_app_imports_extracted_core_modules():
         "izfin_ui.auth_view",
         "izfin_ui.navigation",
         "izfin_ui.scan_results",
+        "izfin_ui.scan_table",
         "izfin_services.auth_service",
         "izfin_services.bootstrap_service",
         "izfin_services.backtest_service",
@@ -351,4 +352,17 @@ def test_navigation_and_bootstrap_orchestration_stays_outside_streamlit_shell():
     assert "_uid_set = set(" not in source
     assert "_izfin_nav_items = [" not in source
     assert 're.split(r"[,;' not in source
+
+
+def test_scan_table_presentation_stays_outside_streamlit_shell():
+    source = APP.read_text(encoding="utf-8")
+    assert "from izfin_ui.scan_table import (" in source
+    assert "return tarama_tablosu_html(" in source
+    assert "return tarama_genis_ozet_html(df)" in source
+    assert "components.html(sortable_table_script(), height=0)" in source
+    assert "def _iz_sort_num(" not in source
+    assert "def _iz_sort_risk(" not in source
+    assert "def _iz_sort_signal(" not in source
+    assert "def _iz_sort_flow(" not in source
+    assert 'const tables=[...doc.querySelectorAll("table.iz-client-sortable")]' not in source
 
