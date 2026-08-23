@@ -1,0 +1,2 @@
+UI5A auth/session extraction quality gate trigger.
+Temporary file; remove before merge.
