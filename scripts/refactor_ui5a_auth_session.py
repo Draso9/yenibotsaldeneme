@@ -10,7 +10,6 @@ ARCH = ROOT / "tests" / "test_core_architecture.py"
 
 
 def _replace_logical(source: str, old: str, new: str, label: str) -> str:
-    """Replace one logical text block without normalizing the rest of the file."""
     if source.count(old) == 1:
         return source.replace(old, new, 1)
     pattern = re.escape(old).replace(r"\
@@ -21,13 +20,7 @@ def _replace_logical(source: str, old: str, new: str, label: str) -> str:
     return updated
 
 
-def _replace_between(
-    source: str,
-    start_anchor: str,
-    end_anchor: str,
-    replacement: str,
-    label: str,
-) -> str:
+def _replace_between(source: str, start_anchor: str, end_anchor: str, replacement: str, label: str) -> str:
     start = source.find(start_anchor)
     end = source.find(end_anchor, start + 1 if start >= 0 else 0)
     if start < 0 or end < 0 or end <= start:
@@ -35,25 +28,30 @@ def _replace_between(
     return source[:start] + replacement + source[end:]
 
 
+def _remove_import_token(source: str, token: str) -> str:
+    if source.count(token) != 1:
+        raise SystemExit(f"auth stdlib import extraction failed: {token}")
+    return source.replace(token, "", 1)
+
+
 def refactor_app() -> None:
     source = APP.read_bytes().decode("utf-8")
 
-    for pattern in (
-        r"(?m)^import secrets as pysecrets\r?\n",
-        r"(?m)^import hashlib\r?\n",
-        r"(?m)^import hmac\r?\n",
-        r"(?m)^from urllib\.parse import urlencode\r?\n",
+    # Remove only the import tokens; surrounding physical line endings are left intact.
+    for token in (
+        "import secrets as pysecrets",
+        "import hashlib",
+        "import hmac",
+        "from urllib.parse import urlencode",
     ):
-        source, count = re.subn(pattern, "", source, count=1)
-        if count != 1:
-            raise SystemExit(f"auth stdlib import extraction failed: {pattern}")
+        source = _remove_import_token(source, token)
 
-    source = re.sub(
-        r"(?m)^\s*firebase_auth_hata_mesaji as _firebase_auth_hata_mesaji,\r?\n",
-        "",
-        source,
-        count=1,
-    )
+    if "firebase_auth_hata_mesaji as _firebase_auth_hata_mesaji" in source:
+        source = source.replace(
+            "firebase_auth_hata_mesaji as _firebase_auth_hata_mesaji",
+            "",
+            1,
+        )
 
     if "from izfin_ui.auth_view import (" not in source:
         anchor = "from izfin_ui.backtest_results import backtest_sonuc_paketi_hazirla"
@@ -84,15 +82,14 @@ def refactor_app() -> None:
             ")\n"
         ) + source[pos:]
 
-    source, count = re.subn(
-        r"\r?\ndef _firebase_auth_post\(action, payload\):\r?\n"
-        r"    return FIREBASE_AUTH_CLIENT\.post\(action, payload\)\r?\n",
-        "\n",
-        source,
-        count=1,
-    )
-    if count != 1:
-        raise SystemExit("firebase auth wrapper extraction failed")
+    start = source.find("def _firebase_auth_post(action, payload):")
+    if start < 0:
+        raise SystemExit("firebase auth wrapper anchor missing")
+    line_start = source.rfind("\n", 0, start) + 1
+    end = source.find("\n", source.find("return FIREBASE_AUTH_CLIENT.post(action, payload)", start))
+    if end < 0:
+        raise SystemExit("firebase auth wrapper end missing")
+    source = source[:line_start] + source[end + 1 :]
 
     service_anchor = 'GOOGLE_OAUTH_TOKEN_URL = "https://oauth2.googleapis.com/token"'
     if "AUTH_SESSION_SERVICE = AuthSessionService(" not in source:
@@ -321,7 +318,6 @@ def _captcha_yenile():
 
 def update_architecture_gate() -> None:
     source = ARCH.read_text(encoding="utf-8")
-
     if '        "izfin_ui.auth_view",\n' not in source:
         source = _replace_logical(
             source,
@@ -362,7 +358,6 @@ def test_auth_session_orchestration_stays_outside_streamlit_shell():
 '''
     if "def test_auth_session_orchestration_stays_outside_streamlit_shell():" not in source:
         source = source.rstrip() + block + "\n"
-
     ARCH.write_text(source, encoding="utf-8")
 
 
