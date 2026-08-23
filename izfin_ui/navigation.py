@@ -54,9 +54,6 @@ def navigation_paketi_hazirla(
     if sayfa == ADMIN_PAGE and not is_admin:
         sayfa = HOME_PAGE
         redirected = True
-    elif sayfa not in items:
-        sayfa = HOME_PAGE
-        redirected = True
 
     return {
         "items": items,
