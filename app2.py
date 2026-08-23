@@ -71,6 +71,7 @@ from izfin_ui.scan_results import (
     tarama_hata_ozeti,
     tarama_sonuclarini_filtrele,
 )
+from izfin_ui.market_bar import market_bar_html
 from izfin_ui.home_dashboard import (
     home_karar_ozeti_hazirla,
     home_movers_hazirla,
@@ -130,6 +131,7 @@ from izfin_services.scan_service import (
     scan_veri_paketi_hazirla,
     toplu_veriden_ticker_ayir,
 )
+from izfin_services.market_overview import piyasa_bandi_paketi_hazirla
 from izfin_services.market_session import ticker_piyasa_paketi_hazirla
 from izfin_services.ticker_analysis import ticker_analiz_paketi_hazirla
 from izfin_services.yahoo_client import (
@@ -1734,132 +1736,17 @@ def izfin_brand_html():
 
 @st.cache_data(ttl=60, show_spinner=False)
 def izfin_piyasa_bandi_verisi():
-    """Üst piyasa bandını 1 dk gün içi veriden üretir; günlük veri yalnızca fallback/ref close içindir.
+    return piyasa_bandi_paketi_hazirla(
+        intraday_fetcher=piyasa_bandi_intraday_indir,
+        daily_fetcher=piyasa_bandi_gunluk_indir,
+        single_fetcher=piyasa_bandi_tekil_indir,
+        split_fetcher=toplu_veriden_ticker_ayir,
+        error_logger=izfin_hata_logla,
+    )
 
-    Bu bir borsa-direct-feed değildir. Yahoo tarafında enstrümana göre gecikme olabileceği için
-    her kutuda veri kaynağı ve tüm bantta tazelik durumu ayrıca gösterilir.
-    """
-    semboller = {
-        "BIST 100":"XU100.IS", "S&P 500":"^GSPC", "NASDAQ 100":"^NDX",
-        "DOW JONES":"^DJI", "VIX":"^VIX", "ONS ALTIN":"GC=F", "USD/TRY":"TRY=X"
-    }
-    ticker_list = list(semboller.values())
-    try:
-        intra_all = piyasa_bandi_intraday_indir(tuple(ticker_list))
-    except Exception as e:
-        izfin_hata_logla("signature_piyasa_bandi_1m", e)
-        intra_all = pd.DataFrame()
-    try:
-        daily_all = piyasa_bandi_gunluk_indir(tuple(ticker_list))
-    except Exception as e:
-        izfin_hata_logla("signature_piyasa_bandi_daily", e)
-        daily_all = pd.DataFrame()
-
-    def _piyasa_bandi_tekil_fallback(sembol):
-        """Toplu Yahoo cevabında sembol boşsa son geçerli 5dk veriyi dener."""
-        try:
-            tekil = piyasa_bandi_tekil_indir(sembol)
-            if tekil is None or tekil.empty or "Close" not in tekil.columns:
-                return None, None
-            close = pd.to_numeric(tekil["Close"], errors="coerce").dropna()
-            if close.empty:
-                return None, None
-            ts = pd.Timestamp(close.index[-1])
-            if ts.tzinfo is None:
-                ts = ts.tz_localize("UTC")
-            else:
-                ts = ts.tz_convert("UTC")
-            return float(close.iloc[-1]), ts
-        except Exception as e:
-            # Provider no-data ise uygulama fallback ile devam eder.
-            logger.info("Piyasa bandı tekil fallback başarısız [%s]: %s", sembol, e)
-            return None, None
-
-    cikti = []
-    tazelik_saniye = []
-    simdi_utc = pd.Timestamp.now(tz="UTC")
-    for ad, sembol in semboller.items():
-        son = onceki = deg = None
-        kaynak = "Yahoo günlük fallback"
-        son_zaman = None
-        try:
-            intra = toplu_veriden_ticker_ayir(intra_all, sembol, len(ticker_list))
-            if not intra.empty and "Close" in intra.columns:
-                ic = pd.to_numeric(intra["Close"], errors="coerce").dropna()
-                if not ic.empty:
-                    son = float(ic.iloc[-1])
-                    son_zaman = pd.Timestamp(ic.index[-1])
-                    if son_zaman.tzinfo is None:
-                        son_zaman = son_zaman.tz_localize("UTC")
-                    else:
-                        son_zaman = son_zaman.tz_convert("UTC")
-                    tazelik_saniye.append(max(0.0, (simdi_utc-son_zaman).total_seconds()))
-                    kaynak = "Yahoo 1 dk"
-
-            if son is None:
-                fb_fiyat, fb_ts = _piyasa_bandi_tekil_fallback(sembol)
-                if fb_fiyat is not None:
-                    son = fb_fiyat
-                    son_zaman = fb_ts
-                    kaynak = "Yahoo 5 dk fallback"
-                    if son_zaman is not None:
-                        tazelik_saniye.append(max(0.0, (simdi_utc-son_zaman).total_seconds()))
-            daily = toplu_veriden_ticker_ayir(daily_all, sembol, len(ticker_list))
-            if not daily.empty and "Close" in daily.columns:
-                dc = pd.to_numeric(daily["Close"], errors="coerce").dropna()
-                if not dc.empty:
-                    # Intraday varsa bugünkü kısmi daily satırını referans olarak kullanma.
-                    if son_zaman is not None and len(dc) >= 2 and pd.Timestamp(dc.index[-1]).date() == son_zaman.date():
-                        onceki = float(dc.iloc[-2])
-                    elif len(dc) >= 1:
-                        onceki = float(dc.iloc[-1])
-                    if son is None:
-                        son = float(dc.iloc[-1])
-                        onceki = float(dc.iloc[-2]) if len(dc) >= 2 else onceki
-            if son is not None and onceki not in (None, 0):
-                deg = ((son/onceki)-1.0)*100.0
-        except Exception as e:
-            izfin_hata_logla("signature_piyasa_bandi_ticker", e, sembol)
-        cikti.append({"ad":ad,"fiyat":son,"deg":deg,"kaynak":kaynak,"ts":son_zaman})
-
-    medyan_gecikme = float(np.median(tazelik_saniye)) if tazelik_saniye else None
-    if medyan_gecikme is None:
-        durum = "VERİ KONTROL"
-    elif medyan_gecikme <= 180:
-        durum = "YAKIN CANLI"
-    elif medyan_gecikme <= 1200:
-        durum = "GECİKMELİ"
-    else:
-        durum = "PİYASA KAPALI / ESKİ"
-    return {"items":cikti,"durum":durum,"gecikme_sn":medyan_gecikme,"yerel_saat":datetime.now(ZoneInfo("Europe/Istanbul")).strftime("%H:%M:%S")}
-
-def _iz_num(v, yuzde=False):
-    try:
-        if v is None or not np.isfinite(float(v)):
-            return "—"
-        v = float(v)
-    except Exception:
-        return "—"
-    if yuzde:
-        return f"%{v:+.2f}"
-    if abs(v) >= 10000: return f"{v:,.0f}"
-    if abs(v) >= 1000: return f"{v:,.2f}"
-    if abs(v) >= 10: return f"{v:,.2f}"
-    return f"{v:,.3f}"
 
 def izfin_market_bar_html(bant_paketi):
-    items = bant_paketi.get("items", []) if isinstance(bant_paketi, dict) else (bant_paketi or [])
-    durum = bant_paketi.get("durum", "VERİ KONTROL") if isinstance(bant_paketi, dict) else "VERİ KONTROL"
-    gec = bant_paketi.get("gecikme_sn") if isinstance(bant_paketi, dict) else None
-    saat = bant_paketi.get("yerel_saat", "—") if isinstance(bant_paketi, dict) else "—"
-    gec_txt = "—" if gec is None else (f"~{int(gec)} sn" if gec < 120 else f"~{int(gec//60)} dk")
-    kutular = []
-    for x in items:
-        deg = x.get("deg")
-        cls = "iz-up" if deg is not None and deg >= 0 else "iz-down"
-        ok = "▲" if deg is not None and deg >= 0 else "▼"
-        kutular.append(f'''<div class="iz-ticker"><div class="n">{x['ad']}</div><div class="v">{_iz_num(x.get('fiyat'))}</div><div class="{cls}" style="font-size:10px;margin-top:2px">{ok} {_iz_num(deg,True)}</div><div style="font-size:7px;color:#526f84;margin-top:3px">{x.get('kaynak','')}</div></div>''')
-    return f'''<div class="iz-live-shell"><div class="iz-live-status"><div class="s1">PİYASALAR</div><div class="s2">● {durum}</div><div class="s3">Tazelik {gec_txt} · {saat}</div></div><div class="iz-livebar">{''.join(kutular)}</div></div>'''
+    return market_bar_html(bant_paketi)
 
 
 def _iz_pulse_label(p):
