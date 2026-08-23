@@ -10,7 +10,7 @@ on:
       - reopened
 
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
   group: ui5a-pr-gate-${{ github.event.pull_request.number }}
@@ -25,11 +25,11 @@ jobs:
     timeout-minutes: 15
 
     steps:
-      - name: Checkout UI5A head branch
+      - name: Checkout clean UI5A head branch
         uses: actions/checkout@v6
         with:
           ref: ${{ github.head_ref }}
-          fetch-depth: 0
+          fetch-depth: 1
 
       - name: Set up Python
         uses: actions/setup-python@v7
@@ -47,74 +47,6 @@ jobs:
         run: |
           python -m pip install -r requirements.txt
           python -m pip install -r requirements-test.txt
-
-      - name: Verify required runtime imports
-        run: |
-          python - <<'PY'
-          import streamlit
-          import pandas
-          import numpy
-          import yfinance
-          import requests
-          import firebase_admin
-          import extra_streamlit_components
-          import sentry_sdk
-          print("IZFIN runtime imports: OK")
-          PY
-
-      - name: Harden temporary UI5A transform idempotency
-        run: |
-          python - <<'PY'
-          from pathlib import Path
-
-          path = Path("scripts/refactor_ui5a_auth_session.py")
-          source = path.read_text(encoding="utf-8")
-          old = '''def _remove_import_token(source: str, token: str) -> str:
-              if source.count(token) != 1:
-                  raise SystemExit(f"auth stdlib import extraction failed: {token}")
-              return source.replace(token, "", 1)
-          '''
-          new = '''def _remove_import_token(source: str, token: str) -> str:
-              count = source.count(token)
-              if count == 0:
-                  return source
-              if count == 1:
-                  return source.replace(token, "", 1)
-              raise SystemExit(f"auth stdlib import extraction duplicate: {token} x{count}")
-          '''
-          if old in source:
-              path.write_text(source.replace(old, new, 1), encoding="utf-8")
-          PY
-
-      - name: Apply UI5A auth/session extraction when needed
-        run: |
-          python - <<'PY'
-          from pathlib import Path
-          import subprocess
-          import sys
-
-          source = Path("app2.py").read_text(encoding="utf-8")
-          required = (
-              "from izfin_services.auth_service import (",
-              "from izfin_ui.auth_view import (",
-              "AUTH_SESSION_SERVICE.id_token_oturumu_hazirla(",
-              "AUTH_SESSION_SERVICE.session_cookie_oturumu_hazirla(",
-              "ACCOUNT_SERVICE.kayit_ol(",
-              "ACCOUNT_SERVICE.sifre_sifirlama_maili(",
-              "google_oauth_state_dogrula(",
-          )
-          legacy = (
-              "def _firebase_auth_post(",
-              "def _kayit_ol(",
-              "def _sifre_sifirlama_maili(",
-              "def _google_state_uret(",
-              "def _google_state_dogrula(",
-          )
-          if all(marker in source for marker in required) and all(marker not in source for marker in legacy):
-              print("UI5A shell wiring already present; transform skipped.")
-          else:
-              subprocess.check_call([sys.executable, "scripts/refactor_ui5a_auth_session.py"])
-          PY
 
       - name: Compile UI5A paths
         run: |
@@ -161,12 +93,6 @@ jobs:
             tests/test_core_architecture.py \
             tests/test_apptest_smoke.py
 
-      - name: Restore production CI contract before full regression
-        shell: bash
-        run: |
-          git fetch origin develop --depth=1
-          git show origin/develop:.github/workflows/izfin-tests.yml > .github/workflows/izfin-tests.yml
-
       - name: Run complete test suite
         env:
           FIREBASE_WEB_API_KEY: ""
@@ -179,32 +105,5 @@ jobs:
           IZFIN_ENVIRONMENT: "ci"
         run: python -m pytest -q
 
-      - name: Verify generated UI5A diff
-        shell: bash
-        run: |
-          changed="$(git diff --name-only)"
-          echo "$changed"
-          while IFS= read -r path; do
-            [ -z "$path" ] && continue
-            case "$path" in
-              app2.py|tests/test_core_architecture.py|.github/workflows/izfin-tests.yml|scripts/refactor_ui5a_auth_session.py) ;;
-              *) echo "Unexpected generated path: $path"; exit 1 ;;
-            esac
-          done <<< "$changed"
-          app_changes="$(git diff --numstat -- app2.py | awk '{print $1+$2}')"
-          echo "app2 generated changed lines: ${app_changes:-0}"
-          test "${app_changes:-0}" -lt 450
-
-      - name: Commit tested UI5A shell wiring when generated
-        shell: bash
-        run: |
-          git restore -- scripts/refactor_ui5a_auth_session.py
-          if git diff --quiet -- app2.py tests/test_core_architecture.py; then
-            echo "UI5A product wiring was already committed; no bot commit required."
-            exit 0
-          fi
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add -- app2.py tests/test_core_architecture.py
-          git commit -m "Wire auth application services [ui5a-auth-bot]"
-          git push origin HEAD:refactor/ui5a-auth-session
+      - name: Verify clean checkout
+        run: git diff --exit-code
