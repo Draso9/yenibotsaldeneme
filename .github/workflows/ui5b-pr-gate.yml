@@ -81,6 +81,19 @@ jobs:
               subprocess.check_call([sys.executable, "scripts/refactor_ui5b_navigation_bootstrap.py"])
           PY
 
+      - name: Repair generated architecture assertion quoting
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          path = Path("tests/test_core_architecture.py")
+          source = path.read_text(encoding="utf-8")
+          broken = '    assert "re.split(r"[,;\\n]+", raw)" not in source\n'
+          fixed = "    assert 're.split(r\"[,;' not in source\n"
+          if broken in source:
+              source = source.replace(broken, fixed, 1)
+              path.write_text(source, encoding="utf-8")
+          PY
+
       - name: Compile UI5B paths
         run: |
           python -m py_compile \
