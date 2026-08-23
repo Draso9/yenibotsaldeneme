@@ -29,8 +29,6 @@ def refactor_app() -> None:
             1,
         )
 
-    source = source.replace("    sinyal_yonu_belirle,\n", "", 1)
-
     start = source.find("def sinyal_kayitlarini_firestore_yaz(sonuclar, teknik_paneller):")
     end = source.find("def gecmis_mukerrer_kayitlari_temizle():", start + 1 if start >= 0 else 0)
     if start < 0 or end < 0 or end <= start:
@@ -44,9 +42,7 @@ def refactor_app() -> None:
         repository=SIGNAL_REPOSITORY,
         user_email=st.session_state.user_email,
         strategy_version=STRATEJI_SURUMU,
-        signal_direction_resolver=__import__(
-            "izfin_core.decision_engine", fromlist=["sinyal_yonu_belirle"]
-        ).sinyal_yonu_belirle,
+        signal_direction_resolver=sinyal_yonu_belirle,
         period_stats_resolver=kapanan_donem_istatistikleri,
         error_handler=izfin_hata_logla,
     )
@@ -75,6 +71,7 @@ def test_signal_tracking_application_logic_stays_outside_streamlit_shell():
     assert 'yeni_arsiv_id = f"{aktif_doc_id}_' not in source
     assert 'onceki_sinyal = str(aktif.get("sinyal"' not in source
     assert 'repository=SIGNAL_REPOSITORY' in source
+    assert 'signal_direction_resolver=sinyal_yonu_belirle' in source
     assert 'period_stats_resolver=kapanan_donem_istatistikleri' in source
 '''
     if "def test_signal_tracking_application_logic_stays_outside_streamlit_shell():" not in source:
