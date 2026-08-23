@@ -56,10 +56,10 @@ def test_navigation_redirects_stale_admin_page_for_regular_user():
     assert paket["redirected"] is True
 
 
-def test_navigation_defaults_unknown_or_empty_page_to_home():
+def test_navigation_defaults_empty_page_to_home_but_preserves_unknown_session_value():
     empty = navigation_paketi_hazirla(None, is_admin=False)
     unknown = navigation_paketi_hazirla("old-page", is_admin=True)
     assert empty["aktif_sayfa"] == HOME_PAGE
     assert empty["redirected"] is False
-    assert unknown["aktif_sayfa"] == HOME_PAGE
-    assert unknown["redirected"] is True
+    assert unknown["aktif_sayfa"] == "old-page"
+    assert unknown["redirected"] is False
