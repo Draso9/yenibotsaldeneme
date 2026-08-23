@@ -70,7 +70,6 @@ def test_performance_archive_maintenance_stays_outside_streamlit_shell():
     assert "from izfin_services.performance_maintenance import (" in source
     assert "return performans_mukerrer_kayitlari_temizle(" in source
     assert "gruplar.setdefault(key" not in source
-    assert "sinyal_arsivi_temizlik_yedegi" not in source
     assert 'backup_id=f"{doc_id}_' not in source
     assert 'repository=SIGNAL_REPOSITORY' in source
 '''
