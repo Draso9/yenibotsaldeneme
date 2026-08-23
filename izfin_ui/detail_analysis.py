@@ -21,7 +21,7 @@ def _safe_int(value: Any, default: int = 0) -> int:
         return int(default)
 
 
-def _kalemleri_hazirla(items, *, bonus: bool = False):
+def _kalemleri_hazirla(items, *, mode: str = "signed"):
     sonuc = []
     for item in items or []:
         try:
@@ -29,8 +29,10 @@ def _kalemleri_hazirla(items, *, bonus: bool = False):
         except (TypeError, ValueError):
             continue
         sayi = _safe_int(deger)
-        if bonus:
+        if mode == "bonus":
             metin = f"{ad}: +{sayi}"
+        elif mode == "plain":
+            metin = f"{ad}: {sayi}"
         else:
             metin = f"{ad}: {sayi:+d}"
         sonuc.append({"ad": str(ad), "deger": sayi, "metin": metin})
@@ -52,9 +54,9 @@ def detay_skor_paketi_hazirla(panel_verisi: dict[str, Any] | None) -> dict[str, 
         "bonus": bonus,
         "ceza": ceza,
         "nihai": nihai,
-        "eski_kalemler": _kalemleri_hazirla(aciklama.get("eski_kalemler")),
-        "bonus_kalemler": _kalemleri_hazirla(aciklama.get("bonus_kalemler"), bonus=True),
-        "ceza_kalemler": _kalemleri_hazirla(aciklama.get("ceza_kalemler")),
+        "eski_kalemler": _kalemleri_hazirla(aciklama.get("eski_kalemler"), mode="signed"),
+        "bonus_kalemler": _kalemleri_hazirla(aciklama.get("bonus_kalemler"), mode="bonus"),
+        "ceza_kalemler": _kalemleri_hazirla(aciklama.get("ceza_kalemler"), mode="plain"),
     }
 
 
