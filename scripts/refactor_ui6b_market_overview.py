@@ -25,12 +25,20 @@ def _insert_before_once(source: str, anchor: str, block: str, marker: str, label
     return source[:pos] + block + source[pos:]
 
 
-def _replace_between(source: str, start_anchor: str, end_anchor: str, replacement: str, label: str) -> str:
-    start = source.find(start_anchor)
-    end = source.find(end_anchor, start + 1 if start >= 0 else 0)
-    if start < 0 or end < 0 or end <= start:
-        raise SystemExit(f"{label}: anchors missing start={start} end={end}")
-    return source[:start] + replacement + source[end:]
+def _replace_market_block(source: str, replacement: str) -> str:
+    function_start = source.find("def izfin_piyasa_bandi_verisi():")
+    end = source.find("def _iz_pulse_label(p):", function_start + 1 if function_start >= 0 else 0)
+    decorator = source.rfind(
+        "@st.cache_data(ttl=60, show_spinner=False)",
+        max(0, function_start - 160),
+        function_start,
+    )
+    if function_start < 0 or decorator < 0 or end < 0 or end <= function_start:
+        raise SystemExit(
+            "market overview extraction: anchors missing "
+            f"decorator={decorator} function={function_start} end={end}"
+        )
+    return source[:decorator] + replacement + source[end:]
 
 
 def refactor_app() -> None:
@@ -69,13 +77,7 @@ def izfin_market_bar_html(bant_paketi):
 '''
 
     if "return piyasa_bandi_paketi_hazirla(" not in source:
-        source = _replace_between(
-            source,
-            "@st.cache_data(ttl=60, show_spinner=False)\ndef izfin_piyasa_bandi_verisi():",
-            "def _iz_pulse_label(p):",
-            thin_adapter,
-            "market overview extraction",
-        )
+        source = _replace_market_block(source, thin_adapter)
 
     _write_exact(APP, source)
 
