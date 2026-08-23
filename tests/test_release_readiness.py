@@ -90,7 +90,7 @@ def test_legal_gate_uses_versioned_professional_experience():
 def test_auth_legal_documents_open_in_native_modals():
     source = _source()
     auth_start = source.index("def izfin_auth_ekrani():")
-    auth_end = source.index("def _iz_sort_num", auth_start)
+    auth_end = source.index("def izfin_tarama_tablosu_html(df):", auth_start)
     auth_source = source[auth_start:auth_end]
     css = (APP.parent / "styles" / "izfin-legal.css").read_text(encoding="utf-8")
 
