@@ -21,6 +21,13 @@ def _safe_int(value: Any, default: int = 0) -> int:
         return int(default)
 
 
+def detay_aktif_baslik_html(ticker: str) -> str:
+    return (
+        '<div class="iz-detail-stock-classic"><small>AKTİF DETAY ANALİZİ</small>'
+        f"<strong>{html.escape(str(ticker))}</strong></div>"
+    )
+
+
 def _kalemleri_hazirla(items, *, mode: str = "signed"):
     sonuc = []
     for item in items or []:
@@ -87,6 +94,8 @@ def detay_analiz_paketi_hazirla(
     olumlu = karar.get("olumlu") or []
     olumsuz = karar.get("olumsuz") or []
 
+    olumlu_metin = ", ".join(str(x) for x in olumlu) or "Yeterli teyit yok"
+    risk_metin = ", ".join(str(x) for x in olumsuz) or "Belirgin ek risk yok"
     mtf = panel.get("mtf_detay")
     mtf = mtf if isinstance(mtf, dict) else {}
     mtf_metin = " · ".join(
@@ -105,10 +114,7 @@ def detay_analiz_paketi_hazirla(
 
     return {
         "ticker": str(ticker),
-        "aktif_baslik_html": (
-            '<div class="iz-detail-stock-classic"><small>AKTİF DETAY ANALİZİ</small>'
-            f"<strong>{html.escape(str(ticker))}</strong></div>"
-        ),
+        "aktif_baslik_html": detay_aktif_baslik_html(ticker),
         "teknik_panel_html": panel_builder(panel),
         "skor": detay_skor_paketi_hazirla(panel),
         "karar": {
@@ -116,8 +122,9 @@ def detay_analiz_paketi_hazirla(
             "guven": karar.get("guven", 0),
             "risk": karar.get("risk", "—"),
             "mtf_uyum": panel.get("mtf_uyum", 50),
-            "olumlu_metin": ", ".join(str(x) for x in olumlu) or "Yeterli teyit yok",
-            "risk_metin": ", ".join(str(x) for x in olumsuz) or "Belirgin ek risk yok",
+            "olumlu_metin": olumlu_metin,
+            "risk_metin": risk_metin,
+            "ozet_markdown": f"**Olumlu teyitler:** {olumlu_metin}  \n**Riskler:** {risk_metin}",
             "mtf_metin": mtf_metin,
             "raw": karar,
         },
