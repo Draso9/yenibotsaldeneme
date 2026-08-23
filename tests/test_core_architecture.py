@@ -92,7 +92,9 @@ def test_app_imports_extracted_core_modules():
         "izfin_ui.performance_view",
         "izfin_ui.backtest_view",
         "izfin_ui.backtest_results",
+        "izfin_ui.auth_view",
         "izfin_ui.scan_results",
+        "izfin_services.auth_service",
         "izfin_services.backtest_service",
         "izfin_services.yahoo_client",
         "izfin_services.finnhub_client",
@@ -309,4 +311,25 @@ def test_backtest_result_presenter_stays_outside_streamlit_shell():
     assert 'pd.to_datetime(detay_bt["Tarih"]' not in source
     assert "height=min(520, 82 + 35 * len(detay_bt))" not in source
     assert "Bu test artık eski basit dört koşulu değil" not in source
+
+
+def test_auth_session_orchestration_stays_outside_streamlit_shell():
+    source = APP.read_text(encoding="utf-8")
+    assert "from izfin_services.auth_service import (" in source
+    assert "from izfin_ui.auth_view import (" in source
+    assert "AUTH_SESSION_SERVICE.id_token_oturumu_hazirla(" in source
+    assert "AUTH_SESSION_SERVICE.session_cookie_oturumu_hazirla(" in source
+    assert "ACCOUNT_SERVICE.kayit_ol(" in source
+    assert "ACCOUNT_SERVICE.sifre_sifirlama_maili(" in source
+    assert "google_oauth_state_dogrula(" in source
+    assert "google_oauth_url_olustur(" in source
+    assert "captcha_paketi_uret(" in source
+    assert "def _google_state_uret(" not in source
+    assert "def _google_state_dogrula(" not in source
+    assert "def _kayit_ol(" not in source
+    assert "def _sifre_sifirlama_maili(" not in source
+    assert "hmac.new(" not in source
+    assert "hashlib.sha256" not in source
+    assert "pysecrets." not in source
+    assert "len(reg_pass) < 8" not in source
 

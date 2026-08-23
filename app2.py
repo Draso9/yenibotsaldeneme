@@ -10,10 +10,6 @@ import logging
 import json
 import re
 import html
-import secrets as pysecrets
-import hashlib
-import hmac
-from urllib.parse import urlencode
 from zoneinfo import ZoneInfo
 import firebase_admin
 from firebase_admin import credentials, firestore, auth
@@ -94,10 +90,21 @@ from izfin_ui.backtest_view import (
     backtest_kpi_paketi_hazirla,
 )
 from izfin_ui.backtest_results import backtest_sonuc_paketi_hazirla
+from izfin_ui.auth_view import (
+    captcha_paketi_uret,
+    email_gecerli_mi,
+    giris_formu_hatalari,
+    kayit_formu_hatalari,
+)
+from izfin_services.auth_service import (
+    AccountService,
+    AuthSessionService,
+    google_oauth_state_dogrula,
+    google_oauth_url_olustur,
+)
 from izfin_services.backtest_service import backtest_calistir
 from izfin_services.firebase_auth_client import (
     FirebaseAuthClient,
-    firebase_auth_hata_mesaji as _firebase_auth_hata_mesaji,
     google_oauth_kodu_tokena_cevir,
 )
 from izfin_services.finnhub_client import FinnhubClient
@@ -420,9 +427,23 @@ GOOGLE_OAUTH_REDIRECT_URI = _secret_degeri(
 GOOGLE_OAUTH_AUTHORIZE_URL = "https://accounts.google.com/o/oauth2/v2/auth"
 GOOGLE_OAUTH_TOKEN_URL = "https://oauth2.googleapis.com/token"
 
+AUTH_SESSION_SERVICE = AuthSessionService(
+    verify_id_token=auth.verify_id_token,
+    verify_session_cookie=auth.verify_session_cookie,
+    get_user=auth.get_user,
+    create_session_cookie=auth.create_session_cookie,
+    error_handler=lambda context, error: izfin_hata_logla(context, error),
+)
+ACCOUNT_SERVICE = AccountService(
+    FIREBASE_AUTH_CLIENT,
+    USER_REPOSITORY,
+    default_tickers=VARSAYILAN_TICKERS,
+    terms_version=IZFIN_TERMS_VERSION,
+    privacy_version=IZFIN_PRIVACY_VERSION,
+    error_handler=lambda context, error: izfin_hata_logla(context, error),
+)
 
-def _firebase_auth_post(action, payload):
-    return FIREBASE_AUTH_CLIENT.post(action, payload)
+
 
 def _kullanici_liste_doc_id():
     uid = str(st.session_state.get("user_uid") or "").strip()
@@ -440,15 +461,15 @@ def _kullanici_profilini_hazirla(uid, email):
         logging.getLogger("IZFIN").exception("Kullanıcı profili yazılamadı: %s", e)
 
 def _oturum_ac(data, beni_hatirla=False):
-    id_token = str((data or {}).get("idToken") or "")
-    if not id_token:
-        return False, "Firebase ID token alınamadı."
+    oturum, hata = AUTH_SESSION_SERVICE.id_token_oturumu_hazirla(
+        data,
+        remember=beni_hatirla,
+    )
+    if hata:
+        return False, hata
     try:
-        claims = auth.verify_id_token(id_token)
-        uid = str(claims.get("uid") or (data or {}).get("localId") or "")
-        email = str(claims.get("email") or (data or {}).get("email") or "").strip().lower()
-        if not uid or not email:
-            return False, "Kullanıcı kimliği doğrulanamadı."
+        uid = oturum["uid"]
+        email = oturum["email"]
         st.session_state.pop("izfin_yasal_onayli", None)
         st.session_state.pop("izfin_export_json", None)
         st.session_state.user_uid = uid
@@ -457,81 +478,36 @@ def _oturum_ac(data, beni_hatirla=False):
         st.session_state.kullanici_listesi_yuklendi = False
         _kullanici_profilini_hazirla(uid, email)
         if beni_hatirla:
-            expires_in = timedelta(days=14)
-            session_cookie = auth.create_session_cookie(id_token, expires_in=expires_in)
-            # Mevcut cookie'yi önce silmek, istemci tarafındaki asenkron delete/set
-            # bileşenlerinin yarışmasına ve eski hesabın geri yüklenmesine yol açabilir.
-            # Aynı isimle tek bir set işlemi eski değeri atomik olarak değiştirir.
             cookie_manager.set(
                 "izfin_session",
-                session_cookie,
+                oturum["session_cookie"],
                 key="set_izfin_session",
                 path="/",
-                expires_at=datetime.now() + expires_in,
-                max_age=int(expires_in.total_seconds()),
+                expires_at=oturum["expires_at"],
+                max_age=oturum["max_age"],
                 secure=True,
                 same_site="lax",
             )
         else:
             try:
-                cookie_manager.delete("izfin_session", key="delete_izfin_session_no_remember")
+                cookie_manager.delete(
+                    "izfin_session",
+                    key="delete_izfin_session_no_remember",
+                )
             except Exception as e:
                 izfin_hata_logla("silent_exception_line_249", e)
         return True, None
     except Exception as e:
-        izfin_hata_logla("firebase_id_token_dogrulama", e)
+        izfin_hata_logla("firebase_session_state_uygula", e)
         return False, "Güvenli oturum oluşturulamadı. Lütfen tekrar giriş yapın."
 
-def _kayit_ol(email, password, terms_accepted=False, privacy_notice_seen=False):
-    data, err = _firebase_auth_post("signUp", {"email": email, "password": password, "returnSecureToken": True})
-    if err:
-        return None, err
-    uid = str(data.get("localId") or "")
-    if USER_REPOSITORY.available and uid:
-        try:
-            USER_REPOSITORY.upsert_profile(
-                uid,
-                {
-                    "uid": uid,
-                    "email": email,
-                    "olusturma_zamani": datetime.now().isoformat(),
-                    "son_giris": None,
-                    "terms_version": IZFIN_TERMS_VERSION if terms_accepted else None,
-                    "terms_accepted_at": datetime.now().isoformat() if terms_accepted else None,
-                    "privacy_notice_version": IZFIN_PRIVACY_VERSION if privacy_notice_seen else None,
-                    "privacy_notice_shown_at": datetime.now().isoformat() if privacy_notice_seen else None,
-                },
-            )
-        except Exception as e:
-            izfin_hata_logla("kayit_profil_firestore", e)
-        try:
-            USER_REPOSITORY.upsert_watchlist(
-                uid,
-                {
-                    "uid": uid,
-                    "email": email,
-                    "tickers": VARSAYILAN_TICKERS.copy(),
-                    "guncelleme_zamani": datetime.now().isoformat(),
-                },
-            )
-        except Exception as e:
-            izfin_hata_logla("kayit_ilk_kisisel_liste", e)
-    try:
-        _firebase_auth_post("sendOobCode", {"requestType": "VERIFY_EMAIL", "idToken": data.get("idToken")})
-    except Exception as e:
-        izfin_hata_logla("silent_exception_line_283", e)
-    return data, None
-
-def _sifre_sifirlama_maili(email):
-    _, err = _firebase_auth_post("sendOobCode", {"requestType": "PASSWORD_RESET", "email": email})
-    if err:
-        return False, err
-    return True, None
 
 def _captcha_yenile():
-    st.session_state.captcha_a = pysecrets.randbelow(8) + 2
-    st.session_state.captcha_b = pysecrets.randbelow(8) + 2
-    st.session_state.captcha_nonce = pysecrets.token_hex(6)
+    paket = captcha_paketi_uret()
+    st.session_state.captcha_a = paket["a"]
+    st.session_state.captcha_b = paket["b"]
+    st.session_state.captcha_nonce = paket["nonce"]
+
 
 def _captcha_hazirla():
     if "captcha_a" not in st.session_state or "captcha_b" not in st.session_state:
@@ -545,19 +521,19 @@ if "logout_triggered" not in st.session_state:
     st.session_state.logout_triggered = False
 
 if (not st.session_state.user_email) and saved_session_cookie and not st.session_state.logout_triggered:
-    try:
-        claims = auth.verify_session_cookie(str(saved_session_cookie), check_revoked=True)
-        uid = str(claims.get("uid") or "")
-        user = auth.get_user(uid) if uid else None
-        email = str((claims.get("email") if claims else None) or (user.email if user else "") or "").strip().lower()
-        if uid and email:
-            st.session_state.pop("izfin_yasal_onayli", None)
-            st.session_state.pop("izfin_export_json", None)
-            st.session_state.user_uid = uid
-            st.session_state.user_email = email
-            st.session_state.kullanici_listesi_yuklendi = False
-            _kullanici_profilini_hazirla(uid, email)
-    except Exception:
+    oturum, _oturum_hatasi = AUTH_SESSION_SERVICE.session_cookie_oturumu_hazirla(
+        saved_session_cookie
+    )
+    if oturum:
+        uid = oturum["uid"]
+        email = oturum["email"]
+        st.session_state.pop("izfin_yasal_onayli", None)
+        st.session_state.pop("izfin_export_json", None)
+        st.session_state.user_uid = uid
+        st.session_state.user_email = email
+        st.session_state.kullanici_listesi_yuklendi = False
+        _kullanici_profilini_hazirla(uid, email)
+    else:
         try:
             cookie_manager.delete("izfin_session", key="delete_invalid_izfin_session")
         except Exception:
@@ -2336,51 +2312,13 @@ def izfin_mover_clicks(max_n=6):
     _izfin_click_strip([row["ticker"] for row in rows], "classic_mover_click")
 
 
-def _google_state_uret():
-    """OAuth state'i Streamlit session'a bağımlı olmadan imzalar (10 dk geçerli)."""
-    if not GOOGLE_OAUTH_CLIENT_SECRET:
-        return ""
-    ts = str(int(time.time()))
-    nonce = pysecrets.token_urlsafe(16)
-    payload = f"{ts}.{nonce}"
-    sig = hmac.new(
-        GOOGLE_OAUTH_CLIENT_SECRET.encode("utf-8"),
-        payload.encode("utf-8"),
-        hashlib.sha256,
-    ).hexdigest()
-    return f"{payload}.{sig}"
-
-
-def _google_state_dogrula(state):
-    try:
-        ts, nonce, sig = str(state or "").split(".", 2)
-        payload = f"{ts}.{nonce}"
-        beklenen = hmac.new(
-            GOOGLE_OAUTH_CLIENT_SECRET.encode("utf-8"),
-            payload.encode("utf-8"),
-            hashlib.sha256,
-        ).hexdigest()
-        if not hmac.compare_digest(sig, beklenen):
-            return False
-        yas = int(time.time()) - int(ts)
-        return 0 <= yas <= 600
-    except Exception:
-        return False
-
-
 def _google_oauth_url():
-    if not GOOGLE_OAUTH_CLIENT_ID or not GOOGLE_OAUTH_CLIENT_SECRET:
-        return ""
-    params = {
-        "client_id": GOOGLE_OAUTH_CLIENT_ID,
-        "redirect_uri": GOOGLE_OAUTH_REDIRECT_URI,
-        "response_type": "code",
-        "scope": "openid email profile",
-        "state": _google_state_uret(),
-        "prompt": "select_account",
-        "include_granted_scopes": "true",
-    }
-    return GOOGLE_OAUTH_AUTHORIZE_URL + "?" + urlencode(params)
+    return google_oauth_url_olustur(
+        client_id=GOOGLE_OAUTH_CLIENT_ID,
+        client_secret=GOOGLE_OAUTH_CLIENT_SECRET,
+        redirect_uri=GOOGLE_OAUTH_REDIRECT_URI,
+        authorize_url=GOOGLE_OAUTH_AUTHORIZE_URL,
+    )
 
 
 def _google_tokenu_firebase_tokenina_cevir(google_id_token):
@@ -2407,7 +2345,7 @@ def _google_callback_isle():
         return False, "Google girişi tamamlanamadı. Lütfen yeniden deneyin."
     if not code:
         return None
-    if not GOOGLE_OAUTH_CLIENT_SECRET or not _google_state_dogrula(state):
+    if not GOOGLE_OAUTH_CLIENT_SECRET or not google_oauth_state_dogrula(state, GOOGLE_OAUTH_CLIENT_SECRET):
         try: st.query_params.clear()
         except Exception: pass
         return False, "Google oturumu güvenlik doğrulamasından geçemedi. Lütfen yeniden deneyin."
@@ -3010,10 +2948,15 @@ def izfin_auth_ekrani():
                 remember = st.checkbox("Beni hatırla", value=True)
                 login_btn = st.form_submit_button("Giriş Yap", type="primary", use_container_width=True)
             if login_btn:
-                if not email or not password:
-                    st.error("E-posta ve şifre gerekli.")
+                login_errors = giris_formu_hatalari(email, password)
+                if login_errors:
+                    for hata in login_errors:
+                        st.error(hata)
                 else:
-                    data, err = _firebase_auth_post("signInWithPassword", {"email": email, "password": password, "returnSecureToken": True})
+                    data, err = FIREBASE_AUTH_CLIENT.post(
+                        "signInWithPassword",
+                        {"email": email, "password": password, "returnSecureToken": True},
+                    )
                     if err:
                         st.error(err)
                     else:
@@ -3028,10 +2971,10 @@ def izfin_auth_ekrani():
                 reset_email = st.text_input("Şifre sıfırlama e-postası", key="reset_email").strip().lower()
                 reset_btn = st.button("Şifre Sıfırlama Bağlantısı Gönder", key="password_reset_send", use_container_width=True)
                 if reset_btn:
-                    if "@" not in reset_email or "." not in reset_email.split("@")[-1]:
+                    if not email_gecerli_mi(reset_email):
                         st.error("Geçerli bir e-posta adresi girin.")
                     else:
-                        ok, msg = _sifre_sifirlama_maili(reset_email)
+                        ok, msg = ACCOUNT_SERVICE.sifre_sifirlama_maili(reset_email)
                         if ok:
                             st.success("Şifre sıfırlama bağlantısı e-posta adresinize gönderildi.")
                         else:
@@ -3062,20 +3005,21 @@ def izfin_auth_ekrani():
                 )
                 register_btn = st.form_submit_button("Hesabımı Oluştur", type="primary", use_container_width=True)
             if register_btn:
-                errors = []
-                if "@" not in reg_email or "." not in reg_email.split("@")[-1]: errors.append("Geçerli bir e-posta girin.")
-                if reg_pass != reg_pass2: errors.append("Şifreler eşleşmiyor.")
-                if len(reg_pass) < 8 or not re.search(r"[A-ZÇĞİÖŞÜ]", reg_pass) or not re.search(r"[a-zçğıöşü]", reg_pass) or not re.search(r"\d", reg_pass): errors.append("Şifre en az 8 karakter, büyük/küçük harf ve rakam içermeli.")
-                try: captcha_ok = int(captcha.strip()) == int(st.session_state.captcha_a + st.session_state.captcha_b)
-                except Exception: captcha_ok = False
-                if not captcha_ok: errors.append("Doğrulama işlemi yanlış.")
-                if not terms: errors.append("Kullanım koşulları onaylanmalı.")
-                if not privacy_notice_seen: errors.append("KVKK Aydınlatma Metni görüntülenip doğrulanmalı.")
+                errors = kayit_formu_hatalari(
+                    email=reg_email,
+                    password=reg_pass,
+                    password_repeat=reg_pass2,
+                    captcha_answer=captcha,
+                    captcha_a=st.session_state.captcha_a,
+                    captcha_b=st.session_state.captcha_b,
+                    terms_accepted=terms,
+                    privacy_notice_seen=privacy_notice_seen,
+                )
                 if errors:
                     for e in errors: st.error(e)
                     _captcha_yenile()
                 else:
-                    data, err = _kayit_ol(
+                    data, err = ACCOUNT_SERVICE.kayit_ol(
                         reg_email,
                         reg_pass,
                         terms_accepted=terms,
