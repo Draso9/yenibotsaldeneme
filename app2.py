@@ -102,8 +102,10 @@ from izfin_ui.scan_page_view import (
     tarama_odak_basligi_html,
     tarama_odak_meta_html,
     tarama_odak_stili_html,
+    tarama_ilerleme_paketi_hazirla,
     tarama_sayfa_html_paketi_hazirla,
     tarama_secim_ozeti_html,
+    tarama_sonuc_sayfa_paketi_hazirla,
     tarama_sonuc_kpi_html_paketi_hazirla,
     tarama_tablosu_sarmala,
 )
@@ -170,6 +172,13 @@ from izfin_services.firebase_auth_client import (
 from izfin_services.finnhub_client import FinnhubClient
 from izfin_services.scan_service import toplu_veriden_ticker_ayir
 from izfin_services.scan_workflow import scan_workflow_calistir
+from izfin_services.scan_page_state import (
+    hisse_arama_durumu_hazirla,
+    tarama_evreni_hazirla,
+    tarama_sonuc_durumu_hazirla,
+    watchlist_islem_durumu_hazirla,
+)
+from izfin_services.provider_adapters import provider_dataframe_cek, provider_serisi_cek
 from izfin_services.signal_tracking import sinyal_kayitlarini_guncelle
 from izfin_services.performance_maintenance import (
     gecmis_mukerrer_kayitlari_temizle as performans_mukerrer_kayitlari_temizle,
@@ -705,11 +714,12 @@ def _finnhub_get(endpoint, params, timeout=3, max_retry=2):
 
 @st.cache_data(ttl=900, show_spinner=False)
 def taze_veri_indir(tickers_tuple):
-    try:
-        return toplu_gunluk_veri_indir(tickers_tuple)
-    except Exception as e:
-        izfin_hata_logla("yahoo_toplu_gunluk", e)
-        return pd.DataFrame()
+    return provider_dataframe_cek(
+        toplu_gunluk_veri_indir,
+        tickers_tuple,
+        error_handler=izfin_hata_logla,
+        error_context="yahoo_toplu_gunluk",
+    )
 
 @st.cache_data(ttl=20, show_spinner=False)
 def finnhub_quote_cek(ticker):
@@ -719,11 +729,15 @@ def finnhub_quote_cek(ticker):
 
 @st.cache_data(ttl=20, show_spinner=False)
 def intraday_veri_cek(ticker, interval="5m", period="5d"):
-    try:
-        return intraday_veri_indir(ticker, interval=interval, period=period)
-    except Exception as e:
-        izfin_hata_logla("yahoo_intraday_tekil", e, ticker)
-        return pd.DataFrame()
+    return provider_dataframe_cek(
+        intraday_veri_indir,
+        ticker,
+        interval=interval,
+        period=period,
+        error_handler=izfin_hata_logla,
+        error_context="yahoo_intraday_tekil",
+        ticker=ticker,
+    )
 
 
 @st.cache_data(ttl=30, show_spinner=False)
@@ -731,15 +745,14 @@ def toplu_intraday_veri_cek(tickers_tuple, interval="5m", period="5d"):
     """Tüm varlıkların gün içi verisini tek Yahoo isteğinde indirir."""
     if not tickers_tuple:
         return pd.DataFrame()
-    try:
-        return toplu_intraday_veri_indir(
-            tickers_tuple,
-            interval=interval,
-            period=period,
-        )
-    except Exception as e:
-        izfin_hata_logla("yahoo_intraday_toplu", e)
-        return pd.DataFrame()
+    return provider_dataframe_cek(
+        toplu_intraday_veri_indir,
+        tickers_tuple,
+        interval=interval,
+        period=period,
+        error_handler=izfin_hata_logla,
+        error_context="yahoo_intraday_toplu",
+    )
 
 
 # --- GELİŞMİŞ TEKNİK / DOĞRULAMA MOTORU ---
@@ -752,11 +765,15 @@ def basit_backtest(ticker, period='5y'):
 # --- KAPANAN DÖNEM PERFORMANS VERİSİ ---
 @st.cache_data(ttl=1800, show_spinner=False)
 def _donem_ohlc_cek(ticker, baslangic_iso, bitis_iso):
-    try:
-        return donem_ohlc_indir(ticker, baslangic_iso, bitis_iso)
-    except Exception as e:
-        izfin_hata_logla("kapanan_donem_ohlc", e, ticker)
-        return pd.DataFrame()
+    return provider_dataframe_cek(
+        donem_ohlc_indir,
+        ticker,
+        baslangic_iso,
+        bitis_iso,
+        error_handler=izfin_hata_logla,
+        error_context="kapanan_donem_ohlc",
+        ticker=ticker,
+    )
 
 
 def kapanan_donem_istatistikleri(ticker, giris, acilis_zamani, kapanis_zamani, ilk_stop=None, ilk_tp1=None, ilk_tp2=None, ilk_tp3=None):
@@ -854,10 +871,14 @@ def performans_fiyatlarini_guncelle(kayitlar):
 
 def _gunluk_kapanis_serisi(ticker, period="1y"):
     """Performans karnesi için temiz günlük kapanış serisi döndürür."""
-    try:
-        return gunluk_kapanis_serisi_indir(ticker, period=period)
-    except Exception:
-        return pd.Series(dtype=float)
+    return provider_serisi_cek(
+        gunluk_kapanis_serisi_indir,
+        ticker,
+        period=period,
+        error_handler=izfin_hata_logla,
+        error_context="performans_gunluk_kapanis",
+        ticker=ticker,
+    )
 
 
 def performans_karnelerini_guncelle(kayitlar):
@@ -937,8 +958,13 @@ if "secilen_varliklar" not in st.session_state: st.session_state.secilen_varlikl
 
 def profil_degisti():
     p = st.session_state.profil_selectbox_key
-    st.session_state.aktif_profil = p
-    st.session_state.secilen_varliklar = preset_options[p].copy()
+    evren = tarama_evreni_hazirla(
+        p,
+        st.session_state.get("custom_tickers", []),
+        preset_options,
+    )
+    st.session_state.aktif_profil = evren["profil"]
+    st.session_state.secilen_varliklar = evren["tickers"]
 
 def hisse_ekle_callback():
     sonuc = watchlist_sembol_ekle(
@@ -952,13 +978,14 @@ def hisse_ekle_callback():
             context, error, ticker=ticker
         ),
     )
-    st.session_state.custom_tickers = sonuc["tickers"]
-    if sonuc["ok"]:
-        st.session_state.aktif_profil = "Kendi Listem"
-        st.session_state.secilen_varliklar = sonuc["tickers"].copy()
-    if sonuc["clear_input"]:
+    durum = watchlist_islem_durumu_hazirla(sonuc)
+    st.session_state.custom_tickers = durum["custom_tickers"]
+    if durum["aktif_profil"]:
+        st.session_state.aktif_profil = durum["aktif_profil"]
+        st.session_state.secilen_varliklar = durum["secilen_varliklar"]
+    if durum["clear_input"]:
         st.session_state["ek_hisse_input_field"] = ""
-    st.session_state["liste_islem_mesaji"] = (sonuc["status"], sonuc["message"])
+    st.session_state["liste_islem_mesaji"] = durum["mesaj"]
 
 def hisse_sil_callback():
     sonuc = watchlist_sembolleri_sil(
@@ -971,13 +998,14 @@ def hisse_sil_callback():
             context, error, ticker=ticker
         ),
     )
-    st.session_state.custom_tickers = sonuc["tickers"]
-    if sonuc["ok"]:
-        st.session_state.aktif_profil = "Kendi Listem"
-        st.session_state.secilen_varliklar = sonuc["tickers"].copy()
-    if sonuc["clear_input"]:
+    durum = watchlist_islem_durumu_hazirla(sonuc)
+    st.session_state.custom_tickers = durum["custom_tickers"]
+    if durum["aktif_profil"]:
+        st.session_state.aktif_profil = durum["aktif_profil"]
+        st.session_state.secilen_varliklar = durum["secilen_varliklar"]
+    if durum["clear_input"]:
         st.session_state.sil_hisse_input_field = ""
-    st.session_state["liste_islem_mesaji"] = (sonuc["status"], sonuc["message"])
+    st.session_state["liste_islem_mesaji"] = durum["mesaj"]
 
 
 # --- IZFIN SIGNATURE UI ---
@@ -1888,24 +1916,23 @@ if aktif_sayfa in ["🏠 Ana Sayfa", "🔎 Akıllı Tarama"]:
                     type="secondary",
                 )
 
-            # Yazı değiştiğinde Streamlit zaten rerun eder; Ara butonu da aynı akışı tetikler.
-            # Böylece hem Enter hem tıklama kullanılabilir.
-            _arama_q = _arama.strip()
-            _son_arama = str(st.session_state.get("_son_hisse_arama", "") or "")
-            _arama_degisti = bool(_arama_q) and (_arama_q != _son_arama)
-            _arama_aktif = bool(_arama_q) and (_ara_tiklandi or _arama_degisti)
-
-            if _arama_aktif:
+            _arama_durumu = hisse_arama_durumu_hazirla(
+                _arama,
+                _ara_tiklandi,
+                st.session_state.get("_son_hisse_arama"),
+                st.session_state.get("_son_hisse_onerileri", []),
+            )
+            _arama_q = _arama_durumu["sorgu"]
+            if _arama_durumu["fetch_gerekli"]:
                 with st.spinner("Piyasalarda aranıyor..."):
                     _oneriler = hisse_onerileri_getir(_arama_q)
                 st.session_state["_son_hisse_arama"] = _arama_q
                 st.session_state["_son_hisse_onerileri"] = _oneriler
-            elif _arama_q:
-                _oneriler = st.session_state.get("_son_hisse_onerileri", [])
             else:
-                _oneriler = []
-                st.session_state["_son_hisse_arama"] = ""
-                st.session_state["_son_hisse_onerileri"] = []
+                _oneriler = _arama_durumu["oneriler"]
+                if not _arama_q:
+                    st.session_state["_son_hisse_arama"] = ""
+                    st.session_state["_son_hisse_onerileri"] = []
 
             if _oneriler:
                 st.caption(f"🔎 {len(_oneriler)} eşleşme bulundu")
@@ -1942,14 +1969,12 @@ if aktif_sayfa in ["🏠 Ana Sayfa", "🔎 Akıllı Tarama"]:
                             context, error, ticker=ticker
                         ),
                     )
-                    st.session_state.custom_tickers = _ekleme_sonucu["tickers"]
-                    if _ekleme_sonucu["ok"]:
-                        st.session_state.aktif_profil = "Kendi Listem"
-                        st.session_state.secilen_varliklar = _ekleme_sonucu["tickers"].copy()
-                    st.session_state["liste_islem_mesaji"] = (
-                        _ekleme_sonucu["status"],
-                        _ekleme_sonucu["message"],
-                    )
+                    _ekleme_durumu = watchlist_islem_durumu_hazirla(_ekleme_sonucu)
+                    st.session_state.custom_tickers = _ekleme_durumu["custom_tickers"]
+                    if _ekleme_durumu["aktif_profil"]:
+                        st.session_state.aktif_profil = _ekleme_durumu["aktif_profil"]
+                        st.session_state.secilen_varliklar = _ekleme_durumu["secilen_varliklar"]
+                    st.session_state["liste_islem_mesaji"] = _ekleme_durumu["mesaj"]
                     st.rerun()
             elif _arama.strip():
                 st.warning("Bu aramayla eşleşen piyasa sembolü bulunamadı.")
@@ -2003,39 +2028,21 @@ if aktif_sayfa in ["🏠 Ana Sayfa", "🔎 Akıllı Tarama"]:
                 help="Hazır piyasa profili seçebilir veya Kendi Listem ile kişisel listenizi tarayabilirsiniz.",
             )
 
-            # v1.7.19 — Ayrı "Taranacak Varlıklar" seçicisi kaldırıldı.
-            # Profil Kendi Listem ise kullanıcının Firebase'deki kişisel listesi doğrudan taranır.
-            # Diğer hazır profiller seçilirse ilgili preset doğrudan kullanılır.
-            if st.session_state.aktif_profil == "Kendi Listem":
-                selected_tickers = list(dict.fromkeys([
-                    str(x).strip().upper()
-                    for x in st.session_state.custom_tickers
-                    if str(x).strip()
-                ]))
-                st.session_state.secilen_varliklar = selected_tickers.copy()
-
-                st.markdown(
-                    aktif_tarama_evreni_html(
-                        "Kendi Listem", selected_tickers, chipleri_goster=True
-                    ),
-                    unsafe_allow_html=True,
-                )
-            else:
-                selected_tickers = list(dict.fromkeys([
-                    str(x).strip().upper()
-                    for x in preset_options.get(st.session_state.aktif_profil, [])
-                    if str(x).strip()
-                ]))
-                st.session_state.secilen_varliklar = selected_tickers.copy()
-
-                st.markdown(
-                    aktif_tarama_evreni_html(
-                        st.session_state.aktif_profil,
-                        selected_tickers,
-                        chipleri_goster=False,
-                    ),
-                    unsafe_allow_html=True,
-                )
+            scan_evreni = tarama_evreni_hazirla(
+                st.session_state.aktif_profil,
+                st.session_state.custom_tickers,
+                preset_options,
+            )
+            selected_tickers = scan_evreni["tickers"]
+            st.session_state.secilen_varliklar = selected_tickers.copy()
+            st.markdown(
+                aktif_tarama_evreni_html(
+                    scan_evreni["profil"],
+                    selected_tickers,
+                    chipleri_goster=scan_evreni["chipleri_goster"],
+                ),
+                unsafe_allow_html=True,
+            )
 
             st.markdown(
                 tarama_secim_ozeti_html(len(selected_tickers)),
@@ -2070,37 +2077,26 @@ if aktif_sayfa in ["🏠 Ana Sayfa", "🔎 Akıllı Tarama"]:
                 ilerleme = st.progress(0, text="Tarama hazırlanıyor...")
 
                 def _scan_workflow_progress(event):
-                    stage = event.get("stage")
-                    if stage == "data_ready":
+                    ilerleme_paketi = tarama_ilerleme_paketi_hazirla(event)
+                    if ilerleme_paketi is None:
+                        return
+                    overlay = ilerleme_paketi["overlay"]
+                    if overlay:
                         tarama_overlay.markdown(
                             izfin_tarama_overlay_html(
-                                12,
-                                "Veriler hazır",
-                                "Teknik motor ve piyasa referansları hazırlanıyor…",
-                                "Trend · momentum · MTF · risk · para akışı",
+                                overlay["yuzde"],
+                                overlay["baslik"],
+                                overlay["durum"],
+                                overlay["detay"],
                             ),
                             unsafe_allow_html=True,
                         )
-                    elif stage == "ticker":
-                        sira = int(event.get("index", 1))
-                        toplam_ticker = max(int(event.get("total", 1)), 1)
-                        ticker = str(event.get("ticker", ""))
+                    progress = ilerleme_paketi["progress"]
+                    if progress:
                         ilerleme.progress(
-                            (sira - 1) / toplam_ticker,
-                            text=f"{ticker} analiz ediliyor ({sira}/{toplam_ticker})",
+                            progress["deger"],
+                            text=progress["metin"],
                         )
-                        _overlay_pct = 15 + int(((sira - 1) / toplam_ticker) * 77)
-                        tarama_overlay.markdown(
-                            izfin_tarama_overlay_html(
-                                _overlay_pct,
-                                f"{ticker} analiz ediliyor",
-                                "IZFIN karar motoru göstergeleri değerlendiriyor…",
-                                f"{sira}/{toplam_ticker} varlık · skor · güven · MTF · risk",
-                            ),
-                            unsafe_allow_html=True,
-                        )
-                    elif stage == "complete":
-                        ilerleme.progress(1.0, text="Tarama tamamlandı")
 
                 tarama_paketi = scan_workflow_calistir(
                     tuple(selected_tickers),
@@ -2115,27 +2111,23 @@ if aktif_sayfa in ["🏠 Ana Sayfa", "🔎 Akıllı Tarama"]:
                     progress_callback=_scan_workflow_progress,
                 )
 
-                gecici_sonuclar = tarama_paketi["sonuclar"]
-                gecici_sozlu_analizler = tarama_paketi["sozlu_analizler"]
-                gecici_teknik_paneller = tarama_paketi["teknik_paneller"]
-                basarisi_cekilemeyen_varliklar = tarama_paketi["basarisiz_taramalar"]
-                boga_sayisi = tarama_paketi["boga_sayisi"]
-                alim_firsati = tarama_paketi["alim_firsati"]
-
+                tarama_durumu = tarama_sonuc_durumu_hazirla(tarama_paketi)
+                gecici_sonuclar = tarama_durumu["sonuclar"]
+                gecici_teknik_paneller = tarama_durumu["teknik_paneller"]
                 st.session_state.sonuclar = gecici_sonuclar
-                st.session_state.sozlu_analizler = gecici_sozlu_analizler
+                st.session_state.sozlu_analizler = tarama_durumu["sozlu_analizler"]
                 st.session_state.teknik_paneller = gecici_teknik_paneller
-                st.session_state.basarisiz_taramalar = basarisi_cekilemeyen_varliklar
-                st.session_state.boga_sayisi = boga_sayisi
-                st.session_state.alim_firsati = alim_firsati
-                st.session_state.tarama_durumu = True
+                st.session_state.basarisiz_taramalar = tarama_durumu["basarisiz_taramalar"]
+                st.session_state.boga_sayisi = tarama_durumu["boga_sayisi"]
+                st.session_state.alim_firsati = tarama_durumu["alim_firsati"]
+                st.session_state.tarama_durumu = tarama_durumu["tarama_durumu"]
 
                 tarama_overlay.markdown(
                     izfin_tarama_overlay_html(
                         96,
                         "Tarama tamamlanıyor",
                         "Sonuçlar ve performans kayıtları hazırlanıyor…",
-                        f"{len(gecici_sonuclar)} başarılı · {len(basarisi_cekilemeyen_varliklar)} atlanan",
+                        f"{tarama_durumu['basarili_adet']} başarılı · {tarama_durumu['atlanan_adet']} atlanan",
                     ),
                     unsafe_allow_html=True,
                 )
@@ -2159,6 +2151,7 @@ if aktif_sayfa in ["🏠 Ana Sayfa", "🔎 Akıllı Tarama"]:
                 tarama_overlay.empty()
 
     if aktif_sayfa == "🔎 Akıllı Tarama" and st.session_state.tarama_durumu:
+        sonuc_sayfa = tarama_sonuc_sayfa_paketi_hazirla()
         if st.session_state.basarisiz_taramalar:
             st.warning(f"⚠️ Veri/hesaplama sorunu nedeniyle es geçilen varlıklar: **{', '.join(st.session_state.basarisiz_taramalar)}**")
         if st.session_state.get("taramada_hatalar"):
@@ -2172,7 +2165,7 @@ if aktif_sayfa in ["🏠 Ana Sayfa", "🔎 Akıllı Tarama"]:
                 st.caption("İlk hata bağlamları: " + " · ".join(hata_ozeti["ornekler"]))
 
         if not st.session_state.sonuclar:
-            st.error("❌ Veriler çekilemedi. Yukarıdaki Tarama Evreni bölümünden farklı bir profil veya varlık grubu seçip tekrar deneyin.")
+            st.error(sonuc_sayfa["bos_tarama_mesaji"])
         else:
             sonuc_kpi_html = tarama_sonuc_kpi_html_paketi_hazirla(
                 len(st.session_state.sonuclar),
@@ -2185,22 +2178,22 @@ if aktif_sayfa in ["🏠 Ana Sayfa", "🔎 Akıllı Tarama"]:
             
             st.markdown("<br>", unsafe_allow_html=True)
             sonuc_filtresi = st.radio(
-                "Gösterilecek sonuçlar",
+                sonuc_sayfa["filtre_label"],
                 options=["Tümü", "AL Sinyalleri", "Uzun Vadeli Adaylar", "Teyit Bekleyenler"],
                 horizontal=True,
                 key="sonuc_gosterim_filtresi",
-                help=(
-                    "AL Sinyalleri merkezi karar motorunun AL yönündeki sonuçlarını; "
-                    "Uzun Vadeli Adaylar teknik profili gerçekten UZUN VADELİ ADAY olanları; "
-                    "Teyit Bekleyenler ise merkezi kararı teyit/izle olanları gösterir."
-                ),
+                help=sonuc_sayfa["filtre_help"],
             )
 
             df_sonuc = tarama_sonuclarini_filtrele(
                 st.session_state.sonuclar,
                 sonuc_filtresi,
             )
-            st.caption(f"{len(df_sonuc)} sonuç gösteriliyor · Filtre: {sonuc_filtresi}")
+            sonuc_sayfa = tarama_sonuc_sayfa_paketi_hazirla(
+                sonuc_filtresi,
+                sonuc_adedi=len(df_sonuc),
+            )
+            st.caption(sonuc_sayfa["filtre_ozeti"])
 
             if not df_sonuc.empty:
                 if "izfin_scan_table_focus" not in st.session_state:
@@ -2245,8 +2238,8 @@ if aktif_sayfa in ["🏠 Ana Sayfa", "🔎 Akıllı Tarama"]:
 
                 title_col, action_col = st.columns([5.7, 1.3], vertical_alignment="center")
                 with title_col:
-                    st.markdown("### Akıllı Tarama Sonuçları")
-                    st.caption("Ana tablo karar vermeyi kolaylaştıran temel alanları gösterir; ayrıntılı teknik panel aşağıda açılır.")
+                    st.markdown(sonuc_sayfa["tablo_baslik"])
+                    st.caption(sonuc_sayfa["tablo_aciklama"])
                 with action_col:
                     if st.button(
                         "⛶ Tabloyu Genişlet",
@@ -2273,7 +2266,7 @@ if aktif_sayfa in ["🏠 Ana Sayfa", "🔎 Akıllı Tarama"]:
                     )
 
                 st.markdown('<div id="izfin-detail-anchor"></div>', unsafe_allow_html=True)
-                st.markdown("### 📊 Detaylı Teknik Analiz & Gösterge Paneli")
+                st.markdown(sonuc_sayfa["detay_baslik"])
                 _detay_paketi = detay_secimi_hazirla(
                     df_sonuc,
                     pending_ticker=st.session_state.pop("izfin_pending_detail_ticker", None),
@@ -2355,12 +2348,9 @@ if aktif_sayfa in ["🏠 Ana Sayfa", "🔎 Akıllı Tarama"]:
                             st.caption(karar_view["mtf_metin"])
                         st.markdown(detay_view["aksiyon_html"], unsafe_allow_html=True)
                     else:
-                        st.info("Bu varlık için teknik panel verisi bulunamadı. Derin taramayı yeniden çalıştırın.")
+                        st.info(sonuc_sayfa["panel_yok_mesaji"])
             else:
-                st.info(
-                    f"{sonuc_filtresi} filtresine uyan sonuç bulunamadı. "
-                    "Diğer filtrelerden birini seçebilir veya taramayı daha sonra yenileyebilirsiniz."
-                )
+                st.info(sonuc_sayfa["bos_filtre_mesaji"])
 
 
 if aktif_sayfa == "🎯 Projeksiyon & Senaryo":

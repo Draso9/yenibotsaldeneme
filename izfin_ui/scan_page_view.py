@@ -144,3 +144,67 @@ def tarama_odak_meta_html(varlik_adedi: int, filtre: Any) -> str:
 
 def tarama_tablosu_sarmala(tablo_html: str) -> str:
     return '<div class="iz-scan-table-wrap">' + str(tablo_html) + "</div>"
+
+
+def tarama_ilerleme_paketi_hazirla(event: dict[str, Any] | None) -> dict[str, Any] | None:
+    """Build renderer-ready progress copy for a scan-workflow event."""
+    event = dict(event or {})
+    stage = event.get("stage")
+    if stage == "data_ready":
+        return {
+            "overlay": {
+                "yuzde": 12,
+                "baslik": "Veriler hazır",
+                "durum": "Teknik motor ve piyasa referansları hazırlanıyor…",
+                "detay": "Trend · momentum · MTF · risk · para akışı",
+            },
+            "progress": None,
+        }
+    if stage == "ticker":
+        sira = max(int(event.get("index", 1) or 1), 1)
+        toplam = max(int(event.get("total", 1) or 1), 1)
+        ticker = str(event.get("ticker", "") or "")
+        return {
+            "overlay": {
+                "yuzde": 15 + int(((sira - 1) / toplam) * 77),
+                "baslik": f"{ticker} analiz ediliyor",
+                "durum": "IZFIN karar motoru göstergeleri değerlendiriyor…",
+                "detay": f"{sira}/{toplam} varlık · skor · güven · MTF · risk",
+            },
+            "progress": {
+                "deger": (sira - 1) / toplam,
+                "metin": f"{ticker} analiz ediliyor ({sira}/{toplam})",
+            },
+        }
+    if stage == "complete":
+        return {"overlay": None, "progress": {"deger": 1.0, "metin": "Tarama tamamlandı"}}
+    return None
+
+
+def tarama_sonuc_sayfa_paketi_hazirla(
+    sonuc_filtresi: Any | None = None,
+    *,
+    sonuc_adedi: int | None = None,
+) -> dict[str, str]:
+    """Return fixed and dynamic scan-results copy outside the Streamlit shell."""
+    filtre = str(sonuc_filtresi or "")
+    paket = {
+        "filtre_label": "Gösterilecek sonuçlar",
+        "filtre_help": (
+            "AL Sinyalleri merkezi karar motorunun AL yönündeki sonuçlarını; "
+            "Uzun Vadeli Adaylar teknik profili gerçekten UZUN VADELİ ADAY olanları; "
+            "Teyit Bekleyenler ise merkezi kararı teyit/izle olanları gösterir."
+        ),
+        "tablo_baslik": "### Akıllı Tarama Sonuçları",
+        "tablo_aciklama": "Ana tablo karar vermeyi kolaylaştıran temel alanları gösterir; ayrıntılı teknik panel aşağıda açılır.",
+        "detay_baslik": "### 📊 Detaylı Teknik Analiz & Gösterge Paneli",
+        "panel_yok_mesaji": "Bu varlık için teknik panel verisi bulunamadı. Derin taramayı yeniden çalıştırın.",
+        "bos_tarama_mesaji": "❌ Veriler çekilemedi. Yukarıdaki Tarama Evreni bölümünden farklı bir profil veya varlık grubu seçip tekrar deneyin.",
+    }
+    if sonuc_adedi is not None:
+        paket["filtre_ozeti"] = f"{max(int(sonuc_adedi), 0)} sonuç gösteriliyor · Filtre: {filtre}"
+        paket["bos_filtre_mesaji"] = (
+            f"{filtre} filtresine uyan sonuç bulunamadı. "
+            "Diğer filtrelerden birini seçebilir veya taramayı daha sonra yenileyebilirsiniz."
+        )
+    return paket

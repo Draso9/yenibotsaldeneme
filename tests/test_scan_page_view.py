@@ -5,7 +5,9 @@ from izfin_ui.scan_page_view import (
     tarama_odak_basligi_html,
     tarama_odak_meta_html,
     tarama_odak_stili_html,
+    tarama_ilerleme_paketi_hazirla,
     tarama_sayfa_html_paketi_hazirla,
+    tarama_sonuc_sayfa_paketi_hazirla,
     tarama_secim_ozeti_html,
     tarama_sonuc_kpi_html_paketi_hazirla,
     tarama_tablosu_sarmala,
@@ -53,3 +55,14 @@ def test_scan_results_chrome_keeps_kpi_focus_and_table_contracts():
     assert tarama_tablosu_sarmala("<table></table>") == (
         '<div class="iz-scan-table-wrap"><table></table></div>'
     )
+
+
+def test_scan_progress_and_results_view_models_preserve_existing_copy():
+    ticker = tarama_ilerleme_paketi_hazirla({"stage": "ticker", "index": 2, "total": 4, "ticker": "AAPL"})
+    assert ticker["overlay"]["yuzde"] == 34
+    assert ticker["progress"] == {"deger": 0.25, "metin": "AAPL analiz ediliyor (2/4)"}
+    assert tarama_ilerleme_paketi_hazirla({"stage": "complete"})["progress"]["metin"] == "Tarama tamamlandı"
+
+    paket = tarama_sonuc_sayfa_paketi_hazirla("Tümü", sonuc_adedi=3)
+    assert paket["filtre_ozeti"] == "3 sonuç gösteriliyor · Filtre: Tümü"
+    assert "Tümü filtresine uyan sonuç bulunamadı." in paket["bos_filtre_mesaji"]
