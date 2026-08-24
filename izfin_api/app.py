@@ -41,7 +41,11 @@ def create_app(
     rate_limit_window_seconds: int = 60,
 ) -> FastAPI:
     """Create an API instance without importing or initializing Streamlit."""
-    app = FastAPI(title="IZFIN API", version="0.1.0")
+    app = FastAPI(
+        title="IZFIN API",
+        version="0.1.0",
+        description="IZFIN istemcileri için sürümlü, Firebase korumalı API.",
+    )
     if scan_job_store is None and scan_runner is not None:
         scan_job_store = ScanJobStore()
     if legal_consent_service is None and user_repository is not None:

@@ -66,3 +66,10 @@ def test_rate_limit_returns_429_and_health_is_exempt():
     assert 1 <= int(limited.headers["Retry-After"]) <= 60
     assert limited.headers["X-Request-ID"]
     assert client.get("/api/v1/health").status_code == 200
+
+
+def test_openapi_declares_bearer_security_and_rate_limit_response():
+    schema = TestClient(create_app()).get("/openapi.json").json()
+
+    assert schema["components"]["securitySchemes"]["HTTPBearer"]["scheme"] == "bearer"
+    assert "429" in schema["paths"]["/api/v1/scan/jobs"]["post"]["responses"]
