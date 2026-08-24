@@ -1,1 +1,0 @@
-Trigger UI6G performance-refresh PR gate. Remove before merge.
