@@ -181,7 +181,7 @@ Run: `.venv/bin/python -m pytest tests/test_api_scan_jobs.py tests/test_api_foun
 
 Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add izfin_api/runtime.py tests/test_api_foundation.py
@@ -197,13 +197,13 @@ git commit -m "feat: forward scan workflow progress to API jobs"
 - Consumes: all changes from Tasks 1–3.
 - Produces: a green, reviewable feature branch with no Streamlit regression.
 
-- [ ] **Step 1: Run full test suite**
+- [x] **Step 1: Run full test suite**
 
 Run: `.venv/bin/python -m pytest -q`
 
 Expected: PASS.
 
-- [ ] **Step 2: Run Streamlit and static checks**
+- [x] **Step 2: Run Streamlit and static checks**
 
 ```bash
 .venv/bin/python -m pytest tests/test_apptest_smoke.py -q
@@ -213,7 +213,7 @@ git diff --check
 
 Expected: every command exits 0.
 
-- [ ] **Step 3: Review branch scope**
+- [x] **Step 3: Review branch scope**
 
 Run: `git diff --stat develop...HEAD && git status --short`
 
