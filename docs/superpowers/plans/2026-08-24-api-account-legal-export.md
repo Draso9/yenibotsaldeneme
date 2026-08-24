@@ -221,13 +221,13 @@ git commit -m "feat: add consent and account export API"
 
 **Interfaces:** Consumes Tasks 1-3 and produces one green PR to `develop`.
 
-- [ ] **Step 1: Run focused regressions**
+- [x] **Step 1: Run focused regressions**
 
 Run: `.venv/bin/python -m pytest tests/test_api_foundation.py tests/test_api_account_legal_export.py tests/test_account_data_service.py tests/test_auth_service.py tests/test_legal_account_view.py -q`
 
 Expected: PASS.
 
-- [ ] **Step 2: Run complete quality gate**
+- [x] **Step 2: Run complete quality gate**
 
 ```bash
 .venv/bin/python -m pytest -q
@@ -238,7 +238,7 @@ git diff --check
 
 Expected: every command exits 0.
 
-- [ ] **Step 3: Inspect branch scope**
+- [x] **Step 3: Inspect branch scope**
 
 Run: `git diff --stat origin/develop...HEAD && git status --short`
 
