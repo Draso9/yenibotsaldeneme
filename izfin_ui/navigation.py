@@ -5,6 +5,16 @@ from __future__ import annotations
 import re
 
 
+def brand_html(logo_base64: str) -> str:
+    return f"""
+    <div class="iz-brand">
+      <div class="iz-brand-symbol">
+        <img src="data:image/png;base64,{logo_base64}" alt="IZFIN sembolü">
+      </div>
+      <div><div class="iz-brand-name">IZFIN</div><div class="iz-brand-tag">ANALYZE • PREDICT • INVEST</div></div>
+    </div>"""
+
+
 HOME_PAGE = "🏠 Ana Sayfa"
 ADMIN_PAGE = "🛠️ Sistem Sağlığı"
 BASE_NAV_ITEMS = (
@@ -60,3 +70,4 @@ def navigation_paketi_hazirla(
         "aktif_sayfa": sayfa,
         "redirected": redirected,
     }
+
