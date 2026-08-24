@@ -10,6 +10,7 @@ CSS = ROOT / "styles" / "izfin.css"
 BASELINE = ROOT / "qa" / "quality_baseline.json"
 MARKET_UNIVERSE = ROOT / "izfin_core" / "market_universe.py"
 HOME_DASHBOARD = ROOT / "izfin_ui" / "home_dashboard.py"
+QUALITY_SERVICE = ROOT / "izfin_services" / "quality_service.py"
 
 def _metrics():
     app = APP.read_text(encoding="utf-8")
@@ -60,9 +61,10 @@ def test_qa_helpers_and_renderer_exist():
 
 
 def test_invalid_design_tokens_are_release_blockers():
-    source = APP.read_text(encoding="utf-8")
+    source = QUALITY_SERVICE.read_text(encoding="utf-8")
     assert 'metrics.get("gecersiz_design_token", 0)' in source
     assert '"durum": "KONTROL GEREKİYOR"' in source
+    assert "return qa_release_status(metrics)" in APP.read_text(encoding="utf-8")
 
 def test_critical_ui_markers_remain_present():
     source = (
@@ -88,3 +90,4 @@ def test_qa_center_is_wired_to_navigation():
     assert '"🛠️ Sistem Sağlığı"' in source
     assert 'if aktif_sayfa == "🛠️ Sistem Sağlığı":' in source
     assert "izfin_qa_center_render()" in source
+

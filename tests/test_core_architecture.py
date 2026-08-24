@@ -461,3 +461,18 @@ def test_ui6j_dashboard_html_and_movers_stay_outside_streamlit_shell():
     assert 'class="iz-best-setup-copy' not in source
     assert 'class="iz-mv1827-card"' not in source
     assert "mover_rows.append(" not in source
+
+
+def test_ui6k_qa_and_shell_chrome_logic_stays_outside_streamlit_shell():
+    source = APP.read_text(encoding="utf-8")
+    assert "from izfin_services.quality_service import" in source
+    assert "from izfin_ui.qa_view import" in source
+    assert "qa_static_metrics(app_source, css_source)" in source
+    assert "qa_sayfa_paketi_hazirla(metrics, status" in source
+    assert "return brand_html(IZFIN_LOGO_GEOCENTER_B64)" in source
+    assert "return tarama_overlay_html(yuzde, baslik, durum, detay)" in source
+    assert "token_definitions = {" not in source
+    assert 'cards = [' not in source
+    assert 'class="iz-qa-status' not in source
+    assert 'class="iz-scan-lock-overlay' not in source
+

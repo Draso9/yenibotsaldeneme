@@ -61,6 +61,7 @@ from izfin_ui.detail_analysis import (
 )
 from izfin_ui.scan_table import (
     sortable_table_script,
+    tarama_overlay_html,
     tarama_genis_ozet_html,
     tarama_tablosu_html,
 )
@@ -99,8 +100,10 @@ from izfin_ui.backtest_results import backtest_sonuc_paketi_hazirla
 from izfin_ui.navigation import (
     admin_email_listesi_hazirla,
     admin_mi as navigation_admin_mi,
+    brand_html,
     navigation_paketi_hazirla,
 )
+from izfin_ui.qa_view import qa_aktif_pozisyon_ornekleri, qa_sayfa_paketi_hazirla
 from izfin_ui.auth_view import (
     captcha_paketi_uret,
     email_gecerli_mi,
@@ -138,6 +141,7 @@ from izfin_services.performance_refresh import (
     performans_karnelerini_yenile,
 )
 from izfin_services.market_overview import piyasa_bandi_paketi_hazirla
+from izfin_services.quality_service import qa_release_status, qa_static_metrics
 from izfin_services.yahoo_client import (
     donem_ohlc_indir,
     gunluk_kapanis_serisi_indir,
@@ -611,36 +615,7 @@ def izfin_qa_static_metrics(app_source=None, css_source=None):
             app_source = Path(__file__).read_text(encoding="utf-8")
         if css_source is None:
             css_source = (Path(__file__).resolve().parent / "styles" / "izfin.css").read_text(encoding="utf-8")
-        small = [
-            float(x)
-            for x in re.findall(r"font-size\s*:\s*([0-9]+(?:\.[0-9]+)?)px", css_source, flags=re.I)
-            if float(x) < 10
-        ]
-        token_definitions = {
-            name: value.strip()
-            for name, value in re.findall(
-                r"(--iz-[A-Za-z0-9_-]+)\s*:\s*([^;}]+)", css_source
-            )
-        }
-        token_uses = set(re.findall(r"var\((--iz-[A-Za-z0-9_-]+)", css_source))
-        self_referencing_tokens = {
-            name for name, value in token_definitions.items()
-            if f"var({name})" in value
-        }
-        undefined_tokens = token_uses - set(token_definitions)
-        invalid_tokens = self_referencing_tokens | undefined_tokens
-        return {
-            "python_satir": app_source.count("\n") + 1,
-            "css_satir": css_source.count("\n") + 1,
-            "important": css_source.count("!important"),
-            "media_query": len(re.findall(r"@media\s*\(", css_source)),
-            "hardcoded_hex": len(re.findall(r"#[0-9a-fA-F]{3,8}\b", css_source)),
-            "design_token_kullanimi": len(re.findall(r"var\(--iz-[A-Za-z0-9_-]+\)", css_source)),
-            "gecersiz_design_token": len(invalid_tokens),
-            "10px_alti_font": len(small),
-            "inline_style": len(re.findall(r'style="[^"]+"', app_source)),
-            "unsafe_html": app_source.count("unsafe_allow_html=True"),
-        }
+        return qa_static_metrics(app_source, css_source)
     except Exception as e:
         izfin_hata_logla("qa_static_metrics", e)
         return {}
@@ -648,42 +623,7 @@ def izfin_qa_static_metrics(app_source=None, css_source=None):
 
 def izfin_qa_release_status(metrics):
     """Statik metrikleri release blocker ile teknik borç uyarısına ayırır."""
-    if not metrics:
-        return {
-            "durum": "KONTROL GEREKİYOR",
-            "seviye": "warning",
-            "notlar": ["QA metrikleri üretilemedi."],
-        }
-
-    invalid_token_count = metrics.get("gecersiz_design_token", 0)
-    if invalid_token_count:
-        return {
-            "durum": "KONTROL GEREKİYOR",
-            "seviye": "warning",
-            "notlar": [f"{invalid_token_count} geçersiz veya tanımsız design token bulundu."],
-        }
-
-    notes = []
-    if metrics.get("10px_alti_font", 0):
-        notes.append(f"{metrics['10px_alti_font']} adet 10px altı eski font kuralı mevcut.")
-    if metrics.get("important", 0) > 900:
-        notes.append(f"CSS'te {metrics['important']} adet !important bulunuyor.")
-    if metrics.get("media_query", 0) > 40:
-        notes.append(f"{metrics['media_query']} media-query bloğu mevcut.")
-    if metrics.get("hardcoded_hex", 0) > max(1, metrics.get("design_token_kullanimi", 0)) * 4:
-        notes.append("Hardcoded renk kullanımı design token kullanımından belirgin yüksek.")
-
-    if notes:
-        return {
-            "durum": "SAĞLIKLI · TEKNİK BORÇ VAR",
-            "seviye": "warning",
-            "notlar": notes,
-        }
-    return {
-        "durum": "SAĞLIKLI",
-        "seviye": "success",
-        "notlar": ["Statik kalite eşikleri içinde."],
-    }
+    return qa_release_status(metrics)
 
 
 # --- OTURUM DURUMU (SESSION STATE) ---
@@ -1233,59 +1173,15 @@ def izfin_qa_center_render():
     izfin_admin_erisim_kontrolu()
     metrics = izfin_qa_static_metrics()
     status = izfin_qa_release_status(metrics)
-    badge_class = "ok" if status.get("seviye") == "success" else "warn"
-
-    st.markdown(
-        f"""
-        <div class="iz-qa-hero">
-          <div>
-            <div class="iz-qa-kicker">IZFIN SYSTEM HEALTH</div>
-            <h2>Kalite Kontrol Merkezi</h2>
-            <p>Release güvenliği, kod sağlığı ve CSS teknik borcunu tek ekranda izle.</p>
-          </div>
-          <div class="iz-qa-version">{html.escape(str(IZFIN_APP_SURUMU))}</div>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
-
-    st.markdown(
-        f"""
-        <div class="iz-qa-status {badge_class}">
-          <div>
-            <span>GENEL DURUM</span>
-            <strong>{html.escape(str(status.get("durum")))}</strong>
-          </div>
-          <div class="iz-qa-dot"></div>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
+    qa_view = qa_sayfa_paketi_hazirla(metrics, status, app_version=IZFIN_APP_SURUMU)
+    st.markdown(qa_view["hero_html"], unsafe_allow_html=True)
+    st.markdown(qa_view["status_html"], unsafe_allow_html=True)
 
     if not metrics:
         st.warning("QA metrikleri şu anda üretilemedi.")
         return
 
-    cards = [
-        ("CSS Satırı", metrics.get("css_satir", 0), "Stil yükü"),
-        ("!important", metrics.get("important", 0), "Override borcu"),
-        ("Media Query", metrics.get("media_query", 0), "Responsive blok"),
-        ("<10px Font", metrics.get("10px_alti_font", 0), "Okunabilirlik borcu"),
-        ("HEX Renk", metrics.get("hardcoded_hex", 0), "Hardcoded renk"),
-        ("Design Token", metrics.get("design_token_kullanimi", 0), "var(--iz-*)"),
-        ("Token Hatası", metrics.get("gecersiz_design_token", 0), "Tanımsız / döngüsel"),
-        ("Inline Style", metrics.get("inline_style", 0), "Python içi stil"),
-        ("Unsafe HTML", metrics.get("unsafe_html", 0), "Audit noktası"),
-    ]
-    cards_html = "".join(
-        f"""<div class="iz-qa-metric">
-              <span>{html.escape(str(title))}</span>
-              <strong>{html.escape(str(value))}</strong>
-              <small>{html.escape(str(desc))}</small>
-            </div>"""
-        for title, value, desc in cards
-    )
-    st.markdown(f'<div class="iz-qa-grid">{cards_html}</div>', unsafe_allow_html=True)
+    st.markdown(qa_view["cards_html"], unsafe_allow_html=True)
 
     st.markdown("#### Release kontrolü")
     c1, c2, c3, c4 = st.columns(4)
@@ -1318,36 +1214,13 @@ def izfin_qa_center_render():
         )
         dolu_tab, bos_tab = st.tabs(["Dolu durum", "Boş durum"])
         with dolu_tab:
-            qa_aktif_ornek = pd.DataFrame([
-                {
-                    "İlk Alım Tarihi": "18.08.2026 10:15",
-                    "Varlık": "NVDA",
-                    "İlk Sinyal": "ERKEN AL",
-                    "Güncel Sinyal": "KADEMELİ AL",
-                    "İlk Alım Fiyatı": 176.42,
-                    "Güncel Fiyat": 182.81,
-                    "Kâr / Zarar %": 3.62,
-                    "Geçen Gün": 3,
-                    "Durum": "🟢 Açık",
-                },
-                {
-                    "İlk Alım Tarihi": "18.08.2026 14:40",
-                    "Varlık": "AMAT",
-                    "İlk Sinyal": "KUSURSUZ ALIM",
-                    "Güncel Sinyal": "ERKEN AL",
-                    "İlk Alım Fiyatı": 539.20,
-                    "Güncel Fiyat": 532.89,
-                    "Kâr / Zarar %": -1.17,
-                    "Geçen Gün": 1,
-                    "Durum": "🟢 Açık",
-                },
-            ])
+            qa_aktif_ornek = pd.DataFrame(qa_aktif_pozisyon_ornekleri())
             st.html(izfin_active_positions_table_html(qa_aktif_ornek))
         with bos_tab:
             st.html(izfin_active_positions_table_html(pd.DataFrame()))
 
     st.markdown("#### Teknik borç notları")
-    for note in status.get("notlar", []):
+    for note in qa_view["notes"]:
         st.info(note)
 
     st.caption(
@@ -1357,13 +1230,7 @@ def izfin_qa_center_render():
 
 
 def izfin_brand_html():
-    return f"""
-    <div class="iz-brand">
-      <div class="iz-brand-symbol">
-        <img src="data:image/png;base64,{IZFIN_LOGO_GEOCENTER_B64}" alt="IZFIN sembolü">
-      </div>
-      <div><div class="iz-brand-name">IZFIN</div><div class="iz-brand-tag">ANALYZE • PREDICT • INVEST</div></div>
-    </div>"""
+    return brand_html(IZFIN_LOGO_GEOCENTER_B64)
 
 @st.cache_data(ttl=60, show_spinner=False)
 def izfin_piyasa_bandi_verisi():
@@ -2334,22 +2201,7 @@ if st.sidebar.button("🚪 Çıkış Yap", use_container_width=True):
 
 
 def izfin_tarama_overlay_html(yuzde=0, baslik="IZFIN tarıyor", durum="Hazırlanıyor…", detay=""):
-    try:
-        pct = int(max(0, min(100, round(float(yuzde)))))
-    except Exception:
-        pct = 0
-    return (
-        '<div class="iz-scan-lock-overlay"><div class="iz-scan-lock-card">'
-        '<div class="iz-scan-lock-brand"><span class="iz-scan-lock-pulse"></span><small>IZFIN SMART SCAN</small></div>'
-        f'<h2>{html.escape(str(baslik))}</h2>'
-        f'<p>{html.escape(str(durum))}</p>'
-        '<div class="iz-scan-lock-progress">'
-        f'<div class="iz-scan-lock-progress-fill" style="width:{pct}%"></div></div>'
-        '<div class="iz-scan-lock-meta">'
-        f'<strong>%{pct}</strong><span>{html.escape(str(detay))}</span></div>'
-        '<div class="iz-scan-lock-note">Tarama tamamlanana kadar ekran geçici olarak kilitlendi.</div>'
-        '</div></div>'
-    )
+    return tarama_overlay_html(yuzde, baslik, durum, detay)
 
 
 if aktif_sayfa == "🛠️ Sistem Sağlığı":
@@ -3584,3 +3436,4 @@ if aktif_sayfa == "🧪 Strateji Laboratuvarı":
 
             with st.expander("ℹ️ Backtest sonuçları nasıl okunur?", expanded=False):
                 st.markdown(sonuc_paketi["okuma_notlari"])
+

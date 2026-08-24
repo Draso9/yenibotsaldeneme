@@ -6,6 +6,24 @@ import html
 import re
 
 
+def tarama_overlay_html(yuzde=0, baslik="IZFIN tarıyor", durum="Hazırlanıyor…", detay=""):
+    try:
+        pct = int(max(0, min(100, round(float(yuzde)))))
+    except (TypeError, ValueError):
+        pct = 0
+    return (
+        '<div class="iz-scan-lock-overlay"><div class="iz-scan-lock-card">'
+        '<div class="iz-scan-lock-brand"><span class="iz-scan-lock-pulse"></span><small>IZFIN SMART SCAN</small></div>'
+        f'<h2>{html.escape(str(baslik))}</h2><p>{html.escape(str(durum))}</p>'
+        '<div class="iz-scan-lock-progress">'
+        f'<div class="iz-scan-lock-progress-fill" style="width:{pct}%"></div></div>'
+        '<div class="iz-scan-lock-meta">'
+        f'<strong>%{pct}</strong><span>{html.escape(str(detay))}</span></div>'
+        '<div class="iz-scan-lock-note">Tarama tamamlanana kadar ekran geçici olarak kilitlendi.</div>'
+        '</div></div>'
+    )
+
+
 DEFAULT_COLUMNS = (
     "Varlık",
     "Fiyat",
@@ -371,3 +389,4 @@ def sortable_table_script() -> str:
 })();
 </script>
 """
+
