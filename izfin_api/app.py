@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from typing import Any
 
 from fastapi import FastAPI
@@ -18,6 +18,7 @@ def create_app(
     user_repository: Any = None,
     default_tickers: Sequence[str] = (),
     cors_origins: Sequence[str] = (),
+    scan_runner: Callable[[Sequence[str]], Mapping[str, Any]] | None = None,
 ) -> FastAPI:
     """Create an API instance without importing or initializing Streamlit."""
     app = FastAPI(title="IZFIN API", version="0.1.0")
@@ -25,6 +26,7 @@ def create_app(
         verify_id_token=verify_id_token,
         user_repository=user_repository,
         default_tickers=default_tickers,
+        scan_runner=scan_runner,
     )
     allowed_origins = [str(origin).strip() for origin in cors_origins if str(origin).strip()]
     if allowed_origins:

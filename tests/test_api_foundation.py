@@ -133,6 +133,33 @@ def test_authenticated_watchlist_replace_persists_only_the_authenticated_users_l
     ]
 
 
+def test_authenticated_scan_contract_uses_an_injected_runner_without_streamlit():
+    app = create_app(
+        verify_id_token=lambda _token: {"uid": "uid-1", "email": "user@example.com"},
+        scan_runner=lambda tickers: {
+            "sonuclar": [{"Varlık": ticker} for ticker in tickers[:1]],
+            "basarisiz_taramalar": tickers[1:],
+            "boga_sayisi": 1,
+            "alim_firsati": 0,
+        },
+    )
+
+    response = TestClient(app).post(
+        "/api/v1/scan/run",
+        headers={"Authorization": "Bearer firebase-id-token"},
+        json={"tickers": ["THYAO.IS", "AKBNK.IS"]},
+    )
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "sonuclar": [{"Varlık": "THYAO.IS"}],
+        "basarisiz_taramalar": ["AKBNK.IS"],
+        "boga_sayisi": 1,
+        "alim_firsati": 0,
+        "toplam": 2,
+    }
+
+
 def test_performance_scorecard_contract_returns_empty_state_without_provider_access():
     response = TestClient(create_app()).post(
         "/api/v1/performance/scorecard",

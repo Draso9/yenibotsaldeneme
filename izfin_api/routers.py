@@ -8,6 +8,7 @@ from izfin_services.bootstrap_service import (
     kullanici_watchlist_bootstrap_hazirla,
     kullanici_watchlist_kaydet,
 )
+from izfin_services.scan_page_state import tarama_sonuc_durumu_hazirla
 from izfin_services.scan_page_state import (
     tarama_evreni_hazirla,
     watchlist_islem_durumu_hazirla,
@@ -24,6 +25,8 @@ from .schemas import (
     WatchlistTransitionResponse,
     WatchlistResponse,
     WatchlistReplaceRequest,
+    ScanRunRequest,
+    ScanRunResponse,
 )
 from .dependencies import ApiIdentity, authenticated_user, bearer_credentials
 
@@ -99,6 +102,29 @@ def replace_watchlist(
     return WatchlistResponse(
         tickers=list(dict.fromkeys(str(item).strip().upper() for item in payload.tickers if str(item).strip())),
         recovered=False,
+    )
+
+
+@api_router.post("/scan/run", response_model=ScanRunResponse, tags=["scan"])
+def run_scan(
+    payload: ScanRunRequest,
+    request: Request,
+    credentials=Depends(bearer_credentials),
+) -> ScanRunResponse:
+    authenticated_user(request, credentials)
+    runner = request.app.state.izfin_runtime.scan_runner
+    if runner is None:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Tarama sağlayıcıları henüz yapılandırılmadı.",
+        )
+    result = tarama_sonuc_durumu_hazirla(runner(payload.tickers))
+    return ScanRunResponse(
+        sonuclar=result["sonuclar"],
+        basarisiz_taramalar=result["basarisiz_taramalar"],
+        boga_sayisi=result["boga_sayisi"],
+        alim_firsati=result["alim_firsati"],
+        toplam=len(payload.tickers),
     )
 
 

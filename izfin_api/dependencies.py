@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any
 
@@ -21,6 +21,7 @@ class ApiRuntime:
     verify_id_token: Callable[[str], dict[str, Any]] | None = None
     user_repository: Any = None
     default_tickers: tuple[str, ...] = ()
+    scan_runner: Callable[[Sequence[str]], Mapping[str, Any]] | None = None
 
 
 _bearer_scheme = HTTPBearer(auto_error=False)
@@ -72,9 +73,11 @@ def runtime_from(
     verify_id_token: Callable[[str], dict[str, Any]] | None = None,
     user_repository: Any = None,
     default_tickers: Sequence[str] = (),
+    scan_runner: Callable[[Sequence[str]], Mapping[str, Any]] | None = None,
 ) -> ApiRuntime:
     return ApiRuntime(
         verify_id_token=verify_id_token,
         user_repository=user_repository,
         default_tickers=tuple(str(item) for item in default_tickers),
+        scan_runner=scan_runner,
     )

@@ -47,6 +47,18 @@ class WatchlistReplaceRequest(BaseModel):
     tickers: list[str] = Field(min_length=1, max_length=250)
 
 
+class ScanRunRequest(BaseModel):
+    tickers: list[str] = Field(min_length=1, max_length=100)
+
+
+class ScanRunResponse(BaseModel):
+    sonuclar: list[dict[str, Any]]
+    basarisiz_taramalar: list[str]
+    boga_sayisi: int
+    alim_firsati: int
+    toplam: int
+
+
 class PerformanceScorecardRequest(BaseModel):
     kayitlar: list[dict[str, Any]] = Field(default_factory=list)
     gun: int = Field(ge=1, le=365)
