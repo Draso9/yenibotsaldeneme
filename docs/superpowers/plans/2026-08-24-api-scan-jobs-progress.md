@@ -134,7 +134,7 @@ Run: `.venv/bin/python -m pytest tests/test_api_scan_jobs.py -q`
 
 Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add izfin_api/app.py izfin_api/dependencies.py izfin_api/routers.py izfin_api/schemas.py tests/test_api_scan_jobs.py
@@ -151,7 +151,7 @@ git commit -m "feat: expose protected scan job endpoints"
 - Consumes: `scan_workflow_calistir(..., progress_callback=...)`.
 - Produces: `scan_runner(tickers, progress_callback=None)` usable by synchronous and asynchronous callers.
 
-- [ ] **Step 1: Write failing forwarding test**
+- [x] **Step 1: Write failing forwarding test**
 
 ```python
 def test_runtime_scan_runner_forwards_optional_progress_callback(monkeypatch):
@@ -162,20 +162,20 @@ def test_runtime_scan_runner_forwards_optional_progress_callback(monkeypatch):
     assert received["progress_callback"] is callback
 ```
 
-- [ ] **Step 2: Verify RED**
+- [x] **Step 2: Verify RED**
 
 Run: `.venv/bin/python -m pytest tests/test_api_foundation.py -k progress_callback -q`
 
 Expected: FAIL because the runtime runner accepts only `tickers`.
 
-- [ ] **Step 3: Implement the bridge**
+- [x] **Step 3: Implement the bridge**
 
 ```python
 def run(tickers: Sequence[str], progress_callback=None) -> Mapping[str, Any]:
     return scan_workflow_calistir(..., progress_callback=progress_callback)
 ```
 
-- [ ] **Step 4: Verify GREEN**
+- [x] **Step 4: Verify GREEN**
 
 Run: `.venv/bin/python -m pytest tests/test_api_scan_jobs.py tests/test_api_foundation.py tests/test_scan_workflow.py -q`
 
