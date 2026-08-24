@@ -14,6 +14,10 @@ from izfin_services.scan_page_state import (
     watchlist_islem_durumu_hazirla,
 )
 from izfin_ui.performance_view import performans_karne_paketi_hazirla
+from izfin_ui.legal_account_view import (
+    gizlilik_sayfa_paketi_hazirla,
+    kullanim_kosullari_paketi_hazirla,
+)
 
 from .schemas import (
     HealthResponse,
@@ -31,6 +35,8 @@ from .schemas import (
     ScanJobCreatedResponse,
     ScanJobStatusResponse,
     PerformanceScorecardApiResponse,
+    LegalDocumentResponse,
+    ProfileResponse,
 )
 from .dependencies import ApiIdentity, authenticated_user, bearer_credentials
 from .scan_jobs import ScanJobCapacityError
@@ -42,6 +48,57 @@ api_router = APIRouter(prefix="/api/v1")
 @api_router.get("/health", response_model=HealthResponse, tags=["system"])
 def health() -> HealthResponse:
     return HealthResponse(status="ok", service="izfin-api", api_version="v1")
+
+
+@api_router.get("/legal/terms", response_model=LegalDocumentResponse, tags=["legal"])
+def legal_terms(request: Request) -> LegalDocumentResponse:
+    runtime = request.app.state.izfin_runtime
+    document = kullanim_kosullari_paketi_hazirla(
+        kapida=False,
+        terms_version=runtime.terms_version,
+    )
+    return LegalDocumentResponse(
+        version=runtime.terms_version,
+        markdown=document["markdown"],
+    )
+
+
+@api_router.get("/legal/privacy", response_model=LegalDocumentResponse, tags=["legal"])
+def legal_privacy(request: Request) -> LegalDocumentResponse:
+    runtime = request.app.state.izfin_runtime
+    document = gizlilik_sayfa_paketi_hazirla(
+        kapida=False,
+        privacy_version=runtime.privacy_version,
+        data_controller_name=runtime.data_controller_name,
+        contact_email=runtime.contact_email,
+        data_controller_address=runtime.data_controller_address,
+        log_retention_days=runtime.log_retention_days,
+    )
+    return LegalDocumentResponse(
+        version=runtime.privacy_version,
+        markdown=document["markdown"],
+        warning=document["warning"],
+        info=document["info"],
+    )
+
+
+@api_router.get("/profile", response_model=ProfileResponse, tags=["account"])
+def get_profile(
+    request: Request,
+    credentials=Depends(bearer_credentials),
+) -> ProfileResponse:
+    identity: ApiIdentity = authenticated_user(request, credentials)
+    repository = request.app.state.izfin_runtime.user_repository
+    if not getattr(repository, "available", False):
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Kullanıcı profili deposu henüz yapılandırılmadı.",
+        )
+    return ProfileResponse(
+        uid=identity.uid,
+        email=identity.email,
+        profile=repository.get_profile(identity.uid) or {},
+    )
 
 
 @api_router.get("/health/ready", response_model=ReadinessResponse, tags=["system"])

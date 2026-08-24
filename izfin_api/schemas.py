@@ -55,6 +55,19 @@ class WatchlistReplaceRequest(BaseModel):
     tickers: list[str] = Field(min_length=1, max_length=250)
 
 
+class LegalDocumentResponse(BaseModel):
+    version: str
+    markdown: str
+    warning: str | None = None
+    info: str | None = None
+
+
+class ProfileResponse(BaseModel):
+    uid: str
+    email: str
+    profile: dict[str, Any]
+
+
 class ScanRunRequest(BaseModel):
     tickers: list[str] = Field(min_length=1, max_length=100)
 

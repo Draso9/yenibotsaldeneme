@@ -95,7 +95,7 @@ git commit -m "feat: compose account legal API runtime"
 - Consumes: legal presentation builders, `ApiIdentity`, `user_repository.get_profile(uid)`.
 - Produces: public `GET /api/v1/legal/terms`, public `GET /api/v1/legal/privacy`, protected `GET /api/v1/profile`.
 
-- [ ] **Step 1: Write failing route tests**
+- [x] **Step 1: Write failing route tests**
 
 ```python
 def test_public_legal_documents_return_versioned_markdown_without_streamlit_html(client):
@@ -110,13 +110,13 @@ def test_profile_uses_authenticated_uid_and_identity_fallback(client, headers):
     assert response.json()["email"] == "user@example.com"
 ```
 
-- [ ] **Step 2: Verify RED**
+- [x] **Step 2: Verify RED**
 
 Run: `.venv/bin/python -m pytest tests/test_api_account_legal_export.py -k 'legal_documents or profile' -q`
 
 Expected: FAIL with HTTP `404`.
 
-- [ ] **Step 3: Implement contracts and routes**
+- [x] **Step 3: Implement contracts and routes**
 
 ```python
 class LegalDocumentResponse(BaseModel):
@@ -133,13 +133,13 @@ class ProfileResponse(BaseModel):
 
 Build documents with existing presentation helpers and select only Markdown fields. Return `repository.get_profile(identity.uid) or {}` with authenticated UID/e-mail; repository absence yields `503`.
 
-- [ ] **Step 4: Verify GREEN**
+- [x] **Step 4: Verify GREEN**
 
 Run: `.venv/bin/python -m pytest tests/test_api_account_legal_export.py -k 'legal_documents or profile' -q`
 
 Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add izfin_api/routers.py izfin_api/schemas.py tests/test_api_account_legal_export.py
