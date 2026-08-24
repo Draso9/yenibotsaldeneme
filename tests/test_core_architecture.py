@@ -10,6 +10,7 @@ CORE = ROOT / "izfin_core"
 UI = ROOT / "izfin_ui"
 SERVICES = ROOT / "izfin_services"
 REPOSITORIES = ROOT / "izfin_repositories"
+API = ROOT / "izfin_api"
 
 EXTRACTED_FUNCTIONS = {
     "_firebase_auth_hata_mesaji",
@@ -69,6 +70,27 @@ LEGACY_SCAN_HELPERS = {
     "peg_verilerini_paralel_cek",
     "finnhub_quotelari_paralel_cek",
 }
+
+
+def test_api_layer_is_streamlit_independent_and_uses_versioned_routes():
+    assert API.is_dir()
+    source = "\n".join(path.read_text(encoding="utf-8") for path in API.glob("*.py"))
+    tree = ast.parse(source)
+    imported_modules = {
+        node.module
+        for node in ast.walk(tree)
+        if isinstance(node, ast.ImportFrom) and node.module
+    }
+    imported_modules |= {
+        alias.name
+        for node in ast.walk(tree)
+        if isinstance(node, ast.Import)
+        for alias in node.names
+    }
+
+    assert not any(module == "streamlit" or module.startswith("streamlit.") for module in imported_modules)
+    assert 'prefix="/api/v1"' in source
+    assert "def create_app()" in source
 
 
 def test_app_imports_extracted_core_modules():
