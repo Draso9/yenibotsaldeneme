@@ -349,7 +349,8 @@ def test_navigation_and_bootstrap_orchestration_stays_outside_streamlit_shell():
     assert "from izfin_ui.navigation import (" in source
     assert "session_defaults_hazirla(VARSAYILAN_TICKERS)" in source
     assert "kullanici_watchlist_bootstrap_hazirla(" in source
-    assert "kullanici_watchlist_kaydet(" in source
+    assert "watchlist_sembol_ekle(" in source
+    assert "watchlist_sembolleri_sil(" in source
     assert "navigation_paketi_hazirla(" in source
     assert "logout_state_paketi(VARSAYILAN_TICKERS)" in source
     assert "def _kullanici_liste_doc_id(" not in source
@@ -475,4 +476,46 @@ def test_ui6k_qa_and_shell_chrome_logic_stays_outside_streamlit_shell():
     assert 'cards = [' not in source
     assert 'class="iz-qa-status' not in source
     assert 'class="iz-scan-lock-overlay' not in source
+
+
+def test_ui6l_account_legal_and_watchlist_workflows_stay_outside_streamlit_shell():
+    source = APP.read_text(encoding="utf-8")
+    account_service = (ROOT / "izfin_services" / "account_data_service.py").read_text(
+        encoding="utf-8"
+    )
+    watchlist_service = (ROOT / "izfin_services" / "watchlist_service.py").read_text(
+        encoding="utf-8"
+    )
+    legal_view = (ROOT / "izfin_ui" / "legal_account_view.py").read_text(
+        encoding="utf-8"
+    )
+    watchlist_view = (ROOT / "izfin_ui" / "watchlist_view.py").read_text(
+        encoding="utf-8"
+    )
+
+    assert "AccountDataService(" in source
+    assert "ACCOUNT_DATA_SERVICE.veri_paketi_json_olustur(" in source
+    assert "ACCOUNT_DATA_SERVICE.hesabi_kalici_sil(" in source
+    assert "hesap_silme_onayi_dogrula(" in source
+    assert "sembol_onerileri_getir(" in source
+    assert "watchlist_sembol_ekle(" in source
+    assert "watchlist_sembolleri_sil(" in source
+    assert "gizlilik_sayfa_paketi_hazirla(" in source
+    assert "kullanim_kosullari_paketi_hazirla(" in source
+    assert "yasal_onay_paketi_hazirla(" in source
+    assert "hesap_sidebar_html(" in source
+
+    assert "def _json_uyumlu(" not in source
+    assert "def _kullanici_belgelerini_getir(" not in source
+    assert "def _kullanici_hesabini_kalici_sil(" not in source
+    assert "USER_REPOSITORY.collect_user_documents(" not in source
+    assert "USER_REPOSITORY.delete_documents(" not in source
+    assert "USER_REPOSITORY.upsert_profile(" not in source
+    assert "kullanici_watchlist_kaydet(" not in source
+    assert 'class="iz-legal-hero' not in source
+    assert 'class="iz-search-result-preview' not in source
+
+    for module_source in (account_service, watchlist_service, legal_view, watchlist_view):
+        assert "import streamlit" not in module_source
+        assert "st.session_state" not in module_source
 
