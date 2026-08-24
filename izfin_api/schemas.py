@@ -38,6 +38,15 @@ class WatchlistTransitionResponse(BaseModel):
     mesaj: tuple[str, str]
 
 
+class WatchlistResponse(BaseModel):
+    tickers: list[str]
+    recovered: bool
+
+
+class WatchlistReplaceRequest(BaseModel):
+    tickers: list[str] = Field(min_length=1, max_length=250)
+
+
 class PerformanceScorecardRequest(BaseModel):
     kayitlar: list[dict[str, Any]] = Field(default_factory=list)
     gun: int = Field(ge=1, le=365)

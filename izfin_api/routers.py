@@ -2,8 +2,12 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 
+from izfin_services.bootstrap_service import (
+    kullanici_watchlist_bootstrap_hazirla,
+    kullanici_watchlist_kaydet,
+)
 from izfin_services.scan_page_state import (
     tarama_evreni_hazirla,
     watchlist_islem_durumu_hazirla,
@@ -18,7 +22,10 @@ from .schemas import (
     ScanUniverseResponse,
     WatchlistTransitionRequest,
     WatchlistTransitionResponse,
+    WatchlistResponse,
+    WatchlistReplaceRequest,
 )
+from .dependencies import ApiIdentity, authenticated_user, bearer_credentials
 
 
 api_router = APIRouter(prefix="/api/v1")
@@ -47,6 +54,52 @@ def scan_universe(payload: ScanUniverseRequest) -> ScanUniverseResponse:
 )
 def watchlist_transition(payload: WatchlistTransitionRequest) -> WatchlistTransitionResponse:
     return WatchlistTransitionResponse(**watchlist_islem_durumu_hazirla(payload.islem_sonucu))
+
+
+@api_router.get("/watchlist", response_model=WatchlistResponse, tags=["watchlist"])
+def get_watchlist(
+    request: Request,
+    credentials=Depends(bearer_credentials),
+) -> WatchlistResponse:
+    identity: ApiIdentity = authenticated_user(request, credentials)
+    runtime = request.app.state.izfin_runtime
+    if not getattr(runtime.user_repository, "available", False):
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Kullanıcı listesi deposu henüz yapılandırılmadı.",
+        )
+    result = kullanici_watchlist_bootstrap_hazirla(
+        runtime.user_repository,
+        uid=identity.uid,
+        email=identity.email,
+        default_tickers=runtime.default_tickers,
+    )
+    return WatchlistResponse(tickers=result["tickers"], recovered=result["recovered"])
+
+
+@api_router.put("/watchlist", response_model=WatchlistResponse, tags=["watchlist"])
+def replace_watchlist(
+    payload: WatchlistReplaceRequest,
+    request: Request,
+    credentials=Depends(bearer_credentials),
+) -> WatchlistResponse:
+    identity: ApiIdentity = authenticated_user(request, credentials)
+    runtime = request.app.state.izfin_runtime
+    if not getattr(runtime.user_repository, "available", False):
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Kullanıcı listesi deposu henüz yapılandırılmadı.",
+        )
+    kullanici_watchlist_kaydet(
+        runtime.user_repository,
+        uid=identity.uid,
+        email=identity.email,
+        tickers=payload.tickers,
+    )
+    return WatchlistResponse(
+        tickers=list(dict.fromkeys(str(item).strip().upper() for item in payload.tickers if str(item).strip())),
+        recovered=False,
+    )
 
 
 @api_router.post(
