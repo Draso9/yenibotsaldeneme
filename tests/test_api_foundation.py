@@ -34,6 +34,19 @@ class FakeSignalRepository:
         return []
 
 
+def test_create_app_composes_versioned_account_and_legal_services():
+    runtime = create_app(
+        user_repository=FakeUserRepository(),
+        terms_version="terms-v7",
+        privacy_version="privacy-v9",
+        app_release="2.0.0",
+    ).state.izfin_runtime
+
+    assert runtime.legal_consent_service.terms_version == "terms-v7"
+    assert runtime.legal_consent_service.privacy_version == "privacy-v9"
+    assert runtime.account_data_service.app_release == "2.0.0"
+
+
 def test_api_health_contract_is_versioned_and_streamlit_independent():
     response = TestClient(create_app()).get("/api/v1/health")
 

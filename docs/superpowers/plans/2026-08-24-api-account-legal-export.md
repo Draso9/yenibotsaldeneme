@@ -34,7 +34,7 @@
 - Consumes: `AccountDataService`, `LegalConsentService`, environment settings.
 - Produces: `ApiRuntime.account_data_service`, `ApiRuntime.legal_consent_service`, legal versions and document settings.
 
-- [ ] **Step 1: Write the failing runtime test**
+- [x] **Step 1: Write the failing runtime test**
 
 ```python
 def test_create_app_composes_versioned_account_and_legal_services():
@@ -48,13 +48,13 @@ def test_create_app_composes_versioned_account_and_legal_services():
     assert runtime.account_data_service.app_release == "2.0.0"
 ```
 
-- [ ] **Step 2: Verify RED**
+- [x] **Step 2: Verify RED**
 
 Run: `.venv/bin/python -m pytest tests/test_api_foundation.py -k account_and_legal -q`
 
 Expected: FAIL because the factory has no account/legal composition.
 
-- [ ] **Step 3: Implement minimal composition**
+- [x] **Step 3: Implement minimal composition**
 
 ```python
 @dataclass(frozen=True)
@@ -71,13 +71,13 @@ class ApiRuntime:
 
 Make `create_app` create both services only when `user_repository` exists. Use no-op revoke/delete callbacks because this API never calls deletion. Make `create_environment_app` read `IZFIN_TERMS_VERSION`, `IZFIN_PRIVACY_VERSION`, `IZFIN_DATA_CONTROLLER_NAME`, `IZFIN_CONTACT_EMAIL`, `IZFIN_DATA_CONTROLLER_ADDRESS`, `IZFIN_LOG_RETENTION_DAYS`, and `IZFIN_RELEASE`.
 
-- [ ] **Step 4: Verify GREEN**
+- [x] **Step 4: Verify GREEN**
 
 Run: `.venv/bin/python -m pytest tests/test_api_foundation.py -k account_and_legal -q`
 
 Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add izfin_api/app.py izfin_api/dependencies.py izfin_api/runtime.py tests/test_api_foundation.py

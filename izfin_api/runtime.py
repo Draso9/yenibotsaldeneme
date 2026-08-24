@@ -55,9 +55,20 @@ def create_environment_app(*, environment: Mapping[str, str] | None = None):
     api_key = str(settings.get("FINNHUB_API_KEY", "") or "").strip()
     finnhub_client = FinnhubClient(api_key) if api_key else None
     firebase = firebase_runtime_from_environment(environment=settings)
+    try:
+        log_retention_days = max(1, int(settings.get("IZFIN_LOG_RETENTION_DAYS", "30")))
+    except (TypeError, ValueError):
+        log_retention_days = 30
     return create_app(
         default_tickers=environment_tickers(settings.get("IZFIN_DEFAULT_TICKERS")),
         scan_runner=scan_runner_from_clients(finnhub_client=finnhub_client),
+        terms_version=str(settings.get("IZFIN_TERMS_VERSION", "2026-08-19-v1")),
+        privacy_version=str(settings.get("IZFIN_PRIVACY_VERSION", "2026-08-19-v1")),
+        app_release=str(settings.get("IZFIN_RELEASE", "development")),
+        data_controller_name=str(settings.get("IZFIN_DATA_CONTROLLER_NAME", "")),
+        contact_email=str(settings.get("IZFIN_CONTACT_EMAIL", "")),
+        data_controller_address=str(settings.get("IZFIN_DATA_CONTROLLER_ADDRESS", "")),
+        log_retention_days=log_retention_days,
         **firebase,
     )
 

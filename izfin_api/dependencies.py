@@ -24,6 +24,14 @@ class ApiRuntime:
     scan_runner: Callable[[Sequence[str]], Mapping[str, Any]] | None = None
     scan_job_store: Any = None
     signal_repository: Any = None
+    legal_consent_service: Any = None
+    account_data_service: Any = None
+    terms_version: str = "2026-08-19-v1"
+    privacy_version: str = "2026-08-19-v1"
+    data_controller_name: str = ""
+    contact_email: str = ""
+    data_controller_address: str = ""
+    log_retention_days: int = 30
 
 
 _bearer_scheme = HTTPBearer(auto_error=False)
@@ -78,6 +86,14 @@ def runtime_from(
     scan_runner: Callable[[Sequence[str]], Mapping[str, Any]] | None = None,
     scan_job_store: Any = None,
     signal_repository: Any = None,
+    legal_consent_service: Any = None,
+    account_data_service: Any = None,
+    terms_version: str = "2026-08-19-v1",
+    privacy_version: str = "2026-08-19-v1",
+    data_controller_name: str = "",
+    contact_email: str = "",
+    data_controller_address: str = "",
+    log_retention_days: int = 30,
 ) -> ApiRuntime:
     return ApiRuntime(
         verify_id_token=verify_id_token,
@@ -86,4 +102,12 @@ def runtime_from(
         scan_runner=scan_runner,
         scan_job_store=scan_job_store,
         signal_repository=signal_repository,
+        legal_consent_service=legal_consent_service,
+        account_data_service=account_data_service,
+        terms_version=str(terms_version),
+        privacy_version=str(privacy_version),
+        data_controller_name=str(data_controller_name),
+        contact_email=str(contact_email),
+        data_controller_address=str(data_controller_address),
+        log_retention_days=max(1, int(log_retention_days)),
     )
