@@ -1,6 +1,7 @@
 from fastapi.testclient import TestClient
 
 from izfin_api.app import create_app
+from izfin_api.runtime import environment_tickers, firebase_runtime
 
 
 class FakeUserRepository:
@@ -158,6 +159,19 @@ def test_authenticated_scan_contract_uses_an_injected_runner_without_streamlit()
         "alim_firsati": 0,
         "toplam": 2,
     }
+
+
+def test_runtime_helpers_keep_settings_and_firebase_bootstrap_explicit():
+    assert environment_tickers(" thyao.is,THYAO.IS,AKBNK.IS ") == ("THYAO.IS", "AKBNK.IS")
+
+    class Auth:
+        @staticmethod
+        def verify_id_token(_token):
+            return {}
+
+    runtime = firebase_runtime(firebase_auth=Auth(), firestore_client=object())
+    assert runtime["verify_id_token"]("token") == {}
+    assert runtime["user_repository"].db is not None
 
 
 def test_performance_scorecard_contract_returns_empty_state_without_provider_access():
