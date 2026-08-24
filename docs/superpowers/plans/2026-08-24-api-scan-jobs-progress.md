@@ -31,7 +31,7 @@
 - Consumes: `runner(tickers, progress_callback=None) -> Mapping[str, Any]` and `tarama_sonuc_durumu_hazirla`.
 - Produces: `ScanJobStore.submit(owner_uid, tickers, runner) -> ScanJobSnapshot` and `ScanJobStore.get_for_owner(job_id, owner_uid) -> ScanJobSnapshot | None`.
 
-- [ ] **Step 1: Write failing store tests**
+- [x] **Step 1: Write failing store tests**
 
 ```python
 def test_store_records_callback_progress_and_completed_summary():
@@ -43,13 +43,13 @@ def test_store_records_callback_progress_and_completed_summary():
     assert completed.completed == completed.total == 1
 ```
 
-- [ ] **Step 2: Verify RED**
+- [x] **Step 2: Verify RED**
 
 Run: `.venv/bin/python -m pytest tests/test_api_scan_jobs.py -q`
 
 Expected: import failure because `izfin_api.scan_jobs` does not exist.
 
-- [ ] **Step 3: Implement the smallest store**
+- [x] **Step 3: Implement the smallest store**
 
 ```python
 @dataclass(frozen=True)
@@ -69,7 +69,7 @@ class ScanJobStore:
 
 Use a lock for transitions, create a daemon worker after capturing the queued snapshot, map `data_ready`, `ticker`, and `complete` events, and present the final runner output through `tarama_sonuc_durumu_hazirla`.
 
-- [ ] **Step 4: Verify GREEN**
+- [x] **Step 4: Verify GREEN**
 
 Run: `.venv/bin/python -m pytest tests/test_api_scan_jobs.py -q`
 
@@ -228,4 +228,3 @@ Expected: no force push; one PR targets `develop`.
 - [ ] **Step 5: Merge only after GitHub CI succeeds**
 
 Verify the PR's full IZFIN Quality Gate is successful, merge into `develop`, then verify the resulting `develop` CI run succeeds.
-
