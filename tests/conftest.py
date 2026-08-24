@@ -97,7 +97,6 @@ def core():
         "bist_ticker_guncelle",
         "bist_ticker_listesi_guncelle",
         "_finnhub_symbol",
-        "peg_yorumu",
         "volatilite_rejimi",
         "sinyal_guven_skoru",
         "merkezi_karar_motoru",

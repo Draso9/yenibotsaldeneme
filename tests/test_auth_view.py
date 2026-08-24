@@ -1,12 +1,26 @@
 from __future__ import annotations
 
 from izfin_ui.auth_view import (
+    auth_sayfa_html_paketi_hazirla,
     captcha_paketi_uret,
     email_gecerli_mi,
     giris_formu_hatalari,
     kayit_formu_hatalari,
     sifre_politikasi_gecerli_mi,
 )
+
+
+def test_auth_page_chrome_is_framework_neutral_and_escapes_logo_value():
+    paket = auth_sayfa_html_paketi_hazirla('<logo "x">')
+
+    assert 'class="iz-auth-bg"' in paket["background_html"]
+    assert "Hoş Geldiniz" in paket["hero_html"]
+    assert '&lt;logo &quot;x&quot;&gt;' in paket["hero_html"]
+    assert '<logo "x">' not in paket["hero_html"]
+    assert "IZFIN Hesabı" in paket["card_header_html"]
+    assert "Google hesabınız Firebase Authentication" in paket["google_note_html"]
+    assert "14 gün güvenli oturum" in paket["security_html"]
+    assert "Yatırım karar destek platformu" in paket["footer_html"]
 
 
 def test_email_validation_matches_existing_form_contract():

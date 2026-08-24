@@ -2,9 +2,55 @@
 
 from __future__ import annotations
 
+import html
 import re
 import secrets
 from typing import Callable
+
+
+def auth_sayfa_html_paketi_hazirla(logo_b64: str) -> dict[str, str]:
+    """Return the authentication page chrome without Streamlit dependencies."""
+    logo = html.escape(str(logo_b64), quote=True)
+    return {
+        "background_html": '<div class="iz-auth-bg"></div>',
+        "hero_html": f"""<div class="iz-auth-shell">
+          <div class="iz-auth-logo">
+            <div class="iz-auth-symbol">
+              <img src="data:image/png;base64,{logo}" alt="IZFIN">
+            </div>
+            <div><div class="word">IZFIN</div><div class="tag">ANALYZE • PREDICT • INVEST</div></div>
+          </div>
+          <div class="iz-auth-kicker">SIGNATURE INTELLIGENCE</div>
+          <div class="iz-auth-title">Hoş Geldiniz</div>
+          <div class="iz-auth-sub">Piyasayı analiz et, fırsatları filtrele, kararını tek merkezden yönet.</div>
+        </div>""",
+        "card_header_html": (
+            '<div class="iz-auth-card"><div class="iz-auth-card-head">'
+            "<strong>IZFIN Hesabı</strong><span>GÜVENLİ OTURUM</span></div></div>"
+        ),
+        "switch_label_html": '<div class="iz-auth-switch-label">HESAP ERİŞİMİ</div>',
+        "login_divider_html": (
+            '<div class="iz-google-wrap"><div class="iz-google-caption">veya</div></div>'
+        ),
+        "register_divider_html": (
+            '<div class="iz-google-wrap"><div class="iz-google-caption">'
+            "şifre oluşturmadan devam et</div></div>"
+        ),
+        "google_note_html": (
+            '<div class="iz-google-note">Google hesabınız Firebase Authentication '
+            "üzerinden doğrulanır.</div>"
+        ),
+        "security_html": (
+            '<div class="iz-auth-security"><span>◈ <b>Firebase Auth</b></span>'
+            "<span>◈ <b>Kişisel veri alanı</b></span>"
+            "<span>◈ <b>14 gün güvenli oturum</b></span></div>"
+        ),
+        "footer_html": (
+            '<div class="iz-auth-shell"><div class="iz-auth-footer">IZFIN · '
+            "ANALYZE • PREDICT • INVEST &nbsp;·&nbsp; Yatırım karar destek platformu"
+            "</div></div>"
+        ),
+    }
 
 
 def email_gecerli_mi(email: str) -> bool:

@@ -11,7 +11,36 @@ from izfin_ui.performance_view import (
     kapanmis_pozisyon_gorunumu_hazirla,
     performans_karne_paketi_hazirla,
     performans_pozisyon_paketi_hazirla,
+    performans_sayfa_paketi_hazirla,
+    performans_temizlik_sonuc_mesaji_hazirla,
+    performans_ust_kpi_paketi_hazirla,
 )
+
+
+def test_performance_page_copy_and_top_kpis_preserve_renderer_contract():
+    sayfa = performans_sayfa_paketi_hazirla()
+    assert 'id="takip-performans"' in sayfa["title_html"]
+    assert "ilk alım sinyali tarihi ve fiyatı sabit tutulur" in sayfa["intro_markdown"]
+    assert "Firebase bağlantısı" in sayfa["auth_warning"]
+    assert "100+ bağımsız sinyal" in sayfa["small_sample_warning"]
+
+    paket = {
+        "acik_df": pd.DataFrame([{"ticker": "NVDA"}, {"ticker": "AAPL"}]),
+        "kapali_df": pd.DataFrame([{"ticker": "AMAT"}]),
+        "pozitif": 1,
+        "negatif": 1,
+        "ort_getiri": 2.34,
+    }
+    kpis = performans_ust_kpi_paketi_hazirla(paket)
+    assert kpis == [
+        {"label": "Aktif Hisse", "value": "2"},
+        {"label": "Kârda / Zararda", "value": "1 / 1"},
+        {"label": "Ort. Açık Performans", "value": "%+2.3"},
+        {"label": "Kapanmış Dönem", "value": "1"},
+    ]
+    assert performans_temizlik_sonuc_mesaji_hazirla(
+        {"grup": 2, "yedeklenen": 3, "silinen": 1}
+    ) == "Temizlik tamamlandı: 2 mükerrer grup · 3 yedek · 1 silinen belge."
 
 
 def test_performance_position_package_normalizes_and_splits_records():
@@ -305,3 +334,26 @@ def test_performance_scorecard_package_groups_assets_and_builds_detail_view():
     assert int(nvda["Sinyal Sayısı"]) == 2
     assert "+20G Getiri %" in paket["detay_kolonlari"]
     assert paket["kucuk_orneklem"] is True
+    assert paket["metrikler"] == [
+        {"label": "Ölçülen Sinyal", "value": "3"},
+        {"label": "Pozitif Sonuç", "value": "%66.7"},
+        {"label": "+20G Medyan", "value": "%+6.00"},
+        {"label": "Benchmark Üstü", "value": "%66.7"},
+    ]
+    assert paket["medyan_alfa_mesaji"] == (
+        "Medyan göreceli performans (alfa): %+4.00"
+    )
+    assert paket["gorunum_format"]["+20G Medyan Getiri %"] == "{:+.2f}%"
+    assert paket["detay_format"]["+20G Getiri %"] == "{:+.2f}%"
+    assert list(paket["detay"]["+20G Getiri %"]) == [10.0, 6.0, -2.0]
+
+
+def test_empty_performance_scorecard_exposes_renderer_ready_message_and_formats():
+    paket = performans_karne_paketi_hazirla([], gun=5)
+
+    assert paket["karne_df"].empty
+    assert paket["metrikler"] == []
+    assert paket["medyan_alfa_mesaji"] is None
+    assert "Henüz +5 işlem günü" in paket["bos_mesaj"]
+    assert paket["gorunum_format"]["+5G Medyan Getiri %"] == "{:+.2f}%"
+    assert paket["detay_format"]["+5G Getiri %"] == "{:+.2f}%"

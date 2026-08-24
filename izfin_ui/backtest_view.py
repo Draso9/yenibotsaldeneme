@@ -6,6 +6,27 @@ from collections.abc import Iterable, Mapping
 from typing import Any
 
 
+def backtest_sayfa_paketi_hazirla() -> dict[str, str]:
+    """Return Strategy Laboratory shell copy independently from Streamlit."""
+    return {
+        "title_html": (
+            '<h3 id="strateji-laboratuvari">🧪 Strateji Laboratuvarı · '
+            "IZFIN Daily Core Backtest</h3>"
+        ),
+        "intro_markdown": (
+            "Geçmişte her gün için yalnızca o güne kadar bilinen verilerle **IZFIN günlük "
+            "çekirdek karar motorunu** yeniden çalıştırır. Merkezi motor yalnızca GÜÇLÜ AL / "
+            "AL / ERKEN AL dediğinde test işlemi açılır; ardından 5/10/20/45 günlük hareket "
+            "ve Stop/TP sonucu ölçülür. Uzun dönem intraday geçmişi olmadığı için "
+            "5dk/15dk/1s giriş motoru uydurulmaz; Daily MTF ve Giriş Proxy açıkça ayrı gösterilir."
+        ),
+        "bos_sonuc_uyarisi": (
+            "Seçilen dönem için yeterli veri veya alım sinyali bulunamadı."
+        ),
+        "ozet_basligi": "### 📌 Merkezi karar türlerine göre özet",
+    }
+
+
 def backtest_arama_paketi_hazirla(
     varliklar: Iterable[Any] | None,
     arama: Any,
@@ -59,6 +80,22 @@ def backtest_arama_paketi_hazirla(
         "durum": durum,
         "ticker": ticker,
     }
+
+
+def backtest_arama_mesaji_hazirla(arama_paketi: Mapping[str, Any]) -> str | None:
+    """Translate normalized search state into the existing user-facing caption."""
+    durum = str(arama_paketi.get("durum", "bos"))
+    ticker = str(arama_paketi.get("ticker", ""))
+    if durum == "tam_eslesme":
+        return f"✅ Seçilen varlık: {ticker}"
+    if durum == "dogrudan":
+        return (
+            f"🔎 {ticker} kayıtlı havuzda yok; geçerli bir Yahoo sembolüyse "
+            "doğrudan test edilecek."
+        )
+    if durum == "bos":
+        return "Bir sembol yazıp Enter'a basın; örneğin NVDA veya THYAO.IS."
+    return None
 
 
 def _float(stats: Mapping[str, Any], key: str, default: float = 0.0) -> float:

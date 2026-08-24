@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 from collections import Counter
 from typing import Iterable
 
@@ -17,6 +18,28 @@ SONUC_FILTRELERI = (
     "Uzun Vadeli Adaylar",
     "Teyit Bekleyenler",
 )
+
+
+def peg_yorumu_hazirla(peg) -> tuple[str, str]:
+    """Format PEG as an informational valuation label without affecting score."""
+    try:
+        deger = float(peg)
+    except (TypeError, ValueError):
+        deger = math.nan
+
+    if not math.isfinite(deger) or deger <= 0:
+        return "—", "⚪ PEG değerlendirilemedi"
+    if deger < 0.75:
+        etiket = "💎 Çok Ucuz Büyüme"
+    elif deger < 1.00:
+        etiket = "🟢 Ucuz Büyüme"
+    elif deger < 1.50:
+        etiket = "✅ Makul Büyüme Değerlemesi"
+    elif deger < 2.00:
+        etiket = "🟡 Büyüme Primi Var"
+    else:
+        etiket = "🟠 Yüksek Büyüme Primi"
+    return f"{deger:.2f}", etiket
 
 
 def tarama_sonuclarini_filtrele(sonuclar, sonuc_filtresi: str) -> pd.DataFrame:
