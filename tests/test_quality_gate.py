@@ -9,6 +9,7 @@ APP = ROOT / "app2.py"
 CSS = ROOT / "styles" / "izfin.css"
 BASELINE = ROOT / "qa" / "quality_baseline.json"
 MARKET_UNIVERSE = ROOT / "izfin_core" / "market_universe.py"
+HOME_DASHBOARD = ROOT / "izfin_ui" / "home_dashboard.py"
 
 def _metrics():
     app = APP.read_text(encoding="utf-8")
@@ -64,7 +65,10 @@ def test_invalid_design_tokens_are_release_blockers():
     assert '"durum": "KONTROL GEREKİYOR"' in source
 
 def test_critical_ui_markers_remain_present():
-    source = APP.read_text(encoding="utf-8").upper()
+    source = (
+        APP.read_text(encoding="utf-8")
+        + HOME_DASHBOARD.read_text(encoding="utf-8")
+    ).upper()
     for marker in ("AKILLI TARAMA", "ANA SAYFA", "IZFIN", "TEYİT BEKLE", "GÜÇLÜ AL", "BÜYÜK HAREKETLER"):
         assert marker in source
 

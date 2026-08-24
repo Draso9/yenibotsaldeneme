@@ -11,6 +11,7 @@ import pandas as pd
 
 APP = Path(__file__).resolve().parents[1] / "app2.py"
 USER_REPOSITORY = APP.parent / "izfin_repositories" / "user_repository.py"
+AUTH_SERVICE = APP.parent / "izfin_services" / "auth_service.py"
 
 
 def _source():
@@ -59,11 +60,12 @@ def test_privacy_and_terms_are_public_versioned_and_separate():
 
 def test_every_auth_provider_passes_through_legal_acceptance_gate():
     source = _source()
+    auth_service = AUTH_SERVICE.read_text(encoding="utf-8")
     auth_gate = source.index("if not izfin_yasal_onay_kapisi():")
     app_sidebar = source.index("st.sidebar.markdown(izfin_brand_html()")
     assert auth_gate < app_sidebar
-    assert 'profil.get("terms_version") == IZFIN_TERMS_VERSION' in source
-    assert 'profil.get("privacy_notice_version") == IZFIN_PRIVACY_VERSION' in source
+    assert 'profil.get("terms_version") == self.terms_version' in auth_service
+    assert 'profil.get("privacy_notice_version") == self.privacy_version' in auth_service
     assert source.count('st.session_state.pop("izfin_yasal_onayli", None)') >= 3
 
 

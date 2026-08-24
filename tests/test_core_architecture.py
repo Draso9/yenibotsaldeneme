@@ -262,10 +262,11 @@ def test_home_dashboard_orchestration_stays_outside_streamlit_shell():
     assert "_iz_panel_metrics" not in app_functions
 
     source = APP.read_text(encoding="utf-8")
-    assert "home_karar_ozeti_hazirla(" in source
+    assert "home_dashboard_html_hazirla(" in source
+    assert "home_top_signals_html(" in source
+    assert "home_movers_html(" in source
     assert "home_top_signals_hazirla(" in source
     assert "home_movers_hazirla(" in source
-    assert "home_panel_metrics_hazirla(" in source
     assert "home_scan_bos_mu(" in source
     assert "setup_rank = skor * .52" not in source
     assert "adaylar.append((setup_rank" not in source
@@ -329,7 +330,7 @@ def test_auth_session_orchestration_stays_outside_streamlit_shell():
     assert "AUTH_SESSION_SERVICE.session_cookie_oturumu_hazirla(" in source
     assert "ACCOUNT_SERVICE.kayit_ol(" in source
     assert "ACCOUNT_SERVICE.sifre_sifirlama_maili(" in source
-    assert "google_oauth_state_dogrula(" in source
+    assert "google_oauth_callback_isle(" in source
     assert "google_oauth_url_olustur(" in source
     assert "captcha_paketi_uret(" in source
     assert "def _google_state_uret(" not in source
@@ -440,3 +441,23 @@ def test_performance_refresh_application_logic_stays_outside_streamlit_shell():
     assert "quote_fetcher=finnhub_quote_cek" in source
     assert "daily_close_fetcher=_gunluk_kapanis_serisi" in source
 
+
+def test_ui6h_auth_oauth_and_legal_decisions_stay_outside_streamlit_shell():
+    source = APP.read_text(encoding="utf-8")
+    assert "LegalConsentService" in source
+    assert "google_oauth_callback_isle(" in source
+    assert "LEGAL_CONSENT_SERVICE.onay_guncel_mi(uid)" in source
+    assert "LEGAL_CONSENT_SERVICE.onay_kaydet(uid)" in source
+    assert "google_oauth_state_dogrula(state" not in source
+    assert "token_data, token_hatasi = google_oauth_kodu_tokena_cevir(" not in source
+    assert "profil = USER_REPOSITORY.get_profile(uid)" not in source
+
+
+def test_ui6j_dashboard_html_and_movers_stay_outside_streamlit_shell():
+    source = APP.read_text(encoding="utf-8")
+    assert "home_dashboard_html_hazirla(" in source
+    assert "return home_top_signals_html(" in source
+    assert "return home_movers_html(" in source
+    assert 'class="iz-best-setup-copy' not in source
+    assert 'class="iz-mv1827-card"' not in source
+    assert "mover_rows.append(" not in source

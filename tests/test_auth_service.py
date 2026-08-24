@@ -7,6 +7,8 @@ from urllib.parse import parse_qs, urlparse
 from izfin_services.auth_service import (
     AccountService,
     AuthSessionService,
+    LegalConsentService,
+    google_oauth_callback_isle,
     google_oauth_state_dogrula,
     google_oauth_state_uret,
     google_oauth_url_olustur,
@@ -28,12 +30,16 @@ class FakeRepository:
         self.available = available
         self.profiles = []
         self.watchlists = []
+        self.profile = {}
 
     def upsert_profile(self, uid, data, *, merge=True):
         self.profiles.append((uid, data, merge))
 
     def upsert_watchlist(self, uid, data, *, merge=True):
         self.watchlists.append((uid, data, merge))
+
+    def get_profile(self, uid):
+        return self.profile.copy()
 
 
 def test_oauth_state_roundtrip_and_tamper_expiry_guards():
@@ -51,7 +57,7 @@ def test_oauth_state_roundtrip_and_tamper_expiry_guards():
 
 
 def test_google_oauth_url_keeps_provider_contract():
-    state = google_oauth_state_uret("secret", now=1_000, nonce_factory=lambda: "n")
+    state = google_oauth_state_uret("secret", nonce_factory=lambda: "n")
     url = google_oauth_url_olustur(
         client_id="client",
         client_secret="secret",
@@ -216,3 +222,74 @@ def test_account_service_preserves_signup_error_and_password_reset_contract():
     ok, error = service.sifre_sifirlama_maili("a@example.com")
     assert ok is True
     assert error is None
+
+
+def test_google_callback_orchestrates_exchange_session_and_query_cleanup():
+    calls = []
+    state = google_oauth_state_uret("secret", nonce_factory=lambda: "n")
+    result = google_oauth_callback_isle(
+        oauth_error="",
+        code="code-1",
+        state=state,
+        client_id="client",
+        client_secret="secret",
+        redirect_uri="https://example.test/",
+        token_url="https://token.test/",
+        token_exchange=lambda *args: (calls.append(("token", args)) or {"id_token": "google-id"}, None),
+        firebase_exchange=lambda token: (calls.append(("firebase", token)) or {"idToken": "firebase-id"}, None),
+        session_opener=lambda data, **kwargs: (calls.append(("session", data, kwargs)) or True, None),
+        clear_query=lambda: calls.append(("clear",)),
+    )
+    assert result == (True, None)
+    assert calls[-1] == ("clear",)
+    assert calls[1] == ("firebase", "google-id")
+    assert calls[2][2] == {"beni_hatirla": True}
+
+
+def test_google_callback_rejects_provider_error_and_invalid_state_without_exchange():
+    logged = []
+    denied = google_oauth_callback_isle(
+        oauth_error="access_denied",
+        code="",
+        state="",
+        client_id="c",
+        client_secret="secret",
+        redirect_uri="r",
+        token_url="t",
+        token_exchange=lambda *_: (_ for _ in ()).throw(AssertionError("unused")),
+        firebase_exchange=lambda *_: ({}, None),
+        session_opener=lambda *_args, **_kwargs: (True, None),
+    )
+    assert denied == (False, "Google girişi kullanıcı tarafından iptal edildi.")
+    invalid = google_oauth_callback_isle(
+        oauth_error="",
+        code="code",
+        state="bad",
+        client_id="c",
+        client_secret="secret",
+        redirect_uri="r",
+        token_url="t",
+        token_exchange=lambda *_: ({}, None),
+        firebase_exchange=lambda *_: ({}, None),
+        session_opener=lambda *_args, **_kwargs: (True, None),
+        error_handler=lambda context, error: logged.append(context),
+    )
+    assert invalid[0] is False
+
+
+def test_legal_consent_service_checks_versions_and_writes_timestamps():
+    repo = FakeRepository()
+    repo.profile = {"terms_version": "t1", "privacy_notice_version": "p1"}
+    service = LegalConsentService(
+        repo,
+        terms_version="t1",
+        privacy_version="p1",
+        now_factory=lambda: datetime(2026, 8, 24, 12, 0, 0),
+    )
+    assert service.onay_guncel_mi("uid-1") == (True, None)
+    ok, error = service.onay_kaydet("uid-1")
+    assert ok is True and error is None
+    payload = repo.profiles[-1][1]
+    assert payload["terms_version"] == "t1"
+    assert payload["privacy_notice_version"] == "p1"
+    assert payload["terms_accepted_at"] == "2026-08-24T12:00:00"
