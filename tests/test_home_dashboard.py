@@ -1,10 +1,13 @@
 from __future__ import annotations
 
 from izfin_ui.home_dashboard import (
+    home_dashboard_html_hazirla,
     home_karar_ozeti_hazirla,
+    home_movers_html,
     home_movers_hazirla,
     home_panel_metrics_hazirla,
     home_scan_bos_mu,
+    home_top_signals_html,
     home_top_signals_hazirla,
 )
 
@@ -135,3 +138,35 @@ def test_home_decision_summary_comment_is_deterministic():
     )
     assert ozet["mod"] == "RİSKTEN KAÇIN"
     assert ozet["yorum"] == "Trend zayıf, momentum zayıf, para akışı teyidi zayıf, risk seviyesi yüksek."
+
+
+def test_home_dashboard_presenter_builds_empty_and_featured_contracts():
+    empty = home_dashboard_html_hazirla(
+        [], {}, piyasa_degisimleri=[1, -1], sinyal_yonu_belirle=_yon
+    )
+    assert empty["best_ticker"] is None
+    assert "İlk tarama bekleniyor" in empty["center_html"]
+    featured = home_dashboard_html_hazirla(
+        [{"Varlık": "NVDA", "Nihai Sinyal": "GÜÇLÜ AL", "Risk": "DÜŞÜK"}],
+        {"NVDA": {"cezali_skor": 90, "guven_skoru": 80, "mtf_uyum": 75, "risk_seviyesi": "DÜŞÜK", "fiyat": 110, "sma200": 100}},
+        sinyal_yonu_belirle=_yon,
+    )
+    assert featured["best_ticker"] == "NVDA"
+    assert "BUGÜNÜN ÖNE ÇIKAN HİSSESİ" in featured["center_html"]
+    assert "NVDA" in featured["center_html"]
+
+
+def test_home_html_presenters_escape_dynamic_content_and_keep_mover_layout():
+    signals = home_top_signals_html(
+        [{"Varlık": "<A>", "Fiyat": "<10>", "Nihai Sinyal": "GÜÇLÜ AL", "Risk": "DÜŞÜK"}],
+        {"<A>": {"cezali_skor": 80, "guven_skoru": 70, "mtf_uyum": 60}},
+    )
+    assert "&lt;A&gt;" in signals and "<A>" not in signals
+    movers = home_movers_html(
+        [{"Varlık": "NVDA", "Fiyat": "$100"}],
+        {"NVDA": {"gunluk_degisim": -3.25}},
+        compact=True,
+    )
+    assert "iz-mv1827-card" in movers
+    assert "-3.25%" in movers
+    assert "iz-mv1827-change neg" in movers

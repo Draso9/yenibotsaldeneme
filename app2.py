@@ -72,10 +72,11 @@ from izfin_ui.scan_results import (
 )
 from izfin_ui.market_bar import market_bar_html
 from izfin_ui.home_dashboard import (
-    home_karar_ozeti_hazirla,
+    home_dashboard_html_hazirla,
+    home_movers_html,
     home_movers_hazirla,
-    home_panel_metrics_hazirla,
     home_scan_bos_mu,
+    home_top_signals_html,
     home_top_signals_hazirla,
 )
 from izfin_ui.projection_view import (
@@ -116,7 +117,8 @@ from izfin_services.bootstrap_service import (
 from izfin_services.auth_service import (
     AccountService,
     AuthSessionService,
-    google_oauth_state_dogrula,
+    LegalConsentService,
+    google_oauth_callback_isle,
     google_oauth_url_olustur,
 )
 from izfin_services.backtest_service import backtest_calistir
@@ -461,6 +463,13 @@ ACCOUNT_SERVICE = AccountService(
     default_tickers=VARSAYILAN_TICKERS,
     terms_version=IZFIN_TERMS_VERSION,
     privacy_version=IZFIN_PRIVACY_VERSION,
+    error_handler=lambda context, error: izfin_hata_logla(context, error),
+)
+LEGAL_CONSENT_SERVICE = LegalConsentService(
+    USER_REPOSITORY,
+    terms_version=IZFIN_TERMS_VERSION,
+    privacy_version=IZFIN_PRIVACY_VERSION,
+    now_factory=lambda: datetime.now(tz=ZoneInfo("UTC")),
     error_handler=lambda context, error: izfin_hata_logla(context, error),
 )
 
@@ -1371,328 +1380,57 @@ def izfin_market_bar_html(bant_paketi):
     return market_bar_html(bant_paketi)
 
 
-def _iz_pulse_label(p):
-    if p >= 72: return "GÜÇLÜ POZİTİF"
-    if p >= 60: return "POZİTİF"
-    if p >= 45: return "DENGELİ"
-    if p >= 32: return "TEMKİNLİ"
-    return "RİSKLİ"
 
-def _iz_badge_class(s):
-    u = str(s).upper()
-    if "GÜÇLÜ AL" in u or ("AL" in u and "ERKEN" not in u): return "buy"
-    if "ERKEN" in u: return "early"
-    if "TEYİT" in u or "İZLE" in u: return "wait"
-    return "risk"
 
 
 def izfin_render_classic_dashboard_clickable():
-    """Ana sayfa üst alanı: IZFIN Karar Merkezi. Isı haritası kaldırıldı."""
+    """Ana sayfa karar merkezini pure presenter üzerinden çizer."""
     sonuclar = st.session_state.get("sonuclar") or []
     paneller = st.session_state.get("teknik_paneller") or {}
-    panel_values = list(paneller.values())
-
     piyasa_degisimleri = None
-    if not panel_values:
+    if not paneller:
         piyasa_degisimleri = []
         for item in izfin_piyasa_bandi_verisi().get("items", []):
             try:
-                if item.get("ad") == "VIX":
-                    continue
-                degisim = item.get("deg")
-                if degisim is not None and np.isfinite(float(degisim)):
-                    piyasa_degisimleri.append(float(degisim))
+                if item.get("ad") != "VIX" and item.get("deg") is not None:
+                    deger = float(item["deg"])
+                    if np.isfinite(deger):
+                        piyasa_degisimleri.append(deger)
             except (TypeError, ValueError):
                 continue
-
-    metrics = home_panel_metrics_hazirla(panel_values, piyasa_degisimleri)
-    pulse = metrics["pulse"]
-    trend = metrics["trend"]
-    momentum = metrics["momentum"]
-    flow = metrics["flow"]
-    risk = metrics["risk"]
-    kaynak = metrics["kaynak"]
-
-    home_ozet = home_karar_ozeti_hazirla(
+    paket = home_dashboard_html_hazirla(
         sonuclar,
         paneller,
-        pulse=pulse,
-        trend=trend,
-        momentum=momentum,
-        flow=flow,
-        risk=risk,
-        kaynak=kaynak,
+        piyasa_degisimleri=piyasa_degisimleri,
         sinyal_yonu_belirle=sinyal_yonu_belirle,
     )
-    guclu_al = home_ozet["guclu_al"]
-    alim_tarafi = home_ozet["alim_tarafi"]
-    teyit = home_ozet["teyit"]
-    yuksek_risk = home_ozet["yuksek_risk"]
-    best = home_ozet["best"]
-    mod = home_ozet["mod"]
-    mod_cls = home_ozet["mod_cls"]
-    yorum = home_ozet["yorum"]
-
-    st.markdown(
-        '<div class="iz-hero iz-market-hero">'
-          '<div class="iz-market-hero-kicker"><span class="iz-market-hero-dot"></span>IZFIN SIGNATURE COMMAND CENTER</div>'
-          '<div class="iz-market-hero-main">'
-            '<div>'
-              '<h1>IZFIN Piyasa Merkezi</h1>'
-              '<p>Son taramanın karar dağılımını, piyasa modunu ve en güçlü setup’ı tek bakışta gör.</p>'
-            '</div>'
-            '<div class="iz-market-hero-mark">IZ</div>'
-          '</div>'
-        '</div>',
-        unsafe_allow_html=True,
-    )
-
-    if not sonuclar:
-        st.markdown(
-            '<div class="iz-decision-center iz-decision-center-premium">'
-              '<div class="iz-decision-head">'
-                '<div><small>IZFIN KARAR MERKEZİ</small><h2>İlk tarama bekleniyor</h2>'
-                '<p>Karar dağılımı, piyasa modu ve öne çıkan setup bu alanda oluşacak.</p></div>'
-                '<span class="iz-decision-mode neutral">HAZIR</span>'
-              '</div>'
-              '<div class="iz-decision-empty iz-decision-empty-premium">'
-                '<div class="iz-decision-empty-icon">◫</div>'
-                '<b>Henüz piyasa özeti oluşmadı</b>'
-                '<span>Akıllı Tarama çalıştırıldığında trend, momentum, para akışı ve risk bileşenleri burada birleşir.</span>'
-              '</div>'
-            '</div>',
-            unsafe_allow_html=True,
-        )
-        return None
-
-    if best:
-        _, bt, bs, bg, bmtf, brisk, bsignal = best
-        best_html = (
-            '<div class="iz-best-setup-copy iz-best-setup-feature iz-featured-stock-v2">'
-              '<div class="iz-featured-left">'
-                '<div class="iz-best-feature-label"><span>✦</span> BUGÜNÜN ÖNE ÇIKAN HİSSESİ</div>'
-                '<div class="iz-featured-identity">'
-                  f'<div class="iz-featured-ticker">{html.escape(bt)}</div>'
-                  f'<div class="iz-featured-signal">{html.escape(bsignal or "—")}</div>'
-                '</div>'
-                '<div class="iz-featured-caption">Son taramada listenin teknik bileşiminde en fazla öne çıkan aday</div>'
-              '</div>'
-              '<div class="iz-featured-metrics">'
-                f'<div><span>IZFIN SKOR</span><strong>{int(bs)}</strong></div>'
-                f'<div><span>GÜVEN</span><strong>%{int(bg)}</strong></div>'
-                f'<div><span>MTF</span><strong>%{int(bmtf)}</strong></div>'
-                f'<div><span>RİSK</span><strong>{html.escape(brisk or "—")}</strong></div>'
-              '</div>'
-            '</div>'
-        )
-    else:
-        best_html = '<div class="iz-best-setup-copy"><small>BUGÜNÜN ÖNE ÇIKAN SETUP’I</small><strong>—</strong></div>'
-
-    center_html = (
-        '<div class="iz-decision-center iz-decision-center-premium">'
-        '<div class="iz-decision-head">'
-        '<div><small>IZFIN KARAR MERKEZİ</small><h2>Son Tarama Özeti</h2>'
-        f'<p>{html.escape(str(kaynak))} · Son taranan evrene göre</p></div>'
-        f'<span class="iz-decision-mode {mod_cls}">{mod} · {pulse}/100</span>'
-        '</div>'
-        '<div class="iz-decision-kpis">'
-        f'<div><span>ALIM TARAFI</span><b>{alim_tarafi}</b><small>AL / Güçlü AL</small></div>'
-        f'<div><span>GÜÇLÜ SETUP</span><b>{guclu_al}</b><small>yüksek öncelik</small></div>'
-        f'<div><span>TEYİT BEKLEYEN</span><b>{teyit}</b><small>henüz tamamlanmadı</small></div>'
-        f'<div><span>YÜKSEK RİSK</span><b>{yuksek_risk}</b><small>dikkat gerektiriyor</small></div>'
-        '</div>'
-        '<div class="iz-decision-lower iz-decision-lower-summary">'
-        '<div class="iz-market-factors">'
-        f'<div><span>TREND</span><b>{trend}</b></div>'
-        f'<div><span>MOMENTUM</span><b>{momentum}</b></div>'
-        f'<div><span>PARA AKIŞI</span><b>{flow}</b></div>'
-        f'<div><span>RİSK</span><b>{risk}</b></div>'
-        '</div>'
-        '</div>'
-        f'<div class="iz-system-comment"><span>SİSTEM YORUMU</span><p>{html.escape(yorum)}</p></div>'
-        f'<div class="iz-best-setup-bottom">{best_html}</div>'
-        '<div class="iz-decision-foot">Piyasa modu tüm piyasanın resmi breadth göstergesi değildir; IZFIN’in son taramada analiz ettiği listenin teknik bileşiminden üretilir.</div>'
-        '</div>'
-    )
-    st.markdown(center_html, unsafe_allow_html=True)
-
-    return bt if best else None
+    st.markdown(paket["hero_html"], unsafe_allow_html=True)
+    st.markdown(paket["center_html"], unsafe_allow_html=True)
+    return paket["best_ticker"]
 
 
 def izfin_top_signals_html(max_n=7):
-    sonuclar = st.session_state.get("sonuclar") or []
-    paneller = st.session_state.get("teknik_paneller") or {}
-    rows = []
-    for item in home_top_signals_hazirla(sonuclar, paneller, max_n=max_n):
-        t = str(item["ticker"])
-        sin = str(item["sinyal"])
-        skor = int(item["skor"])
-        g = int(item["guven"])
-        fiyat = item["fiyat"]
-        risk = item["risk"]
-        mtf = int(item["mtf"])
-        rows.append(f'<tr><td><b>{html.escape(t)}</b></td><td>{html.escape(str(fiyat))}</td><td><span class="iz-badge {_iz_badge_class(sin)}">{html.escape(sin)}</span></td><td><b style="color:#20e69a">{skor}</b></td><td><div class="iz-ring" style="--g:{g}"><span>{g}%</span></div></td><td>{mtf}%</td><td>{html.escape(str(risk))}</td></tr>')
-    if not rows:
-        return (
-            '<div class="iz-signals iz-home-feature-card iz-home-feature-cyan">'
-              '<div class="iz-feature-head">'
-                '<div class="iz-feature-icon iz-feature-icon-cyan">◎</div>'
-                '<div class="iz-feature-head-copy">'
-                  '<div class="iz-card-title">LİSTENİN DİKKAT ÇEKENLERİ</div>'
-                  '<div class="iz-feature-accent"></div>'
-                  '<div class="iz-feature-desc">Derin Tarama çalıştırıldığında en yüksek skorlu sinyaller burada özetlenecek.</div>'
-                '</div>'
-              '</div>'
-              '<div class="iz-feature-divider"></div>'
-              '<div class="iz-feature-empty">'
-                '<div class="iz-empty-graphic iz-empty-chart">'
-                  '<span class="iz-empty-screen"></span>'
-                  '<span class="iz-empty-line"></span>'
-                  '<span class="iz-empty-spark s1">✦</span>'
-                  '<span class="iz-empty-spark s2">✦</span>'
-                '</div>'
-                '<b>Henüz veri yok</b>'
-                '<span>Akıllı Tarama ile listenizdeki fırsatları keşfedin.</span>'
-                '<div class="iz-feature-cta-slot"></div>'
-              '</div>'
-            '</div>'
-        )
-    return '<div class="iz-signals"><div class="iz-card-title">LİSTENİN DİKKAT ÇEKENLERİ</div><table><thead><tr><th>VARLIK</th><th>FİYAT</th><th>IZFIN KARARI</th><th>SKOR</th><th>GÜVEN</th><th>MTF</th><th>RİSK</th></tr></thead><tbody>' + ''.join(rows) + '</tbody></table></div>'
+    return home_top_signals_html(
+        st.session_state.get("sonuclar") or [],
+        st.session_state.get("teknik_paneller") or {},
+        max_n=max_n,
+    )
 
 def izfin_movers_html(max_n=6):
-    sonuclar = st.session_state.get("sonuclar") or []
-    paneller = st.session_state.get("teknik_paneller") or {}
-    rows = [
-        (abs(float(item["degisim"])), float(item["degisim"]), str(item["ticker"]), item["fiyat"])
-        for item in home_movers_hazirla(sonuclar, paneller, max_n=max_n)
-    ]
-    if not rows:
-        body = (
-            '<div class="iz-feature-empty">'
-              '<div class="iz-empty-graphic iz-empty-bars">'
-                '<span class="b1"></span><span class="b2"></span><span class="b3"></span>'
-                '<span class="iz-empty-spark s1">✦</span>'
-                '<span class="iz-empty-spark s2">✦</span>'
-              '</div>'
-              '<b>Henüz veri yok</b>'
-              '<span>Akıllı Tarama ile gün içindeki büyük hareketleri görün.</span>'
-              '<div class="iz-feature-cta-slot"></div>'
-            '</div>'
-        )
-    else:
-        mover_rows = []
-        for _, degisim, ticker, fiyat in rows[:max_n]:
-            yon_sinifi = "pos" if degisim >= 0 else "neg"
-            mover_rows.append(
-                "<div class='iz-mover-row' "
-                'style="display:grid!important;grid-template-columns:minmax(72px,.72fr) minmax(0,1.65fr) auto!important;align-items:center!important;width:100%!important">'
-                f"<div class='iz-mover-name'>{html.escape(str(ticker))}</div>"
-                f"<div class='iz-mover-price'>{html.escape(str(fiyat))}</div>"
-                f"<div class='iz-mover-chg {yon_sinifi}'>{degisim:+.2f}%</div>"
-                "</div>"
-            )
-        body = "".join(mover_rows)
-    if rows:
-        return f'<div class="iz-movers"><div class="iz-card-title">BÜYÜK HAREKETLER</div>{body}<span hidden aria-hidden="true"></span></div>'
-    return (
-        '<div class="iz-movers iz-home-feature-card iz-home-feature-purple">'
-          '<div class="iz-feature-head">'
-            '<div class="iz-feature-icon iz-feature-icon-purple">▥</div>'
-            '<div class="iz-feature-head-copy">'
-              '<div class="iz-card-title">BÜYÜK HAREKETLER</div>'
-              '<div class="iz-feature-accent"></div>'
-              '<div class="iz-feature-desc">Akıllı Tarama sonrası listedeki dikkat çekici fiyat hareketleri burada görünecek.</div>'
-            '</div>'
-          '</div>'
-          '<div class="iz-feature-divider"></div>'
-          f'{body}'
-        '</div>'
+    return home_movers_html(
+        st.session_state.get("sonuclar") or [],
+        st.session_state.get("teknik_paneller") or {},
+        max_n=max_n,
     )
 
 
 def izfin_movers_render(max_n=5):
-    """Büyük Hareketler'i soldaki ana sayfa kartıyla uyumlu, bağımsız bir gridde çizer."""
     sonuclar = st.session_state.get("sonuclar") or []
     paneller = st.session_state.get("teknik_paneller") or {}
-    rows = [
-        (abs(float(item["degisim"])), float(item["degisim"]), str(item["ticker"]), item["fiyat"])
-        for item in home_movers_hazirla(sonuclar, paneller, max_n=max_n)
-    ]
-
-    # Taranmamış durumda soldaki premium boş kartın birebir geometrisini kullan.
-    # Böylece iki kart ve iki native tarama butonu aynı başlangıç/bitiş çizgisinde kalır.
-    if not rows:
-        st.markdown(izfin_movers_html(max_n=max_n), unsafe_allow_html=True)
+    if not home_movers_hazirla(sonuclar, paneller, max_n=max_n):
+        st.markdown(home_movers_html(sonuclar, paneller, max_n=max_n), unsafe_allow_html=True)
         return
-
-    mover_rows = []
-    for _, degisim, ticker, fiyat in rows[:max_n]:
-        yon_sinifi = "pos" if degisim >= 0 else "neg"
-        mover_rows.append(
-            '<div class="iz-mv1827-row">'
-            f'<div class="iz-mv1827-ticker">{html.escape(str(ticker))}</div>'
-            f'<div class="iz-mv1827-price">{html.escape(str(fiyat))}</div>'
-            f'<div class="iz-mv1827-change {yon_sinifi}">{degisim:+.2f}%</div>'
-            '</div>'
-        )
-    body = "".join(mover_rows)
-
-    st.html(
-        """
-        <style>
-        .iz-mv1827-card{
-            width:100%; min-height:406px; box-sizing:border-box; overflow:hidden;
-            padding:20px 18px 16px; border:1px solid #153f55; border-radius:16px;
-            background:#071724; color:#effaff; font-family:inherit;
-        }
-        .iz-mv1827-title{
-            min-height:28px; display:flex; align-items:center; margin:0 0 10px;
-            color:#f4fbff; font-size:14px; line-height:1; font-weight:850;
-            letter-spacing:.02em; text-transform:uppercase;
-        }
-        .iz-mv1827-head, .iz-mv1827-row{
-            display:grid; grid-template-columns:minmax(70px,1fr) minmax(0,1.65fr) minmax(64px,.72fr);
-            column-gap:14px; align-items:center; width:100%; box-sizing:border-box;
-        }
-        .iz-mv1827-head{
-            min-height:38px; padding:0 12px; border-bottom:1px solid #17445a;
-            color:#60b9dc; font-size:8px; font-weight:820; letter-spacing:.06em;
-        }
-        .iz-mv1827-head > div:nth-child(2),
-        .iz-mv1827-head > div:nth-child(3){text-align:right;}
-        .iz-mv1827-row{
-            min-height:55px; padding:0 12px; border-bottom:1px solid rgba(23,68,90,.72);
-            transition:background-color .15s ease;
-        }
-        .iz-mv1827-row:last-child{border-bottom:0;}
-        .iz-mv1827-row:hover{background:rgba(18,58,78,.22);}
-        .iz-mv1827-ticker, .iz-mv1827-price, .iz-mv1827-change{
-            min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
-        }
-        .iz-mv1827-ticker{color:#f2fbff; font-size:11px; font-weight:850;}
-        .iz-mv1827-price{color:#9bc7d8; font-size:10px; font-weight:700; text-align:right;}
-        .iz-mv1827-change{font-size:11px; font-weight:850; text-align:right;}
-        .iz-mv1827-change.pos{color:#00d77e;}
-        .iz-mv1827-change.neg{color:#ff4256;}
-        @media(max-width:768px){
-            .iz-mv1827-card{min-height:0; padding:16px 12px 12px;}
-            .iz-mv1827-head, .iz-mv1827-row{
-                grid-template-columns:minmax(54px,.8fr) minmax(0,1.55fr) minmax(58px,.72fr);
-                column-gap:8px; padding-left:8px; padding-right:8px;
-            }
-            .iz-mv1827-price{font-size:9px;}
-            .iz-mv1827-change{font-size:10px;}
-        }
-        </style>
-        <div class="iz-mv1827-card">
-            <div class="iz-mv1827-title">BÜYÜK HAREKETLER</div>
-            <div class="iz-mv1827-head">
-                <div>VARLIK</div><div>FİYAT</div><div>DEĞİŞİM</div>
-            </div>
-        """
-        + body
-        + "</div>"
-    )
+    st.html(home_movers_html(sonuclar, paneller, max_n=max_n, compact=True))
 
 
 def _izfin_home_ticker_ac(ticker):
@@ -1764,54 +1502,20 @@ def _google_callback_isle():
         state = str(st.query_params.get("state", "") or "").strip()
     except Exception:
         oauth_error = code = state = ""
-
-    if oauth_error:
-        try: st.query_params.clear()
-        except Exception: pass
-        if oauth_error == "access_denied":
-            return False, "Google girişi kullanıcı tarafından iptal edildi."
-        izfin_hata_logla("google_oauth_provider_error", RuntimeError(oauth_error[:120]))
-        return False, "Google girişi tamamlanamadı. Lütfen yeniden deneyin."
-    if not code:
-        return None
-    if not GOOGLE_OAUTH_CLIENT_SECRET or not google_oauth_state_dogrula(state, GOOGLE_OAUTH_CLIENT_SECRET):
-        try: st.query_params.clear()
-        except Exception: pass
-        return False, "Google oturumu güvenlik doğrulamasından geçemedi. Lütfen yeniden deneyin."
-
-    try:
-        token_data, token_hatasi = google_oauth_kodu_tokena_cevir(
-            code,
-            GOOGLE_OAUTH_CLIENT_ID,
-            GOOGLE_OAUTH_CLIENT_SECRET,
-            GOOGLE_OAUTH_REDIRECT_URI,
-            GOOGLE_OAUTH_TOKEN_URL,
-        )
-        if token_hatasi:
-            try: st.query_params.clear()
-            except Exception: pass
-            izfin_hata_logla("google_oauth_token_response", RuntimeError(str(token_hatasi)[:120]))
-            return False, "Google yetkilendirmesi doğrulanamadı. Lütfen yeniden deneyin."
-        google_id_token = str(token_data.get("id_token") or "")
-        if not google_id_token:
-            try: st.query_params.clear()
-            except Exception: pass
-            return False, "Google kimlik tokenı alınamadı."
-
-        firebase_data, err = _google_tokenu_firebase_tokenina_cevir(google_id_token)
-        if err:
-            try: st.query_params.clear()
-            except Exception: pass
-            return False, err
-        ok, msg = _oturum_ac(firebase_data, beni_hatirla=True)
-        try: st.query_params.clear()
-        except Exception: pass
-        return ok, msg
-    except Exception as e:
-        izfin_hata_logla("google_oauth_callback", e)
-        try: st.query_params.clear()
-        except Exception: pass
-        return False, "Google oturumu tamamlanamadı. Lütfen tekrar deneyin."
+    return google_oauth_callback_isle(
+        oauth_error=oauth_error,
+        code=code,
+        state=state,
+        client_id=GOOGLE_OAUTH_CLIENT_ID,
+        client_secret=GOOGLE_OAUTH_CLIENT_SECRET,
+        redirect_uri=GOOGLE_OAUTH_REDIRECT_URI,
+        token_url=GOOGLE_OAUTH_TOKEN_URL,
+        token_exchange=google_oauth_kodu_tokena_cevir,
+        firebase_exchange=_google_tokenu_firebase_tokenina_cevir,
+        session_opener=_oturum_ac,
+        clear_query=st.query_params.clear,
+        error_handler=izfin_hata_logla,
+    )
 
 
 def _google_login_component():
@@ -2114,39 +1818,15 @@ def _kullanici_hesabini_kalici_sil():
     return len(belgeler)
 
 
-def _yasal_onay_kaydet(uid):
-    simdi = datetime.now(tz=ZoneInfo("UTC")).isoformat()
-    USER_REPOSITORY.upsert_profile(
-        uid,
-        {
-            "terms_version": IZFIN_TERMS_VERSION,
-            "terms_accepted_at": simdi,
-            "privacy_notice_version": IZFIN_PRIVACY_VERSION,
-            "privacy_notice_shown_at": simdi,
-        },
-    )
-
-
 def izfin_yasal_onay_kapisi():
     """E-posta ve Google kullanıcılarına sürümlü koşul/onay kapısını aynı biçimde uygular."""
     if st.session_state.get("izfin_yasal_onayli"):
         return True
-    if not USER_REPOSITORY.available:
-        st.error("Yasal onay kaydı doğrulanamadığı için uygulama güvenli biçimde açılamıyor.")
-        return False
-
     uid = str(st.session_state.get("user_uid") or "").strip()
-    try:
-        profil = USER_REPOSITORY.get_profile(uid)
-    except Exception as e:
-        izfin_hata_logla("yasal_onay_durumu", e)
-        st.error("Hesap onay bilgileri şu anda doğrulanamıyor. Lütfen daha sonra tekrar deneyin.")
+    guncel, onay_hatasi = LEGAL_CONSENT_SERVICE.onay_guncel_mi(uid)
+    if onay_hatasi:
+        st.error(onay_hatasi)
         return False
-
-    guncel = (
-        profil.get("terms_version") == IZFIN_TERMS_VERSION
-        and profil.get("privacy_notice_version") == IZFIN_PRIVACY_VERSION
-    )
     if guncel:
         st.session_state.izfin_yasal_onayli = True
         return True
@@ -2211,13 +1891,12 @@ def izfin_yasal_onay_kapisi():
         if not kosul_ok or not gizlilik_goruldu:
             st.error("Devam etmek için iki kutuyu da işaretleyin.")
         else:
-            try:
-                _yasal_onay_kaydet(uid)
+            ok, hata = LEGAL_CONSENT_SERVICE.onay_kaydet(uid)
+            if ok:
                 st.session_state.izfin_yasal_onayli = True
                 st.rerun()
-            except Exception as e:
-                izfin_hata_logla("yasal_onay_kaydet", e)
-                st.error("Onay kaydedilemedi. Lütfen yeniden deneyin.")
+            else:
+                st.error(hata)
     return False
 
 

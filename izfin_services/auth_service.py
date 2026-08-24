@@ -255,3 +255,145 @@ def google_oauth_url_olustur(
         "include_granted_scopes": "true",
     }
     return str(authorize_url) + "?" + urlencode(params)
+
+
+def google_oauth_callback_isle(
+    *,
+    oauth_error: str,
+    code: str,
+    state: str,
+    client_id: str,
+    client_secret: str,
+    redirect_uri: str,
+    token_url: str,
+    token_exchange: Callable[..., tuple[dict[str, Any], Any]],
+    firebase_exchange: Callable[[str], tuple[dict[str, Any], Any]],
+    session_opener: Callable[..., tuple[bool, str]],
+    clear_query: Callable[[], Any] | None = None,
+    error_handler: Callable[[str, Exception], Any] | None = None,
+):
+    """Google callback kararlarını Streamlit/query-param kabuğundan ayırır."""
+
+    def clear() -> None:
+        if clear_query is None:
+            return
+        try:
+            clear_query()
+        except Exception:
+            pass
+
+    def report(context: str, error: Exception) -> None:
+        if error_handler is None:
+            return
+        try:
+            error_handler(context, error)
+        except Exception:
+            pass
+
+    oauth_error = str(oauth_error or "").strip()
+    code = str(code or "").strip()
+    state = str(state or "").strip()
+    if oauth_error:
+        clear()
+        if oauth_error == "access_denied":
+            return False, "Google girişi kullanıcı tarafından iptal edildi."
+        report("google_oauth_provider_error", RuntimeError(oauth_error[:120]))
+        return False, "Google girişi tamamlanamadı. Lütfen yeniden deneyin."
+    if not code:
+        return None
+    if not client_secret or not google_oauth_state_dogrula(state, client_secret):
+        clear()
+        return False, "Google oturumu güvenlik doğrulamasından geçemedi. Lütfen yeniden deneyin."
+
+    try:
+        token_data, token_hatasi = token_exchange(
+            code,
+            client_id,
+            client_secret,
+            redirect_uri,
+            token_url,
+        )
+        if token_hatasi:
+            clear()
+            report("google_oauth_token_response", RuntimeError(str(token_hatasi)[:120]))
+            return False, "Google yetkilendirmesi doğrulanamadı. Lütfen yeniden deneyin."
+
+        google_id_token = str((token_data or {}).get("id_token") or "")
+        if not google_id_token:
+            clear()
+            return False, "Google kimlik tokenı alınamadı."
+
+        firebase_data, firebase_error = firebase_exchange(google_id_token)
+        if firebase_error:
+            clear()
+            return False, firebase_error
+        result = session_opener(firebase_data, beni_hatirla=True)
+        clear()
+        return result
+    except Exception as error:
+        report("google_oauth_callback", error)
+        clear()
+        return False, "Google oturumu tamamlanamadı. Lütfen tekrar deneyin."
+
+
+class LegalConsentService:
+    """Sürümlü yasal onay okuma/yazma kurallarını repository üzerinde toplar."""
+
+    def __init__(
+        self,
+        repository,
+        *,
+        terms_version: str,
+        privacy_version: str,
+        now_factory: Callable[[], datetime] | None = None,
+        error_handler: Callable[[str, Exception], Any] | None = None,
+    ):
+        self.repository = repository
+        self.terms_version = str(terms_version)
+        self.privacy_version = str(privacy_version)
+        self.now_factory = now_factory or datetime.now
+        self.error_handler = error_handler
+
+    @property
+    def available(self) -> bool:
+        return bool(getattr(self.repository, "available", False))
+
+    def _error(self, context: str, error: Exception) -> None:
+        if self.error_handler:
+            try:
+                self.error_handler(context, error)
+            except Exception:
+                pass
+
+    def onay_guncel_mi(self, uid: str):
+        if not self.available:
+            return False, "Yasal onay kaydı doğrulanamadığı için uygulama güvenli biçimde açılamıyor."
+        try:
+            profil = self.repository.get_profile(str(uid or "").strip()) or {}
+            return (
+                profil.get("terms_version") == self.terms_version
+                and profil.get("privacy_notice_version") == self.privacy_version
+            ), None
+        except Exception as error:
+            self._error("yasal_onay_durumu", error)
+            return False, "Hesap onay bilgileri şu anda doğrulanamıyor. Lütfen daha sonra tekrar deneyin."
+
+    def onay_kaydet(self, uid: str):
+        uid = str(uid or "").strip()
+        if not uid:
+            return False, "Doğrulanmış kullanıcı kimliği bulunamadı."
+        try:
+            simdi = self.now_factory().isoformat()
+            self.repository.upsert_profile(
+                uid,
+                {
+                    "terms_version": self.terms_version,
+                    "terms_accepted_at": simdi,
+                    "privacy_notice_version": self.privacy_version,
+                    "privacy_notice_shown_at": simdi,
+                },
+            )
+            return True, None
+        except Exception as error:
+            self._error("yasal_onay_kaydet", error)
+            return False, "Onay kaydedilemedi. Lütfen yeniden deneyin."
