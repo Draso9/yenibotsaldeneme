@@ -5,8 +5,10 @@ import pytest
 
 from izfin_services.backtest_service import backtest_calistir
 from izfin_ui.backtest_view import (
+    backtest_arama_mesaji_hazirla,
     backtest_arama_paketi_hazirla,
     backtest_kpi_paketi_hazirla,
+    backtest_sayfa_paketi_hazirla,
 )
 
 
@@ -93,6 +95,23 @@ def test_backtest_search_empty_state_is_stable():
     assert paket["durum"] == "bos"
     assert paket["ticker"] == ""
     assert paket["eslesmeler"] == []
+
+
+def test_backtest_page_and_search_messages_preserve_shell_contract():
+    sayfa = backtest_sayfa_paketi_hazirla()
+    assert 'id="strateji-laboratuvari"' in sayfa["title_html"]
+    assert "GÜÇLÜ AL / AL / ERKEN AL" in sayfa["intro_markdown"]
+    assert "Daily MTF" in sayfa["intro_markdown"]
+    assert "yeterli veri veya alım sinyali" in sayfa["bos_sonuc_uyarisi"]
+
+    exact = backtest_arama_paketi_hazirla(["NVDA"], "NVDA")
+    direct = backtest_arama_paketi_hazirla(["AAPL"], "THYAO.IS")
+    empty = backtest_arama_paketi_hazirla(["AAPL"], "")
+    selection = backtest_arama_paketi_hazirla(["NVDA", "NVDL"], "NV")
+    assert backtest_arama_mesaji_hazirla(exact) == "✅ Seçilen varlık: NVDA"
+    assert "THYAO.IS kayıtlı havuzda yok" in backtest_arama_mesaji_hazirla(direct)
+    assert "NVDA veya THYAO.IS" in backtest_arama_mesaji_hazirla(empty)
+    assert backtest_arama_mesaji_hazirla(selection) is None
 
 
 def test_backtest_kpi_package_formats_renderer_contract():

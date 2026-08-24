@@ -280,6 +280,7 @@ def test_projection_view_model_stays_outside_streamlit_shell():
     assert "projection_senaryo_hazirla(" in source
     assert "projection_sayfa_html_paketi_hazirla(" in source
     assert "projection_senaryo_html_paketi_hazirla(" in source
+    assert "projection_metrik_paketi_hazirla(" in source
     assert "if not st.session_state.tarama_durumu or not st.session_state.teknik_paneller:" not in source
     assert 'destek = float(panel.get("destek"' not in source
     assert "model_farki = abs(proj['atr_yuzde'] - proj['volatilite_yuzde'])" not in source
@@ -294,6 +295,9 @@ def test_performance_view_model_stays_outside_streamlit_shell():
     assert "aktif_pozisyon_tablosu_html(" in source
     assert "kapanmis_pozisyon_html_paketi_hazirla(" in source
     assert "performans_karne_paketi_hazirla(" in source
+    assert "performans_sayfa_paketi_hazirla(" in source
+    assert "performans_ust_kpi_paketi_hazirla(" in source
+    assert "performans_temizlik_sonuc_mesaji_hazirla(" in source
     assert "df_perf = pd.DataFrame(kayitlar).reset_index(drop=True)" not in source
     assert "def naive_tarih(" not in source
     assert "def _ufuk_extreme(" not in source
@@ -333,12 +337,45 @@ def test_ui6m_page_and_position_presenters_stay_outside_streamlit_shell():
         assert "st.session_state" not in presenter_source
 
 
+def test_ui6n_renderer_view_models_stay_outside_streamlit_shell():
+    source = APP.read_text(encoding="utf-8")
+    presenter_sources = [
+        (UI / "auth_view.py").read_text(encoding="utf-8"),
+        (UI / "backtest_view.py").read_text(encoding="utf-8"),
+        (UI / "performance_view.py").read_text(encoding="utf-8"),
+        (UI / "projection_view.py").read_text(encoding="utf-8"),
+        (UI / "scan_results.py").read_text(encoding="utf-8"),
+    ]
+
+    assert "auth_sayfa_html_paketi_hazirla(" in source
+    assert "backtest_sayfa_paketi_hazirla(" in source
+    assert "backtest_arama_mesaji_hazirla(" in source
+    assert "projection_metrik_paketi_hazirla(" in source
+    assert "performans_sayfa_paketi_hazirla(" in source
+    assert "performans_ust_kpi_paketi_hazirla(" in source
+    assert "performans_temizlik_sonuc_mesaji_hazirla(" in source
+    assert "peg_formatter=peg_yorumu_hazirla" in source
+
+    assert "def peg_yorumu(" not in source
+    assert 'class="iz-auth-bg"' not in source
+    assert 'f"±{proj[' not in source
+    assert 'f"Temizlik tamamlandı:' not in source
+    assert "detay[detay_kolonlari].sort_values(" not in source
+    assert 'f"✅ Seçilen varlık:' not in source
+
+    for presenter_source in presenter_sources:
+        assert "import streamlit" not in presenter_source
+        assert "st.session_state" not in presenter_source
+
+
 def test_backtest_runner_orchestration_stays_outside_streamlit_shell():
     source = APP.read_text(encoding="utf-8")
     assert "from izfin_services.backtest_service import backtest_calistir" in source
     assert "from izfin_ui.backtest_view import (" in source
     assert "backtest_arama_paketi_hazirla(" in source
+    assert "backtest_arama_mesaji_hazirla(" in source
     assert "backtest_kpi_paketi_hazirla(" in source
+    assert "backtest_sayfa_paketi_hazirla(" in source
     assert "from izfin_core.backtest_engine import daily_core_backtest_hesapla" not in source
     assert "backtest_verisi_indir," not in source
     assert "bt_havuz = sorted(" not in source
@@ -368,6 +405,7 @@ def test_auth_session_orchestration_stays_outside_streamlit_shell():
     assert "google_oauth_callback_isle(" in source
     assert "google_oauth_url_olustur(" in source
     assert "captcha_paketi_uret(" in source
+    assert "auth_sayfa_html_paketi_hazirla(" in source
     assert "def _google_state_uret(" not in source
     assert "def _google_state_dogrula(" not in source
     assert "def _kayit_ol(" not in source

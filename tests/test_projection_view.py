@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from izfin_ui.projection_view import (
     projection_hazir_mi,
+    projection_metrik_paketi_hazirla,
     projection_sayfa_html_paketi_hazirla,
     projection_senaryo_hazirla,
     projection_senaryo_html_paketi_hazirla,
@@ -150,3 +151,36 @@ def test_projection_scenario_html_formats_levels_and_escapes_dynamic_copy():
     assert "<script>" not in paket["direction_html"]
     assert "&lt;Yükseliş&gt;" in paket["direction_html"]
     assert "Güven skoru %88" in paket["direction_html"]
+
+
+def test_projection_metric_package_preserves_rows_formats_and_progress():
+    paket = projection_metrik_paketi_hazirla(
+        _proj(
+            fiyat=100,
+            atr_hareket=8,
+            volatilite_hareket=9.5,
+            karma_hareket=8.75,
+            karma_yuzde=8.75,
+            guven_skoru=84,
+            model_uyumu=0.88,
+            hv20=0.31,
+            hv60=0.28,
+            hv_karma=0.295,
+        )
+    )
+
+    assert [x["label"] for x in paket["birincil"]] == [
+        "Güncel Fiyat",
+        "ATR Modeli",
+        "Volatilite Modeli",
+        "Karma Model",
+    ]
+    assert paket["birincil"][0] == {"label": "Güncel Fiyat", "value": "100.00"}
+    assert paket["birincil"][2]["value"] == "±9.50"
+    assert paket["birincil"][2]["delta"] == "%9.5"
+    assert paket["ikincil"][0]["value"] == "90.00 / 110.00"
+    assert paket["ikincil"][2]["value"] == "%84"
+    assert paket["ikincil"][2]["delta"] == "Uyum %88"
+    assert paket["guven_ilerleme"] == 0.84
+    assert "%31.0" in paket["volatilite_aciklamasi"]
+    assert "Karma: %29.5" in paket["volatilite_aciklamasi"]

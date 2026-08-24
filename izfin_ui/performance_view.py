@@ -585,13 +585,108 @@ def kapanmis_pozisyon_html_paketi_hazirla(
     }
 
 
+def performans_sayfa_paketi_hazirla() -> dict[str, str]:
+    """Return static performance-page copy as a framework-neutral contract."""
+    return {
+        "title_html": '<h3 id="takip-performans">📊 Takip & Performans</h3>',
+        "intro_markdown": (
+            "Her hissede **ilk alım sinyali tarihi ve fiyatı sabit tutulur**. "
+            "Aynı alım dönemi devam ederken sinyal türü değişse bile yeni kayıt açılmaz; "
+            "performans ilk giriş fiyatından güncel fiyata göre hesaplanır."
+        ),
+        "auth_warning": (
+            "Bu bölüm için Firebase bağlantısı ve kullanıcı oturumu gereklidir."
+        ),
+        "refresh_caption": (
+            "Sinyal kaybolursa pozisyon kapanır. Aynı hissede daha sonra yeniden alım "
+            "oluşursa yeni dönem başlatılır."
+        ),
+        "maintenance_caption": (
+            "Eski sürümlerin oluşturduğu gerçek mükerrer Firestore belgelerini temizler. "
+            "Silmeden önce her belge sinyal_arsivi_temizlik_yedegi koleksiyonuna kopyalanır."
+        ),
+        "empty_message": (
+            "Henüz takip edilen bir alım pozisyonu yok. İlk ALIM, KIRILIM veya ADAY "
+            "sinyali oluştuğunda burada görüntülenecek."
+        ),
+        "active_title": "### 📌 Aktif Alım Pozisyonları",
+        "active_caption": (
+            "Performans, hissenin bu alım dönemindeki ilk sinyal fiyatından güncel fiyata "
+            "göre hesaplanır. Aynı dönem içinde Kademeli Alım, Kusursuz Alım veya Kırılım "
+            "arasında geçiş olması giriş fiyatını değiştirmez."
+        ),
+        "closed_caption": (
+            "Aynı hissede alım sinyali sona erip daha sonra yeniden oluşursa yeni dönem aktif "
+            "tabloda açılır; önceki dönem burada saklanır. Maksimum kâr/düşüş ve TP sütunları, "
+            "ilgili alım dönemi için yeterli karne/hedef verisi varsa gösterilir. Yeni kayıtlarda "
+            "maksimum kâr/düşüş ve hedef hitleri yalnızca pozisyonun açık kaldığı dönemden "
+            "hesaplanır. Aynı günlük mum içinde hem stop hem hedef görülmüşse gün içi "
+            "gerçekleşme sırası bu günlük ölçümden belirlenemez. Önceki sürümlerde eksik "
+            "ölçümler '—' olarak gösterilir."
+        ),
+        "scorecard_title": "### 🏆 IZFIN Performans Karnesi",
+        "scorecard_caption": (
+            "Yeni sinyaller güncel IZFIN strateji sürümüyle dondurulur. 1/5/10/20/45 işlem "
+            "günü sonuçları sonradan değiştirilmez; ABD hisseleri NASDAQ, BIST hisseleri "
+            "BIST100 ile karşılaştırılır."
+        ),
+        "small_sample_warning": (
+            "Örneklem henüz küçük. Başarı oranlarını karar vermek için kullanmadan önce "
+            "en az 30, tercihen 100+ bağımsız sinyal biriktirmek daha sağlıklıdır."
+        ),
+    }
+
+
+def performans_temizlik_sonuc_mesaji_hazirla(ozet: Mapping[str, Any]) -> str:
+    return (
+        f"Temizlik tamamlandı: {int(ozet.get('grup', 0))} mükerrer grup · "
+        f"{int(ozet.get('yedeklenen', 0))} yedek · "
+        f"{int(ozet.get('silinen', 0))} silinen belge."
+    )
+
+
+def performans_ust_kpi_paketi_hazirla(
+    performans_paketi: Mapping[str, Any],
+) -> list[dict[str, str]]:
+    acik_df = performans_paketi.get("acik_df")
+    kapali_df = performans_paketi.get("kapali_df")
+    return [
+        {"label": "Aktif Hisse", "value": str(len(acik_df))},
+        {
+            "label": "Kârda / Zararda",
+            "value": (
+                f"{int(performans_paketi.get('pozitif', 0))} / "
+                f"{int(performans_paketi.get('negatif', 0))}"
+            ),
+        },
+        {
+            "label": "Ort. Açık Performans",
+            "value": f"%{float(performans_paketi.get('ort_getiri', 0.0)):+.1f}",
+        },
+        {"label": "Kapanmış Dönem", "value": str(len(kapali_df))},
+    ]
+
+
 def performans_karne_paketi_hazirla(
     kayitlar: Sequence[Mapping[str, Any]] | None,
     *,
     gun: int,
 ) -> dict[str, Any]:
     """Karne motoru çıktısını kullanıcıya gösterilecek özet ve tablolara dönüştürür."""
-    karne_df = performans_karnesi_ozeti(kayitlar, gun=int(gun))
+    gun = int(gun)
+    getiri_kolonu = f"+{gun}G Getiri %"
+    medyan_getiri_kolonu = f"+{gun}G Medyan Getiri %"
+    gorunum_format = {
+        "Sinyal Sayısı": "{:.0f}",
+        "Başarı Oranı %": "{:.1f}%",
+        medyan_getiri_kolonu: "{:+.2f}%",
+        "Medyan Benchmark Farkı %": "{:+.2f}%",
+    }
+    detay_format = {
+        getiri_kolonu: "{:+.2f}%",
+        "Benchmark Farkı %": "{:+.2f}%",
+    }
+    karne_df = performans_karnesi_ozeti(kayitlar, gun=gun)
     if karne_df.empty:
         return {
             "karne_df": karne_df,
@@ -603,6 +698,14 @@ def performans_karne_paketi_hazirla(
             "detay": pd.DataFrame(),
             "detay_kolonlari": [],
             "kucuk_orneklem": True,
+            "metrikler": [],
+            "medyan_alfa_mesaji": None,
+            "gorunum_format": gorunum_format,
+            "detay_format": detay_format,
+            "bos_mesaj": (
+                f"Henüz +{gun} işlem günü tamamlamış ölçülebilir sinyal yok. "
+                "Yeni IZFIN sinyalleri biriktikçe bu bölüm otomatik anlam kazanacak."
+            ),
         }
 
     pozitif_oran = float((karne_df["getiri"] > 0).mean() * 100)
@@ -621,13 +724,13 @@ def performans_karne_paketi_hazirla(
             **{
                 "Sinyal Sayısı": ("getiri", "size"),
                 "Başarı Oranı %": ("getiri", lambda x: float((x > 0).mean() * 100)),
-                f"+{int(gun)}G Medyan Getiri %": ("getiri", "median"),
+                medyan_getiri_kolonu: ("getiri", "median"),
                 "Medyan Benchmark Farkı %": ("alfa", "median"),
             }
         )
         .reset_index()
         .rename(columns={"ticker": "Varlık"})
-        .sort_values(f"+{int(gun)}G Medyan Getiri %", ascending=False)
+        .sort_values(medyan_getiri_kolonu, ascending=False)
     )
 
     detay = detay_karne.copy()
@@ -639,7 +742,7 @@ def performans_karne_paketi_hazirla(
             "ticker": "Varlık",
             "sinyal_tarihi": "Sinyal Tarihi",
             "sinyal": "Sinyal",
-            "getiri": f"+{int(gun)}G Getiri %",
+            "getiri": getiri_kolonu,
             "alfa": "Benchmark Farkı %",
         }
     )
@@ -647,12 +750,28 @@ def performans_karne_paketi_hazirla(
         "Varlık",
         "Sinyal Tarihi",
         "Sinyal",
-        f"+{int(gun)}G Getiri %",
+        getiri_kolonu,
         "Benchmark Farkı %",
     ]
     detay_kolonlari = [
         c for c in detay_kolonlari if c in detay.columns and not detay[c].isna().all()
     ]
+    detay = detay.sort_values(getiri_kolonu, ascending=False)
+
+    metrikler = [
+        {"label": "Ölçülen Sinyal", "value": str(len(karne_df))},
+        {"label": "Pozitif Sonuç", "value": f"%{pozitif_oran:.1f}"},
+        {"label": f"+{gun}G Medyan", "value": f"%{medyan_getiri:+.2f}"},
+        {
+            "label": "Benchmark Üstü",
+            "value": f"%{benchmark_ustu:.1f}" if np.isfinite(benchmark_ustu) else "—",
+        },
+    ]
+    medyan_alfa_mesaji = (
+        f"Medyan göreceli performans (alfa): %{medyan_alfa:+.2f}"
+        if np.isfinite(medyan_alfa)
+        else None
+    )
 
     return {
         "karne_df": karne_df,
@@ -664,4 +783,9 @@ def performans_karne_paketi_hazirla(
         "detay": detay,
         "detay_kolonlari": detay_kolonlari,
         "kucuk_orneklem": len(karne_df) < 30,
+        "metrikler": metrikler,
+        "medyan_alfa_mesaji": medyan_alfa_mesaji,
+        "gorunum_format": gorunum_format,
+        "detay_format": detay_format,
+        "bos_mesaj": None,
     }

@@ -77,6 +77,52 @@ def projection_senaryo_hazirla(
     }
 
 
+def projection_metrik_paketi_hazirla(proj: Mapping[str, Any]) -> dict[str, Any]:
+    """Build renderer-ready metric rows and model-band context."""
+    guven_skoru = proj["guven_skoru"]
+    return {
+        "birincil": [
+            {"label": "Güncel Fiyat", "value": f"{float(proj['fiyat']):.2f}"},
+            {
+                "label": "ATR Modeli",
+                "value": f"±{float(proj['atr_hareket']):.2f}",
+                "delta": f"%{float(proj['atr_yuzde']):.1f}",
+            },
+            {
+                "label": "Volatilite Modeli",
+                "value": f"±{float(proj['volatilite_hareket']):.2f}",
+                "delta": f"%{float(proj['volatilite_yuzde']):.1f}",
+            },
+            {
+                "label": "Karma Model",
+                "value": f"±{float(proj['karma_hareket']):.2f}",
+                "delta": f"%{float(proj['karma_yuzde']):.1f}",
+            },
+        ],
+        "ikincil": [
+            {
+                "label": "45G Karma Bant",
+                "value": f"{float(proj['alt_1s']):.2f} / {float(proj['ust_1s']):.2f}",
+            },
+            {
+                "label": "Geniş Risk Bandı",
+                "value": f"{float(proj['alt_2s']):.2f} / {float(proj['ust_2s']):.2f}",
+            },
+            {
+                "label": "Model Güven Skoru",
+                "value": f"%{guven_skoru}",
+                "delta": f"Uyum %{float(proj['model_uyumu']) * 100:.0f}",
+            },
+        ],
+        "guven_ilerleme": float(guven_skoru) / 100,
+        "volatilite_aciklamasi": (
+            f"20 günlük yıllıklandırılmış volatilite: %{float(proj['hv20']) * 100:.1f} · "
+            f"60 günlük: %{float(proj['hv60']) * 100:.1f} · "
+            f"Karma: %{float(proj['hv_karma']) * 100:.1f}"
+        ),
+    }
+
+
 def projection_sayfa_html_paketi_hazirla() -> dict[str, str]:
     """Return the projection page's static chrome as a pure presentation package."""
     return {

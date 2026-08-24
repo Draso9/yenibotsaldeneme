@@ -65,6 +65,7 @@ from izfin_ui.scan_table import (
 from izfin_ui.scan_results import (
     detay_secimi_hazirla,
     peg_degerlendirilemeyen_varliklar,
+    peg_yorumu_hazirla,
     tarama_hata_ozeti,
     tarama_sonuclarini_filtrele,
 )
@@ -79,6 +80,7 @@ from izfin_ui.home_dashboard import (
 )
 from izfin_ui.projection_view import (
     projection_hazir_mi,
+    projection_metrik_paketi_hazirla,
     projection_sayfa_html_paketi_hazirla,
     projection_senaryo_hazirla,
     projection_senaryo_html_paketi_hazirla,
@@ -91,6 +93,9 @@ from izfin_ui.performance_view import (
     kapanmis_pozisyon_gorunumu_hazirla,
     performans_karne_paketi_hazirla,
     performans_pozisyon_paketi_hazirla,
+    performans_sayfa_paketi_hazirla,
+    performans_temizlik_sonuc_mesaji_hazirla,
+    performans_ust_kpi_paketi_hazirla,
 )
 from izfin_ui.scan_page_view import (
     aktif_tarama_evreni_html,
@@ -103,8 +108,10 @@ from izfin_ui.scan_page_view import (
     tarama_tablosu_sarmala,
 )
 from izfin_ui.backtest_view import (
+    backtest_arama_mesaji_hazirla,
     backtest_arama_paketi_hazirla,
     backtest_kpi_paketi_hazirla,
+    backtest_sayfa_paketi_hazirla,
 )
 from izfin_ui.backtest_results import backtest_sonuc_paketi_hazirla
 from izfin_ui.navigation import (
@@ -115,6 +122,7 @@ from izfin_ui.navigation import (
 )
 from izfin_ui.qa_view import qa_aktif_pozisyon_ornekleri, qa_sayfa_paketi_hazirla
 from izfin_ui.auth_view import (
+    auth_sayfa_html_paketi_hazirla,
     captcha_paketi_uret,
     email_gecerli_mi,
     giris_formu_hatalari,
@@ -690,23 +698,6 @@ def peg_degeri_cek(ticker):
         # uygulama/Sentry issue seviyesine yükseltilmez.
         logger.info("PEG provider verisi alınamadı [%s]: %s", ticker, e)
         return None
-
-
-def peg_yorumu(peg):
-    """PEG'i skorlamadan, yalnızca açıklayıcı değerleme etiketi üretir."""
-    if peg is None or not np.isfinite(peg) or peg <= 0:
-        return "—", "⚪ PEG değerlendirilemedi"
-    if peg < 0.75:
-        etiket = "💎 Çok Ucuz Büyüme"
-    elif peg < 1.00:
-        etiket = "🟢 Ucuz Büyüme"
-    elif peg < 1.50:
-        etiket = "✅ Makul Büyüme Değerlemesi"
-    elif peg < 2.00:
-        etiket = "🟡 Büyüme Primi Var"
-    else:
-        etiket = "🟠 Yüksek Büyüme Primi"
-    return f"{peg:.2f}", etiket
 
 
 def _finnhub_get(endpoint, params, timeout=3, max_retry=2):
@@ -1490,26 +1481,17 @@ def izfin_auth_ekrani():
     if "izfin_auth_mode" not in st.session_state:
         st.session_state.izfin_auth_mode = "login"
 
-    st.markdown('<div class="iz-auth-bg"></div>', unsafe_allow_html=True)
-    st.markdown(f'''<div class="iz-auth-shell">
-      <div class="iz-auth-logo">
-        <div class="iz-auth-symbol">
-          <img src="data:image/png;base64,{IZFIN_LOGO_GEOCENTER_B64}" alt="IZFIN">
-        </div>
-        <div><div class="word">IZFIN</div><div class="tag">ANALYZE • PREDICT • INVEST</div></div>
-      </div>
-      <div class="iz-auth-kicker">SIGNATURE INTELLIGENCE</div>
-      <div class="iz-auth-title">Hoş Geldiniz</div>
-      <div class="iz-auth-sub">Piyasayı analiz et, fırsatları filtrele, kararını tek merkezden yönet.</div>
-    </div>''', unsafe_allow_html=True)
+    auth_sayfa_html = auth_sayfa_html_paketi_hazirla(IZFIN_LOGO_GEOCENTER_B64)
+    st.markdown(auth_sayfa_html["background_html"], unsafe_allow_html=True)
+    st.markdown(auth_sayfa_html["hero_html"], unsafe_allow_html=True)
 
     _, center, _ = st.columns([1.15, 1.55, 1.15])
     with center:
-        st.markdown('<div class="iz-auth-card"><div class="iz-auth-card-head"><strong>IZFIN Hesabı</strong><span>GÜVENLİ OTURUM</span></div></div>', unsafe_allow_html=True)
+        st.markdown(auth_sayfa_html["card_header_html"], unsafe_allow_html=True)
         if not FIREBASE_WEB_API_KEY:
             st.error("Giriş sistemi yapılandırması eksik: Streamlit Secrets içine FIREBASE_WEB_API_KEY eklenmeli.")
 
-        st.markdown('<div class="iz-auth-switch-label">HESAP ERİŞİMİ</div>', unsafe_allow_html=True)
+        st.markdown(auth_sayfa_html["switch_label_html"], unsafe_allow_html=True)
         sw1, sw2 = st.columns(2, gap="small")
         with sw1:
             if st.button("Giriş Yap", key="auth_switch_login", type="primary" if st.session_state.izfin_auth_mode == "login" else "secondary", use_container_width=True):
@@ -1558,9 +1540,9 @@ def izfin_auth_ekrani():
                             st.success("Şifre sıfırlama bağlantısı e-posta adresinize gönderildi.")
                         else:
                             st.error(msg)
-            st.markdown('<div class="iz-google-wrap"><div class="iz-google-caption">veya</div></div>', unsafe_allow_html=True)
+            st.markdown(auth_sayfa_html["login_divider_html"], unsafe_allow_html=True)
             _google_login_component()
-            st.markdown('<div class="iz-google-note">Google hesabınız Firebase Authentication üzerinden doğrulanır.</div>', unsafe_allow_html=True)
+            st.markdown(auth_sayfa_html["google_note_html"], unsafe_allow_html=True)
 
         else:
             st.caption("Yeni hesabınız kişisel izleme listenizi ve performans geçmişinizi size özel saklar.")
@@ -1610,7 +1592,7 @@ def izfin_auth_ekrani():
                         st.success("Hesabınız oluşturuldu. Giriş Yap bölümünden oturum açabilirsiniz.")
                         st.session_state.izfin_auth_mode = "login"
                         _captcha_yenile()
-            st.markdown('<div class="iz-google-wrap"><div class="iz-google-caption">şifre oluşturmadan devam et</div></div>', unsafe_allow_html=True)
+            st.markdown(auth_sayfa_html["register_divider_html"], unsafe_allow_html=True)
             _google_login_component()
 
         legal_col1, legal_col2 = st.columns(2)
@@ -1628,9 +1610,9 @@ def izfin_auth_ekrani():
                 use_container_width=True,
             ):
                 izfin_kullanim_kosullari_modal_render()
-        st.markdown('<div class="iz-auth-security"><span>◈ <b>Firebase Auth</b></span><span>◈ <b>Kişisel veri alanı</b></span><span>◈ <b>14 gün güvenli oturum</b></span></div>', unsafe_allow_html=True)
+        st.markdown(auth_sayfa_html["security_html"], unsafe_allow_html=True)
 
-    st.markdown('<div class="iz-auth-shell"><div class="iz-auth-footer">IZFIN · ANALYZE • PREDICT • INVEST &nbsp;·&nbsp; Yatırım karar destek platformu</div></div>', unsafe_allow_html=True)
+    st.markdown(auth_sayfa_html["footer_html"], unsafe_allow_html=True)
 
 def izfin_tarama_tablosu_html(df):
     return tarama_tablosu_html(
@@ -2128,7 +2110,7 @@ if aktif_sayfa in ["🏠 Ana Sayfa", "🔎 Akıllı Tarama"]:
                     peg_fetcher=peg_degeri_cek,
                     sektor_fetcher=sektor_referanslari_indir,
                     intraday_fetcher=intraday_veri_cek,
-                    peg_formatter=peg_yorumu,
+                    peg_formatter=peg_yorumu_hazirla,
                     error_handler=izfin_hata_logla,
                     progress_callback=_scan_workflow_progress,
                 )
@@ -2427,22 +2409,22 @@ if aktif_sayfa == "🎯 Projeksiyon & Senaryo":
                 unsafe_allow_html=True,
             )
 
-            o1, o2, o3, o4 = st.columns(4)
-            o1.metric("Güncel Fiyat", f"{proj['fiyat']:.2f}")
-            o2.metric("ATR Modeli", f"±{proj['atr_hareket']:.2f}", f"%{proj['atr_yuzde']:.1f}")
-            o3.metric("Volatilite Modeli", f"±{proj['volatilite_hareket']:.2f}", f"%{proj['volatilite_yuzde']:.1f}")
-            o4.metric("Karma Model", f"±{proj['karma_hareket']:.2f}", f"%{proj['karma_yuzde']:.1f}")
+            projection_metrikleri = projection_metrik_paketi_hazirla(proj)
+            for metric_col, metric in zip(
+                st.columns(4), projection_metrikleri["birincil"]
+            ):
+                metric_col.metric(
+                    metric["label"], metric["value"], metric.get("delta")
+                )
+            for metric_col, metric in zip(
+                st.columns(3), projection_metrikleri["ikincil"]
+            ):
+                metric_col.metric(
+                    metric["label"], metric["value"], metric.get("delta")
+                )
 
-            b1, b2, b3 = st.columns(3)
-            b1.metric("45G Karma Bant", f"{proj['alt_1s']:.2f} / {proj['ust_1s']:.2f}")
-            b2.metric("Geniş Risk Bandı", f"{proj['alt_2s']:.2f} / {proj['ust_2s']:.2f}")
-            b3.metric("Model Güven Skoru", f"%{proj['guven_skoru']}", f"Uyum %{proj['model_uyumu']*100:.0f}")
-
-            st.progress(proj['guven_skoru'] / 100)
-            st.caption(
-                f"20 günlük yıllıklandırılmış volatilite: %{proj['hv20']*100:.1f} · "
-                f"60 günlük: %{proj['hv60']*100:.1f} · Karma: %{proj['hv_karma']*100:.1f}"
-            )
+            st.progress(projection_metrikleri["guven_ilerleme"])
+            st.caption(projection_metrikleri["volatilite_aciklamasi"])
 
             senaryo = projection_senaryo_hazirla(
                 panel,
@@ -2473,32 +2455,27 @@ if aktif_sayfa == "🎯 Projeksiyon & Senaryo":
 
 
 if aktif_sayfa == "📊 Takip & Performans":
-    st.html('<h3 id="takip-performans">📊 Takip & Performans</h3>')
-    st.markdown(
-        "Her hissede **ilk alım sinyali tarihi ve fiyatı sabit tutulur**. "
-        "Aynı alım dönemi devam ederken sinyal türü değişse bile yeni kayıt açılmaz; "
-        "performans ilk giriş fiyatından güncel fiyata göre hesaplanır."
-    )
+    performans_sayfa = performans_sayfa_paketi_hazirla()
+    st.html(performans_sayfa["title_html"])
+    st.markdown(performans_sayfa["intro_markdown"])
 
     if not st.session_state.user_email or not SIGNAL_REPOSITORY.available:
-        st.warning("Bu bölüm için Firebase bağlantısı ve kullanıcı oturumu gereklidir.")
+        st.warning(performans_sayfa["auth_warning"])
     else:
         col_p1, col_p2 = st.columns([1, 3])
         with col_p1:
             guncelle_tiklandi = st.button("🔄 Güncel Fiyatları Yenile", use_container_width=True)
         with col_p2:
-            st.caption(
-                "Sinyal kaybolursa pozisyon kapanır. Aynı hissede daha sonra yeniden alım oluşursa yeni dönem başlatılır."
-            )
+            st.caption(performans_sayfa["refresh_caption"])
 
         with st.expander("🧹 Geçmiş kayıt bakımı", expanded=False):
-            st.caption("Eski sürümlerin oluşturduğu gerçek mükerrer Firestore belgelerini temizler. Silmeden önce her belge sinyal_arsivi_temizlik_yedegi koleksiyonuna kopyalanır.")
+            st.caption(performans_sayfa["maintenance_caption"])
             temizlik_onay = st.checkbox("Yedek alındıktan sonra mükerrer kayıtların silinmesini onaylıyorum.", key="gecmis_kayit_temizlik_onay")
             if st.button("🧹 Mükerrerleri Yedekle ve Temizle", disabled=not temizlik_onay):
                 with st.spinner("Geçmiş kayıtlar kontrol ediliyor..."):
                     temiz_ozet = gecmis_mukerrer_kayitlari_temizle()
                     performans_cache_gecersiz_kil()
-                st.success(f"Temizlik tamamlandı: {temiz_ozet['grup']} mükerrer grup · {temiz_ozet['yedeklenen']} yedek · {temiz_ozet['silinen']} silinen belge.")
+                st.success(performans_temizlik_sonuc_mesaji_hazirla(temiz_ozet))
 
         kayitlar = performans_kayitlarini_getir()
         # Tüm performans ekranı aynı temiz kayıt setini kullanır.
@@ -2514,35 +2491,25 @@ if aktif_sayfa == "📊 Takip & Performans":
             st.success("Güncel fiyatlar yenilendi.")
 
         if not kayitlar:
-            st.info(
-                "Henüz takip edilen bir alım pozisyonu yok. İlk ALIM, KIRILIM veya ADAY sinyali oluştuğunda burada görüntülenecek."
-            )
+            st.info(performans_sayfa["empty_message"])
         else:
             performans_paketi = performans_pozisyon_paketi_hazirla(kayitlar)
-            df_perf = performans_paketi["df_perf"]
             acik_df = performans_paketi["acik_df"]
             kapali_df = performans_paketi["kapali_df"]
             acik_gecen = performans_paketi["acik_gecen"]
-            pozitif = performans_paketi["pozitif"]
-            negatif = performans_paketi["negatif"]
-            ort_getiri = performans_paketi["ort_getiri"]
+            for kpi_col, kpi in zip(
+                st.columns(4),
+                performans_ust_kpi_paketi_hazirla(performans_paketi),
+            ):
+                kpi_col.metric(kpi["label"], kpi["value"])
 
-            kp1, kp2, kp3, kp4 = st.columns(4)
-            kp1.metric("Aktif Hisse", int(len(acik_df)))
-            kp2.metric("Kârda / Zararda", f"{pozitif} / {negatif}")
-            kp3.metric("Ort. Açık Performans", f"%{ort_getiri:+.1f}")
-            kp4.metric("Kapanmış Dönem", int(len(kapali_df)))
-
-            st.markdown("### 📌 Aktif Alım Pozisyonları")
+            st.markdown(performans_sayfa["active_title"])
             if acik_df.empty:
                 st.html(aktif_pozisyon_tablosu_html(pd.DataFrame()))
             else:
                 aktif_gorunum = aktif_pozisyon_gorunumu_hazirla(acik_df, acik_gecen)
                 st.html(aktif_pozisyon_tablosu_html(aktif_gorunum))
-                st.caption(
-                    "Performans, hissenin bu alım dönemindeki ilk sinyal fiyatından güncel fiyata göre hesaplanır. "
-                    "Aynı dönem içinde Kademeli Alım, Kusursuz Alım veya Kırılım arasında geçiş olması giriş fiyatını değiştirmez."
-                )
+                st.caption(performans_sayfa["active_caption"])
 
             with st.expander(f"🗃️ Kapanmış Pozisyon Geçmişi ({len(kapali_df)})", expanded=False):
                 if kapali_df.empty:
@@ -2562,20 +2529,12 @@ if aktif_sayfa == "📊 Takip & Performans":
                             unsafe_allow_html=True,
                         )
 
-                    st.caption(
-                        "Aynı hissede alım sinyali sona erip daha sonra yeniden oluşursa yeni dönem aktif tabloda açılır; "
-                        "önceki dönem burada saklanır. Maksimum kâr/düşüş ve TP sütunları, ilgili alım dönemi için "
-                        "yeterli karne/hedef verisi varsa gösterilir. Yeni kayıtlarda maksimum kâr/düşüş ve hedef hitleri yalnızca pozisyonun açık kaldığı dönemden hesaplanır. "
-                        "Aynı günlük mum içinde hem stop hem hedef görülmüşse gün içi gerçekleşme sırası bu günlük ölçümden belirlenemez. Önceki sürümlerde eksik ölçümler '—' olarak gösterilir."
-                    )
+                    st.caption(performans_sayfa["closed_caption"])
 
 
             st.markdown("---")
-            st.markdown("### 🏆 IZFIN Performans Karnesi")
-            st.caption(
-                "Yeni sinyaller güncel IZFIN strateji sürümüyle dondurulur. 1/5/10/20/45 işlem günü "
-                "sonuçları sonradan değiştirilmez; ABD hisseleri NASDAQ, BIST hisseleri BIST100 ile karşılaştırılır."
-            )
+            st.markdown(performans_sayfa["scorecard_title"])
+            st.caption(performans_sayfa["scorecard_caption"])
 
             kc1, kc2 = st.columns([1, 3])
             with kc1:
@@ -2598,39 +2557,24 @@ if aktif_sayfa == "📊 Takip & Performans":
             )
             karne_df = karne_paketi["karne_df"]
             if karne_df.empty:
-                st.info(
-                    f"Henüz +{ufuk_secimi} işlem günü tamamlamış ölçülebilir sinyal yok. "
-                    "Yeni IZFIN sinyalleri biriktikçe bu bölüm otomatik anlam kazanacak."
-                )
+                st.info(karne_paketi["bos_mesaj"])
             else:
-                pozitif_oran = karne_paketi["pozitif_oran"]
-                medyan_getiri = karne_paketi["medyan_getiri"]
-                benchmark_ustu = karne_paketi["benchmark_ustu"]
-                medyan_alfa = karne_paketi["medyan_alfa"]
+                for kpi_col, kpi in zip(
+                    st.columns(4), karne_paketi["metrikler"]
+                ):
+                    kpi_col.metric(kpi["label"], kpi["value"])
 
-                c1, c2, c3, c4 = st.columns(4)
-                c1.metric("Ölçülen Sinyal", len(karne_df))
-                c2.metric("Pozitif Sonuç", f"%{pozitif_oran:.1f}")
-                c3.metric(f"+{ufuk_secimi}G Medyan", f"%{medyan_getiri:+.2f}")
-                c4.metric(
-                    "Benchmark Üstü",
-                    f"%{benchmark_ustu:.1f}" if np.isfinite(benchmark_ustu) else "—"
-                )
-
-                if np.isfinite(medyan_alfa):
-                    st.caption(f"Medyan göreceli performans (alfa): %{medyan_alfa:+.2f}")
+                if karne_paketi["medyan_alfa_mesaji"]:
+                    st.caption(karne_paketi["medyan_alfa_mesaji"])
 
                 # Ana karne olay değil varlık bazında gösterilir.
                 gorunum = karne_paketi["gorunum"]
 
                 st.dataframe(
                     izfin_dataframe_tema(
-                        gorunum.style.format({
-                            "Sinyal Sayısı": "{:.0f}",
-                            "Başarı Oranı %": "{:.1f}%",
-                            f"+{ufuk_secimi}G Medyan Getiri %": "{:+.2f}%",
-                            "Medyan Benchmark Farkı %": "{:+.2f}%",
-                        }, na_rep="—")
+                        gorunum.style.format(
+                            karne_paketi["gorunum_format"], na_rep="—"
+                        )
                     ),
                     use_container_width=True,
                     hide_index=True,
@@ -2641,31 +2585,22 @@ if aktif_sayfa == "📊 Takip & Performans":
                     detay_kolonlari = karne_paketi["detay_kolonlari"]
                     st.dataframe(
                         izfin_dataframe_tema(
-                            detay[detay_kolonlari].sort_values(
-                                f"+{ufuk_secimi}G Getiri %", ascending=False
-                            ).style.format({
-                                f"+{ufuk_secimi}G Getiri %": "{:+.2f}%",
-                                "Benchmark Farkı %": "{:+.2f}%",
-                            }, na_rep="—")
+                            detay[detay_kolonlari].style.format(
+                                karne_paketi["detay_format"], na_rep="—"
+                            )
                         ),
                         use_container_width=True,
                         hide_index=True,
                     )
 
                 if karne_paketi["kucuk_orneklem"]:
-                    st.warning(
-                        "Örneklem henüz küçük. Başarı oranlarını karar vermek için kullanmadan önce "
-                        "en az 30, tercihen 100+ bağımsız sinyal biriktirmek daha sağlıklıdır."
-                    )
+                    st.warning(performans_sayfa["small_sample_warning"])
 
 
 if aktif_sayfa == "🧪 Strateji Laboratuvarı":
-    st.html('<h3 id="strateji-laboratuvari">🧪 Strateji Laboratuvarı · IZFIN Daily Core Backtest</h3>')
-    st.markdown(
-        "Geçmişte her gün için yalnızca o güne kadar bilinen verilerle **IZFIN günlük çekirdek karar motorunu** yeniden çalıştırır. "
-        "Merkezi motor yalnızca GÜÇLÜ AL / AL / ERKEN AL dediğinde test işlemi açılır; ardından 5/10/20/45 günlük hareket ve Stop/TP sonucu ölçülür. "
-        "Uzun dönem intraday geçmişi olmadığı için 5dk/15dk/1s giriş motoru uydurulmaz; Daily MTF ve Giriş Proxy açıkça ayrı gösterilir."
-    )
+    backtest_sayfa = backtest_sayfa_paketi_hazirla()
+    st.html(backtest_sayfa["title_html"])
+    st.markdown(backtest_sayfa["intro_markdown"])
 
     bt_c1, bt_c2 = st.columns([2, 1])
     with bt_c1:
@@ -2683,21 +2618,15 @@ if aktif_sayfa == "🧪 Strateji Laboratuvarı":
             tum_varliklar_havuzu, bt_arama
         )
         bt_ticker = bt_arama_paketi["ticker"]
-        if bt_arama_paketi["durum"] == "tam_eslesme":
-            st.caption(f"✅ Seçilen varlık: {bt_ticker}")
-        elif bt_arama_paketi["durum"] == "secim_gerekli":
+        if bt_arama_paketi["durum"] == "secim_gerekli":
             bt_ticker = st.selectbox(
                 "Eşleşen varlıklar",
                 options=bt_arama_paketi["eslesmeler"],
                 key="bt_ticker_eslesme",
                 help="Aramayı daraltmak için sembolden daha fazla karakter yazabilirsiniz.",
             )
-        elif bt_arama_paketi["durum"] == "dogrudan":
-            st.caption(
-                f"🔎 {bt_ticker} kayıtlı havuzda yok; geçerli bir Yahoo sembolüyse doğrudan test edilecek."
-            )
         else:
-            st.caption("Bir sembol yazıp Enter'a basın; örneğin NVDA veya THYAO.IS.")
+            st.caption(backtest_arama_mesaji_hazirla(bt_arama_paketi))
 
     with bt_c2:
         bt_period = st.selectbox("Geçmiş dönem", ["3y", "5y", "10y"], index=1, key="bt_period")
@@ -2715,7 +2644,7 @@ if aktif_sayfa == "🧪 Strateji Laboratuvarı":
             bt, stats = basit_backtest(bt_ticker, bt_period)
 
         if bt.empty:
-            st.warning("Seçilen dönem için yeterli veri veya alım sinyali bulunamadı.")
+            st.warning(backtest_sayfa["bos_sonuc_uyarisi"])
         else:
             kpi_paketi = backtest_kpi_paketi_hazirla(stats)
             for kpi_col, kpi in zip(st.columns(4), kpi_paketi["birincil"]):
@@ -2726,7 +2655,7 @@ if aktif_sayfa == "🧪 Strateji Laboratuvarı":
                 st.caption(kpi_paketi["belirsizlik_mesaji"])
 
             sonuc_paketi = backtest_sonuc_paketi_hazirla(bt)
-            st.markdown("### 📌 Merkezi karar türlerine göre özet")
+            st.markdown(backtest_sayfa["ozet_basligi"])
             ozet_stil = sonuc_paketi["ozet"].style.format(
                 sonuc_paketi["ozet_format"], na_rep="-"
             )

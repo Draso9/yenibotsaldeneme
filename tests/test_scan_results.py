@@ -5,9 +5,20 @@ import pandas as pd
 from izfin_ui.scan_results import (
     detay_secimi_hazirla,
     peg_degerlendirilemeyen_varliklar,
+    peg_yorumu_hazirla,
     tarama_hata_ozeti,
     tarama_sonuclarini_filtrele,
 )
+
+
+def test_peg_commentary_preserves_all_valuation_thresholds():
+    assert peg_yorumu_hazirla(None) == ("—", "⚪ PEG değerlendirilemedi")
+    assert peg_yorumu_hazirla(float("nan")) == ("—", "⚪ PEG değerlendirilemedi")
+    assert peg_yorumu_hazirla(0.5) == ("0.50", "💎 Çok Ucuz Büyüme")
+    assert peg_yorumu_hazirla(0.75) == ("0.75", "🟢 Ucuz Büyüme")
+    assert peg_yorumu_hazirla(1.0) == ("1.00", "✅ Makul Büyüme Değerlemesi")
+    assert peg_yorumu_hazirla(1.5) == ("1.50", "🟡 Büyüme Primi Var")
+    assert peg_yorumu_hazirla(2.0) == ("2.00", "🟠 Yüksek Büyüme Primi")
 
 
 def _rows():
