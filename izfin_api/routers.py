@@ -2,8 +2,13 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 
+from izfin_services.bootstrap_service import (
+    kullanici_watchlist_bootstrap_hazirla,
+    kullanici_watchlist_kaydet,
+)
+from izfin_services.scan_page_state import tarama_sonuc_durumu_hazirla
 from izfin_services.scan_page_state import (
     tarama_evreni_hazirla,
     watchlist_islem_durumu_hazirla,
@@ -12,13 +17,20 @@ from izfin_ui.performance_view import performans_karne_paketi_hazirla
 
 from .schemas import (
     HealthResponse,
+    ReadinessResponse,
     PerformanceScorecardRequest,
     PerformanceScorecardResponse,
     ScanUniverseRequest,
     ScanUniverseResponse,
     WatchlistTransitionRequest,
     WatchlistTransitionResponse,
+    WatchlistResponse,
+    WatchlistReplaceRequest,
+    ScanRunRequest,
+    ScanRunResponse,
+    PerformanceScorecardApiResponse,
 )
+from .dependencies import ApiIdentity, authenticated_user, bearer_credentials
 
 
 api_router = APIRouter(prefix="/api/v1")
@@ -27,6 +39,22 @@ api_router = APIRouter(prefix="/api/v1")
 @api_router.get("/health", response_model=HealthResponse, tags=["system"])
 def health() -> HealthResponse:
     return HealthResponse(status="ok", service="izfin-api", api_version="v1")
+
+
+@api_router.get("/health/ready", response_model=ReadinessResponse, tags=["system"])
+def readiness(request: Request) -> ReadinessResponse:
+    runtime = request.app.state.izfin_runtime
+    authentication = runtime.verify_id_token is not None
+    user_repository = bool(getattr(runtime.user_repository, "available", False))
+    signal_repository = bool(getattr(runtime.signal_repository, "available", False))
+    scan_runner = runtime.scan_runner is not None
+    return ReadinessResponse(
+        ready=authentication and user_repository and signal_repository and scan_runner,
+        authentication=authentication,
+        user_repository=user_repository,
+        signal_repository=signal_repository,
+        scan_runner=scan_runner,
+    )
 
 
 @api_router.post("/scan/universe", response_model=ScanUniverseResponse, tags=["scan"])
@@ -47,6 +75,104 @@ def scan_universe(payload: ScanUniverseRequest) -> ScanUniverseResponse:
 )
 def watchlist_transition(payload: WatchlistTransitionRequest) -> WatchlistTransitionResponse:
     return WatchlistTransitionResponse(**watchlist_islem_durumu_hazirla(payload.islem_sonucu))
+
+
+@api_router.get("/watchlist", response_model=WatchlistResponse, tags=["watchlist"])
+def get_watchlist(
+    request: Request,
+    credentials=Depends(bearer_credentials),
+) -> WatchlistResponse:
+    identity: ApiIdentity = authenticated_user(request, credentials)
+    runtime = request.app.state.izfin_runtime
+    if not getattr(runtime.user_repository, "available", False):
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Kullanıcı listesi deposu henüz yapılandırılmadı.",
+        )
+    result = kullanici_watchlist_bootstrap_hazirla(
+        runtime.user_repository,
+        uid=identity.uid,
+        email=identity.email,
+        default_tickers=runtime.default_tickers,
+    )
+    return WatchlistResponse(tickers=result["tickers"], recovered=result["recovered"])
+
+
+@api_router.put("/watchlist", response_model=WatchlistResponse, tags=["watchlist"])
+def replace_watchlist(
+    payload: WatchlistReplaceRequest,
+    request: Request,
+    credentials=Depends(bearer_credentials),
+) -> WatchlistResponse:
+    identity: ApiIdentity = authenticated_user(request, credentials)
+    runtime = request.app.state.izfin_runtime
+    if not getattr(runtime.user_repository, "available", False):
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Kullanıcı listesi deposu henüz yapılandırılmadı.",
+        )
+    kullanici_watchlist_kaydet(
+        runtime.user_repository,
+        uid=identity.uid,
+        email=identity.email,
+        tickers=payload.tickers,
+    )
+    return WatchlistResponse(
+        tickers=list(dict.fromkeys(str(item).strip().upper() for item in payload.tickers if str(item).strip())),
+        recovered=False,
+    )
+
+
+@api_router.post("/scan/run", response_model=ScanRunResponse, tags=["scan"])
+def run_scan(
+    payload: ScanRunRequest,
+    request: Request,
+    credentials=Depends(bearer_credentials),
+) -> ScanRunResponse:
+    authenticated_user(request, credentials)
+    runner = request.app.state.izfin_runtime.scan_runner
+    if runner is None:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Tarama sağlayıcıları henüz yapılandırılmadı.",
+        )
+    result = tarama_sonuc_durumu_hazirla(runner(payload.tickers))
+    return ScanRunResponse(
+        sonuclar=result["sonuclar"],
+        basarisiz_taramalar=result["basarisiz_taramalar"],
+        boga_sayisi=result["boga_sayisi"],
+        alim_firsati=result["alim_firsati"],
+        toplam=len(payload.tickers),
+    )
+
+
+@api_router.get(
+    "/performance/scorecard",
+    response_model=PerformanceScorecardApiResponse,
+    tags=["performance"],
+)
+def get_performance_scorecard(
+    request: Request,
+    gun: int = 20,
+    credentials=Depends(bearer_credentials),
+) -> PerformanceScorecardApiResponse:
+    identity: ApiIdentity = authenticated_user(request, credentials)
+    repository = request.app.state.izfin_runtime.signal_repository
+    if not getattr(repository, "available", False):
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Performans kaydı deposu henüz yapılandırılmadı.",
+        )
+    paket = performans_karne_paketi_hazirla(
+        repository.list_performance_records(identity.email, limit=250),
+        gun=max(1, min(int(gun), 365)),
+    )
+    return PerformanceScorecardApiResponse(
+        metrikler=paket["metrikler"],
+        kucuk_orneklem=paket["kucuk_orneklem"],
+        bos_mesaj=paket["bos_mesaj"],
+        kayit_adedi=len(paket["karne_df"]),
+    )
 
 
 @api_router.post(

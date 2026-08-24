@@ -90,7 +90,10 @@ def test_api_layer_is_streamlit_independent_and_uses_versioned_routes():
 
     assert not any(module == "streamlit" or module.startswith("streamlit.") for module in imported_modules)
     assert 'prefix="/api/v1"' in source
-    assert "def create_app()" in source
+    assert any(
+        isinstance(node, ast.FunctionDef) and node.name == "create_app"
+        for node in ast.walk(tree)
+    )
 
 
 def test_app_imports_extracted_core_modules():
