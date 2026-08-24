@@ -22,6 +22,7 @@ class ApiRuntime:
     user_repository: Any = None
     default_tickers: tuple[str, ...] = ()
     scan_runner: Callable[[Sequence[str]], Mapping[str, Any]] | None = None
+    signal_repository: Any = None
 
 
 _bearer_scheme = HTTPBearer(auto_error=False)
@@ -74,10 +75,12 @@ def runtime_from(
     user_repository: Any = None,
     default_tickers: Sequence[str] = (),
     scan_runner: Callable[[Sequence[str]], Mapping[str, Any]] | None = None,
+    signal_repository: Any = None,
 ) -> ApiRuntime:
     return ApiRuntime(
         verify_id_token=verify_id_token,
         user_repository=user_repository,
         default_tickers=tuple(str(item) for item in default_tickers),
         scan_runner=scan_runner,
+        signal_repository=signal_repository,
     )

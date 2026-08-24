@@ -24,6 +24,15 @@ class FakeUserRepository:
         self.saved.append((document_id, data, merge))
 
 
+class FakeSignalRepository:
+    available = True
+
+    def list_performance_records(self, email, *, limit):
+        assert email == "user@example.com"
+        assert limit == 250
+        return []
+
+
 def test_api_health_contract_is_versioned_and_streamlit_independent():
     response = TestClient(create_app()).get("/api/v1/health")
 
@@ -172,6 +181,22 @@ def test_runtime_helpers_keep_settings_and_firebase_bootstrap_explicit():
     runtime = firebase_runtime(firebase_auth=Auth(), firestore_client=object())
     assert runtime["verify_id_token"]("token") == {}
     assert runtime["user_repository"].db is not None
+
+
+def test_authenticated_performance_scorecard_reads_only_current_user_records():
+    app = create_app(
+        verify_id_token=lambda _token: {"uid": "uid-1", "email": "user@example.com"},
+        signal_repository=FakeSignalRepository(),
+    )
+
+    response = TestClient(app).get(
+        "/api/v1/performance/scorecard?gun=20",
+        headers={"Authorization": "Bearer firebase-id-token"},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["kayit_adedi"] == 0
+    assert response.json()["kucuk_orneklem"] is True
 
 
 def test_performance_scorecard_contract_returns_empty_state_without_provider_access():

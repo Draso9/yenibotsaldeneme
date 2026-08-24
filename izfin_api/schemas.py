@@ -59,6 +59,17 @@ class ScanRunResponse(BaseModel):
     toplam: int
 
 
+class PerformanceScorecardQuery(BaseModel):
+    gun: int = Field(default=20, ge=1, le=365)
+
+
+class PerformanceScorecardApiResponse(BaseModel):
+    metrikler: list[PerformanceMetric]
+    kucuk_orneklem: bool
+    bos_mesaj: str | None
+    kayit_adedi: int
+
+
 class PerformanceScorecardRequest(BaseModel):
     kayitlar: list[dict[str, Any]] = Field(default_factory=list)
     gun: int = Field(ge=1, le=365)

@@ -27,6 +27,7 @@ from .schemas import (
     WatchlistReplaceRequest,
     ScanRunRequest,
     ScanRunResponse,
+    PerformanceScorecardApiResponse,
 )
 from .dependencies import ApiIdentity, authenticated_user, bearer_credentials
 
@@ -125,6 +126,35 @@ def run_scan(
         boga_sayisi=result["boga_sayisi"],
         alim_firsati=result["alim_firsati"],
         toplam=len(payload.tickers),
+    )
+
+
+@api_router.get(
+    "/performance/scorecard",
+    response_model=PerformanceScorecardApiResponse,
+    tags=["performance"],
+)
+def get_performance_scorecard(
+    request: Request,
+    gun: int = 20,
+    credentials=Depends(bearer_credentials),
+) -> PerformanceScorecardApiResponse:
+    identity: ApiIdentity = authenticated_user(request, credentials)
+    repository = request.app.state.izfin_runtime.signal_repository
+    if not getattr(repository, "available", False):
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Performans kaydı deposu henüz yapılandırılmadı.",
+        )
+    paket = performans_karne_paketi_hazirla(
+        repository.list_performance_records(identity.email, limit=250),
+        gun=max(1, min(int(gun), 365)),
+    )
+    return PerformanceScorecardApiResponse(
+        metrikler=paket["metrikler"],
+        kucuk_orneklem=paket["kucuk_orneklem"],
+        bos_mesaj=paket["bos_mesaj"],
+        kayit_adedi=len(paket["karne_df"]),
     )
 
 
