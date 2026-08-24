@@ -190,8 +190,8 @@ def performans_karnelerini_yenile(
         pencere = sonrasi.iloc[:46]
         if not pencere.empty:
             getiriler = (pencere / giris - 1.0) * 100.0
-            kayit["max_yukselis_45g"] = float(getiriler.max())
-            kayit["max_dusus_45g"] = float(getiriler.min())
+            kayit["max_yukselis_45g"] = round(float(getiriler.max()), 4)
+            kayit["max_dusus_45g"] = round(float(getiriler.min()), 4)
 
         if not bseri.empty:
             try:
