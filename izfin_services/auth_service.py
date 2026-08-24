@@ -188,6 +188,26 @@ class AccountService:
             return False, error
         return True, None
 
+    def son_giris_kaydet(self, uid: str | None, email: str | None) -> bool:
+        """Best-effort profile refresh shared by Streamlit and the future API shell."""
+        uid = str(uid or "").strip()
+        email = str(email or "").strip().lower()
+        if not getattr(self.user_repository, "available", False) or not uid:
+            return False
+        try:
+            self.user_repository.upsert_profile(
+                uid,
+                {
+                    "uid": uid,
+                    "email": email,
+                    "son_giris": self.now_factory().isoformat(),
+                },
+            )
+            return True
+        except Exception as error:
+            self._error("kullanici_profili_son_giris", error)
+            return False
+
 
 def google_oauth_state_uret(
     client_secret: str,

@@ -224,6 +224,30 @@ def test_account_service_preserves_signup_error_and_password_reset_contract():
     assert error is None
 
 
+def test_account_service_refreshes_last_login_profile_without_leaking_provider_failure():
+    errors = []
+    repo = FakeRepository()
+    service = AccountService(
+        FakeAuthClient(),
+        repo,
+        default_tickers=[],
+        terms_version="t",
+        privacy_version="p",
+        now_factory=lambda: datetime(2026, 8, 24, 14, 0, 0),
+        error_handler=lambda context, error: errors.append(context),
+    )
+    assert service.son_giris_kaydet(" uid-1 ", " USER@EXAMPLE.COM ") is True
+    assert repo.profiles[-1][1] == {
+        "uid": "uid-1",
+        "email": "user@example.com",
+        "son_giris": "2026-08-24T14:00:00",
+    }
+
+    repo.upsert_profile = lambda *_args, **_kwargs: (_ for _ in ()).throw(RuntimeError("down"))
+    assert service.son_giris_kaydet("uid-1", "u@example.com") is False
+    assert errors == ["kullanici_profili_son_giris"]
+
+
 def test_google_callback_orchestrates_exchange_session_and_query_cleanup():
     calls = []
     state = google_oauth_state_uret("secret", nonce_factory=lambda: "n")
