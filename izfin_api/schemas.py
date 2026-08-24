@@ -67,6 +67,19 @@ class ScanRunResponse(BaseModel):
     toplam: int
 
 
+class ScanJobCreatedResponse(BaseModel):
+    job_id: str
+    status: str
+    stage: str
+    completed: int
+    total: int
+
+
+class ScanJobStatusResponse(ScanJobCreatedResponse):
+    result: dict[str, Any] | None = None
+    error: str | None = None
+
+
 class PerformanceScorecardQuery(BaseModel):
     gun: int = Field(default=20, ge=1, le=365)
 

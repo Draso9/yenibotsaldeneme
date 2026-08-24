@@ -30,7 +30,7 @@ def environment_tickers(value: str | None) -> tuple[str, ...]:
 
 def scan_runner_from_clients(*, finnhub_client: FinnhubClient | None = None):
     """Compose the existing scan workflow with provider clients, not Streamlit callbacks."""
-    def run(tickers: Sequence[str]) -> Mapping[str, Any]:
+    def run(tickers: Sequence[str], progress_callback=None) -> Mapping[str, Any]:
         return scan_workflow_calistir(
             tickers,
             gunluk_fetcher=toplu_gunluk_veri_indir,
@@ -44,6 +44,7 @@ def scan_runner_from_clients(*, finnhub_client: FinnhubClient | None = None):
             sektor_fetcher=sektor_referanslari_indir,
             intraday_fetcher=intraday_veri_indir,
             peg_formatter=lambda value: (value, ""),
+            progress_callback=progress_callback,
         )
     return run
 

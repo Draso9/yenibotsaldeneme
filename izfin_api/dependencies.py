@@ -22,6 +22,7 @@ class ApiRuntime:
     user_repository: Any = None
     default_tickers: tuple[str, ...] = ()
     scan_runner: Callable[[Sequence[str]], Mapping[str, Any]] | None = None
+    scan_job_store: Any = None
     signal_repository: Any = None
 
 
@@ -75,6 +76,7 @@ def runtime_from(
     user_repository: Any = None,
     default_tickers: Sequence[str] = (),
     scan_runner: Callable[[Sequence[str]], Mapping[str, Any]] | None = None,
+    scan_job_store: Any = None,
     signal_repository: Any = None,
 ) -> ApiRuntime:
     return ApiRuntime(
@@ -82,5 +84,6 @@ def runtime_from(
         user_repository=user_repository,
         default_tickers=tuple(str(item) for item in default_tickers),
         scan_runner=scan_runner,
+        scan_job_store=scan_job_store,
         signal_repository=signal_repository,
     )

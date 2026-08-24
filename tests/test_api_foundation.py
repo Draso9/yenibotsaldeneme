@@ -1,5 +1,6 @@
 from fastapi.testclient import TestClient
 
+import izfin_api.runtime as runtime_module
 from izfin_api.app import create_app
 from izfin_api.runtime import environment_tickers, firebase_runtime
 
@@ -196,6 +197,21 @@ def test_runtime_helpers_keep_settings_and_firebase_bootstrap_explicit():
     runtime = firebase_runtime(firebase_auth=Auth(), firestore_client=object())
     assert runtime["verify_id_token"]("token") == {}
     assert runtime["user_repository"].db is not None
+
+
+def test_runtime_scan_runner_forwards_optional_progress_callback(monkeypatch):
+    received = {}
+
+    def workflow(*_args, **kwargs):
+        received.update(kwargs)
+        return {}
+
+    monkeypatch.setattr(runtime_module, "scan_workflow_calistir", workflow)
+    callback = lambda event: None
+
+    runtime_module.scan_runner_from_clients()(["THYAO.IS"], progress_callback=callback)
+
+    assert received["progress_callback"] is callback
 
 
 def test_authenticated_performance_scorecard_reads_only_current_user_records():
