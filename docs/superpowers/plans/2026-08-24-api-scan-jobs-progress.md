@@ -75,7 +75,7 @@ Run: `.venv/bin/python -m pytest tests/test_api_scan_jobs.py -q`
 
 Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add izfin_api/scan_jobs.py tests/test_api_scan_jobs.py
@@ -95,7 +95,7 @@ git commit -m "feat: add in-memory scan job store"
 - Consumes: `ScanJobStore`, `ApiIdentity`, `bearer_credentials`, and `ScanRunRequest`.
 - Produces: `POST /api/v1/scan/jobs` with HTTP 202 and `GET /api/v1/scan/jobs/{job_id}` with owner-only payloads.
 
-- [ ] **Step 1: Write failing endpoint tests**
+- [x] **Step 1: Write failing endpoint tests**
 
 ```python
 def test_authenticated_user_can_submit_and_poll_own_scan_job():
@@ -108,13 +108,13 @@ def test_job_status_returns_404_for_another_authenticated_user():
     assert client.get(f"/api/v1/scan/jobs/{job_id}", headers=auth_for("uid-2")).status_code == 404
 ```
 
-- [ ] **Step 2: Verify RED**
+- [x] **Step 2: Verify RED**
 
 Run: `.venv/bin/python -m pytest tests/test_api_scan_jobs.py -q`
 
 Expected: FAIL because the routes and schemas do not exist.
 
-- [ ] **Step 3: Implement the route boundary**
+- [x] **Step 3: Implement the route boundary**
 
 ```python
 @api_router.post("/scan/jobs", response_model=ScanJobCreatedResponse, status_code=202)
@@ -128,7 +128,7 @@ def create_scan_job(payload: ScanRunRequest, request: Request, credentials=Depen
 
 Extend `ApiRuntime`, `runtime_from`, and `create_app` with an optional job store. Add an owner lookup route that raises HTTP 404 for both missing and foreign jobs.
 
-- [ ] **Step 4: Verify GREEN**
+- [x] **Step 4: Verify GREEN**
 
 Run: `.venv/bin/python -m pytest tests/test_api_scan_jobs.py -q`
 

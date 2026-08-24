@@ -28,6 +28,8 @@ from .schemas import (
     WatchlistReplaceRequest,
     ScanRunRequest,
     ScanRunResponse,
+    ScanJobCreatedResponse,
+    ScanJobStatusResponse,
     PerformanceScorecardApiResponse,
 )
 from .dependencies import ApiIdentity, authenticated_user, bearer_credentials
@@ -143,6 +145,60 @@ def run_scan(
         boga_sayisi=result["boga_sayisi"],
         alim_firsati=result["alim_firsati"],
         toplam=len(payload.tickers),
+    )
+
+
+@api_router.post(
+    "/scan/jobs",
+    response_model=ScanJobCreatedResponse,
+    status_code=status.HTTP_202_ACCEPTED,
+    tags=["scan"],
+)
+def create_scan_job(
+    payload: ScanRunRequest,
+    request: Request,
+    credentials=Depends(bearer_credentials),
+) -> ScanJobCreatedResponse:
+    identity: ApiIdentity = authenticated_user(request, credentials)
+    runtime = request.app.state.izfin_runtime
+    if runtime.scan_runner is None or runtime.scan_job_store is None:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Tarama sağlayıcıları henüz yapılandırılmadı.",
+        )
+    snapshot = runtime.scan_job_store.submit(identity.uid, payload.tickers, runtime.scan_runner)
+    return ScanJobCreatedResponse(
+        job_id=snapshot.job_id,
+        status=snapshot.status,
+        stage=snapshot.stage,
+        completed=snapshot.completed,
+        total=snapshot.total,
+    )
+
+
+@api_router.get(
+    "/scan/jobs/{job_id}",
+    response_model=ScanJobStatusResponse,
+    tags=["scan"],
+)
+def get_scan_job(
+    job_id: str,
+    request: Request,
+    credentials=Depends(bearer_credentials),
+) -> ScanJobStatusResponse:
+    identity: ApiIdentity = authenticated_user(request, credentials)
+    store = request.app.state.izfin_runtime.scan_job_store
+    snapshot = store.get_for_owner(job_id, identity.uid) if store is not None else None
+    if snapshot is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Tarama işi bulunamadı.")
+    return ScanJobStatusResponse(
+        job_id=snapshot.job_id,
+        status=snapshot.status,
+        stage=snapshot.stage,
+        completed=snapshot.completed,
+        total=snapshot.total,
+        result=snapshot.result,
+        error=snapshot.error,
     )
 
 
