@@ -157,7 +157,7 @@ git commit -m "feat: expose profile and legal API contracts"
 - Consumes: `LegalConsentService.onay_guncel_mi/onay_kaydet` and `AccountDataService.veri_paketi_olustur`.
 - Produces: protected `GET/PUT /api/v1/legal/consent` and `GET /api/v1/account/export`.
 
-- [ ] **Step 1: Write failing consent/export tests**
+- [x] **Step 1: Write failing consent/export tests**
 
 ```python
 def test_authenticated_user_can_record_current_consent(client, headers, repository):
@@ -180,13 +180,13 @@ def test_export_uses_only_authenticated_identity(client, headers, repository):
     assert repository.export_requests == [("uid-1", "user@example.com")]
 ```
 
-- [ ] **Step 2: Verify RED**
+- [x] **Step 2: Verify RED**
 
 Run: `.venv/bin/python -m pytest tests/test_api_account_legal_export.py -k 'consent or export' -q`
 
 Expected: FAIL with HTTP `404`.
 
-- [ ] **Step 3: Implement validation, service mapping, and JSON response**
+- [x] **Step 3: Implement validation, service mapping, and JSON response**
 
 ```python
 class LegalConsentUpdateRequest(BaseModel):
@@ -201,13 +201,13 @@ class LegalConsentResponse(BaseModel):
 
 Read consent using `onay_guncel_mi(identity.uid)`; save with `onay_kaydet(identity.uid)`; a service error becomes `503`. Call export only as `veri_paketi_olustur(uid=identity.uid, email=identity.email)`, return its JSON-compatible package, and map `RuntimeError` to `503` with `"Kullanıcı verileri şu anda hazırlanamadı."`. Add no deletion or attachment endpoint.
 
-- [ ] **Step 4: Verify GREEN**
+- [x] **Step 4: Verify GREEN**
 
 Run: `.venv/bin/python -m pytest tests/test_api_account_legal_export.py -k 'consent or export' -q`
 
 Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add izfin_api/routers.py izfin_api/schemas.py tests/test_api_account_legal_export.py

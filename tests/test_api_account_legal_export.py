@@ -6,16 +6,31 @@ from izfin_api.app import create_app
 class FakeAccountRepository:
     available = True
 
+    def __init__(self):
+        self.profile = {}
+        self.profile_updates = []
+        self.export_requests = []
+
     def get_profile(self, uid):
         assert uid == "uid-1"
-        return {}
+        return self.profile.copy()
+
+    def upsert_profile(self, uid, data, *, merge=True):
+        assert uid == "uid-1"
+        assert merge is True
+        self.profile_updates.append((uid, data.copy()))
+        self.profile.update(data)
+
+    def collect_user_documents(self, uid, email):
+        self.export_requests.append((uid, email))
+        return [{"collection": "kullanicilar", "document_id": uid, "data": {"email": email}}]
 
 
-def _client():
+def _client(repository=None):
     return TestClient(
         create_app(
             verify_id_token=lambda _token: {"uid": "uid-1", "email": "user@example.com"},
-            user_repository=FakeAccountRepository(),
+            user_repository=repository or FakeAccountRepository(),
             terms_version="terms-v1",
             privacy_version="privacy-v1",
             contact_email="legal@example.com",
@@ -50,3 +65,49 @@ def test_profile_uses_authenticated_identity_when_stored_profile_is_empty():
         "email": "user@example.com",
         "profile": {},
     }
+
+
+def test_authenticated_user_can_record_current_consent():
+    repository = FakeAccountRepository()
+    client = _client(repository)
+    headers = {"Authorization": "Bearer firebase-id-token"}
+
+    before = client.get("/api/v1/legal/consent", headers=headers)
+    response = client.put(
+        "/api/v1/legal/consent",
+        headers=headers,
+        json={"terms_accepted": True, "privacy_notice_seen": True},
+    )
+
+    assert before.json()["accepted"] is False
+    assert response.status_code == 200
+    assert response.json() == {
+        "terms_version": "terms-v1",
+        "privacy_version": "privacy-v1",
+        "accepted": True,
+    }
+    assert repository.profile_updates[-1][0] == "uid-1"
+
+
+def test_consent_rejects_incomplete_confirmation():
+    response = _client().put(
+        "/api/v1/legal/consent",
+        headers={"Authorization": "Bearer firebase-id-token"},
+        json={"terms_accepted": True, "privacy_notice_seen": False},
+    )
+
+    assert response.status_code == 422
+
+
+def test_export_uses_only_authenticated_identity():
+    repository = FakeAccountRepository()
+    response = _client(repository).get(
+        "/api/v1/account/export",
+        headers={"Authorization": "Bearer firebase-id-token"},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["export_schema"] == "izfin-user-data-v1"
+    assert response.json()["user_uid"] == "uid-1"
+    assert response.json()["user_email"] == "user@example.com"
+    assert repository.export_requests == [("uid-1", "user@example.com")]
