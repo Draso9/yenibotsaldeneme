@@ -17,6 +17,7 @@ from izfin_ui.performance_view import performans_karne_paketi_hazirla
 
 from .schemas import (
     HealthResponse,
+    ReadinessResponse,
     PerformanceScorecardRequest,
     PerformanceScorecardResponse,
     ScanUniverseRequest,
@@ -38,6 +39,22 @@ api_router = APIRouter(prefix="/api/v1")
 @api_router.get("/health", response_model=HealthResponse, tags=["system"])
 def health() -> HealthResponse:
     return HealthResponse(status="ok", service="izfin-api", api_version="v1")
+
+
+@api_router.get("/health/ready", response_model=ReadinessResponse, tags=["system"])
+def readiness(request: Request) -> ReadinessResponse:
+    runtime = request.app.state.izfin_runtime
+    authentication = runtime.verify_id_token is not None
+    user_repository = bool(getattr(runtime.user_repository, "available", False))
+    signal_repository = bool(getattr(runtime.signal_repository, "available", False))
+    scan_runner = runtime.scan_runner is not None
+    return ReadinessResponse(
+        ready=authentication and user_repository and signal_repository and scan_runner,
+        authentication=authentication,
+        user_repository=user_repository,
+        signal_repository=signal_repository,
+        scan_runner=scan_runner,
+    )
 
 
 @api_router.post("/scan/universe", response_model=ScanUniverseResponse, tags=["scan"])

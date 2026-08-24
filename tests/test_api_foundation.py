@@ -44,6 +44,21 @@ def test_api_health_contract_is_versioned_and_streamlit_independent():
     }
 
 
+def test_readiness_reports_missing_and_injected_runtime_dependencies():
+    assert TestClient(create_app()).get("/api/v1/health/ready").json()["ready"] is False
+
+    response = TestClient(
+        create_app(
+            verify_id_token=lambda _token: {},
+            user_repository=FakeUserRepository(),
+            signal_repository=FakeSignalRepository(),
+            scan_runner=lambda _tickers: {},
+        )
+    ).get("/api/v1/health/ready")
+    assert response.status_code == 200
+    assert response.json()["ready"] is True
+
+
 def test_scan_universe_contract_reuses_existing_normalization_rules():
     response = TestClient(create_app()).post(
         "/api/v1/scan/universe",

@@ -13,6 +13,14 @@ class HealthResponse(BaseModel):
     api_version: str
 
 
+class ReadinessResponse(BaseModel):
+    ready: bool
+    authentication: bool
+    user_repository: bool
+    signal_repository: bool
+    scan_runner: bool
+
+
 class ScanUniverseRequest(BaseModel):
     profil: str = "Kendi Listem"
     kisisel_liste: list[Any] = Field(default_factory=list)
