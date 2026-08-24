@@ -5,7 +5,9 @@ import pandas as pd
 
 from izfin_ui.performance_view import (
     aktif_pozisyon_gorunumu_hazirla,
+    aktif_pozisyon_tablosu_html,
     kapanmis_performans_ozeti_hazirla,
+    kapanmis_pozisyon_html_paketi_hazirla,
     kapanmis_pozisyon_gorunumu_hazirla,
     performans_karne_paketi_hazirla,
     performans_pozisyon_paketi_hazirla,
@@ -113,6 +115,36 @@ def test_active_position_view_model_matches_renderer_contract():
     assert int(gorunum.iloc[0]["Geçen Gün"]) == 3
 
 
+def test_active_position_table_renderer_formats_and_escapes_rows():
+    gorunum = pd.DataFrame(
+        [
+            {
+                "İlk Alım Tarihi": "01.08.2026 <x>",
+                "Varlık": "<NVDA>",
+                "İlk Sinyal": "AL & İZLE",
+                "Güncel Sinyal": "GÜÇLÜ AL",
+                "İlk Alım Fiyatı": 100,
+                "Güncel Fiyat": 110.5,
+                "Kâr / Zarar %": 10.5,
+                "Geçen Gün": 3,
+                "Durum": "🟢 Açık",
+            }
+        ]
+    )
+
+    rendered = aktif_pozisyon_tablosu_html(gorunum)
+    assert "&lt;NVDA&gt;" in rendered
+    assert "01.08.2026 &lt;x&gt;" in rendered
+    assert "AL &amp; İZLE" in rendered
+    assert "class='num pos'>+10.50%" in rendered
+    assert "class='num'>3" in rendered
+    assert "<NVDA>" not in rendered
+
+    empty = aktif_pozisyon_tablosu_html(pd.DataFrame())
+    assert "Şu anda açık alım pozisyonu bulunmuyor." in empty
+    assert "colspan='9'" in empty
+
+
 def test_closed_position_view_calculates_fallback_return_and_target_hits():
     kapali_df = pd.DataFrame(
         [
@@ -185,6 +217,47 @@ def test_closed_summary_warns_about_concentrated_sample():
     )
     ozet = kapanmis_performans_ozeti_hazirla(gorunum)
     assert any("az sayıda hissede yoğunlaşmış" in x for x in ozet["yorumlar"])
+
+
+def test_closed_position_html_package_renders_all_sections_and_escapes_values():
+    gorunum = pd.DataFrame(
+        [
+            {
+                "İlk Alım Tarihi": "01.07.2026",
+                "Kapanış Tarihi": "10.07.2026",
+                "Varlık": "<NVDA>",
+                "Son Alım Sinyali": "AL<script>",
+                "Kapanış Nedeni": "Stop & çıkış",
+                "İlk Alım Fiyatı": 100,
+                "Kapanış Fiyatı": 108,
+                "Kâr / Zarar %": 8,
+                "Pozisyonda Gün": 9,
+                "Maks. Kâr %": 12,
+                "Maks. Düşüş %": -4,
+                "İlk Stop": 95,
+                "İlk TP1": 110,
+                "TP1": "✅",
+                "TP2": "❌",
+                "TP3": "❌",
+                "Stop": "❌",
+            }
+        ]
+    )
+
+    paket = kapanmis_pozisyon_html_paketi_hazirla(gorunum)
+
+    assert paket["ozet"]["adet"] == 1
+    assert "KAPANMIŞ ALIM DÖNEMİ" in paket["kpis_html"]
+    assert "Sistem geçmişte ne yaptı?" in paket["insight_html"]
+    assert "&lt;NVDA&gt;" in paket["insight_html"]
+    assert "&lt;NVDA&gt;" in paket["table_html"]
+    assert "AL&lt;script&gt;" in paket["table_html"]
+    assert "Stop &amp; çıkış" in paket["table_html"]
+    assert "class='num pos'>+8.00%" in paket["table_html"]
+    assert "Stop &amp; çıkış" in paket["reason_summary_html"]
+    assert "<script>" not in "".join(
+        str(paket[key]) for key in ("insight_html", "table_html", "reason_summary_html")
+    )
 
 
 def test_performance_scorecard_package_groups_assets_and_builds_detail_view():
