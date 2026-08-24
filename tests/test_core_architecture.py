@@ -368,6 +368,28 @@ def test_ui6n_renderer_view_models_stay_outside_streamlit_shell():
         assert "st.session_state" not in presenter_source
 
 
+def test_ui6op_scan_state_and_provider_adapters_stay_outside_streamlit_shell():
+    source = APP.read_text(encoding="utf-8")
+    state_source = (SERVICES / "scan_page_state.py").read_text(encoding="utf-8")
+    provider_source = (SERVICES / "provider_adapters.py").read_text(encoding="utf-8")
+
+    assert "from izfin_services.scan_page_state import (" in source
+    assert "tarama_evreni_hazirla(" in source
+    assert "hisse_arama_durumu_hazirla(" in source
+    assert "watchlist_islem_durumu_hazirla(" in source
+    assert "tarama_sonuc_durumu_hazirla(" in source
+    assert "tarama_ilerleme_paketi_hazirla(" in source
+    assert "tarama_sonuc_sayfa_paketi_hazirla(" in source
+    assert "from izfin_services.provider_adapters import provider_dataframe_cek, provider_serisi_cek" in source
+    assert "return toplu_gunluk_veri_indir(tickers_tuple)" not in source
+    assert "return intraday_veri_indir(ticker, interval=interval, period=period)" not in source
+    assert "return donem_ohlc_indir(ticker, baslangic_iso, bitis_iso)" not in source
+
+    for extracted_source in (state_source, provider_source):
+        assert "import streamlit" not in extracted_source
+        assert "st.session_state" not in extracted_source
+
+
 def test_backtest_runner_orchestration_stays_outside_streamlit_shell():
     source = APP.read_text(encoding="utf-8")
     assert "from izfin_services.backtest_service import backtest_calistir" in source
