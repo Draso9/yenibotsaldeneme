@@ -14,6 +14,8 @@ from izfin_services.auth_service import LegalConsentService
 from .dependencies import runtime_from
 from .routers import api_router
 from .scan_jobs import ScanJobStore
+from .observability import ApiHardeningMiddleware
+from .rate_limit import FixedWindowRateLimiter
 
 
 def create_app(
@@ -34,6 +36,9 @@ def create_app(
     log_retention_days: int = 30,
     legal_consent_service: Any = None,
     account_data_service: Any = None,
+    rate_limit_enabled: bool = True,
+    rate_limit_max_requests: int = 120,
+    rate_limit_window_seconds: int = 60,
 ) -> FastAPI:
     """Create an API instance without importing or initializing Streamlit."""
     app = FastAPI(title="IZFIN API", version="0.1.0")
@@ -78,6 +83,15 @@ def create_app(
             allow_headers=["Authorization", "Content-Type"],
         )
     app.include_router(api_router)
+    limiter = FixedWindowRateLimiter(
+        max_requests=rate_limit_max_requests,
+        window_seconds=rate_limit_window_seconds,
+    )
+    app.add_middleware(
+        ApiHardeningMiddleware,
+        limiter=limiter,
+        enabled=rate_limit_enabled,
+    )
     return app
 
 
