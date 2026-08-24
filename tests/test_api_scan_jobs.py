@@ -3,10 +3,11 @@ from __future__ import annotations
 from threading import Event
 from time import monotonic, sleep
 
+import pytest
 from fastapi.testclient import TestClient
 
 from izfin_api.app import create_app
-from izfin_api.scan_jobs import ScanJobStore
+from izfin_api.scan_jobs import ScanJobCapacityError, ScanJobStore
 
 
 def _wait_for_job(store, job_id, owner_uid, predicate, timeout=1.0):
@@ -79,6 +80,53 @@ def test_scan_job_hides_foreign_owner_and_records_runner_failure():
     assert failed.completed == 0
     assert failed.total == 1
     assert failed.error == "Tarama işlemi beklenmeyen bir hata nedeniyle tamamlanamadı."
+
+
+def test_scan_job_completes_with_legacy_runner_without_progress_callback():
+    store = ScanJobStore()
+    created = store.submit(
+        "uid-1",
+        ["THYAO.IS"],
+        lambda tickers: {
+            "sonuclar": [{"Varlık": tickers[0]}],
+            "basarisiz_taramalar": [],
+            "boga_sayisi": 1,
+            "alim_firsati": 0,
+        },
+    )
+
+    completed = _wait_for_job(store, created.job_id, "uid-1", lambda snapshot: snapshot.status == "completed")
+    assert completed.result["sonuclar"] == [{"Varlık": "THYAO.IS"}]
+
+
+def test_scan_job_store_limits_active_workers_and_prunes_terminal_records():
+    runner_started = Event()
+    release_runner = Event()
+
+    def blocking_runner(_tickers, progress_callback=None):
+        runner_started.set()
+        assert release_runner.wait(timeout=1.0)
+        return {"sonuclar": [], "basarisiz_taramalar": [], "boga_sayisi": 0, "alim_firsati": 0}
+
+    store = ScanJobStore(max_active_jobs=1, max_records=1)
+    first = store.submit("uid-1", ["THYAO.IS"], blocking_runner)
+    assert runner_started.wait(timeout=1.0)
+
+    with pytest.raises(ScanJobCapacityError):
+        store.submit("uid-1", ["AKBNK.IS"], blocking_runner)
+
+    release_runner.set()
+    _wait_for_job(store, first.job_id, "uid-1", lambda snapshot: snapshot.status == "completed")
+    second = store.submit(
+        "uid-1",
+        ["AKBNK.IS"],
+        lambda _tickers, progress_callback=None: {
+            "sonuclar": [], "basarisiz_taramalar": [], "boga_sayisi": 0, "alim_firsati": 0
+        },
+    )
+    _wait_for_job(store, second.job_id, "uid-1", lambda snapshot: snapshot.status == "completed")
+
+    assert store.get_for_owner(first.job_id, "uid-1") is None
 
 
 def _wait_for_response(client, job_id, headers, expected_status, timeout=1.0):
@@ -154,3 +202,30 @@ def test_scan_job_status_hides_another_authenticated_users_job():
     )
 
     assert response.status_code == 404
+
+
+def test_scan_job_endpoint_returns_429_when_worker_capacity_is_full():
+    runner_started = Event()
+    release_runner = Event()
+
+    def runner(_tickers, progress_callback=None):
+        runner_started.set()
+        assert release_runner.wait(timeout=1.0)
+        return {"sonuclar": [], "basarisiz_taramalar": [], "boga_sayisi": 0, "alim_firsati": 0}
+
+    client = TestClient(
+        create_app(
+            verify_id_token=lambda _token: {"uid": "uid-1", "email": "user@example.com"},
+            scan_runner=runner,
+            scan_job_store=ScanJobStore(max_active_jobs=1),
+        )
+    )
+    headers = {"Authorization": "Bearer firebase-id-token"}
+    assert client.post("/api/v1/scan/jobs", headers=headers, json={"tickers": ["THYAO.IS"]}).status_code == 202
+    assert runner_started.wait(timeout=1.0)
+
+    overloaded = client.post("/api/v1/scan/jobs", headers=headers, json={"tickers": ["AKBNK.IS"]})
+
+    release_runner.set()
+    assert overloaded.status_code == 429
+    assert overloaded.json()["detail"] == "Tarama kuyruğu şu anda dolu."

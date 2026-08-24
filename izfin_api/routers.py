@@ -33,6 +33,7 @@ from .schemas import (
     PerformanceScorecardApiResponse,
 )
 from .dependencies import ApiIdentity, authenticated_user, bearer_credentials
+from .scan_jobs import ScanJobCapacityError
 
 
 api_router = APIRouter(prefix="/api/v1")
@@ -166,7 +167,13 @@ def create_scan_job(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="Tarama sağlayıcıları henüz yapılandırılmadı.",
         )
-    snapshot = runtime.scan_job_store.submit(identity.uid, payload.tickers, runtime.scan_runner)
+    try:
+        snapshot = runtime.scan_job_store.submit(identity.uid, payload.tickers, runtime.scan_runner)
+    except ScanJobCapacityError as error:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail=str(error),
+        ) from error
     return ScanJobCreatedResponse(
         job_id=snapshot.job_id,
         status=snapshot.status,

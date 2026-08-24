@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
+from inspect import Parameter, signature
 from threading import RLock, Thread
 from typing import Any
 from uuid import uuid4
@@ -12,6 +13,10 @@ from izfin_services.scan_page_state import tarama_sonuc_durumu_hazirla
 
 
 _UNEXPECTED_SCAN_ERROR = "Tarama işlemi beklenmeyen bir hata nedeniyle tamamlanamadı."
+
+
+class ScanJobCapacityError(RuntimeError):
+    """Raised when the in-memory worker or record budget is exhausted."""
 
 
 @dataclass(frozen=True)
@@ -51,9 +56,13 @@ class _ScanJobRecord:
 class ScanJobStore:
     """Run scan work in a daemon thread and expose owner-isolated snapshots."""
 
-    def __init__(self) -> None:
+    def __init__(self, *, max_active_jobs: int = 2, max_records: int = 100) -> None:
+        if max_active_jobs < 1 or max_records < 1:
+            raise ValueError("Job limits must be positive.")
         self._lock = RLock()
         self._records: dict[str, _ScanJobRecord] = {}
+        self._max_active_jobs = max_active_jobs
+        self._max_records = max_records
 
     def submit(
         self,
@@ -68,6 +77,12 @@ class ScanJobStore:
             tickers=normalized_tickers,
         )
         with self._lock:
+            self._prune_terminal_records()
+            active_jobs = sum(
+                existing.status in {"queued", "running"} for existing in self._records.values()
+            )
+            if active_jobs >= self._max_active_jobs or len(self._records) >= self._max_records:
+                raise ScanJobCapacityError("Tarama kuyruğu şu anda dolu.")
             self._records[record.job_id] = record
             created = record.snapshot()
         Thread(
@@ -96,7 +111,7 @@ class ScanJobStore:
             tickers = record.tickers
 
         try:
-            raw_result = runner(tickers, progress_callback=progress)
+            raw_result = self._run_runner(runner, tickers, progress)
         except Exception:
             with self._lock:
                 record = self._records[job_id]
@@ -117,6 +132,38 @@ class ScanJobStore:
                 "boga_sayisi": presented["boga_sayisi"],
                 "alim_firsati": presented["alim_firsati"],
             }
+
+    @staticmethod
+    def _run_runner(
+        runner: Callable[..., Mapping[str, Any]],
+        tickers: Sequence[str],
+        progress_callback: Callable[[Mapping[str, Any]], None],
+    ) -> Mapping[str, Any]:
+        try:
+            parameters = signature(runner).parameters.values()
+        except (TypeError, ValueError):
+            parameters = ()
+        supports_progress = any(
+            parameter.name == "progress_callback" or parameter.kind is Parameter.VAR_KEYWORD
+            for parameter in parameters
+        )
+        if supports_progress:
+            return runner(tickers, progress_callback=progress_callback)
+        return runner(tickers)
+
+    def _prune_terminal_records(self) -> None:
+        while len(self._records) >= self._max_records:
+            terminal_job_id = next(
+                (
+                    job_id
+                    for job_id, record in self._records.items()
+                    if record.status in {"completed", "failed"}
+                ),
+                None,
+            )
+            if terminal_job_id is None:
+                return
+            self._records.pop(terminal_job_id)
 
     def _apply_progress(self, job_id: str, event: Mapping[str, Any]) -> None:
         stage = str(event.get("stage") or "running")

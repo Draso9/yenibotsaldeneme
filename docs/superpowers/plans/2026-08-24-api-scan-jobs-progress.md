@@ -219,6 +219,10 @@ Run: `git diff --stat develop...HEAD && git status --short`
 
 Expected: only scan-job code, tests, and design/plan documents differ.
 
+- [x] **Step 3a: Address review hardening findings**
+
+Preserve one-argument legacy scan runners, bound active workers and retained terminal jobs, and return HTTP 429 when the job budget is full. Cover each behavior with focused tests.
+
 - [ ] **Step 4: Push and open a develop PR**
 
 Run: `git push -u origin feat/api-scan-jobs-progress`
