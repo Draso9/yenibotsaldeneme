@@ -2,7 +2,9 @@ from __future__ import annotations
 
 from izfin_ui.projection_view import (
     projection_hazir_mi,
+    projection_sayfa_html_paketi_hazirla,
     projection_senaryo_hazirla,
+    projection_senaryo_html_paketi_hazirla,
     projection_varliklari_hazirla,
 )
 
@@ -110,3 +112,41 @@ def test_projection_sell_direction_maps_to_capital_protection():
     assert ozet["yon"] == "SATIŞ"
     assert ozet["yon_class"] == "down"
     assert ozet["yon_title"] == "Sermaye koruma öncelikli"
+
+
+def test_projection_page_chrome_preserves_shell_copy_and_markers():
+    paket = projection_sayfa_html_paketi_hazirla()
+
+    assert 'class="iz-proj-hero"' in paket["hero_html"]
+    assert 'id="projeksiyon-senaryo-analizi"' in paket["hero_html"]
+    assert "Önce Akıllı Tarama çalıştırılmalı" in paket["empty_html"]
+    assert "ATR + Tarihsel Volatilite" in paket["model_note_html"]
+    assert "Model Karşılaştırması" in paket["model_section_html"]
+    assert "Teknik Senaryolar" in paket["scenario_section_html"]
+
+
+def test_projection_scenario_html_formats_levels_and_escapes_dynamic_copy():
+    senaryo = {
+        "destek": 95,
+        "direnc": 106,
+        "stop": 92,
+        "tp1": 112,
+        "tp2": 121,
+        "sinyal": "<AL>",
+        "model_yorumu": '<script>alert("x")</script>',
+        "yon_class": 'up onclick="x"',
+        "yon_title": "<Yükseliş>",
+    }
+    proj = _proj(guven_skoru=88)
+
+    paket = projection_senaryo_html_paketi_hazirla(senaryo, proj)
+
+    assert "106.00 üzeri kalıcılık" in paket["up_html"]
+    assert "112.00 → 121.00" in paket["up_html"]
+    assert "95.00 altı kapanış" in paket["down_html"]
+    assert 'class="iz-direction-card iz-direction-neutral"' in paket["direction_html"]
+    assert "&lt;AL&gt;" in paket["direction_html"]
+    assert "&lt;script&gt;" in paket["direction_html"]
+    assert "<script>" not in paket["direction_html"]
+    assert "&lt;Yükseliş&gt;" in paket["direction_html"]
+    assert "Güven skoru %88" in paket["direction_html"]

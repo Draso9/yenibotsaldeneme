@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import html
 from collections.abc import Mapping, Sequence
 from typing import Any
 
@@ -141,6 +142,94 @@ def aktif_pozisyon_gorunumu_hazirla(
             "Geçen Gün": acik_gecen.reset_index(drop=True),
             "Durum": "🟢 Açık",
         }
+    )
+
+
+def _pozisyon_sayisi_bicimle(
+    value: Any,
+    suffix: str = "",
+    signed: bool = False,
+    decimals: int = 2,
+) -> str:
+    try:
+        number = float(value)
+        if not np.isfinite(number):
+            return "—"
+        pattern = f"{{:{'+' if signed else ''}.{decimals}f}}"
+        return pattern.format(number) + suffix
+    except Exception:
+        return "—"
+
+
+def aktif_pozisyon_tablosu_html(aktif_gorunum: pd.DataFrame | None = None) -> str:
+    """Render the shared production/admin-QA active-position table."""
+    satirlar: list[str] = []
+    if aktif_gorunum is not None and not aktif_gorunum.empty:
+        for _, satir in aktif_gorunum.iterrows():
+            getiri = pd.to_numeric(
+                pd.Series([satir.get("Kâr / Zarar %")]), errors="coerce"
+            ).iloc[0]
+            getiri_sinifi = (
+                "pos"
+                if pd.notna(getiri) and getiri > 0
+                else "neg"
+                if pd.notna(getiri) and getiri < 0
+                else "neu"
+            )
+            satirlar.append(
+                "<tr>"
+                f"<td class='date'>{html.escape(str(satir.get('İlk Alım Tarihi', '—')))}</td>"
+                f"<td><span class='iz-ticker-chip'>{html.escape(str(satir.get('Varlık', '—')))}</span></td>"
+                f"<td><span class='iz-signal-chip'>{html.escape(str(satir.get('İlk Sinyal', '—')))}</span></td>"
+                f"<td><span class='iz-signal-chip'>{html.escape(str(satir.get('Güncel Sinyal', '—')))}</span></td>"
+                f"<td class='num'>{_pozisyon_sayisi_bicimle(satir.get('İlk Alım Fiyatı'))}</td>"
+                f"<td class='num'>{_pozisyon_sayisi_bicimle(satir.get('Güncel Fiyat'))}</td>"
+                f"<td class='num {getiri_sinifi}'>{_pozisyon_sayisi_bicimle(satir.get('Kâr / Zarar %'), '%', True)}</td>"
+                f"<td class='num'>{_pozisyon_sayisi_bicimle(satir.get('Geçen Gün'), decimals=0)}</td>"
+                "<td class='center'><span class='iz-open-status'>"
+                f"{html.escape(str(satir.get('Durum', '🟢 Açık')))}</span></td>"
+                "</tr>"
+            )
+
+    tbody = "".join(satirlar) if satirlar else (
+        "<tr><td colspan='9' class='iz-active-empty'>"
+        "Şu anda açık alım pozisyonu bulunmuyor."
+        "</td></tr>"
+    )
+    return (
+        """
+        <style>
+        .iz-active-table-shell{
+            border-color:#17445d; background:#06131f; color:#d8e8f0;
+        }
+        .iz-active-table{min-width:1180px; color:#d8e8f0; background:#06131f;}
+        .iz-active-table thead th{color:#74a7bd; background:#081a28;}
+        .iz-active-table tbody td{color:#d8e8f0; background:#071522;}
+        .iz-active-table tbody tr:nth-child(even) td{background:#081927;}
+        .iz-active-table tbody tr:hover td{background:#0a2434;}
+        .iz-active-table td.pos{color:#43d9a0;}
+        .iz-active-table td.neg{color:#ff7181;}
+        .iz-active-table td.neu{color:#a5bbc7;}
+        .iz-active-table .iz-active-empty{
+            height:86px; padding:24px; color:#7898a8; background:#071522;
+            text-align:center; font-size:11px; font-weight:650;
+        }
+        .iz-active-table .iz-open-status{
+            display:inline-flex; align-items:center; padding:5px 8px;
+            border:1px solid #1c614f; border-radius:7px;
+            color:#69ddb0; background:#09271f; font-weight:800;
+        }
+        </style>
+        <div class='iz-closed-table-shell iz-active-table-shell'>
+          <div class='iz-closed-table-scroll'>
+            <table class='iz-closed-table iz-active-table'>
+              <thead><tr>
+                <th>İlk Alım Tarihi</th><th>Varlık</th><th>İlk Sinyal</th><th>Güncel Sinyal</th>
+                <th>İlk Alım Fiyatı</th><th>Güncel Fiyat</th><th>Kâr / Zarar %</th><th>Geçen Gün</th><th>Durum</th>
+              </tr></thead><tbody>
+        """
+        + tbody
+        + "</tbody></table></div></div>"
     )
 
 
@@ -376,6 +465,123 @@ def kapanmis_performans_ozeti_hazirla(kapanmis_gorunum: pd.DataFrame) -> dict[st
         "worst_txt": worst_txt,
         "yorumlar": yorumlar[:4],
         "reason_counts": reason_counts,
+    }
+
+
+def kapanmis_pozisyon_html_paketi_hazirla(
+    kapanmis_gorunum: pd.DataFrame,
+) -> dict[str, Any]:
+    """Render closed-position KPI, insight, table and reason-summary fragments."""
+    kg = pd.DataFrame() if kapanmis_gorunum is None else kapanmis_gorunum.copy()
+    ozet = kapanmis_performans_ozeti_hazirla(kg)
+
+    win_rate = ozet["win_rate"]
+    avg_ret = ozet["avg_ret"]
+    median_ret = ozet["median_ret"]
+    median_days = ozet["median_days"]
+    tp1_rate = ozet["tp1_rate"]
+    stop_rate = ozet["stop_rate"]
+    kpis_html = f"""
+        <div class="iz-closed-kpis iz-closed-kpis-wide">
+            <div><small>KAPANMIŞ ALIM DÖNEMİ</small><b>{ozet['adet']}</b></div>
+            <div><small>FARKLI HİSSE</small><b>{ozet['unique_tickers']}</b></div>
+            <div><small>POZİTİF KAPANIŞ</small><b>{f"%{win_rate:.1f}" if np.isfinite(win_rate) else "—"}</b></div>
+            <div><small>ORT. GETİRİ</small><b class="{'pos' if np.isfinite(avg_ret) and avg_ret >= 0 else 'neg'}">{f"%{avg_ret:+.2f}" if np.isfinite(avg_ret) else "—"}</b></div>
+            <div><small>MEDYAN GETİRİ</small><b class="{'pos' if np.isfinite(median_ret) and median_ret >= 0 else 'neg'}">{f"%{median_ret:+.2f}" if np.isfinite(median_ret) else "—"}</b></div>
+            <div><small>MEDYAN SÜRE</small><b>{f"{median_days:.1f} gün" if np.isfinite(median_days) else "—"}</b></div>
+            <div><small>TP1 GÖRÜLME</small><b>{f"%{tp1_rate:.1f}" if np.isfinite(tp1_rate) else "—"}</b></div>
+            <div><small>STOP GÖRÜLME</small><b>{f"%{stop_rate:.1f}" if np.isfinite(stop_rate) else "—"}</b></div>
+        </div>
+    """
+
+    yorum_html = "".join(
+        f"<li>{html.escape(str(yorum))}</li>" for yorum in ozet["yorumlar"]
+    ) or (
+        "<li>Yeterli kapanmış dönem biriktikçe sistem yorumu burada "
+        "daha anlamlı hale gelecek.</li>"
+    )
+    insight_html = f"""
+        <div class="iz-closed-insight-card">
+            <div class="iz-closed-insight-head">
+                <div>
+                    <small>IZFIN GEÇMİŞ PERFORMANS ÖZETİ</small>
+                    <h4>Sistem geçmişte ne yaptı?</h4>
+                </div>
+                <div class="iz-closed-extremes">
+                    <span><b>En iyi</b> {html.escape(str(ozet['best_txt']))}</span>
+                    <span><b>En zayıf</b> {html.escape(str(ozet['worst_txt']))}</span>
+                </div>
+            </div>
+            <ul>{yorum_html}</ul>
+        </div>
+    """
+
+    rows: list[str] = []
+    for _, row in kg.iterrows():
+        ret_value = pd.to_numeric(
+            pd.Series([row.get("Kâr / Zarar %")]), errors="coerce"
+        ).iloc[0]
+        ret_class = (
+            "pos"
+            if pd.notna(ret_value) and ret_value > 0
+            else "neg"
+            if pd.notna(ret_value) and ret_value < 0
+            else "neu"
+        )
+        rows.append(
+            "<tr>"
+            f"<td class='date'>{html.escape(str(row.get('İlk Alım Tarihi', '—')))}</td>"
+            f"<td class='date'>{html.escape(str(row.get('Kapanış Tarihi', '—')))}</td>"
+            f"<td><span class='iz-ticker-chip'>{html.escape(str(row.get('Varlık', '—')))}</span></td>"
+            f"<td><span class='iz-signal-chip'>{html.escape(str(row.get('Son Alım Sinyali', '—')))}</span></td>"
+            f"<td><span class='iz-close-reason'>{html.escape(str(row.get('Kapanış Nedeni', '—')))}</span></td>"
+            f"<td class='num'>{_pozisyon_sayisi_bicimle(row.get('İlk Alım Fiyatı'))}</td>"
+            f"<td class='num'>{_pozisyon_sayisi_bicimle(row.get('Kapanış Fiyatı'))}</td>"
+            f"<td class='num {ret_class}'>{_pozisyon_sayisi_bicimle(row.get('Kâr / Zarar %'), '%', True)}</td>"
+            f"<td class='num'>{_pozisyon_sayisi_bicimle(row.get('Pozisyonda Gün'))}</td>"
+            f"<td class='num pos-soft'>{_pozisyon_sayisi_bicimle(row.get('Maks. Kâr %'), '%', True)}</td>"
+            f"<td class='num neg-soft'>{_pozisyon_sayisi_bicimle(row.get('Maks. Düşüş %'), '%', True)}</td>"
+            f"<td class='num'>{_pozisyon_sayisi_bicimle(row.get('İlk Stop'))}</td>"
+            f"<td class='num'>{_pozisyon_sayisi_bicimle(row.get('İlk TP1'))}</td>"
+            f"<td class='center'>{html.escape(str(row.get('TP1', '—')))}</td>"
+            f"<td class='center'>{html.escape(str(row.get('TP2', '—')))}</td>"
+            f"<td class='center'>{html.escape(str(row.get('TP3', '—')))}</td>"
+            f"<td class='center'>{html.escape(str(row.get('Stop', '—')))}</td>"
+            "</tr>"
+        )
+
+    table_html = (
+        "<div class='iz-closed-table-shell'>"
+        "<div class='iz-closed-table-scroll'>"
+        "<table class='iz-closed-table'>"
+        "<thead><tr>"
+        "<th>İlk Alım</th><th>Kapanış</th><th>Varlık</th><th>Son Sinyal</th><th>Kapanış Nedeni</th>"
+        "<th>Giriş</th><th>Kapanış</th><th>K/Z %</th><th>Gün</th><th>Maks. Kâr</th><th>Maks. Düşüş</th>"
+        "<th>İlk Stop</th><th>İlk TP1</th><th>TP1</th><th>TP2</th><th>TP3</th><th>Stop</th>"
+        "</tr></thead><tbody>"
+        + "".join(rows)
+        + "</tbody></table></div></div>"
+    )
+
+    reason_summary_html = ""
+    if ozet["reason_counts"]:
+        reason_chips = "".join(
+            f"<span><b>{html.escape(str(reason))}</b> {int(count)}</span>"
+            for reason, count in ozet["reason_counts"]
+        )
+        reason_summary_html = f"""
+            <div class="iz-close-reason-summary">
+                <small>EN SIK KAPANIŞ NEDENLERİ</small>
+                <div>{reason_chips}</div>
+            </div>
+        """
+
+    return {
+        "ozet": ozet,
+        "kpis_html": kpis_html,
+        "insight_html": insight_html,
+        "table_html": table_html,
+        "reason_summary_html": reason_summary_html,
     }
 
 

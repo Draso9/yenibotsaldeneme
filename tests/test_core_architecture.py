@@ -97,6 +97,7 @@ def test_app_imports_extracted_core_modules():
         "izfin_ui.navigation",
         "izfin_ui.scan_results",
         "izfin_ui.scan_table",
+        "izfin_ui.scan_page_view",
         "izfin_services.auth_service",
         "izfin_services.bootstrap_service",
         "izfin_services.backtest_service",
@@ -277,6 +278,8 @@ def test_projection_view_model_stays_outside_streamlit_shell():
     assert "projection_hazir_mi(" in source
     assert "projection_varliklari_hazirla(" in source
     assert "projection_senaryo_hazirla(" in source
+    assert "projection_sayfa_html_paketi_hazirla(" in source
+    assert "projection_senaryo_html_paketi_hazirla(" in source
     assert "if not st.session_state.tarama_durumu or not st.session_state.teknik_paneller:" not in source
     assert 'destek = float(panel.get("destek"' not in source
     assert "model_farki = abs(proj['atr_yuzde'] - proj['volatilite_yuzde'])" not in source
@@ -288,7 +291,8 @@ def test_performance_view_model_stays_outside_streamlit_shell():
     assert "performans_pozisyon_paketi_hazirla(" in source
     assert "aktif_pozisyon_gorunumu_hazirla(" in source
     assert "kapanmis_pozisyon_gorunumu_hazirla(" in source
-    assert "kapanmis_performans_ozeti_hazirla(" in source
+    assert "aktif_pozisyon_tablosu_html(" in source
+    assert "kapanmis_pozisyon_html_paketi_hazirla(" in source
     assert "performans_karne_paketi_hazirla(" in source
     assert "df_perf = pd.DataFrame(kayitlar).reset_index(drop=True)" not in source
     assert "def naive_tarih(" not in source
@@ -296,6 +300,37 @@ def test_performance_view_model_stays_outside_streamlit_shell():
     assert "def _hedef_gordu(" not in source
     assert 'pozitif_oran = float((karne_df["getiri"] > 0).mean() * 100)' not in source
     assert "detay_karne = karne_df.copy()" not in source
+
+
+def test_ui6m_page_and_position_presenters_stay_outside_streamlit_shell():
+    source = APP.read_text(encoding="utf-8")
+    presenter_sources = [
+        (UI / "scan_page_view.py").read_text(encoding="utf-8"),
+        (UI / "projection_view.py").read_text(encoding="utf-8"),
+        (UI / "performance_view.py").read_text(encoding="utf-8"),
+    ]
+
+    assert "tarama_sayfa_html_paketi_hazirla(" in source
+    assert "aktif_tarama_evreni_html(" in source
+    assert "tarama_odak_stili_html(" in source
+    assert "tarama_tablosu_sarmala(" in source
+    assert "projection_sayfa_html_paketi_hazirla(" in source
+    assert "projection_senaryo_html_paketi_hazirla(" in source
+    assert "aktif_pozisyon_tablosu_html(" in source
+    assert "kapanmis_pozisyon_html_paketi_hazirla(" in source
+
+    assert 'class="iz-scanner-hero"' not in source
+    assert '[data-testid="stSidebar"]' not in source
+    assert 'class="iz-scenario-card' not in source
+    assert 'class="iz-closed-kpis' not in source
+    assert "def izfin_active_positions_table_html(" not in source
+    assert "def _izfin_active_fmt_num(" not in source
+    assert "def performans_hucre_stili(" not in source
+    assert "def tablo_stili(" not in source
+
+    for presenter_source in presenter_sources:
+        assert "import streamlit" not in presenter_source
+        assert "st.session_state" not in presenter_source
 
 
 def test_backtest_runner_orchestration_stays_outside_streamlit_shell():
