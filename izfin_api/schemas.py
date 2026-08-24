@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
@@ -53,6 +53,39 @@ class WatchlistResponse(BaseModel):
 
 class WatchlistReplaceRequest(BaseModel):
     tickers: list[str] = Field(min_length=1, max_length=250)
+
+
+class LegalDocumentResponse(BaseModel):
+    version: str
+    markdown: str
+    warning: str | None = None
+    info: str | None = None
+
+
+class ProfileResponse(BaseModel):
+    uid: str
+    email: str
+    profile: dict[str, Any]
+
+
+class LegalConsentUpdateRequest(BaseModel):
+    terms_accepted: Literal[True]
+    privacy_notice_seen: Literal[True]
+
+
+class LegalConsentResponse(BaseModel):
+    terms_version: str
+    privacy_version: str
+    accepted: bool
+
+
+class AccountExportResponse(BaseModel):
+    export_schema: str
+    exported_at: str
+    app_release: str
+    user_uid: str
+    user_email: str
+    collections: dict[str, list[dict[str, Any]]]
 
 
 class ScanRunRequest(BaseModel):
