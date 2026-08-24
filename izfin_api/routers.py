@@ -281,11 +281,6 @@ def run_scan(
     "/scan/jobs",
     response_model=ScanJobCreatedResponse,
     status_code=status.HTTP_202_ACCEPTED,
-    responses={
-        401: {"description": "Bearer token gerekli veya geçersiz."},
-        429: {"description": "İstek veya tarama kuyruğu sınırına ulaşıldı."},
-        503: {"description": "Tarama sağlayıcısı kullanılamıyor."},
-    },
     tags=["scan"],
 )
 def create_scan_job(

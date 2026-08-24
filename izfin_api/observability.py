@@ -12,6 +12,7 @@ from uuid import uuid4
 from fastapi import Request
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import JSONResponse
+from starlette.routing import Match
 
 from .rate_limit import FixedWindowRateLimiter
 
@@ -49,8 +50,8 @@ class ApiHardeningMiddleware(BaseHTTPMiddleware):
         request_id = request_id_for(request.headers.get("X-Request-ID"))
         request.state.request_id = request_id
         if self._enabled and self._limiter and request.url.path not in self._EXEMPT_PATHS:
-            client = request.client.host if request.client else "unknown"
-            allowed, retry_after = self._limiter.allow(f"ip:{client}")
+            bucket_key = self._bucket_key(request)
+            allowed, retry_after = self._limiter.allow(bucket_key)
             if not allowed:
                 response = JSONResponse(
                     status_code=429,
@@ -58,6 +59,14 @@ class ApiHardeningMiddleware(BaseHTTPMiddleware):
                     headers={"Retry-After": str(retry_after)},
                 )
                 response.headers["X-Request-ID"] = request_id
+                log_request_event(
+                    self._logger,
+                    request_id=request_id,
+                    method=request.method,
+                    route=self._route_template(request),
+                    status_code=429,
+                    elapsed_ms=0,
+                )
                 return response
         started = perf_counter()
         response = await call_next(request)
@@ -66,8 +75,35 @@ class ApiHardeningMiddleware(BaseHTTPMiddleware):
             self._logger,
             request_id=request_id,
             method=request.method,
-            route=request.url.path,
+            route=self._route_template(request),
             status_code=response.status_code,
             elapsed_ms=int((perf_counter() - started) * 1000),
         )
         return response
+
+    @staticmethod
+    def _route_template(request: Request) -> str:
+        route = request.scope.get("route")
+        path = getattr(route, "path", None)
+        if path:
+            return str(path)
+        for candidate in request.app.routes:
+            match, _ = candidate.matches(request.scope)
+            if match is Match.FULL:
+                return str(getattr(candidate, "path", "/unmatched"))
+        return "/unmatched"
+
+    @staticmethod
+    def _bucket_key(request: Request) -> str:
+        credentials = request.headers.get("Authorization", "")
+        runtime = request.app.state.izfin_runtime
+        if credentials.startswith("Bearer ") and runtime.verify_id_token is not None:
+            try:
+                claims = runtime.verify_id_token(credentials.removeprefix("Bearer ").strip()) or {}
+                uid = str(claims.get("uid") or claims.get("user_id") or "").strip()
+                if uid:
+                    return f"uid:{uid}"
+            except Exception:
+                pass
+        client = request.client.host if request.client else "unknown"
+        return f"ip:{client}"

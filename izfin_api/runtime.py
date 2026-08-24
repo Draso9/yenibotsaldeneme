@@ -28,20 +28,6 @@ def environment_tickers(value: str | None) -> tuple[str, ...]:
     return tuple(dict.fromkeys(values)) or tuple(VARSAYILAN_TICKERS)
 
 
-def environment_bool(value: str | None, *, default: bool) -> bool:
-    normalized = str(value or "").strip().lower()
-    if not normalized:
-        return default
-    return normalized in {"1", "true", "yes", "on"}
-
-
-def positive_environment_int(value: str | None, *, default: int) -> int:
-    try:
-        return max(1, int(str(value or "").strip()))
-    except (TypeError, ValueError):
-        return default
-
-
 def scan_runner_from_clients(*, finnhub_client: FinnhubClient | None = None):
     """Compose the existing scan workflow with provider clients, not Streamlit callbacks."""
     def run(tickers: Sequence[str], progress_callback=None) -> Mapping[str, Any]:
@@ -69,7 +55,10 @@ def create_environment_app(*, environment: Mapping[str, str] | None = None):
     api_key = str(settings.get("FINNHUB_API_KEY", "") or "").strip()
     finnhub_client = FinnhubClient(api_key) if api_key else None
     firebase = firebase_runtime_from_environment(environment=settings)
-    log_retention_days = positive_environment_int(settings.get("IZFIN_LOG_RETENTION_DAYS"), default=30)
+    try:
+        log_retention_days = max(1, int(settings.get("IZFIN_LOG_RETENTION_DAYS", "30")))
+    except (TypeError, ValueError):
+        log_retention_days = 30
     return create_app(
         default_tickers=environment_tickers(settings.get("IZFIN_DEFAULT_TICKERS")),
         scan_runner=scan_runner_from_clients(finnhub_client=finnhub_client),
@@ -80,13 +69,6 @@ def create_environment_app(*, environment: Mapping[str, str] | None = None):
         contact_email=str(settings.get("IZFIN_CONTACT_EMAIL", "")),
         data_controller_address=str(settings.get("IZFIN_DATA_CONTROLLER_ADDRESS", "")),
         log_retention_days=log_retention_days,
-        rate_limit_enabled=environment_bool(settings.get("IZFIN_RATE_LIMIT_ENABLED"), default=True),
-        rate_limit_max_requests=positive_environment_int(
-            settings.get("IZFIN_RATE_LIMIT_MAX_REQUESTS"), default=120
-        ),
-        rate_limit_window_seconds=positive_environment_int(
-            settings.get("IZFIN_RATE_LIMIT_WINDOW_SECONDS"), default=60
-        ),
         **firebase,
     )
 
