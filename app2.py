@@ -131,10 +131,6 @@ from izfin_services.signal_tracking import sinyal_kayitlarini_guncelle
 from izfin_services.performance_maintenance import (
     gecmis_mukerrer_kayitlari_temizle as performans_mukerrer_kayitlari_temizle,
 )
-from izfin_services.performance_refresh import (
-    performans_fiyatlarini_yenile,
-    performans_karnelerini_yenile,
-)
 from izfin_services.market_overview import piyasa_bandi_paketi_hazirla
 from izfin_services.yahoo_client import (
     donem_ohlc_indir,
@@ -872,14 +868,54 @@ def performans_cache_gecersiz_kil():
 
 
 def performans_fiyatlarini_guncelle(kayitlar):
-    """Canlı performans fiyatlarını application service üzerinden yeniler."""
-    return performans_fiyatlarini_yenile(
-        kayitlar,
-        repository=SIGNAL_REPOSITORY,
-        quote_fetcher=finnhub_quote_cek,
-        intraday_fetcher=intraday_veri_cek,
-        error_handler=izfin_hata_logla,
-    )
+    if not SIGNAL_REPOSITORY.available:
+        return kayitlar
+    guncellenen = []
+    fiyat_cache = {}
+    for kayit in kayitlar:
+        ticker = kayit.get("ticker")
+        if not ticker:
+            continue
+        if ticker not in fiyat_cache:
+            try:
+                q = finnhub_quote_cek(ticker)
+                fiyat = float(q.get("c", 0)) if q else 0.0
+                if fiyat <= 0:
+                    intraday = intraday_veri_cek(ticker, interval="5m", period="1d")
+                    if not intraday.empty:
+                        fiyat = float(intraday["Close"].dropna().iloc[-1])
+                fiyat_cache[ticker] = fiyat
+            except Exception as e:
+                izfin_hata_logla("performans_fiyati_guncelle", e, ticker=ticker)
+                fiyat_cache[ticker] = 0.0
+        son_fiyat = fiyat_cache[ticker]
+        giris = float(kayit.get("giris_fiyati", 0) or 0)
+        yon = kayit.get("yon", "ALIM")
+        if son_fiyat > 0 and giris > 0:
+            ham = ((son_fiyat - giris) / giris) * 100
+            getiri = ham if yon == "ALIM" else -ham
+            kayit["son_fiyat"] = son_fiyat
+            kayit["getiri_yuzde"] = getiri
+            kayit["guncelleme_zamani"] = datetime.now().isoformat()
+            try:
+                SIGNAL_REPOSITORY.set_archive(
+                    kayit["doc_id"],
+                    {
+                        "son_fiyat": son_fiyat,
+                        "getiri_yuzde": getiri,
+                        "guncelleme_zamani": kayit["guncelleme_zamani"],
+                    },
+                    merge=True,
+                )
+            except Exception as e:
+                izfin_hata_logla(
+                    "aktif_pozisyon_getiri_firestore_guncelle",
+                    e,
+                    ticker=kayit.get("ticker"),
+                )
+        guncellenen.append(kayit)
+    return guncellenen
+
 
 
 def _gunluk_kapanis_serisi(ticker, period="1y"):
@@ -891,14 +927,101 @@ def _gunluk_kapanis_serisi(ticker, period="1y"):
 
 
 def performans_karnelerini_guncelle(kayitlar):
-    """Dondurulmuş performans ufuklarını application service üzerinden günceller."""
-    return performans_karnelerini_yenile(
-        kayitlar,
-        repository=SIGNAL_REPOSITORY,
-        daily_close_fetcher=_gunluk_kapanis_serisi,
-        horizons=PERFORMANS_UFUKLARI,
-        error_handler=izfin_hata_logla,
-    )
+    """1/5/10/20/45 işlem günü sonuçlarını ve benchmark farkını kalıcılaştırır.
+
+    İlk sinyal fiyatı/snapshot alanları değiştirilmez. Yeterli işlem günü oluşan
+    ufuklar yalnızca bir kez yazılır; böylece geçmiş performans sonradan kaymaz.
+    """
+    if not SIGNAL_REPOSITORY.available or not kayitlar:
+        return kayitlar
+
+    fiyat_seri_cache = {}
+    simdi_iso = datetime.now().isoformat()
+
+    for kayit in kayitlar:
+        doc_id = kayit.get("doc_id")
+        ticker = kayit.get("ticker")
+        giris = float(kayit.get("giris_fiyati", 0) or 0)
+        tarih = pd.to_datetime(kayit.get("olusturma_zamani"), errors="coerce")
+        if not doc_id or not ticker or giris <= 0 or pd.isna(tarih):
+            continue
+        try:
+            if getattr(tarih, "tzinfo", None) is not None:
+                tarih = tarih.tz_localize(None)
+        except Exception:
+            pass
+
+        benchmark = kayit.get("benchmark_ticker") or ("XU100.IS" if ticker.endswith(".IS") else "^IXIC")
+        if ticker not in fiyat_seri_cache:
+            fiyat_seri_cache[ticker] = _gunluk_kapanis_serisi(ticker)
+        if benchmark not in fiyat_seri_cache:
+            fiyat_seri_cache[benchmark] = _gunluk_kapanis_serisi(benchmark)
+
+        seri = fiyat_seri_cache[ticker]
+        bseri = fiyat_seri_cache[benchmark]
+        if seri.empty:
+            continue
+
+        sonrasi = seri[seri.index.normalize() >= tarih.normalize()]
+        if sonrasi.empty:
+            continue
+
+        # Sinyal gününden sonraki tamamlanmış işlem günlerini esas al.
+        mevcut_ufuklar = dict(_guvenli_dict(kayit.get("performans_ufuklari")))
+        guncel_ufuklar = dict(mevcut_ufuklar)
+
+        # İlk 45 işlem günündeki maksimum olumlu/olumsuz hareket (entry fiyatına göre).
+        pencere = sonrasi.iloc[:46]
+        if not pencere.empty:
+            getiriler = (pencere / giris - 1.0) * 100.0
+            kayit["max_yukselis_45g"] = float(getiriler.max())
+            kayit["max_dusus_45g"] = float(getiriler.min())
+
+        # Benchmark başlangıcı: sinyal tarihi veya sonraki ilk işlem günü.
+        b_sonrasi = bseri[bseri.index.normalize() >= tarih.normalize()] if not bseri.empty else pd.Series(dtype=float)
+        b_baslangic = float(b_sonrasi.iloc[0]) if not b_sonrasi.empty else None
+
+        for gun in PERFORMANS_UFUKLARI:
+            key = str(gun)
+            if key in mevcut_ufuklar:
+                continue
+            # 0 = sinyal günü/ilk uygun günlük bar; +N işlem günü için N. ileri bar.
+            if len(sonrasi) <= gun:
+                continue
+            hedef_fiyat = float(sonrasi.iloc[gun])
+            hisse_getiri = (hedef_fiyat / giris - 1.0) * 100.0
+
+            benchmark_getiri = None
+            alfa = None
+            if b_baslangic and b_baslangic > 0 and len(b_sonrasi) > gun:
+                b_hedef = float(b_sonrasi.iloc[gun])
+                benchmark_getiri = (b_hedef / b_baslangic - 1.0) * 100.0
+                alfa = hisse_getiri - benchmark_getiri
+
+            guncel_ufuklar[key] = {
+                "fiyat": round(hedef_fiyat, 6),
+                "getiri": round(float(hisse_getiri), 4),
+                "benchmark_getiri": round(float(benchmark_getiri), 4) if benchmark_getiri is not None else None,
+                "alfa": round(float(alfa), 4) if alfa is not None else None,
+                "olcum_tarihi": sonrasi.index[gun].isoformat(),
+            }
+
+        update = {
+            "performans_ufuklari": guncel_ufuklar,
+            "benchmark_ticker": benchmark,
+            "karnenin_son_guncellemesi": simdi_iso,
+        }
+        if "max_yukselis_45g" in kayit:
+            update["max_yukselis_45g"] = kayit["max_yukselis_45g"]
+            update["max_dusus_45g"] = kayit["max_dusus_45g"]
+
+        try:
+            SIGNAL_REPOSITORY.set_archive(doc_id, update, merge=True)
+            kayit.update(update)
+        except Exception as e:
+            izfin_hata_logla("performans_karnesi_firestore_guncelle", e, ticker=ticker)
+
+    return kayitlar
 
 
 # --- UYGULAMA OTURUM DURUMU VARSAYILANLARI ---

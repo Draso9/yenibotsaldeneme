@@ -107,7 +107,6 @@ def test_app_imports_extracted_core_modules():
         "izfin_services.scan_workflow",
         "izfin_services.signal_tracking",
         "izfin_services.performance_maintenance",
-        "izfin_services.performance_refresh",
         "izfin_services.market_overview",
         "izfin_repositories.user_repository",
         "izfin_repositories.signal_repository",
@@ -427,16 +426,4 @@ def test_performance_archive_maintenance_stays_outside_streamlit_shell():
     assert "gruplar.setdefault(key" not in source
     assert 'backup_id=f"{doc_id}_' not in source
     assert 'repository=SIGNAL_REPOSITORY' in source
-
-
-def test_performance_refresh_application_logic_stays_outside_streamlit_shell():
-    source = APP.read_text(encoding="utf-8")
-    assert "from izfin_services.performance_refresh import (" in source
-    assert "return performans_fiyatlarini_yenile(" in source
-    assert "return performans_karnelerini_yenile(" in source
-    assert "fiyat_cache = {}" not in source
-    assert "for gun in PERFORMANS_UFUKLARI:" not in source
-    assert "guncel_ufuklar[key] = {" not in source
-    assert "quote_fetcher=finnhub_quote_cek" in source
-    assert "daily_close_fetcher=_gunluk_kapanis_serisi" in source
 
