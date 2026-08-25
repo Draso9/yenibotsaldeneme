@@ -7,15 +7,21 @@ import json
 from collections.abc import Callable, Mapping, Sequence
 from typing import Any
 
+import pandas as pd
+
 from izfin_core.market_universe import VARSAYILAN_TICKERS, finnhub_symbol
 from izfin_repositories.user_repository import UserRepository
 from izfin_repositories.signal_repository import SignalRepository
 from izfin_repositories.signal_repository import ScanJobRepository
 from izfin_services.finnhub_client import FinnhubClient
+from izfin_services.market_overview import piyasa_bandi_paketi_hazirla
 from izfin_services.scan_workflow import scan_workflow_calistir
 from izfin_services.yahoo_client import (
     intraday_veri_indir,
     peg_degeri_indir,
+    piyasa_bandi_gunluk_indir,
+    piyasa_bandi_intraday_indir,
+    piyasa_bandi_tekil_indir,
     sektor_referanslari_indir,
     toplu_gunluk_veri_indir,
     toplu_intraday_veri_indir,
@@ -63,6 +69,33 @@ def scan_runner_from_clients(*, finnhub_client: FinnhubClient | None = None):
     return run
 
 
+def _market_frame_for_symbol(frame: pd.DataFrame, symbol: str, ticker_count: int) -> pd.DataFrame:
+    if frame is None or frame.empty:
+        return pd.DataFrame()
+    if not isinstance(frame.columns, pd.MultiIndex):
+        return frame.copy() if ticker_count == 1 else pd.DataFrame()
+    for level in range(frame.columns.nlevels):
+        if symbol in frame.columns.get_level_values(level):
+            try:
+                selected = frame.xs(symbol, axis=1, level=level, drop_level=True)
+                return selected if isinstance(selected, pd.DataFrame) else selected.to_frame()
+            except Exception:
+                return pd.DataFrame()
+    return pd.DataFrame()
+
+
+def market_overview_loader_from_providers():
+    """Compose the existing framework-neutral market-strip orchestration for HTTP use."""
+    def load() -> Mapping[str, Any]:
+        return piyasa_bandi_paketi_hazirla(
+            intraday_fetcher=piyasa_bandi_intraday_indir,
+            daily_fetcher=piyasa_bandi_gunluk_indir,
+            single_fetcher=piyasa_bandi_tekil_indir,
+            split_fetcher=_market_frame_for_symbol,
+        )
+    return load
+
+
 def create_environment_app(*, environment: Mapping[str, str] | None = None):
     """Build an API app from deploy-time settings without importing Streamlit secrets."""
     settings = environment if environment is not None else os.environ
@@ -85,6 +118,7 @@ def create_environment_app(*, environment: Mapping[str, str] | None = None):
             default=60,
         ),
         scan_runner=scan_runner_from_clients(finnhub_client=finnhub_client),
+        market_overview_loader=market_overview_loader_from_providers(),
         terms_version=str(settings.get("IZFIN_TERMS_VERSION", "2026-08-19-v1")),
         privacy_version=str(settings.get("IZFIN_PRIVACY_VERSION", "2026-08-19-v1")),
         app_release=str(settings.get("IZFIN_RELEASE", "development")),
