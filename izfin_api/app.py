@@ -20,6 +20,7 @@ from .http_boundary import (
     unhandled_exception_handler,
     validation_exception_handler,
 )
+from .performance_routes import performance_router
 from .projection_routes import projection_router
 from .routers import api_router
 from .scan_jobs import ScanJobStore
@@ -102,6 +103,7 @@ def create_app(
         )
     app.include_router(api_router)
     app.include_router(projection_router)
+    app.include_router(performance_router)
     return app
 
 
