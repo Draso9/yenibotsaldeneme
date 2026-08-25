@@ -60,6 +60,8 @@ def test_scan_job_exposes_ticker_progress_and_completed_summary():
     assert completed.total == 2
     assert completed.result == {
         "sonuclar": [{"Varlık": "THYAO.IS"}, {"Varlık": "AKBNK.IS"}],
+        "teknik_paneller": {},
+        "sozlu_analizler": {},
         "basarisiz_taramalar": [],
         "boga_sayisi": 2,
         "alim_firsati": 1,
@@ -169,6 +171,8 @@ def test_authenticated_user_can_submit_and_poll_own_scan_job():
     completed = _wait_for_response(client, created.json()["job_id"], headers, "completed")
     assert completed.json()["result"] == {
         "sonuclar": [{"Varlık": "THYAO.IS"}],
+        "teknik_paneller": {},
+        "sozlu_analizler": {},
         "basarisiz_taramalar": [],
         "boga_sayisi": 1,
         "alim_firsati": 1,

@@ -140,6 +140,8 @@ class ScanJobStore:
             record.completed = len(record.tickers)
             record.result = {
                 "sonuclar": presented["sonuclar"],
+                "teknik_paneller": presented["teknik_paneller"],
+                "sozlu_analizler": presented["sozlu_analizler"],
                 "basarisiz_taramalar": presented["basarisiz_taramalar"],
                 "boga_sayisi": presented["boga_sayisi"],
                 "alim_firsati": presented["alim_firsati"],

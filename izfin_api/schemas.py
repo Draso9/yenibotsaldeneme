@@ -113,6 +113,38 @@ class ScanJobStatusResponse(ScanJobCreatedResponse):
     error: str | None = None
 
 
+class MarketCenterRequest(BaseModel):
+    sonuclar: list[dict[str, Any]] = Field(default_factory=list)
+    teknik_paneller: dict[str, dict[str, Any]] = Field(default_factory=dict)
+    piyasa_degisimleri: list[float] = Field(default_factory=list)
+    max_signals: int = Field(default=7, ge=1, le=20)
+    max_movers: int = Field(default=6, ge=1, le=20)
+
+
+class MarketCenterResponse(BaseModel):
+    empty: bool
+    metrics: dict[str, Any]
+    decision: dict[str, Any]
+    best_ticker: str | None = None
+    top_signals: list[dict[str, Any]]
+    movers: list[dict[str, Any]]
+
+
+class StockDetailRequest(BaseModel):
+    sonuclar: list[dict[str, Any]] = Field(default_factory=list)
+    teknik_paneller: dict[str, dict[str, Any]] = Field(default_factory=dict)
+
+
+class StockDetailResponse(BaseModel):
+    ticker: str
+    price: Any = None
+    signal: Any = None
+    entry_quality: Any = None
+    score: dict[str, Any]
+    decision: dict[str, Any]
+    panel: dict[str, Any]
+
+
 class PerformanceScorecardQuery(BaseModel):
     gun: int = Field(default=20, ge=1, le=365)
 
