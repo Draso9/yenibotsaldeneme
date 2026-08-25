@@ -9,7 +9,7 @@ const navItems = [
   { icon: "◈", label: "Projeksiyon", href: "/projection", upcoming: false },
   { icon: "◫", label: "Performans", href: "/performance", upcoming: false },
   { icon: "◇", label: "Strateji Lab", href: "/strategy-lab", upcoming: false },
-  { icon: "◌", label: "Hesap", href: "/#hesap", upcoming: false },
+  { icon: "◌", label: "Hesap", href: "/account", upcoming: false },
 ] as const;
 
 export function AppShell({ children }: Readonly<{ children: React.ReactNode }>) {
@@ -23,7 +23,9 @@ export function AppShell({ children }: Readonly<{ children: React.ReactNode }>) 
         ? "Performans"
         : pathname.startsWith("/strategy-lab")
           ? "Strateji Laboratuvarı"
-          : "Piyasa Merkezi";
+          : pathname.startsWith("/account")
+            ? "Gizlilik & Hesap"
+            : "Piyasa Merkezi";
 
   return <div className="app-shell">
     <aside className="sidebar">
@@ -41,9 +43,11 @@ export function AppShell({ children }: Readonly<{ children: React.ReactNode }>) 
               ? pathname.startsWith("/performance")
               : item.label === "Strateji Lab"
                 ? pathname.startsWith("/strategy-lab")
-                : item.label === "Piyasa Merkezi"
-                  ? pathname === "/" || pathname.startsWith("/stocks/")
-                  : false;
+                : item.label === "Hesap"
+                  ? pathname.startsWith("/account")
+                  : item.label === "Piyasa Merkezi"
+                    ? pathname === "/" || pathname.startsWith("/stocks/")
+                    : false;
           return <a className={`${active ? "active" : ""}${item.upcoming ? " upcoming" : ""}`} href={item.href} key={`${item.label}-${index}`}>
             <i aria-hidden="true">{item.icon}</i>
             <span>{item.label}</span>
