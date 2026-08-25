@@ -6,12 +6,20 @@ from collections.abc import Callable, Mapping, Sequence
 from typing import Any
 
 from fastapi import FastAPI
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
+from starlette.exceptions import HTTPException
 
 from izfin_services.account_data_service import AccountDataService
 from izfin_services.auth_service import LegalConsentService
 
 from .dependencies import runtime_from
+from .http_boundary import (
+    ApiHttpBoundaryMiddleware,
+    http_exception_handler,
+    unhandled_exception_handler,
+    validation_exception_handler,
+)
 from .routers import api_router
 from .scan_jobs import ScanJobStore
 
@@ -34,9 +42,23 @@ def create_app(
     log_retention_days: int = 30,
     legal_consent_service: Any = None,
     account_data_service: Any = None,
+    rate_limit_requests: int = 0,
+    rate_limit_window_seconds: int = 60,
 ) -> FastAPI:
     """Create an API instance without importing or initializing Streamlit."""
-    app = FastAPI(title="IZFIN API", version="0.1.0")
+    app = FastAPI(
+        title="IZFIN API",
+        version="0.2.0",
+        description="IZFIN web ve mobil istemcileri için sürümlü HTTP API.",
+    )
+    app.add_exception_handler(HTTPException, http_exception_handler)
+    app.add_exception_handler(RequestValidationError, validation_exception_handler)
+    app.add_exception_handler(Exception, unhandled_exception_handler)
+    app.add_middleware(
+        ApiHttpBoundaryMiddleware,
+        rate_limit_requests=rate_limit_requests,
+        rate_limit_window_seconds=rate_limit_window_seconds,
+    )
     if scan_job_store is None and scan_runner is not None:
         scan_job_store = ScanJobStore()
     if legal_consent_service is None and user_repository is not None:

@@ -28,6 +28,18 @@ def environment_tickers(value: str | None) -> tuple[str, ...]:
     return tuple(dict.fromkeys(values)) or tuple(VARSAYILAN_TICKERS)
 
 
+def environment_origins(value: str | None) -> tuple[str, ...]:
+    values = [item.strip() for item in str(value or "").split(",") if item.strip()]
+    return tuple(dict.fromkeys(values))
+
+
+def environment_positive_int(value: str | None, *, default: int) -> int:
+    try:
+        return max(1, int(str(value or default)))
+    except (TypeError, ValueError):
+        return int(default)
+
+
 def scan_runner_from_clients(*, finnhub_client: FinnhubClient | None = None):
     """Compose the existing scan workflow with provider clients, not Streamlit callbacks."""
     def run(tickers: Sequence[str], progress_callback=None) -> Mapping[str, Any]:
@@ -55,12 +67,21 @@ def create_environment_app(*, environment: Mapping[str, str] | None = None):
     api_key = str(settings.get("FINNHUB_API_KEY", "") or "").strip()
     finnhub_client = FinnhubClient(api_key) if api_key else None
     firebase = firebase_runtime_from_environment(environment=settings)
-    try:
-        log_retention_days = max(1, int(settings.get("IZFIN_LOG_RETENTION_DAYS", "30")))
-    except (TypeError, ValueError):
-        log_retention_days = 30
+    log_retention_days = environment_positive_int(
+        settings.get("IZFIN_LOG_RETENTION_DAYS"),
+        default=30,
+    )
     return create_app(
         default_tickers=environment_tickers(settings.get("IZFIN_DEFAULT_TICKERS")),
+        cors_origins=environment_origins(settings.get("IZFIN_CORS_ORIGINS")),
+        rate_limit_requests=environment_positive_int(
+            settings.get("IZFIN_RATE_LIMIT_REQUESTS"),
+            default=120,
+        ),
+        rate_limit_window_seconds=environment_positive_int(
+            settings.get("IZFIN_RATE_LIMIT_WINDOW_SECONDS"),
+            default=60,
+        ),
         scan_runner=scan_runner_from_clients(finnhub_client=finnhub_client),
         terms_version=str(settings.get("IZFIN_TERMS_VERSION", "2026-08-19-v1")),
         privacy_version=str(settings.get("IZFIN_PRIVACY_VERSION", "2026-08-19-v1")),
