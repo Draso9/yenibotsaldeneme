@@ -7,7 +7,7 @@ const navItems = [
   { icon: "⌂", label: "Piyasa Merkezi", href: "/", upcoming: false },
   { icon: "⌕", label: "Akıllı Tarama", href: "/#akilli-tarama", upcoming: false },
   { icon: "◈", label: "Projeksiyon", href: "/projection", upcoming: false },
-  { icon: "◫", label: "Performans", href: "/#performans", upcoming: true },
+  { icon: "◫", label: "Performans", href: "/performance", upcoming: false },
   { icon: "◌", label: "Hesap", href: "/#hesap", upcoming: false },
 ] as const;
 
@@ -18,7 +18,9 @@ export function AppShell({ children }: Readonly<{ children: React.ReactNode }>) 
     ? "Detaylı Analiz"
     : pathname.startsWith("/projection")
       ? "Projeksiyon"
-      : "Piyasa Merkezi";
+      : pathname.startsWith("/performance")
+        ? "Performans"
+        : "Piyasa Merkezi";
 
   return <div className="app-shell">
     <aside className="sidebar">
@@ -32,9 +34,11 @@ export function AppShell({ children }: Readonly<{ children: React.ReactNode }>) 
         {navItems.map((item, index) => {
           const active = item.label === "Projeksiyon"
             ? pathname.startsWith("/projection")
-            : item.label === "Piyasa Merkezi"
-              ? pathname === "/" || pathname.startsWith("/stocks/")
-              : false;
+            : item.label === "Performans"
+              ? pathname.startsWith("/performance")
+              : item.label === "Piyasa Merkezi"
+                ? pathname === "/" || pathname.startsWith("/stocks/")
+                : false;
           return <a className={`${active ? "active" : ""}${item.upcoming ? " upcoming" : ""}`} href={item.href} key={`${item.label}-${index}`}>
             <i aria-hidden="true">{item.icon}</i>
             <span>{item.label}</span>
