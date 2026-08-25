@@ -13,21 +13,21 @@ export default function Home() {
           <div className="hero-kicker"><span className="kicker-dot" /> CANLI PİYASA ÇALIŞMA ALANI</div>
           <h1><span>IZFIN</span>Piyasa Merkezi</h1>
           <p className="intro">
-            Tarama, piyasa modu ve hisse kararlarını tek çalışma alanında birleştiren yeni web deneyimi.
-            Streamlit çalışmaya devam ederken ekranları kontrollü biçimde buraya taşıyoruz.
+            Akıllı tarama, piyasa modu, detaylı analiz ve karar destek katmanlarını tek komuta merkezinde birleştir.
+            Sinyalleri izle, fırsatları karşılaştır ve aynı taramadan projeksiyon ile performans ekranlarına ilerle.
           </p>
           <div className="actions">
-            <a className="primary" href="#akilli-tarama">Taramaya git <span>→</span></a>
-            <a className="secondary" href={`${apiBaseUrl}/api/v1/health`} target="_blank" rel="noreferrer">API durumunu aç</a>
+            <a className="primary" href="#akilli-tarama">Taramayı başlat <span>→</span></a>
+            <a className="secondary" href={`${apiBaseUrl}/api/v1/health`} target="_blank" rel="noreferrer">Sistem durumunu aç</a>
           </div>
         </div>
 
-        <aside className="hero-system" aria-label="Sistem durumu">
-          <div className="system-card-head"><span>GEÇİŞ DURUMU</span><b>Stage 05</b></div>
-          <div className="system-stat"><span>Web istemcisi</span><strong>Next.js</strong></div>
-          <div className="system-stat"><span>Analiz katmanı</span><strong>FastAPI</strong></div>
-          <div className="system-stat"><span>Mevcut uygulama</span><strong>Streamlit aktif</strong></div>
-          <div className="system-foot"><span className="live-dot" /> API canlı · kademeli geçiş güvenli</div>
+        <aside className="hero-system" aria-label="IZFIN platform özeti">
+          <div className="system-card-head"><span>IZFIN PLATFORM</span><b>WEB</b></div>
+          <div className="system-stat"><span>Tarama motoru</span><strong>Job tabanlı</strong></div>
+          <div className="system-stat"><span>Analiz akışı</span><strong>Gerçek zamanlı</strong></div>
+          <div className="system-stat"><span>Hesap güvenliği</span><strong>Firebase Auth</strong></div>
+          <div className="system-foot"><span className="live-dot" /> API canlı · güvenli çalışma alanı</div>
         </aside>
       </section>
 
@@ -42,21 +42,26 @@ export default function Home() {
       <div id="akilli-tarama" className="anchor-target"><ScanWorkspace /></div>
       <div id="hesap" className="anchor-target"><AccountCenter /></div>
 
-      <section className="roadmap" aria-label="Geçiş sırası">
+      <section className="roadmap" aria-label="IZFIN analiz araçları">
         <article className="roadmap-current">
-          <span>05A</span>
-          <div><h2>Web tasarım temeli</h2><p>Ortak shell, kart sistemi ve responsive düzen bu adımda standardize ediliyor.</p></div>
-          <strong>AKTİF</strong>
+          <span>01</span>
+          <div><h2>Piyasa Merkezi</h2><p>Tarama sonuçlarını, piyasa modunu, öne çıkan sinyalleri ve hareketleri tek görünümde takip et.</p></div>
+          <strong>MERKEZ</strong>
         </article>
-        <article id="projeksiyon">
-          <span>05B</span>
-          <div><h2>Projeksiyon</h2><p>Sıradaki ekran: mevcut senaryo mantığını native web deneyimine taşıma.</p></div>
-          <strong>SIRADAKİ</strong>
+        <article>
+          <span>02</span>
+          <div><h2>Projeksiyon</h2><p>Seçili hissede 45 günlük ATR ve tarihsel volatilite bantlarını senaryo görünümünde incele.</p></div>
+          <a href="/projection">AÇ →</a>
         </article>
-        <article id="performans">
-          <span>05C</span>
-          <div><h2>Kalan web ekranları</h2><p>Performans ve diğer Streamlit yüzeyleri aynı tasarım sistemiyle kademeli taşınacak.</p></div>
-          <strong>BEKLİYOR</strong>
+        <article>
+          <span>03</span>
+          <div><h2>Performans</h2><p>Geçmiş sinyalleri, aktif pozisyonları ve kapanmış sonuçları performans karnesinde değerlendir.</p></div>
+          <a href="/performance">AÇ →</a>
+        </article>
+        <article>
+          <span>04</span>
+          <div><h2>Strateji Laboratuvarı</h2><p>Daily Core stratejisini farklı dönemlerde backtest ederek karar motorunun geçmiş davranışını test et.</p></div>
+          <a href="/strategy-lab">AÇ →</a>
         </article>
       </section>
     </main>

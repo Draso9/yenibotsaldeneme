@@ -22,7 +22,7 @@ export function Dashboard() {
         const result = await izfinApiFetch<WatchlistResponse>("/api/v1/watchlist", token);
         if (active) { setWatchlist(result); setDraft(result.tickers.join(", ")); }
       } catch {
-        if (active) setError("Kişisel liste şu anda yüklenemedi.");
+        if (active) setError("Takip listesi şu anda yüklenemedi.");
       }
     })();
     return () => { active = false; };
@@ -40,12 +40,12 @@ export function Dashboard() {
         method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ tickers }),
       });
       setWatchlist(result); setDraft(result.tickers.join(", "));
-    } catch { setError("Kişisel liste kaydedilemedi."); }
+    } catch { setError("Takip listesi kaydedilemedi."); }
   }
 
   if (!user) return null;
-  return <section className="dashboard" aria-label="Kişisel dashboard">
-    <div className="section-heading"><div><p className="eyebrow">KİŞİSEL ALAN</p><h2>Watchlist’in</h2></div><span className="section-index">LISTE</span></div>
+  return <section className="dashboard" aria-label="Kişisel takip listesi">
+    <div className="section-heading"><div><p className="eyebrow">KİŞİSEL ALAN</p><h2>Takip Listen</h2></div><span className="section-index">LISTE</span></div>
     {error && <p role="alert">{error}</p>}
     {!error && !watchlist && <p>Liste yükleniyor…</p>}
     {watchlist && <><div className="ticker-list">{watchlist.tickers.map((ticker) => <span key={ticker}>{ticker}</span>)}</div>
