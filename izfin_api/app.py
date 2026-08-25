@@ -18,6 +18,7 @@ from .admin_routes import admin_router
 from .backtest_routes import backtest_router
 from .dependencies import runtime_from
 from .http_boundary import ApiHttpBoundaryMiddleware, http_exception_handler, unhandled_exception_handler, validation_exception_handler
+from .market_strip_routes import market_strip_router
 from .performance_routes import performance_router
 from .projection_routes import projection_router
 from .routers import api_router
@@ -43,6 +44,7 @@ def create_app(*, verify_id_token: Callable[[str], dict[str, Any]] | None = None
     if allowed_origins:
         app.add_middleware(CORSMiddleware, allow_origins=allowed_origins, allow_credentials=True, allow_methods=["GET", "POST", "PUT", "DELETE"], allow_headers=["Authorization", "Content-Type"])
     app.include_router(api_router)
+    app.include_router(market_strip_router)
     app.include_router(account_router)
     app.include_router(projection_router)
     app.include_router(performance_router)
