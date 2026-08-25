@@ -145,6 +145,23 @@ class StockDetailResponse(BaseModel):
     panel: dict[str, Any]
 
 
+class ProjectionBandResponse(BaseModel):
+    kind: Literal["downside", "base", "upside"]
+    label: str
+    target: float
+    extreme: float
+    change_pct: float
+
+
+class ProjectionResponse(BaseModel):
+    ticker: str
+    horizon_days: int
+    model: dict[str, Any]
+    scenario: dict[str, Any]
+    metrics: dict[str, Any]
+    bands: list[ProjectionBandResponse]
+
+
 class PerformanceScorecardQuery(BaseModel):
     gun: int = Field(default=20, ge=1, le=365)
 
