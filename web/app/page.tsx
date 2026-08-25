@@ -1,3 +1,6 @@
+import { AuthPanel } from "../components/auth-panel";
+import { Dashboard } from "../components/dashboard";
+
 const apiBaseUrl = process.env.NEXT_PUBLIC_IZFIN_API_URL ?? "https://izfin-api-469145462773.europe-west1.run.app";
 
 export default function Home() {
@@ -16,6 +19,8 @@ export default function Home() {
           </a>
           <span className="status"><i /> API canlı</span>
         </div>
+        <div className="auth-card"><h2>IZFIN hesabınla giriş yap</h2><AuthPanel /></div>
+        <Dashboard />
       </section>
 
       <section className="roadmap" aria-label="Geçiş durumu">
