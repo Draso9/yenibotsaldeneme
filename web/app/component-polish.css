@@ -6,8 +6,11 @@
 .consent-pill.is-current { border-color: rgba(96,226,180,.16); background: rgba(96,226,180,.045); color: #8fc4b2; }
 .scan-summary { padding-top: 4px; }
 .scan-summary .scan-metrics { grid-template-columns: repeat(3, minmax(0,1fr)); }
+.roadmap article > a { color: #91c9b6; font-size: 8px; font-weight: 850; letter-spacing: .08em; text-decoration: none; }
+.roadmap article > a:hover { color: var(--accent); }
 
 @media (max-width: 600px) {
   .account-status-row { align-items: flex-start; flex-direction: column; }
   .scan-summary .scan-metrics { grid-template-columns: 1fr; }
+  .roadmap article > a { grid-column: 2; justify-self: start; }
 }
