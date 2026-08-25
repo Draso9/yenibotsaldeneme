@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { AuthProvider } from "../components/auth-provider";
 import { AppShell } from "../components/app-shell";
 import "./globals.css";
+import "./stock-detail.css";
 
 export const metadata: Metadata = {
   title: "IZFIN | Akıllı BIST Analizi",
