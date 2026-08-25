@@ -3,6 +3,7 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { izfinApiFetch } from "../lib/api";
 import { useIzfinAuth } from "./auth-provider";
+import { MarketCenterPanel } from "./market-center";
 
 type ScanSummary = { sonuclar: Array<Record<string, unknown>>; basarisiz_taramalar: string[]; boga_sayisi: number; alim_firsati: number };
 type ScanJob = { job_id: string; status: "queued" | "running" | "completed" | "failed"; stage: string; completed: number; total: number; result?: ScanSummary; error?: string };
@@ -50,7 +51,10 @@ export function ScanWorkspace() {
     {error && <p role="alert">{error}</p>}
     {job && <p className="job-progress">Durum: <strong>{job.stage}</strong> · {job.completed}/{job.total}</p>}
     {job?.status === "failed" && <p role="alert">{job.error ?? "Tarama tamamlanamadı."}</p>}
-    {job?.result && <ScanResult summary={job.result} />}
+    {job?.status === "completed" && job.result && <>
+      <ScanResult summary={job.result} />
+      <MarketCenterPanel jobId={job.job_id} />
+    </>}
   </section>;
 }
 
