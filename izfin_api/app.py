@@ -13,6 +13,7 @@ from starlette.exceptions import HTTPException
 from izfin_services.account_data_service import AccountDataService
 from izfin_services.auth_service import LegalConsentService
 
+from .account_routes import account_router
 from .backtest_routes import backtest_router
 from .dependencies import runtime_from
 from .http_boundary import (
@@ -112,6 +113,7 @@ def create_app(
             allow_headers=["Authorization", "Content-Type"],
         )
     app.include_router(api_router)
+    app.include_router(account_router)
     app.include_router(projection_router)
     app.include_router(performance_router)
     app.include_router(backtest_router)
