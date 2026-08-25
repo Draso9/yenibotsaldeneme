@@ -7,41 +7,56 @@ const apiBaseUrl = process.env.NEXT_PUBLIC_IZFIN_API_URL ?? "https://izfin-api-4
 
 export default function Home() {
   return (
-    <main id="top">
-      <section className="hero">
-        <p className="eyebrow">PİYASA MERKEZİ • WEB BETA</p>
-        <h1>IZFIN<br />Piyasa Merkezi</h1>
-        <p className="intro">
-          Son taramanın karar dağılımını, piyasa modunu ve öne çıkan setup&apos;ı tek bakışta gör.
-          Mevcut Streamlit uygulaması çalışmaya devam ederken ekranları burada aşamalı olarak taşıyacağız.
-        </p>
-        <div className="actions">
-          <a className="primary" href={`${apiBaseUrl}/api/v1/health`} target="_blank" rel="noreferrer">
-            API durumunu kontrol et
-          </a>
-          <span className="status"><i /> API canlı · Cloud Run</span>
+    <main id="top" className="command-page">
+      <section className="command-hero">
+        <div className="hero-copy">
+          <div className="hero-kicker"><span className="kicker-dot" /> CANLI PİYASA ÇALIŞMA ALANI</div>
+          <h1><span>IZFIN</span>Piyasa Merkezi</h1>
+          <p className="intro">
+            Tarama, piyasa modu ve hisse kararlarını tek çalışma alanında birleştiren yeni web deneyimi.
+            Streamlit çalışmaya devam ederken ekranları kontrollü biçimde buraya taşıyoruz.
+          </p>
+          <div className="actions">
+            <a className="primary" href="#akilli-tarama">Taramaya git <span>→</span></a>
+            <a className="secondary" href={`${apiBaseUrl}/api/v1/health`} target="_blank" rel="noreferrer">API durumunu aç</a>
+          </div>
         </div>
-        <div className="auth-card"><h2>IZFIN hesabınla giriş yap</h2><AuthPanel /></div>
-        <Dashboard />
-        <ScanWorkspace />
-        <AccountCenter />
+
+        <aside className="hero-system" aria-label="Sistem durumu">
+          <div className="system-card-head"><span>GEÇİŞ DURUMU</span><b>Stage 05</b></div>
+          <div className="system-stat"><span>Web istemcisi</span><strong>Next.js</strong></div>
+          <div className="system-stat"><span>Analiz katmanı</span><strong>FastAPI</strong></div>
+          <div className="system-stat"><span>Mevcut uygulama</span><strong>Streamlit aktif</strong></div>
+          <div className="system-foot"><span className="live-dot" /> API canlı · kademeli geçiş güvenli</div>
+        </aside>
       </section>
 
-      <section className="roadmap" aria-label="Geçiş durumu">
-        <article>
-          <span>01</span>
-          <h2>Güvenli altyapı</h2>
-          <p>FastAPI, Firebase ve Cloud Run hazır.</p>
+      <section className="workspace-grid" aria-label="Hesap ve kişisel alan">
+        <div className="auth-card">
+          <div className="section-heading"><div><p className="eyebrow">GÜVENLİ OTURUM</p><h2>IZFIN hesabın</h2></div><span className="section-index">01</span></div>
+          <AuthPanel />
+        </div>
+        <Dashboard />
+      </section>
+
+      <div id="akilli-tarama" className="anchor-target"><ScanWorkspace /></div>
+      <div id="hesap" className="anchor-target"><AccountCenter /></div>
+
+      <section className="roadmap" aria-label="Geçiş sırası">
+        <article className="roadmap-current">
+          <span>05A</span>
+          <div><h2>Web tasarım temeli</h2><p>Ortak shell, kart sistemi ve responsive düzen bu adımda standardize ediliyor.</p></div>
+          <strong>AKTİF</strong>
         </article>
-        <article>
-          <span>02</span>
-          <h2>Web deneyimi</h2>
-          <p>Giriş, watchlist ve dashboard ekranları sırada.</p>
+        <article id="projeksiyon">
+          <span>05B</span>
+          <div><h2>Projeksiyon</h2><p>Sıradaki ekran: mevcut senaryo mantığını native web deneyimine taşıma.</p></div>
+          <strong>SIRADAKİ</strong>
         </article>
-        <article>
-          <span>03</span>
-          <h2>Mobil uyum</h2>
-          <p>Aynı API, sonraki mobil istemciyi de besleyecek.</p>
+        <article id="performans">
+          <span>05C</span>
+          <div><h2>Kalan web ekranları</h2><p>Performans ve diğer Streamlit yüzeyleri aynı tasarım sistemiyle kademeli taşınacak.</p></div>
+          <strong>BEKLİYOR</strong>
         </article>
       </section>
     </main>
