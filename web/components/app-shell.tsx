@@ -6,13 +6,13 @@ import { fetchAdminQuality } from "../lib/admin-quality";
 import { useIzfinAuth } from "./auth-provider";
 
 const navItems = [
-  { icon: "⌂", label: "Piyasa Merkezi", href: "/", upcoming: false, adminOnly: false },
-  { icon: "⌕", label: "Akıllı Tarama", href: "/#akilli-tarama", upcoming: false, adminOnly: false },
-  { icon: "◈", label: "Projeksiyon", href: "/projection", upcoming: false, adminOnly: false },
-  { icon: "◫", label: "Performans", href: "/performance", upcoming: false, adminOnly: false },
-  { icon: "◇", label: "Strateji Lab", href: "/strategy-lab", upcoming: false, adminOnly: false },
-  { icon: "◌", label: "Hesap", href: "/account", upcoming: false, adminOnly: false },
-  { icon: "⚙", label: "Admin QA", href: "/admin/quality", upcoming: false, adminOnly: true },
+  { icon: "⌂", label: "Piyasa Merkezi", href: "/", adminOnly: false },
+  { icon: "⌕", label: "Akıllı Tarama", href: "/#akilli-tarama", adminOnly: false },
+  { icon: "◈", label: "Projeksiyon", href: "/projection", adminOnly: false },
+  { icon: "◫", label: "Performans", href: "/performance", adminOnly: false },
+  { icon: "◇", label: "Strateji Lab", href: "/strategy-lab", adminOnly: false },
+  { icon: "◌", label: "Hesap", href: "/account", adminOnly: false },
+  { icon: "⚙", label: "Admin QA", href: "/admin/quality", adminOnly: true },
 ] as const;
 
 export function AppShell({ children }: Readonly<{ children: React.ReactNode }>) {
@@ -59,7 +59,6 @@ export function AppShell({ children }: Readonly<{ children: React.ReactNode }>) 
         <div className="brand-mark" aria-hidden="true"><span>I</span><span>Z</span></div>
         <div className="brand-copy"><b>IZFIN</b><span>MARKET INTELLIGENCE</span></div>
       </div>
-
       <div className="nav-label">ÇALIŞMA ALANI</div>
       <nav aria-label="Ana navigasyon">
         {navItems.filter((item) => !item.adminOnly || isAdmin).map((item, index) => {
@@ -76,14 +75,11 @@ export function AppShell({ children }: Readonly<{ children: React.ReactNode }>) 
                     : item.label === "Piyasa Merkezi"
                       ? pathname === "/" || pathname.startsWith("/stocks/")
                       : false;
-          return <a className={`${active ? "active" : ""}${item.upcoming ? " upcoming" : ""}`} href={item.href} key={`${item.label}-${index}`}>
-            <i aria-hidden="true">{item.icon}</i>
-            <span>{item.label}</span>
-            {item.upcoming && <em>yakında</em>}
+          return <a className={active ? "active" : ""} href={item.href} key={`${item.label}-${index}`}>
+            <i aria-hidden="true">{item.icon}</i><span>{item.label}</span>
           </a>;
         })}
       </nav>
-
       <div className="sidebar-spacer" />
       <div className="sidebar-status">
         <div className="system-line"><span className="live-dot" /><strong>Sistemler hazır</strong></div>
@@ -91,12 +87,10 @@ export function AppShell({ children }: Readonly<{ children: React.ReactNode }>) 
         <span className="sidebar-user">{user?.email ?? "Oturum bekleniyor"}</span>
       </div>
     </aside>
-
     <div className="app-content">
       <header className="topbar">
         <div className="topbar-title"><span>IZFIN</span><b>{pageLabel}</b></div>
         <div className="topbar-actions">
-          <span className="environment-chip">WEB BETA</span>
           <span className="api-chip"><i className="live-dot" /> API CANLI</span>
         </div>
       </header>
