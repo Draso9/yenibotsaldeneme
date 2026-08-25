@@ -7,6 +7,7 @@ import {
   type MarketCenterResponse,
   type StockDetailResponse,
 } from "../lib/market-center";
+import { stockDetailHref } from "../lib/stock-detail-route";
 import { useIzfinAuth } from "./auth-provider";
 
 function text(value: unknown, fallback = "—"): string {
@@ -83,10 +84,11 @@ export function MarketCenterPanel({ jobId }: Readonly<{ jobId: string }>) {
       <div className="result-list">
         {center.top_signals.slice(0, 7).map((item, index) => {
           const ticker = tickerOf(item);
-          return <div key={`${ticker}-${index}`}>
-            <strong>{ticker || "Sembol"}</strong>
+          if (!ticker) return <div key={`missing-${index}`}><strong>Sembol</strong><span>{text(item.sinyal)}</span></div>;
+          return <a href={stockDetailHref(jobId, ticker)} key={`${ticker}-${index}`}>
+            <strong>{ticker}</strong>
             <span>{text(item.sinyal)} · skor {text(item.skor)} · güven {text(item.guven)}</span>
-          </div>;
+          </a>;
         })}
       </div>
       {center.movers.length > 0 && <p className="job-progress">Hareketliler: {center.movers.slice(0, 6).map((item) => tickerOf(item)).filter(Boolean).join(", ")}</p>}
@@ -94,12 +96,15 @@ export function MarketCenterPanel({ jobId }: Readonly<{ jobId: string }>) {
         <p className="eyebrow">ÖNE ÇIKAN HİSSE · {selectedTicker}</p>
         {!detail && !detailError && <p>Detay yükleniyor…</p>}
         {detailError && <p role="alert">{detailError}</p>}
-        {detail && <div className="scan-metrics">
-          <span><b>{text(detail.price)}</b> fiyat</span>
-          <span><b>{text(detail.signal)}</b> sinyal</span>
-          <span><b>{text(detail.score.nihai)}</b> skor</span>
-          <span><b>{text(detail.entry_quality)}</b> giriş kalitesi</span>
-        </div>}
+        {detail && <>
+          <div className="scan-metrics">
+            <span><b>{text(detail.price)}</b> fiyat</span>
+            <span><b>{text(detail.signal)}</b> sinyal</span>
+            <span><b>{text(detail.score.nihai)}</b> skor</span>
+            <span><b>{text(detail.entry_quality)}</b> giriş kalitesi</span>
+          </div>
+          <a className="detail-open" href={stockDetailHref(jobId, selectedTicker)}>Detaylı analizi aç →</a>
+        </>}
       </div>}
     </>}
   </section>;
