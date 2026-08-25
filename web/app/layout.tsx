@@ -3,6 +3,7 @@ import { AuthProvider } from "../components/auth-provider";
 import { AppShell } from "../components/app-shell";
 import "./globals.css";
 import "./market-center.css";
+import "./component-polish.css";
 import "./stock-detail.css";
 
 export const metadata: Metadata = {
