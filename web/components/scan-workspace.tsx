@@ -46,7 +46,10 @@ export function ScanWorkspace() {
   if (!user) return null;
   const running = job?.status === "queued" || job?.status === "running";
   return <section className="scan-workspace" aria-label="Akıllı tarama">
-    <p className="eyebrow">AKILLI TARAMA</p><h2>Tarama başlat</h2>
+    <div className="section-heading">
+      <div><p className="eyebrow">AKILLI TARAMA</p><h2>Tarama çalışma alanı</h2></div>
+      <span className="section-index">02</span>
+    </div>
     <form className="scan-form" onSubmit={submit}><label>Semboller<input value={symbols} onChange={(event) => setSymbols(event.target.value)} /></label><button disabled={running} type="submit">{running ? "Tarama sürüyor…" : `${tickers.length} sembolü tara`}</button></form>
     {error && <p role="alert">{error}</p>}
     {job && <p className="job-progress">Durum: <strong>{job.stage}</strong> · {job.completed}/{job.total}</p>}
@@ -59,7 +62,7 @@ export function ScanWorkspace() {
 }
 
 function ScanResult({ summary }: Readonly<{ summary: ScanSummary }>) {
-  return <div className="scan-result"><div className="scan-metrics"><span><b>{summary.sonuclar.length}</b> sonuç</span><span><b>{summary.boga_sayisi}</b> boğa</span><span><b>{summary.alim_firsati}</b> alım fırsatı</span></div>
+  return <div className="scan-result scan-summary"><div className="scan-metrics"><span><b>{summary.sonuclar.length}</b> sonuç</span><span><b>{summary.boga_sayisi}</b> boğa</span><span><b>{summary.alim_firsati}</b> alım fırsatı</span></div>
     {summary.basarisiz_taramalar.length > 0 && <p>Atlananlar: {summary.basarisiz_taramalar.join(", ")}</p>}
     <div className="result-list">{summary.sonuclar.slice(0, 12).map((result, index) => <div key={`${String(result.Varlık ?? result.ticker ?? index)}-${index}`}><strong>{String(result.Varlık ?? result.ticker ?? "Sembol")}</strong><span>{String(result.Karar ?? result.decision ?? "Analiz tamamlandı")}</span></div>)}</div>
   </div>;

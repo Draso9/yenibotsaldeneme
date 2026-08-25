@@ -52,9 +52,11 @@ export function AccountCenter() {
 
   if (!user) return null;
   return <section className="account-center" aria-label="Hesap merkezi">
-    <p className="eyebrow">HESAP</p><h2>Hesap merkezim</h2>
-    {profile && <p className="account-email">{profile.email}</p>}
-    {consent && <p className="consent-status">Yasal onay: {consent.accepted ? "güncel" : "bekliyor"}</p>}
+    <div className="section-heading"><div><p className="eyebrow">HESAP</p><h2>Hesap merkezim</h2></div><span className="section-index">04</span></div>
+    <div className="account-status-row">
+      {profile && <p className="account-email">{profile.email}</p>}
+      {consent && <span className={`consent-pill${consent.accepted ? " is-current" : ""}`}>Yasal onay · {consent.accepted ? "güncel" : "bekliyor"}</span>}
+    </div>
     <div className="account-actions"><button onClick={() => void acceptTerms()}>Yasal onayı güncelle</button><button onClick={() => void downloadExport()}>Verilerimi indir</button></div>
     {message && <p className="account-message">{message}</p>}
   </section>;

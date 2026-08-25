@@ -45,8 +45,7 @@ export function Dashboard() {
 
   if (!user) return null;
   return <section className="dashboard" aria-label="Kişisel dashboard">
-    <p className="eyebrow">KİŞİSEL ALAN</p>
-    <h2>Watchlist’in</h2>
+    <div className="section-heading"><div><p className="eyebrow">KİŞİSEL ALAN</p><h2>Watchlist’in</h2></div><span className="section-index">LISTE</span></div>
     {error && <p role="alert">{error}</p>}
     {!error && !watchlist && <p>Liste yükleniyor…</p>}
     {watchlist && <><div className="ticker-list">{watchlist.tickers.map((ticker) => <span key={ticker}>{ticker}</span>)}</div>

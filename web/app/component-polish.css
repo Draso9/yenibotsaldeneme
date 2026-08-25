@@ -1,0 +1,13 @@
+.workspace-grid > .auth-card:only-child { grid-column: 1 / -1; width: min(620px, 100%); }
+.dashboard > p:not([role="alert"]) { color: var(--muted); font-size: 10px; }
+.account-status-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.account-status-row .account-email { margin: 0; }
+.consent-pill { display: inline-flex; align-items: center; min-height: 28px; padding: 0 9px; border: 1px solid rgba(255,155,155,.16); border-radius: 999px; background: rgba(255,155,155,.045); color: #c18f8f; font-size: 8px; font-weight: 800; letter-spacing: .04em; }
+.consent-pill.is-current { border-color: rgba(96,226,180,.16); background: rgba(96,226,180,.045); color: #8fc4b2; }
+.scan-summary { padding-top: 4px; }
+.scan-summary .scan-metrics { grid-template-columns: repeat(3, minmax(0,1fr)); }
+
+@media (max-width: 600px) {
+  .account-status-row { align-items: flex-start; flex-direction: column; }
+  .scan-summary .scan-metrics { grid-template-columns: 1fr; }
+}
