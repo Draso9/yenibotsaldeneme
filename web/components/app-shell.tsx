@@ -6,7 +6,7 @@ import { useIzfinAuth } from "./auth-provider";
 const navItems = [
   { icon: "⌂", label: "Piyasa Merkezi", href: "/", upcoming: false },
   { icon: "⌕", label: "Akıllı Tarama", href: "/#akilli-tarama", upcoming: false },
-  { icon: "◈", label: "Projeksiyon", href: "/#projeksiyon", upcoming: true },
+  { icon: "◈", label: "Projeksiyon", href: "/projection", upcoming: false },
   { icon: "◫", label: "Performans", href: "/#performans", upcoming: true },
   { icon: "◌", label: "Hesap", href: "/#hesap", upcoming: false },
 ] as const;
@@ -14,7 +14,11 @@ const navItems = [
 export function AppShell({ children }: Readonly<{ children: React.ReactNode }>) {
   const { user } = useIzfinAuth();
   const pathname = usePathname();
-  const pageLabel = pathname.startsWith("/stocks/") ? "Detaylı Analiz" : "Piyasa Merkezi";
+  const pageLabel = pathname.startsWith("/stocks/")
+    ? "Detaylı Analiz"
+    : pathname.startsWith("/projection")
+      ? "Projeksiyon"
+      : "Piyasa Merkezi";
 
   return <div className="app-shell">
     <aside className="sidebar">
@@ -26,8 +30,12 @@ export function AppShell({ children }: Readonly<{ children: React.ReactNode }>) 
       <div className="nav-label">ÇALIŞMA ALANI</div>
       <nav aria-label="Ana navigasyon">
         {navItems.map((item, index) => {
-          const active = pathname === "/" ? index === 0 : pathname.startsWith("/stocks/") && index === 0;
-          return <a className={`${active ? "active" : ""}${item.upcoming ? " upcoming" : ""}`} href={item.href} key={item.label}>
+          const active = item.label === "Projeksiyon"
+            ? pathname.startsWith("/projection")
+            : item.label === "Piyasa Merkezi"
+              ? pathname === "/" || pathname.startsWith("/stocks/")
+              : false;
+          return <a className={`${active ? "active" : ""}${item.upcoming ? " upcoming" : ""}`} href={item.href} key={`${item.label}-${index}`}>
             <i aria-hidden="true">{item.icon}</i>
             <span>{item.label}</span>
             {item.upcoming && <em>yakında</em>}
