@@ -13,6 +13,7 @@ from izfin_services.scan_page_state import (
     tarama_evreni_hazirla,
     watchlist_islem_durumu_hazirla,
 )
+from izfin_services.market_center import hisse_detay_paketi_hazirla, piyasa_merkezi_paketi_hazirla
 from izfin_ui.performance_view import performans_karne_paketi_hazirla
 from izfin_ui.legal_account_view import (
     gizlilik_sayfa_paketi_hazirla,
@@ -40,6 +41,10 @@ from .schemas import (
     LegalConsentResponse,
     LegalConsentUpdateRequest,
     AccountExportResponse,
+    MarketCenterRequest,
+    MarketCenterResponse,
+    StockDetailRequest,
+    StockDetailResponse,
 )
 from .dependencies import ApiIdentity, authenticated_user, bearer_credentials
 from .scan_jobs import ScanJobCapacityError
@@ -186,6 +191,38 @@ def readiness(request: Request) -> ReadinessResponse:
         signal_repository=signal_repository,
         scan_runner=scan_runner,
     )
+
+
+@api_router.post("/market/center", response_model=MarketCenterResponse, tags=["market"])
+def market_center(
+    payload: MarketCenterRequest,
+    request: Request,
+    credentials=Depends(bearer_credentials),
+) -> MarketCenterResponse:
+    authenticated_user(request, credentials)
+    return MarketCenterResponse(
+        **piyasa_merkezi_paketi_hazirla(
+            payload.sonuclar,
+            payload.teknik_paneller,
+            piyasa_degisimleri=payload.piyasa_degisimleri,
+            max_signals=payload.max_signals,
+            max_movers=payload.max_movers,
+        )
+    )
+
+
+@api_router.post("/market/stocks/{ticker}", response_model=StockDetailResponse, tags=["market"])
+def market_stock_detail(
+    ticker: str,
+    payload: StockDetailRequest,
+    request: Request,
+    credentials=Depends(bearer_credentials),
+) -> StockDetailResponse:
+    authenticated_user(request, credentials)
+    package = hisse_detay_paketi_hazirla(ticker, payload.sonuclar, payload.teknik_paneller)
+    if package is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Tarama sonucu bulunamadı.")
+    return StockDetailResponse(**package)
 
 
 @api_router.post("/scan/universe", response_model=ScanUniverseResponse, tags=["scan"])
