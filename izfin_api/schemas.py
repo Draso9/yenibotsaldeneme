@@ -88,6 +88,17 @@ class AccountExportResponse(BaseModel):
     collections: dict[str, list[dict[str, Any]]]
 
 
+class AccountDeleteRequest(BaseModel):
+    email: str = Field(min_length=3, max_length=320)
+    confirmation_phrase: str = Field(min_length=1, max_length=64)
+    irreversible: bool
+
+
+class AccountDeleteResponse(BaseModel):
+    deleted: bool
+    deleted_documents: int
+
+
 class ScanRunRequest(BaseModel):
     tickers: list[str] = Field(min_length=1, max_length=100)
 
