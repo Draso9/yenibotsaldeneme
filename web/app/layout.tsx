@@ -8,6 +8,7 @@ import "./stock-detail.css";
 import "./projection.css";
 import "./performance.css";
 import "./strategy-lab.css";
+import "./account.css";
 
 export const metadata: Metadata = {
   title: "IZFIN | Akıllı BIST Analizi",

@@ -103,6 +103,8 @@ def firebase_runtime(*, firebase_auth, firestore_client):
         "user_repository": UserRepository(firestore_client),
         "signal_repository": SignalRepository(firestore_client),
         "scan_job_store": ScanJobStore(job_repository=ScanJobRepository(firestore_client)),
+        "revoke_refresh_tokens": getattr(firebase_auth, "revoke_refresh_tokens", None),
+        "delete_user": getattr(firebase_auth, "delete_user", None),
     }
 
 
