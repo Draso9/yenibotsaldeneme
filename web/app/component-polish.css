@@ -1,3 +1,4 @@
+.workspace-grid > .auth-card:only-child { grid-column: 1 / -1; width: min(620px, 100%); }
 .dashboard > p:not([role="alert"]) { color: var(--muted); font-size: 10px; }
 .account-status-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
 .account-status-row .account-email { margin: 0; }
