@@ -5,6 +5,7 @@ import "./globals.css";
 import "./market-center.css";
 import "./component-polish.css";
 import "./stock-detail.css";
+import "./projection.css";
 
 export const metadata: Metadata = {
   title: "IZFIN | Akıllı BIST Analizi",
