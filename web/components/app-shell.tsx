@@ -4,11 +4,11 @@ import { usePathname } from "next/navigation";
 import { useIzfinAuth } from "./auth-provider";
 
 const navItems = [
-  { icon: "⌂", label: "Piyasa Merkezi", href: "/" },
-  { icon: "⌕", label: "Akıllı Tarama", href: "/#akilli-tarama" },
+  { icon: "⌂", label: "Piyasa Merkezi", href: "/", upcoming: false },
+  { icon: "⌕", label: "Akıllı Tarama", href: "/#akilli-tarama", upcoming: false },
   { icon: "◈", label: "Projeksiyon", href: "/#projeksiyon", upcoming: true },
   { icon: "◫", label: "Performans", href: "/#performans", upcoming: true },
-  { icon: "◌", label: "Hesap", href: "/#hesap" },
+  { icon: "◌", label: "Hesap", href: "/#hesap", upcoming: false },
 ] as const;
 
 export function AppShell({ children }: Readonly<{ children: React.ReactNode }>) {
