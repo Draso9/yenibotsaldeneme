@@ -22,12 +22,20 @@ def _client(*, enabled=True):
     return TestClient(app), service
 
 
-def test_authenticated_user_can_delete_account_with_full_irreversible_confirmation():
-    client, service = _client()
-    response = client.delete(
+def _delete(client, payload):
+    return client.request(
+        "DELETE",
         "/api/v1/account",
         headers={"Authorization": "Bearer firebase-token"},
-        json={
+        json=payload,
+    )
+
+
+def test_authenticated_user_can_delete_account_with_full_irreversible_confirmation():
+    client, service = _client()
+    response = _delete(
+        client,
+        {
             "email": " USER@example.com ",
             "confirmation_phrase": "HESABIMI KALICI OLARAK SİL",
             "irreversible": True,
@@ -41,10 +49,9 @@ def test_authenticated_user_can_delete_account_with_full_irreversible_confirmati
 
 def test_account_delete_rejects_incomplete_confirmation_without_calling_service():
     client, service = _client()
-    response = client.delete(
-        "/api/v1/account",
-        headers={"Authorization": "Bearer firebase-token"},
-        json={
+    response = _delete(
+        client,
+        {
             "email": "wrong@example.com",
             "confirmation_phrase": "HESABIMI KALICI OLARAK SİL",
             "irreversible": True,
@@ -57,10 +64,9 @@ def test_account_delete_rejects_incomplete_confirmation_without_calling_service(
 
 def test_account_delete_is_unavailable_without_production_auth_deletion_callbacks():
     client, service = _client(enabled=False)
-    response = client.delete(
-        "/api/v1/account",
-        headers={"Authorization": "Bearer firebase-token"},
-        json={
+    response = _delete(
+        client,
+        {
             "email": "user@example.com",
             "confirmation_phrase": "HESABIMI KALICI OLARAK SİL",
             "irreversible": True,
