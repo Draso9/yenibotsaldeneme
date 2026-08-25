@@ -162,6 +162,25 @@ class ProjectionResponse(BaseModel):
     bands: list[ProjectionBandResponse]
 
 
+class BacktestRunRequest(BaseModel):
+    ticker: str = Field(min_length=1, max_length=32)
+    period: str = Field(default="5y", min_length=1, max_length=4)
+
+
+class BacktestResponse(BaseModel):
+    ticker: str
+    period: str
+    empty: bool
+    stats: dict[str, Any]
+    kpis: dict[str, Any]
+    summary: list[dict[str, Any]]
+    detail: list[dict[str, Any]]
+    ambiguity_count: int
+    ambiguity_message: str | None = None
+    detail_explanation: str
+    reading_notes: str
+
+
 class PerformanceMetric(BaseModel):
     label: str
     value: str
