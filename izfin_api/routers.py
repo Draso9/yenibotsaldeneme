@@ -74,7 +74,7 @@ def legal_terms(request: Request) -> LegalDocumentResponse:
 @api_router.get("/legal/privacy", response_model=LegalDocumentResponse, tags=["legal"])
 def legal_privacy(request: Request) -> LegalDocumentResponse:
     runtime = request.app.state.izfin_runtime
-    document = gizlilik_sayfasi_paketi_hazirla(
+    document = gizlilik_sayfa_paketi_hazirla(
         kapida=False,
         privacy_version=runtime.privacy_version,
         data_controller_name=runtime.data_controller_name,
