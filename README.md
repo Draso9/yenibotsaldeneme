@@ -22,3 +22,19 @@ sınırı ayarlarını oluşturur. Önemli ayarlar:
 Her yanıtta `X-Request-ID` bulunur; hata yanıtları web ve mobil istemcilerin
 paylaşabileceği kararlı bir `error` sözleşmesi döndürür. Streamlit uygulaması
 bağımsız biçimde çalışmayı sürdürür.
+
+### Container ile çalıştırma
+
+API platformdan bağımsız bir container olarak da başlatılabilir:
+
+```powershell
+docker build -t izfin-api .
+docker run --rm -p 8000:8000 --env-file .env izfin-api
+```
+
+`FIREBASE_SERVICE_ACCOUNT_JSON` sağlandığında scan-job durumları Firestore'daki
+`izfin_scan_jobs` koleksiyonunda saklanır. Tamamlanmış işler uygulama yeniden
+başlasa da sorgulanabilir; yeniden başlatma sırasında çalışan bir iş güvenli
+biçimde `failed/interrupted` durumuna alınır. Bu ilk deploy hazırlığı bir
+platform seçmez; Cloud Run, Render veya benzeri bir ASGI container platformuna
+aynı giriş noktasıyla taşınabilir.

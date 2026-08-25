@@ -56,13 +56,20 @@ class _ScanJobRecord:
 class ScanJobStore:
     """Run scan work in a daemon thread and expose owner-isolated snapshots."""
 
-    def __init__(self, *, max_active_jobs: int = 2, max_records: int = 100) -> None:
+    def __init__(
+        self,
+        *,
+        max_active_jobs: int = 2,
+        max_records: int = 100,
+        job_repository: Any = None,
+    ) -> None:
         if max_active_jobs < 1 or max_records < 1:
             raise ValueError("Job limits must be positive.")
         self._lock = RLock()
         self._records: dict[str, _ScanJobRecord] = {}
         self._max_active_jobs = max_active_jobs
         self._max_records = max_records
+        self._job_repository = job_repository
 
     def submit(
         self,
@@ -84,6 +91,7 @@ class ScanJobStore:
             if active_jobs >= self._max_active_jobs or len(self._records) >= self._max_records:
                 raise ScanJobCapacityError("Tarama kuyruğu şu anda dolu.")
             self._records[record.job_id] = record
+            self._persist(record)
             created = record.snapshot()
         Thread(
             target=self._execute,
@@ -96,6 +104,8 @@ class ScanJobStore:
     def get_for_owner(self, job_id: str, owner_uid: str) -> ScanJobSnapshot | None:
         with self._lock:
             record = self._records.get(str(job_id))
+            if record is None:
+                record = self._restore_terminal_record(str(job_id))
             if record is None or record.owner_uid != str(owner_uid):
                 return None
             return record.snapshot()
@@ -109,6 +119,7 @@ class ScanJobStore:
             record.status = "running"
             record.stage = "starting"
             tickers = record.tickers
+            self._persist(record)
 
         try:
             raw_result = self._run_runner(runner, tickers, progress)
@@ -118,6 +129,7 @@ class ScanJobStore:
                 record.status = "failed"
                 record.stage = "failed"
                 record.error = _UNEXPECTED_SCAN_ERROR
+                self._persist(record)
             return
 
         presented = tarama_sonuc_durumu_hazirla(raw_result)
@@ -132,6 +144,7 @@ class ScanJobStore:
                 "boga_sayisi": presented["boga_sayisi"],
                 "alim_firsati": presented["alim_firsati"],
             }
+            self._persist(record)
 
     @staticmethod
     def _run_runner(
@@ -176,3 +189,48 @@ class ScanJobStore:
                 record.completed = min(max(index, 0), len(record.tickers))
             elif stage == "complete":
                 record.completed = len(record.tickers)
+            self._persist(record)
+
+    def _persist(self, record: _ScanJobRecord) -> None:
+        repository = self._job_repository
+        if not getattr(repository, "available", False):
+            return
+        repository.upsert_job(
+            record.job_id,
+            {
+                "job_id": record.job_id,
+                "owner_uid": record.owner_uid,
+                "tickers": list(record.tickers),
+                "status": record.status,
+                "stage": record.stage,
+                "completed": record.completed,
+                "result": record.result,
+                "error": record.error,
+            },
+        )
+
+    def _restore_terminal_record(self, job_id: str) -> _ScanJobRecord | None:
+        repository = self._job_repository
+        if not getattr(repository, "available", False):
+            return None
+        data = repository.get_job(job_id)
+        if not data:
+            return None
+        status = str(data.get("status") or "failed")
+        record = _ScanJobRecord(
+            job_id=str(data.get("job_id") or job_id),
+            owner_uid=str(data.get("owner_uid") or ""),
+            tickers=tuple(str(item) for item in data.get("tickers") or ()),
+            status=status,
+            stage=str(data.get("stage") or status),
+            completed=max(0, int(data.get("completed") or 0)),
+            result=data.get("result") if isinstance(data.get("result"), dict) else None,
+            error=str(data.get("error") or "") or None,
+        )
+        if record.status in {"queued", "running"}:
+            record.status = "failed"
+            record.stage = "interrupted"
+            record.error = "Tarama işlemi uygulama yeniden başlatıldığı için tamamlanamadı."
+            self._persist(record)
+        self._records[record.job_id] = record
+        return record

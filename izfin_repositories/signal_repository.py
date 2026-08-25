@@ -3,6 +3,26 @@
 from __future__ import annotations
 
 
+class ScanJobRepository:
+    """Firestore persistence for owner-isolated API scan-job snapshots."""
+
+    COLLECTION = "izfin_scan_jobs"
+
+    def __init__(self, db):
+        self.db = db
+
+    @property
+    def available(self):
+        return self.db is not None
+
+    def get_job(self, job_id):
+        snapshot = self.db.collection(self.COLLECTION).document(str(job_id)).get()
+        return (snapshot.to_dict() or {}) if snapshot.exists else {}
+
+    def upsert_job(self, job_id, data):
+        self.db.collection(self.COLLECTION).document(str(job_id)).set(dict(data), merge=True)
+
+
 class SignalRepository:
     def __init__(self, db):
         self.db = db
