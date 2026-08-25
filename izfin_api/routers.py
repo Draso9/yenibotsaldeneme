@@ -74,7 +74,7 @@ def legal_terms(request: Request) -> LegalDocumentResponse:
 @api_router.get("/legal/privacy", response_model=LegalDocumentResponse, tags=["legal"])
 def legal_privacy(request: Request) -> LegalDocumentResponse:
     runtime = request.app.state.izfin_runtime
-    document = gizlilik_sayfa_paketi_hazirla(
+    document = gizlilik_sayfasi_paketi_hazirla(
         kapida=False,
         privacy_version=runtime.privacy_version,
         data_controller_name=runtime.data_controller_name,
@@ -220,6 +220,62 @@ def market_stock_detail(
 ) -> StockDetailResponse:
     authenticated_user(request, credentials)
     package = hisse_detay_paketi_hazirla(ticker, payload.sonuclar, payload.teknik_paneller)
+    if package is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Tarama sonucu bulunamadı.")
+    return StockDetailResponse(**package)
+
+
+def _completed_scan_job_result(request: Request, identity: ApiIdentity, job_id: str) -> dict:
+    store = request.app.state.izfin_runtime.scan_job_store
+    snapshot = store.get_for_owner(job_id, identity.uid) if store is not None else None
+    if snapshot is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Tarama işi bulunamadı.")
+    if snapshot.status != "completed" or not isinstance(snapshot.result, dict):
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Tarama işi henüz tamamlanmadı.",
+        )
+    return snapshot.result
+
+
+@api_router.get(
+    "/market/jobs/{job_id}/center",
+    response_model=MarketCenterResponse,
+    tags=["market"],
+)
+def market_center_from_job(
+    job_id: str,
+    request: Request,
+    credentials=Depends(bearer_credentials),
+) -> MarketCenterResponse:
+    identity: ApiIdentity = authenticated_user(request, credentials)
+    result = _completed_scan_job_result(request, identity, job_id)
+    return MarketCenterResponse(
+        **piyasa_merkezi_paketi_hazirla(
+            result.get("sonuclar"),
+            result.get("teknik_paneller"),
+        )
+    )
+
+
+@api_router.get(
+    "/market/jobs/{job_id}/stocks/{ticker}",
+    response_model=StockDetailResponse,
+    tags=["market"],
+)
+def market_stock_detail_from_job(
+    job_id: str,
+    ticker: str,
+    request: Request,
+    credentials=Depends(bearer_credentials),
+) -> StockDetailResponse:
+    identity: ApiIdentity = authenticated_user(request, credentials)
+    result = _completed_scan_job_result(request, identity, job_id)
+    package = hisse_detay_paketi_hazirla(
+        ticker,
+        result.get("sonuclar"),
+        result.get("teknik_paneller"),
+    )
     if package is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Tarama sonucu bulunamadı.")
     return StockDetailResponse(**package)
