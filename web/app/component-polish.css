@@ -8,7 +8,18 @@
 .scan-summary .scan-metrics { grid-template-columns: repeat(3, minmax(0,1fr)); }
 .roadmap article > a { color: #91c9b6; font-size: 8px; font-weight: 850; letter-spacing: .08em; text-decoration: none; }
 .roadmap article > a:hover { color: var(--accent); }
+.market-strip { display: grid; grid-template-columns: 158px minmax(0,1fr); gap: 10px; margin-bottom: 18px; border: 1px solid var(--line); border-radius: 14px; background: rgba(8,14,21,.82); overflow: hidden; }
+.market-strip-status { display: flex; flex-direction: column; justify-content: center; gap: 5px; padding: 13px 15px; border-right: 1px solid var(--line-soft); }
+.market-strip-status strong { color: #b5d7ca; font-size: 9px; }.market-strip-status small { color: var(--muted-2); font-size: 7px; }
+.market-strip-items { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(118px,1fr); overflow-x: auto; scrollbar-width: none; }.market-strip-items::-webkit-scrollbar { display:none; }
+.market-strip-items article { min-width: 118px; padding: 12px 13px; border-right: 1px solid var(--line-soft); }
+.market-strip-items article > span { display:block; color:var(--muted); font-size:8px; font-weight:800; }.market-strip-items article > strong { display:block; margin-top:5px; color:var(--text); font-size:12px; }.market-strip-items article > b { display:block; margin-top:3px; font-size:8px; }.market-strip-items article > b.up { color:var(--accent); }.market-strip-items article > b.down { color:var(--danger); }.market-strip-items article > small { display:block; margin-top:4px; color:var(--muted-2); font-size:7px; }
+.market-strip-skeleton { opacity:.45; }
 
+@media (max-width: 760px) {
+  .market-strip { grid-template-columns: 1fr; }
+  .market-strip-status { border-right:0; border-bottom:1px solid var(--line-soft); }
+}
 @media (max-width: 600px) {
   .account-status-row { align-items: flex-start; flex-direction: column; }
   .scan-summary .scan-metrics { grid-template-columns: 1fr; }
