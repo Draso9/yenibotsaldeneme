@@ -2,6 +2,7 @@ import { AuthPanel } from "../components/auth-panel";
 import { AccountCenter } from "../components/account-center";
 import { Dashboard } from "../components/dashboard";
 import { ScanWorkspace } from "../components/scan-workspace";
+import { webTransitionSummary } from "../lib/transition-status";
 
 const apiBaseUrl = process.env.NEXT_PUBLIC_IZFIN_API_URL ?? "https://izfin-api-469145462773.europe-west1.run.app";
 
@@ -26,7 +27,7 @@ export default function Home() {
           <div className="system-card-head"><span>GEÇİŞ DURUMU</span><b>Stage 05</b></div>
           <div className="system-stat"><span>Web istemcisi</span><strong>Next.js</strong></div>
           <div className="system-stat"><span>Analiz katmanı</span><strong>FastAPI</strong></div>
-          <div className="system-stat"><span>Mevcut uygulama</span><strong>Streamlit aktif</strong></div>
+          <div className="system-stat"><span>Mevcut uygulama</span><strong>Streamlit {webTransitionSummary.streamlitStatus.toLocaleLowerCase("tr-TR")}</strong></div>
           <div className="system-foot"><span className="live-dot" /> API canlı · kademeli geçiş güvenli</div>
         </aside>
       </section>
@@ -44,19 +45,19 @@ export default function Home() {
 
       <section className="roadmap" aria-label="Geçiş sırası">
         <article className="roadmap-current">
-          <span>05A</span>
-          <div><h2>Web tasarım temeli</h2><p>Ortak shell, kart sistemi ve responsive düzen bu adımda standardize ediliyor.</p></div>
-          <strong>AKTİF</strong>
+          <span>WEB</span>
+          <div><h2>Web çalışma alanı</h2><p>Piyasa Merkezi, tarama, projeksiyon, performans, takip, Strategy Lab ve hesap ekranları native web deneyiminde hazır.</p></div>
+          <strong>{webTransitionSummary.completedSurfaceCount} EKRAN HAZIR</strong>
         </article>
         <article id="projeksiyon">
-          <span>05B</span>
-          <div><h2>Projeksiyon</h2><p>Sıradaki ekran: mevcut senaryo mantığını native web deneyimine taşıma.</p></div>
-          <strong>SIRADAKİ</strong>
+          <span>AKIŞ</span>
+          <div><h2>Streamlit paralel</h2><p>Mevcut Streamlit uygulaması korunuyor; kullanıcılar iki arayüzü de güvenle kullanabiliyor.</p></div>
+          <strong>AKTİF</strong>
         </article>
         <article id="performans">
-          <span>05C</span>
-          <div><h2>Kalan web ekranları</h2><p>Performans ve diğer Streamlit yüzeyleri aynı tasarım sistemiyle kademeli taşınacak.</p></div>
-          <strong>BEKLİYOR</strong>
+          <span>SONRAKİ</span>
+          <div><h2>{webTransitionSummary.nextMilestone}</h2><p>Web deneyimi olgunlaştıkça aynı API sözleşmeleriyle mobil istemci hazırlanacak.</p></div>
+          <strong>PLANLI</strong>
         </article>
       </section>
     </main>
