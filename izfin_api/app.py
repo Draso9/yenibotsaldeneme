@@ -45,6 +45,9 @@ def create_app(
     log_retention_days: int = 30,
     legal_consent_service: Any = None,
     account_data_service: Any = None,
+    revoke_refresh_tokens: Callable[[str], Any] | None = None,
+    delete_user: Callable[[str], Any] | None = None,
+    account_delete_enabled: bool | None = None,
     rate_limit_requests: int = 0,
     rate_limit_window_seconds: int = 60,
 ) -> FastAPI:
@@ -73,10 +76,15 @@ def create_app(
     if account_data_service is None and user_repository is not None:
         account_data_service = AccountDataService(
             user_repository,
-            revoke_refresh_tokens=lambda _uid: None,
-            delete_user=lambda _uid: None,
+            revoke_refresh_tokens=revoke_refresh_tokens or (lambda _uid: None),
+            delete_user=delete_user or (lambda _uid: None),
             app_release=app_release,
         )
+    deletion_enabled = (
+        bool(revoke_refresh_tokens and delete_user)
+        if account_delete_enabled is None
+        else bool(account_delete_enabled)
+    )
     app.state.izfin_runtime = runtime_from(
         verify_id_token=verify_id_token,
         user_repository=user_repository,
@@ -86,6 +94,7 @@ def create_app(
         signal_repository=signal_repository,
         legal_consent_service=legal_consent_service,
         account_data_service=account_data_service,
+        account_delete_enabled=deletion_enabled,
         terms_version=terms_version,
         privacy_version=privacy_version,
         data_controller_name=data_controller_name,
