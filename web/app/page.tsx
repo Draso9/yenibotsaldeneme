@@ -1,4 +1,5 @@
 import { AuthPanel } from "../components/auth-panel";
+import { AccountCenter } from "../components/account-center";
 import { Dashboard } from "../components/dashboard";
 import { ScanWorkspace } from "../components/scan-workspace";
 
@@ -23,6 +24,7 @@ export default function Home() {
         <div className="auth-card"><h2>IZFIN hesabınla giriş yap</h2><AuthPanel /></div>
         <Dashboard />
         <ScanWorkspace />
+        <AccountCenter />
       </section>
 
       <section className="roadmap" aria-label="Geçiş durumu">

@@ -47,3 +47,12 @@ def test_nextjs_scan_workspace_uses_async_scan_job_contract() -> None:
     assert 'method: "POST"' in workspace
     assert "/api/v1/scan/jobs/${job.job_id}" in workspace
     assert "setTimeout" in workspace
+
+
+def test_nextjs_account_center_uses_authenticated_account_api() -> None:
+    account_center = (PROJECT_ROOT / "web" / "components" / "account-center.tsx").read_text(encoding="utf-8")
+
+    assert '"/api/v1/profile"' in account_center
+    assert '"/api/v1/legal/consent"' in account_center
+    assert '"/api/v1/account/export"' in account_center
+    assert "Authorization" not in account_center
