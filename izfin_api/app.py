@@ -20,6 +20,7 @@ from .http_boundary import (
     unhandled_exception_handler,
     validation_exception_handler,
 )
+from .projection_routes import projection_router
 from .routers import api_router
 from .scan_jobs import ScanJobStore
 
@@ -100,6 +101,7 @@ def create_app(
             allow_headers=["Authorization", "Content-Type"],
         )
     app.include_router(api_router)
+    app.include_router(projection_router)
     return app
 
 
