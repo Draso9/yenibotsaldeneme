@@ -24,6 +24,7 @@ class ApiRuntime:
     scan_runner: Callable[[Sequence[str]], Mapping[str, Any]] | None = None
     scan_job_store: Any = None
     signal_repository: Any = None
+    market_overview_loader: Callable[[], Mapping[str, Any]] | None = None
     legal_consent_service: Any = None
     account_data_service: Any = None
     account_delete_enabled: bool = False
@@ -87,6 +88,7 @@ def runtime_from(
     scan_runner: Callable[[Sequence[str]], Mapping[str, Any]] | None = None,
     scan_job_store: Any = None,
     signal_repository: Any = None,
+    market_overview_loader: Callable[[], Mapping[str, Any]] | None = None,
     legal_consent_service: Any = None,
     account_data_service: Any = None,
     account_delete_enabled: bool = False,
@@ -104,6 +106,7 @@ def runtime_from(
         scan_runner=scan_runner,
         scan_job_store=scan_job_store,
         signal_repository=signal_repository,
+        market_overview_loader=market_overview_loader,
         legal_consent_service=legal_consent_service,
         account_data_service=account_data_service,
         account_delete_enabled=bool(account_delete_enabled),
