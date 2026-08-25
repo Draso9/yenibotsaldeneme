@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { fetchMarketStockDetail, type StockDetailResponse } from "../lib/market-center";
+import { projectionHref } from "../lib/projection";
 import { useIzfinAuth } from "./auth-provider";
 
 function text(value: unknown, fallback = "—"): string {
@@ -70,6 +71,7 @@ export function StockDetailPage({ jobId, ticker }: Readonly<{ jobId: string; tic
           <span><b>{text(detail.score.nihai)}</b> skor</span>
           <span><b>{text(detail.entry_quality)}</b> giriş kalitesi</span>
         </div>
+        <a className="projection-cta" href={projectionHref(jobId, normalizedTicker)}>45G projeksiyon senaryosunu aç →</a>
         <p className="detail-note">Bu görünüm yalnızca senin tamamlanmış taramana ait job verisinden üretiliyor.</p>
       </>}
     </div>
