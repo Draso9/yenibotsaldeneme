@@ -12,14 +12,14 @@ def _verify(token: str):
 def test_admin_quality_requires_admin(monkeypatch):
     monkeypatch.setenv("IZFIN_ADMIN_EMAILS", "admin@example.com")
     client = TestClient(create_app(verify_id_token=_verify))
-    response = client.get("/v1/admin/quality", headers={"Authorization": "Bearer user-token"})
+    response = client.get("/api/v1/admin/quality", headers={"Authorization": "Bearer user-token"})
     assert response.status_code == 403
 
 
 def test_admin_quality_returns_quality_snapshot(monkeypatch):
     monkeypatch.setenv("IZFIN_ADMIN_EMAILS", "admin@example.com")
     client = TestClient(create_app(verify_id_token=_verify))
-    response = client.get("/v1/admin/quality", headers={"Authorization": "Bearer admin-token"})
+    response = client.get("/api/v1/admin/quality", headers={"Authorization": "Bearer admin-token"})
     assert response.status_code == 200
     payload = response.json()
     assert payload["status"]["durum"]
