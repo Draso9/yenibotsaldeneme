@@ -26,6 +26,7 @@ class ApiRuntime:
     signal_repository: Any = None
     legal_consent_service: Any = None
     account_data_service: Any = None
+    account_delete_enabled: bool = False
     terms_version: str = "2026-08-19-v1"
     privacy_version: str = "2026-08-19-v1"
     data_controller_name: str = ""
@@ -88,6 +89,7 @@ def runtime_from(
     signal_repository: Any = None,
     legal_consent_service: Any = None,
     account_data_service: Any = None,
+    account_delete_enabled: bool = False,
     terms_version: str = "2026-08-19-v1",
     privacy_version: str = "2026-08-19-v1",
     data_controller_name: str = "",
@@ -104,6 +106,7 @@ def runtime_from(
         signal_repository=signal_repository,
         legal_consent_service=legal_consent_service,
         account_data_service=account_data_service,
+        account_delete_enabled=bool(account_delete_enabled),
         terms_version=str(terms_version),
         privacy_version=str(privacy_version),
         data_controller_name=str(data_controller_name),
