@@ -7,10 +7,10 @@ const apiBaseUrl = process.env.NEXT_PUBLIC_IZFIN_API_URL ?? "https://izfin-api-4
 
 export default function Home() {
   return (
-    <main>
+    <main id="top">
       <section className="hero">
-        <p className="eyebrow">IZFIN WEB • BETA</p>
-        <h1>BIST kararlarını daha net gör.</h1>
+        <p className="eyebrow">PİYASA MERKEZİ • WEB BETA</p>
+        <h1>BIST kararlarını<br />daha net gör.</h1>
         <p className="intro">
           Yeni web arayüzü hazırlanıyor. Mevcut Streamlit uygulaması çalışmaya devam ederken,
           ekranları güvenli biçimde burada aşamalı olarak taşıyacağız.
@@ -19,7 +19,7 @@ export default function Home() {
           <a className="primary" href={`${apiBaseUrl}/api/v1/health`} target="_blank" rel="noreferrer">
             API durumunu kontrol et
           </a>
-          <span className="status"><i /> API canlı</span>
+          <span className="status"><i /> API canlı · Cloud Run</span>
         </div>
         <div className="auth-card"><h2>IZFIN hesabınla giriş yap</h2><AuthPanel /></div>
         <Dashboard />
