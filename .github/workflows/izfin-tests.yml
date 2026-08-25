@@ -18,6 +18,36 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  web-quality:
+    name: IZFIN Web Quality Gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11.19.0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: "24"
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+
+      - name: Install web dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Typecheck Next.js web client
+        run: pnpm --dir web typecheck
+
+      - name: Build Next.js web client
+        run: pnpm --dir web build
+
   quality-gate:
     name: IZFIN Quality Gate
     runs-on: ubuntu-latest

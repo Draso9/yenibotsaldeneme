@@ -10,10 +10,10 @@ export default function Home() {
     <main id="top">
       <section className="hero">
         <p className="eyebrow">PİYASA MERKEZİ • WEB BETA</p>
-        <h1>BIST kararlarını<br />daha net gör.</h1>
+        <h1>IZFIN<br />Piyasa Merkezi</h1>
         <p className="intro">
-          Yeni web arayüzü hazırlanıyor. Mevcut Streamlit uygulaması çalışmaya devam ederken,
-          ekranları güvenli biçimde burada aşamalı olarak taşıyacağız.
+          Son taramanın karar dağılımını, piyasa modunu ve öne çıkan setup&apos;ı tek bakışta gör.
+          Mevcut Streamlit uygulaması çalışmaya devam ederken ekranları burada aşamalı olarak taşıyacağız.
         </p>
         <div className="actions">
           <a className="primary" href={`${apiBaseUrl}/api/v1/health`} target="_blank" rel="noreferrer">
