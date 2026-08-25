@@ -38,3 +38,12 @@ def test_nextjs_dashboard_uses_authenticated_versioned_watchlist_api() -> None:
     assert '"/api/v1/watchlist"' in dashboard
     assert 'method: "PUT"' in dashboard
     assert "Authorization: `Bearer ${idToken}`" in api_client
+
+
+def test_nextjs_scan_workspace_uses_async_scan_job_contract() -> None:
+    workspace = (PROJECT_ROOT / "web" / "components" / "scan-workspace.tsx").read_text(encoding="utf-8")
+
+    assert '"/api/v1/scan/jobs"' in workspace
+    assert 'method: "POST"' in workspace
+    assert "/api/v1/scan/jobs/${job.job_id}" in workspace
+    assert "setTimeout" in workspace
