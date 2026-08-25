@@ -6,9 +6,45 @@
 .performance-period { display: flex; gap: 6px; padding: 5px; border: 1px solid var(--line); border-radius: 11px; background: rgba(10,16,24,.8); }
 .performance-period button { min-width: 50px; min-height: 34px; border: 0; border-radius: 8px; background: transparent; color: var(--muted); font-size: 9px; font-weight: 850; cursor: pointer; }
 .performance-period button.active { background: rgba(96,226,180,.11); color: var(--accent); box-shadow: inset 0 0 0 1px rgba(96,226,180,.15); }
-.performance-state, .performance-empty { padding: 24px; color: var(--muted); font-size: 11px; }
+.performance-state, .performance-empty { margin-top: 12px; padding: 24px; color: var(--muted); font-size: 11px; }
 .performance-state[role="alert"] { color: var(--danger); }
 .performance-empty a, .performance-empty-state a { display: inline-flex; margin-top: 14px; color: var(--accent); text-decoration: none; font-size: 10px; font-weight: 800; }
+
+.performance-kpi-strip { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 10px; margin-bottom: 12px; }
+.performance-track-kpi { padding: 16px 18px; }
+.performance-track-kpi span, .performance-closed-card span { color: var(--muted); font-size: 8px; font-weight: 850; letter-spacing: .1em; }
+.performance-track-kpi strong { display: block; margin-top: 10px; font-size: 1.35rem; letter-spacing: -.03em; }
+.performance-section-title, .performance-scorecard-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
+.performance-section-title h2, .performance-scorecard-heading h2, .performance-insight-card h2 { margin: 6px 0 0; font-size: 1rem; letter-spacing: -.02em; }
+.performance-section-title > span, .performance-scorecard-heading > span { display: inline-flex; min-height: 28px; align-items: center; padding: 0 9px; border: 1px solid rgba(96,226,180,.14); border-radius: 999px; color: #9bcbb9; background: rgba(96,226,180,.035); font-size: 8px; font-weight: 850; }
+.performance-table-card { margin-top: 12px; padding: 20px; overflow: hidden; }
+.performance-table-scroll { margin-top: 16px; overflow-x: auto; border: 1px solid var(--line-soft); border-radius: 10px; }
+.performance-table { width: 100%; min-width: 830px; border-collapse: collapse; background: rgba(7,16,24,.74); }
+.performance-table-wide { min-width: 1100px; }
+.performance-table th { padding: 11px 12px; border-bottom: 1px solid var(--line); background: rgba(13,24,35,.92); color: #7fa4b6; text-align: left; white-space: nowrap; font-size: 8px; font-weight: 850; letter-spacing: .05em; }
+.performance-table td { padding: 12px; border-bottom: 1px solid rgba(36,58,73,.46); color: #cbd8de; white-space: nowrap; font-size: 9px; }
+.performance-table tbody tr:last-child td { border-bottom: 0; }
+.performance-table tbody tr:hover td { background: rgba(18,35,47,.72); }
+.performance-table td b { color: #e8f2f5; font-size: 9px; }
+.performance-table td.positive { color: var(--accent); font-weight: 800; }
+.performance-table td.negative { color: #e98589; font-weight: 800; }
+.performance-table td.neutral { color: var(--muted); }
+.performance-table-empty { margin: 18px 0 2px; padding: 16px; border: 1px dashed var(--line-soft); border-radius: 9px; color: var(--muted); font-size: 10px; }
+
+.performance-closed-summary { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 10px; margin-top: 12px; }
+.performance-closed-card { padding: 16px; }
+.performance-closed-card strong { display: block; margin-top: 10px; font-size: 1.15rem; letter-spacing: -.03em; }
+.performance-closed-card strong.positive { color: var(--accent); }
+.performance-closed-card strong.negative { color: #e98589; }
+.performance-closed-card small { display: block; margin-top: 5px; color: var(--muted-2); font-size: 8px; }
+.performance-insight-card { margin-top: 12px; padding: 20px; }
+.performance-insight-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 18px; }
+.performance-insight-head > div { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; }
+.performance-insight-head span { padding: 7px 9px; border: 1px solid var(--line-soft); border-radius: 8px; color: var(--muted); font-size: 8px; }
+.performance-insight-head span b { color: #d8e4e8; }
+.performance-insight-card ul { margin: 16px 0 0; padding-left: 18px; color: var(--muted); font-size: 9px; line-height: 1.7; }
+.performance-scorecard-heading { margin: 30px 0 12px; padding-top: 4px; }
+
 .performance-overview-grid { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 12px; }
 .performance-summary-card { padding: 18px; }
 .performance-summary-card > span, .performance-metric-card > span { color: var(--muted); font-size: 8px; font-weight: 850; letter-spacing: .1em; }
@@ -28,5 +64,6 @@
 .performance-quality-bar span { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg,var(--blue),var(--accent)); }
 .performance-empty-state { margin-top: 12px; padding: 22px; }
 .performance-empty-state p { margin: 0; color: var(--muted); font-size: 10px; }
-@media (max-width: 980px) { .performance-metric-grid { grid-template-columns: repeat(2,minmax(0,1fr)); } }
-@media (max-width: 720px) { .performance-page { padding: 30px 20px 70px; }.performance-hero { align-items: flex-start; flex-direction: column; }.performance-overview-grid, .performance-metric-grid, .performance-lower-grid { grid-template-columns: 1fr; } }
+
+@media (max-width: 1050px) { .performance-kpi-strip, .performance-closed-summary, .performance-metric-grid { grid-template-columns: repeat(2,minmax(0,1fr)); } }
+@media (max-width: 720px) { .performance-page { padding: 30px 20px 70px; }.performance-hero { align-items: flex-start; flex-direction: column; }.performance-period { width: 100%; }.performance-period button { flex: 1; }.performance-kpi-strip, .performance-closed-summary, .performance-overview-grid, .performance-metric-grid, .performance-lower-grid { grid-template-columns: 1fr; }.performance-insight-head { flex-direction: column; }.performance-insight-head > div { justify-content: flex-start; }.performance-table-card { padding: 15px; } }

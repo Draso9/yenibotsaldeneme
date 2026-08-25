@@ -162,6 +162,18 @@ class ProjectionResponse(BaseModel):
     bands: list[ProjectionBandResponse]
 
 
+class PerformanceMetric(BaseModel):
+    label: str
+    value: str
+
+
+class PerformancePositionsResponse(BaseModel):
+    kpis: list[PerformanceMetric]
+    active: list[dict[str, Any]]
+    closed: list[dict[str, Any]]
+    closed_summary: dict[str, Any]
+
+
 class PerformanceScorecardQuery(BaseModel):
     gun: int = Field(default=20, ge=1, le=365)
 
@@ -176,11 +188,6 @@ class PerformanceScorecardApiResponse(BaseModel):
 class PerformanceScorecardRequest(BaseModel):
     kayitlar: list[dict[str, Any]] = Field(default_factory=list)
     gun: int = Field(ge=1, le=365)
-
-
-class PerformanceMetric(BaseModel):
-    label: str
-    value: str
 
 
 class PerformanceScorecardResponse(BaseModel):
