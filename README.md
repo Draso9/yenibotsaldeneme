@@ -23,6 +23,20 @@ Her yanıtta `X-Request-ID` bulunur; hata yanıtları web ve mobil istemcilerin
 paylaşabileceği kararlı bir `error` sözleşmesi döndürür. Streamlit uygulaması
 bağımsız biçimde çalışmayı sürdürür.
 
+## Next.js web istemcisi
+
+Yeni web arayüzü `web/` altında bulunur; Streamlit uygulamasını değiştirmez.
+İlk kurulumda `web/.env.example` dosyasını `web/.env.local` olarak kopyalayıp
+gerekirse API adresini değiştirin. Node.js 24+ ve pnpm ile:
+
+```powershell
+pnpm --dir web install
+pnpm --dir web dev
+```
+
+İstemci varsayılan olarak Cloud Run'daki canlı IZFIN API adresini kullanır.
+Giriş, watchlist ve tarama ekranları aşamalı olarak bu istemciye taşınacaktır.
+
 ### Container ile çalıştırma
 
 API platformdan bağımsız bir container olarak da başlatılabilir:
