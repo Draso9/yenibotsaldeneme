@@ -10,6 +10,7 @@ from typing import Any
 from izfin_core.market_universe import VARSAYILAN_TICKERS, finnhub_symbol
 from izfin_repositories.user_repository import UserRepository
 from izfin_repositories.signal_repository import SignalRepository
+from izfin_repositories.signal_repository import ScanJobRepository
 from izfin_services.finnhub_client import FinnhubClient
 from izfin_services.scan_workflow import scan_workflow_calistir
 from izfin_services.yahoo_client import (
@@ -21,6 +22,7 @@ from izfin_services.yahoo_client import (
 )
 
 from .app import create_app
+from .scan_jobs import ScanJobStore
 
 
 def environment_tickers(value: str | None) -> tuple[str, ...]:
@@ -100,6 +102,7 @@ def firebase_runtime(*, firebase_auth, firestore_client):
         "verify_id_token": firebase_auth.verify_id_token,
         "user_repository": UserRepository(firestore_client),
         "signal_repository": SignalRepository(firestore_client),
+        "scan_job_store": ScanJobStore(job_repository=ScanJobRepository(firestore_client)),
     }
 
 

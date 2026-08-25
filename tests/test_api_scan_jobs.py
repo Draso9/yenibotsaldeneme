@@ -229,3 +229,60 @@ def test_scan_job_endpoint_returns_429_when_worker_capacity_is_full():
     release_runner.set()
     assert overloaded.status_code == 429
     assert overloaded.json()["detail"] == "Tarama kuyruğu şu anda dolu."
+
+
+class FakeJobRepository:
+    available = True
+
+    def __init__(self):
+        self.jobs = {}
+
+    def get_job(self, job_id):
+        return dict(self.jobs.get(job_id, {}))
+
+    def upsert_job(self, job_id, data):
+        self.jobs.setdefault(job_id, {}).update(dict(data))
+
+
+def test_scan_job_persists_result_and_can_be_read_after_store_restart():
+    repository = FakeJobRepository()
+    first_store = ScanJobStore(job_repository=repository)
+    created = first_store.submit(
+        "uid-1",
+        ["THYAO.IS"],
+        lambda _tickers, progress_callback=None: {
+            "sonuclar": [{"Varlık": "THYAO.IS"}],
+            "basarisiz_taramalar": [],
+            "boga_sayisi": 1,
+            "alim_firsati": 0,
+        },
+    )
+    _wait_for_job(first_store, created.job_id, "uid-1", lambda snapshot: snapshot.status == "completed")
+
+    restored = ScanJobStore(job_repository=repository).get_for_owner(created.job_id, "uid-1")
+
+    assert restored is not None
+    assert restored.status == "completed"
+    assert restored.result["sonuclar"] == [{"Varlık": "THYAO.IS"}]
+
+
+def test_interrupted_persisted_job_is_never_reported_as_still_running_after_restart():
+    repository = FakeJobRepository()
+    repository.upsert_job(
+        "job-1",
+        {
+            "job_id": "job-1",
+            "owner_uid": "uid-1",
+            "tickers": ["THYAO.IS"],
+            "status": "running",
+            "stage": "ticker",
+            "completed": 1,
+        },
+    )
+
+    restored = ScanJobStore(job_repository=repository).get_for_owner("job-1", "uid-1")
+
+    assert restored.status == "failed"
+    assert restored.stage == "interrupted"
+    assert "yeniden başlatıldığı" in restored.error
+    assert repository.jobs["job-1"]["status"] == "failed"

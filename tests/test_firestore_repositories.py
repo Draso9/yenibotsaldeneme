@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from copy import deepcopy
 
-from izfin_repositories.signal_repository import SignalRepository
+from izfin_repositories.signal_repository import ScanJobRepository, SignalRepository
 from izfin_repositories.user_repository import UserRepository
 
 
@@ -236,3 +236,19 @@ def test_signal_repository_backup_and_delete_contract():
     assert db.collection("sinyal_arsivi_temizlik_yedegi").documents == {
         "backup-1": {"orijinal_doc_id": "archive-1"}
     }
+
+
+def test_scan_job_repository_persists_owner_isolated_job_payloads():
+    db = FakeDB()
+    repository = ScanJobRepository(db)
+
+    repository.upsert_job("job-1", {"owner_uid": "uid-1", "status": "queued"})
+    repository.upsert_job("job-1", {"status": "completed", "completed": 2})
+
+    assert repository.available is True
+    assert repository.get_job("job-1") == {
+        "owner_uid": "uid-1",
+        "status": "completed",
+        "completed": 2,
+    }
+    assert repository.get_job("missing") == {}
