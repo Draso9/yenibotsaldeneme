@@ -39,7 +39,7 @@ export function MarketCenterPanel({ jobId }: Readonly<{ jobId: string }>) {
         const result = await fetchMarketCenter(jobId, token);
         if (!active) return;
         setCenter(result);
-        setSelectedTicker(result.best_ticker ?? tickerOf(result.top_signals[0]) ?? "");
+        setSelectedTicker(result.best_ticker || tickerOf(result.top_signals[0]));
       } catch {
         if (active) setError("Piyasa Merkezi bu tarama için yüklenemedi.");
       }
@@ -83,15 +83,15 @@ export function MarketCenterPanel({ jobId }: Readonly<{ jobId: string }>) {
       <div className="result-list">
         {center.top_signals.slice(0, 7).map((item, index) => {
           const ticker = tickerOf(item);
-          return <button type="button" key={`${ticker}-${index}`} onClick={() => ticker && setSelectedTicker(ticker)}>
+          return <div key={`${ticker}-${index}`}>
             <strong>{ticker || "Sembol"}</strong>
             <span>{text(item.sinyal)} · skor {text(item.skor)} · güven {text(item.guven)}</span>
-          </button>;
+          </div>;
         })}
       </div>
       {center.movers.length > 0 && <p className="job-progress">Hareketliler: {center.movers.slice(0, 6).map((item) => tickerOf(item)).filter(Boolean).join(", ")}</p>}
       {selectedTicker && <div className="scan-result">
-        <p className="eyebrow">HİSSE DETAYI · {selectedTicker}</p>
+        <p className="eyebrow">ÖNE ÇIKAN HİSSE · {selectedTicker}</p>
         {!detail && !detailError && <p>Detay yükleniyor…</p>}
         {detailError && <p role="alert">{detailError}</p>}
         {detail && <div className="scan-metrics">
