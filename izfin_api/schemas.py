@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any, Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 
 class HealthResponse(BaseModel):
@@ -164,7 +164,15 @@ class ProjectionResponse(BaseModel):
 
 class BacktestRunRequest(BaseModel):
     ticker: str = Field(min_length=1, max_length=32)
-    period: Literal["3y", "5y", "10y"] = "5y"
+    period: str = "5y"
+
+    @field_validator("period", mode="before")
+    @classmethod
+    def normalize_period(cls, value: Any) -> str:
+        normalized = str(value or "5y").strip().lower() or "5y"
+        if normalized not in {"3y", "5y", "10y"}:
+            raise ValueError("Geçmiş dönem yalnızca 3y, 5y veya 10y olabilir.")
+        return normalized
 
 
 class BacktestResponse(BaseModel):
