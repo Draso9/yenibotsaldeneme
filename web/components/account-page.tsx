@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import {
   acceptLegalConsent,
   deleteAccount,
@@ -34,6 +35,7 @@ function LegalText({ document }: Readonly<{ document: LegalDocumentResponse | nu
 }
 
 export function AccountPage() {
+  const router = useRouter();
   const { loading, user, getIdToken, logout } = useIzfinAuth();
   const [tab, setTab] = useState<Tab>("privacy");
   const [profile, setProfile] = useState<ProfileResponse | null>(null);
@@ -106,13 +108,13 @@ export function AccountPage() {
     setBusy(true); setMessage("");
     try {
       const token = await getIdToken(); if (!token) return;
-      const result = await deleteAccount(token, {
+      await deleteAccount(token, {
         email: deleteEmail,
         confirmation_phrase: deletePhrase,
         irreversible,
       });
       await logout();
-      setMessage(`Hesap ve ${result.deleted_documents} kullanıcı veri belgesi kalıcı olarak silindi.`);
+      router.replace("/auth?next=%2Fscan&deleted=1");
     } catch { setMessage("Silme işlemi tamamlanamadı. Onay alanlarını kontrol edip yeniden deneyin."); }
     finally { setBusy(false); }
   }
