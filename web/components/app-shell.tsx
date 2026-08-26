@@ -7,7 +7,7 @@ import { useIzfinAuth } from "./auth-provider";
 
 const navItems = [
   { icon: "⌂", label: "Piyasa Merkezi", href: "/", adminOnly: false },
-  { icon: "⌕", label: "Akıllı Tarama", href: "/#akilli-tarama", adminOnly: false },
+  { icon: "⌕", label: "Akıllı Tarama", href: "/scan", adminOnly: false },
   { icon: "◈", label: "Projeksiyon", href: "/projection", adminOnly: false },
   { icon: "◫", label: "Performans", href: "/performance", adminOnly: false },
   { icon: "◇", label: "Strateji Lab", href: "/strategy-lab", adminOnly: false },
@@ -41,7 +41,9 @@ export function AppShell({ children }: Readonly<{ children: React.ReactNode }>) 
 
   const pageLabel = pathname.startsWith("/stocks/")
     ? "Detaylı Analiz"
-    : pathname.startsWith("/projection")
+    : pathname.startsWith("/scan")
+      ? "Akıllı Tarama"
+      : pathname.startsWith("/projection")
       ? "Projeksiyon"
       : pathname.startsWith("/performance")
         ? "Performans"
@@ -62,7 +64,9 @@ export function AppShell({ children }: Readonly<{ children: React.ReactNode }>) 
       <div className="nav-label">ÇALIŞMA ALANI</div>
       <nav aria-label="Ana navigasyon">
         {navItems.filter((item) => !item.adminOnly || isAdmin).map((item, index) => {
-          const active = item.label === "Projeksiyon"
+          const active = item.label === "Akıllı Tarama"
+            ? pathname.startsWith("/scan")
+            : item.label === "Projeksiyon"
             ? pathname.startsWith("/projection")
             : item.label === "Performans"
               ? pathname.startsWith("/performance")

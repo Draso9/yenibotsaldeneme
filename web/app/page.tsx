@@ -2,7 +2,6 @@ import { AuthPanel } from "../components/auth-panel";
 import { AccountCenter } from "../components/account-center";
 import { Dashboard } from "../components/dashboard";
 import { MarketStrip } from "../components/market-strip";
-import { ScanWorkspace } from "../components/scan-workspace";
 
 export default function Home() {
   return (
@@ -17,7 +16,7 @@ export default function Home() {
             Sinyalleri izle, fırsatları karşılaştır ve aynı taramadan projeksiyon ile performans ekranlarına ilerle.
           </p>
           <div className="actions">
-            <a className="primary" href="#akilli-tarama">Taramayı başlat <span>→</span></a>
+            <a className="primary" href="/scan">Taramayı başlat <span>→</span></a>
           </div>
         </div>
         <aside className="hero-system" aria-label="IZFIN platform özeti">
@@ -32,7 +31,6 @@ export default function Home() {
         <div className="auth-card"><div className="section-heading"><div><p className="eyebrow">GÜVENLİ OTURUM</p><h2>IZFIN hesabın</h2></div><span className="section-index">01</span></div><AuthPanel /></div>
         <Dashboard />
       </section>
-      <div id="akilli-tarama" className="anchor-target"><ScanWorkspace /></div>
       <div id="hesap" className="anchor-target"><AccountCenter /></div>
       <section className="roadmap" aria-label="IZFIN analiz araçları">
         <article className="roadmap-current"><span>01</span><div><h2>Piyasa Merkezi</h2><p>Tarama sonuçlarını, piyasa modunu, öne çıkan sinyalleri ve hareketleri tek görünümde takip et.</p></div><strong>MERKEZ</strong></article>

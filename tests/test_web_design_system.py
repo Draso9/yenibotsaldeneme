@@ -61,6 +61,17 @@ def test_homepage_removes_internal_health_shortcut_and_keeps_mobile_targets():
     assert "@media (max-width: 600px)" in css
 
 
+def test_scan_has_a_dedicated_product_route_instead_of_a_homepage_anchor():
+    shell = _read("web/components/app-shell.tsx")
+    home = _read("web/app/page.tsx")
+    scan = _read("web/app/scan/page.tsx")
+
+    assert 'href: "/scan"' in shell
+    assert 'href="/scan"' in home
+    assert "ScanWorkspace" in scan
+    assert 'href: "/#akilli-tarama"' not in shell
+
+
 def test_scan_and_detail_share_explicit_states_and_detail_handoff():
     """The scan flow must lead to job-scoped detail without hiding unavailable states."""
     workspace = _read("web/components/scan-workspace.tsx")

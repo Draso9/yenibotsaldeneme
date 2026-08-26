@@ -153,6 +153,8 @@ button:focus-visible, input:focus-visible, a:focus-visible { outline: 2px solid 
 .api-chip .live-dot { width: 5px; height: 5px; }
 
 .command-page { width: min(1420px, 100%); margin: 0 auto; padding: 42px 42px 88px; }
+.scan-page { width: min(1420px, 100%); margin: 0 auto; padding: 28px 42px 88px; }
+.scan-path { display: flex; justify-content: space-between; gap: 14px; margin-bottom: 14px; color: var(--muted-2); font-size: 9px; }.scan-path a { color: #9ec8b6; text-decoration: none; font-weight: 800; }
 .command-hero {
   display: grid;
   grid-template-columns: minmax(0, 1.55fr) minmax(300px, .72fr);
@@ -385,6 +387,7 @@ button:focus-visible, input:focus-visible, a:focus-visible { outline: 2px solid 
   .topbar { top: 0; min-height: 52px; padding: 0 20px; }
   .topbar-title span { display: none; }
   .command-page { padding: 30px 20px 64px; }
+  .scan-page { padding: 22px 20px 64px; }
   .command-hero { grid-template-columns: 1fr; gap: 16px; padding-top: 0; }
   .hero-system { align-self: stretch; }
   .scan-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -394,6 +397,7 @@ button:focus-visible, input:focus-visible, a:focus-visible { outline: 2px solid 
   .topbar-actions .environment-chip { display: none; }
   .sidebar nav a span { overflow: hidden; max-width: 100%; text-overflow: ellipsis; white-space: nowrap; }
   .command-page { padding: 24px 14px 54px; }
+  .scan-page { padding: 18px 14px 54px; }.scan-path { align-items: flex-start; flex-direction: column; }
   .command-hero h1 { font-size: clamp(2.55rem, 15vw, 4rem); }
   .intro { font-size: .93rem; }
   .actions { align-items: stretch; }
