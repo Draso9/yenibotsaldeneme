@@ -124,6 +124,20 @@ class ScanJobStatusResponse(ScanJobCreatedResponse):
     error: str | None = None
 
 
+class ScanJobHistoryItem(BaseModel):
+    job_id: str
+    status: str
+    stage: str
+    completed: int
+    total: int
+    tickers: list[str] = Field(default_factory=list)
+    created_at: str | None = None
+
+
+class ScanJobHistoryResponse(BaseModel):
+    jobs: list[ScanJobHistoryItem] = Field(default_factory=list)
+
+
 class MarketCenterRequest(BaseModel):
     sonuclar: list[dict[str, Any]] = Field(default_factory=list)
     teknik_paneller: dict[str, dict[str, Any]] = Field(default_factory=dict)

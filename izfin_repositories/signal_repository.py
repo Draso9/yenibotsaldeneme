@@ -22,6 +22,15 @@ class ScanJobRepository:
     def upsert_job(self, job_id, data):
         self.db.collection(self.COLLECTION).document(str(job_id)).set(dict(data), merge=True)
 
+    def list_jobs_for_owner(self, owner_uid, *, limit=20):
+        query = (
+            self.db.collection(self.COLLECTION)
+            .where("owner_uid", "==", str(owner_uid))
+            .limit(max(1, min(int(limit), 50)))
+        )
+        records = [doc.to_dict() or {} for doc in query.stream()]
+        return sorted(records, key=lambda item: str(item.get("created_at") or ""), reverse=True)
+
 
 class SignalRepository:
     def __init__(self, db):

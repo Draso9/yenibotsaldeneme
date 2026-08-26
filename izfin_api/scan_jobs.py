@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from inspect import Parameter, signature
 from threading import RLock, Thread
 from typing import Any
@@ -28,6 +29,8 @@ class ScanJobSnapshot:
     total: int
     result: dict[str, Any] | None = None
     error: str | None = None
+    tickers: tuple[str, ...] = ()
+    created_at: str | None = None
 
 
 @dataclass
@@ -40,6 +43,7 @@ class _ScanJobRecord:
     completed: int = 0
     result: dict[str, Any] | None = None
     error: str | None = None
+    created_at: str | None = None
 
     def snapshot(self) -> ScanJobSnapshot:
         return ScanJobSnapshot(
@@ -50,6 +54,8 @@ class _ScanJobRecord:
             total=len(self.tickers),
             result=self.result.copy() if self.result is not None else None,
             error=self.error,
+            tickers=self.tickers,
+            created_at=self.created_at,
         )
 
 
@@ -82,6 +88,7 @@ class ScanJobStore:
             job_id=str(uuid4()),
             owner_uid=str(owner_uid),
             tickers=normalized_tickers,
+            created_at=datetime.now(timezone.utc).isoformat(),
         )
         with self._lock:
             self._prune_terminal_records()
@@ -109,6 +116,34 @@ class ScanJobStore:
             if record is None or record.owner_uid != str(owner_uid):
                 return None
             return record.snapshot()
+
+    def list_for_owner(self, owner_uid: str, *, limit: int = 12) -> list[ScanJobSnapshot]:
+        """List recent owner-scoped jobs, including terminal Firestore records."""
+        normalized_owner = str(owner_uid)
+        bounded_limit = max(1, min(int(limit), 50))
+        with self._lock:
+            records = {
+                job_id: record
+                for job_id, record in self._records.items()
+                if record.owner_uid == normalized_owner
+            }
+            repository = self._job_repository
+            if getattr(repository, "available", False):
+                for data in repository.list_jobs_for_owner(normalized_owner, limit=bounded_limit):
+                    job_id = str(data.get("job_id") or "")
+                    if not job_id or job_id in records:
+                        continue
+                    record = self._record_from_data(job_id, data)
+                    if record.owner_uid == normalized_owner:
+                        self._mark_interrupted(record)
+                        self._records[record.job_id] = record
+                        records[record.job_id] = record
+            ordered = sorted(
+                records.values(),
+                key=lambda record: record.created_at or "",
+                reverse=True,
+            )
+            return [record.snapshot() for record in ordered[:bounded_limit]]
 
     def _execute(self, job_id: str, runner: Callable[..., Mapping[str, Any]]) -> None:
         def progress(event: Mapping[str, Any]) -> None:
@@ -208,6 +243,7 @@ class ScanJobStore:
                 "completed": record.completed,
                 "result": record.result,
                 "error": record.error,
+                "created_at": record.created_at,
             },
         )
 
@@ -218,8 +254,15 @@ class ScanJobStore:
         data = repository.get_job(job_id)
         if not data:
             return None
+        record = self._record_from_data(job_id, data)
+        self._mark_interrupted(record)
+        self._records[record.job_id] = record
+        return record
+
+    @staticmethod
+    def _record_from_data(job_id: str, data: Mapping[str, Any]) -> _ScanJobRecord:
         status = str(data.get("status") or "failed")
-        record = _ScanJobRecord(
+        return _ScanJobRecord(
             job_id=str(data.get("job_id") or job_id),
             owner_uid=str(data.get("owner_uid") or ""),
             tickers=tuple(str(item) for item in data.get("tickers") or ()),
@@ -228,11 +271,12 @@ class ScanJobStore:
             completed=max(0, int(data.get("completed") or 0)),
             result=data.get("result") if isinstance(data.get("result"), dict) else None,
             error=str(data.get("error") or "") or None,
+            created_at=str(data.get("created_at") or "") or None,
         )
+
+    def _mark_interrupted(self, record: _ScanJobRecord) -> None:
         if record.status in {"queued", "running"}:
             record.status = "failed"
             record.stage = "interrupted"
             record.error = "Tarama işlemi uygulama yeniden başlatıldığı için tamamlanamadı."
             self._persist(record)
-        self._records[record.job_id] = record
-        return record

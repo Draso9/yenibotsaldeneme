@@ -256,8 +256,14 @@ button:focus-visible, input:focus-visible, a:focus-visible { outline: 2px solid 
 
 .scan-workspace { margin-top: 16px; padding: 24px; }
 .scan-workspace > .eyebrow { margin-bottom: 5px; }
+.scan-intro { max-width: 660px; margin: -4px 0 0; color: var(--muted); font-size: 11px; line-height: 1.6; }
 .scan-form { display: grid; grid-template-columns: minmax(280px, 1fr) auto; gap: 10px; align-items: end; margin-top: 18px; }
 .scan-form button { min-width: 142px; padding: 0 14px; }
+.scan-config { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; margin-top: 10px; color: #8da1af; font-size: 9px; }
+.scan-config b { color: #d7eee4; }
+.scan-presets { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; }
+.scan-presets button, .result-filter button, .scan-history-head button { min-height: 28px; border: 1px solid rgba(115, 142, 159, .25); border-radius: 7px; background: rgba(15, 28, 39, .72); color: #a3b6c0; padding: 0 9px; font: inherit; font-size: 9px; font-weight: 760; cursor: pointer; }
+.scan-presets button:hover, .result-filter button:hover, .scan-history-head button:hover { border-color: rgba(96,226,180,.4); color: #c4ecdc; }
 .job-progress { margin: 14px 0 0; }
 .job-progress strong { color: #b6d4c8; }
 .scan-result { margin-top: 20px; }
@@ -283,6 +289,8 @@ button:focus-visible, input:focus-visible, a:focus-visible { outline: 2px solid 
   letter-spacing: .05em;
 }
 .scan-metrics b { color: #dff6ed; font-size: 14px; font-weight: 820; text-transform: none; letter-spacing: -.02em; }
+.result-filter { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; margin-top: 14px; color: #869aa8; font-size: 9px; font-weight: 760; }
+.result-filter button.active { border-color: rgba(96,226,180,.44); background: var(--accent-soft); color: #c9f3e2; }
 .result-list { display: grid; gap: 7px; margin-top: 14px; }
 .result-list > div, .result-list > a {
   min-height: 44px;
@@ -302,6 +310,19 @@ button:focus-visible, input:focus-visible, a:focus-visible { outline: 2px solid 
 .result-list strong { color: #dce8ed; font-size: 10px; letter-spacing: .02em; }
 .result-list span { color: #71889a; font-size: 9px; text-align: right; }
 .result-list span b { margin-left: 7px; color: var(--accent); font-size: 8px; font-weight: 850; letter-spacing: .04em; text-transform: uppercase; white-space: nowrap; }
+.scan-history { margin-top: 22px; padding-top: 18px; border-top: 1px solid rgba(112, 140, 157, .18); }
+.scan-history-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.scan-history-head h3 { margin: 4px 0 0; color: #e6f0f4; font-size: 13px; }
+.scan-history-list { display: grid; gap: 7px; margin-top: 12px; }
+.scan-history-list > button { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: center; gap: 12px; width: 100%; min-height: 54px; border: 1px solid rgba(113, 140, 155, .2); border-radius: 10px; background: rgba(9, 18, 28, .46); color: inherit; padding: 9px 11px; text-align: left; cursor: pointer; }
+.scan-history-list > button:hover { border-color: rgba(96,226,180,.32); background: rgba(17, 33, 43, .72); }
+.scan-history-list b, .scan-history-list small, .scan-history-list em { display: block; }
+.scan-history-list b { color: #dce8ed; font-size: 10px; }
+.scan-history-list small { margin-top: 4px; color: #708596; font-size: 9px; }
+.scan-history-status { color: #b1c8bc; font-size: 8px; font-weight: 820; letter-spacing: .05em; text-transform: uppercase; }
+.scan-history-status.is-failed { color: #e8a3a3; }
+.scan-history-status.is-queued, .scan-history-status.is-running { color: #e4ca8f; }
+.scan-history-list em { color: var(--accent); font-size: 8px; font-style: normal; font-weight: 820; white-space: nowrap; }
 
 .account-center { margin-top: 16px; }
 .account-email { margin: 12px 0 0; color: #cfdae0; font-size: 11px; }
@@ -381,10 +402,13 @@ button:focus-visible, input:focus-visible, a:focus-visible { outline: 2px solid 
   .scan-workspace { padding: 19px; }
   .scan-form { grid-template-columns: 1fr; }
   .scan-form button { width: 100%; }
+  .scan-config { align-items: flex-start; flex-direction: column; }
   .scan-metrics { grid-template-columns: 1fr 1fr; }
   .result-list > div, .result-list > a { align-items: flex-start; flex-direction: column; gap: 5px; }
   .result-list span { text-align: left; }
   .scan-result-header { align-items: flex-start; }
+  .scan-history-list > button { grid-template-columns: minmax(0, 1fr) auto; }
+  .scan-history-list em { grid-column: 1 / -1; }
   .roadmap article { grid-template-columns: 42px minmax(0, 1fr); }
   .roadmap article > strong { display: none; }
 }

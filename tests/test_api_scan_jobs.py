@@ -247,6 +247,14 @@ class FakeJobRepository:
     def upsert_job(self, job_id, data):
         self.jobs.setdefault(job_id, {}).update(dict(data))
 
+    def list_jobs_for_owner(self, owner_uid, *, limit=20):
+        records = [
+            dict(data)
+            for data in self.jobs.values()
+            if data.get("owner_uid") == owner_uid
+        ]
+        return sorted(records, key=lambda item: item.get("created_at", ""), reverse=True)[:limit]
+
 
 def test_scan_job_persists_result_and_can_be_read_after_store_restart():
     repository = FakeJobRepository()
@@ -290,3 +298,69 @@ def test_interrupted_persisted_job_is_never_reported_as_still_running_after_rest
     assert restored.stage == "interrupted"
     assert "yeniden başlatıldığı" in restored.error
     assert repository.jobs["job-1"]["status"] == "failed"
+
+
+def test_scan_job_history_is_owner_scoped_and_restores_terminal_records():
+    repository = FakeJobRepository()
+    repository.upsert_job(
+        "completed-job",
+        {
+            "job_id": "completed-job",
+            "owner_uid": "uid-1",
+            "tickers": ["THYAO.IS", "AKBNK.IS"],
+            "status": "completed",
+            "stage": "complete",
+            "completed": 2,
+            "created_at": "2026-08-26T10:00:00+00:00",
+            "result": {"sonuclar": [], "basarisiz_taramalar": [], "boga_sayisi": 0, "alim_firsati": 0},
+        },
+    )
+    repository.upsert_job(
+        "foreign-job",
+        {
+            "job_id": "foreign-job",
+            "owner_uid": "uid-2",
+            "tickers": ["ASELS.IS"],
+            "status": "completed",
+            "stage": "complete",
+            "completed": 1,
+            "created_at": "2026-08-26T11:00:00+00:00",
+        },
+    )
+
+    history = ScanJobStore(job_repository=repository).list_for_owner("uid-1")
+
+    assert [snapshot.job_id for snapshot in history] == ["completed-job"]
+    assert history[0].tickers == ("THYAO.IS", "AKBNK.IS")
+    assert history[0].created_at == "2026-08-26T10:00:00+00:00"
+
+
+def test_scan_job_history_endpoint_hides_other_users_jobs():
+    repository = FakeJobRepository()
+    repository.upsert_job(
+        "job-1",
+        {
+            "job_id": "job-1",
+            "owner_uid": "uid-1",
+            "tickers": ["THYAO.IS"],
+            "status": "completed",
+            "stage": "complete",
+            "completed": 1,
+            "created_at": "2026-08-26T10:00:00+00:00",
+        },
+    )
+    client = TestClient(
+        create_app(
+            verify_id_token=lambda token: {"uid": "uid-1" if token == "alpha" else "uid-2", "email": "user@example.com"},
+            scan_job_store=ScanJobStore(job_repository=repository),
+        )
+    )
+
+    response = client.get("/api/v1/scan/jobs", headers={"Authorization": "Bearer alpha"})
+    foreign = client.get("/api/v1/scan/jobs", headers={"Authorization": "Bearer beta"})
+
+    assert response.status_code == 200
+    assert response.json()["jobs"][0]["job_id"] == "job-1"
+    assert response.json()["jobs"][0]["tickers"] == ["THYAO.IS"]
+    assert foreign.status_code == 200
+    assert foreign.json()["jobs"] == []
