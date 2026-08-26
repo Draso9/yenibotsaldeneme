@@ -88,7 +88,7 @@ export function ProjectionPage({ jobId, ticker }: Readonly<{ jobId: string; tick
   }
 
   return <main className="projection-page" aria-label={`${normalizedTicker} projeksiyon senaryo analizi`}>
-    <a className="projection-back" href={backHref}>← Detaylı Analiz</a>
+    <div className="projection-path"><a className="projection-back" href={backHref}>← Detaylı Analiz</a><span>Tarama sonucu / {normalizedTicker} / Projeksiyon</span></div>
 
     <section className="projection-hero projection-panel">
       <div>
@@ -103,8 +103,8 @@ export function ProjectionPage({ jobId, ticker }: Readonly<{ jobId: string; tick
       </div>}
     </section>
 
-    {!projection && !error && <section className="projection-panel projection-state">Projeksiyon hazırlanıyor…</section>}
-    {error && <section className="projection-panel projection-state" role="alert">{error}</section>}
+    {!projection && !error && <section className="projection-panel projection-status" aria-live="polite"><strong>Model hazırlanıyor</strong><span>Tarama verisindeki teknik panel ve volatilite bantları işleniyor.</span></section>}
+    {error && <section className="projection-panel projection-status" role="alert"><strong>Projeksiyon kullanılamıyor</strong><span>{error}</span></section>}
 
     {projection && <>
       <section className="projection-band-grid" aria-label="Model bantları">
@@ -160,8 +160,8 @@ export function ProjectionPage({ jobId, ticker }: Readonly<{ jobId: string; tick
       </section>
 
       <section className="projection-disclaimer">
-        <span>MODEL NOTU</span>
-        <p>Bu ekran ATR ve tarihsel volatiliteyle olası fiyat hareket bantlarını gösterir; hedef fiyat veya yatırım tavsiyesi değildir.</p>
+        <span>MODEL KAPSAMI</span>
+        <p><b>Model kapsamı</b> · Bu ekran yalnızca seçtiğin tamamlanmış taramanın ATR ve tarihsel volatilite verisiyle olası fiyat hareket bantlarını gösterir; hedef fiyat veya yatırım tavsiyesi değildir.</p>
       </section>
     </>}
   </main>;
