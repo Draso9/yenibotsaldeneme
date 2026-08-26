@@ -1,11 +1,16 @@
 "use client";
 
-import { FormEvent, useState } from "react";
-import { runBacktest, type BacktestPeriod, type BacktestResponse } from "../lib/backtest";
+import { FormEvent, useEffect, useState } from "react";
+import {
+  runBacktest,
+  searchBacktestSymbols,
+  type BacktestPeriod,
+  type BacktestResponse,
+  type BacktestSymbolSuggestion,
+} from "../lib/backtest";
 import { useIzfinAuth } from "./auth-provider";
 
 const PERIODS: BacktestPeriod[] = ["3y", "5y", "10y"];
-const SUGGESTED_SYMBOLS = ["THYAO.IS", "AKBNK.IS", "ASELS.IS"];
 const SUMMARY_COLUMNS = ["Sinyal", "Örnek", "İşlem Başarı %", "Ort. İşlem %", "TP1 İlk %", "Stop İlk %", "20G Kârda %", "20G Ort. %", "45G Kârda %", "45G Ort. %"];
 const DETAIL_COLUMNS = ["Tarih", "Sinyal", "Teknik Profil", "Ön Sinyal", "Hibrit Skor", "Güven %", "Daily MTF %", "Giriş Proxy", "Giriş", "İlk Stop", "İlk TP1", "İlk Olay", "İşlem Sonucu %", "20G %", "45G %"];
 
@@ -29,6 +34,38 @@ export function StrategyLabPage() {
   const [result, setResult] = useState<BacktestResponse | null>(null);
   const [running, setRunning] = useState(false);
   const [error, setError] = useState("");
+  const [suggestions, setSuggestions] = useState<BacktestSymbolSuggestion[]>([]);
+  const [searching, setSearching] = useState(false);
+  const [selectedSymbol, setSelectedSymbol] = useState("");
+
+  useEffect(() => {
+    const query = ticker.trim();
+    if (!user || query.length < 1 || query.toUpperCase() === selectedSymbol) {
+      setSuggestions([]);
+      setSearching(false);
+      return;
+    }
+    let active = true;
+    const timer = window.setTimeout(() => {
+      void (async () => {
+        setSearching(true);
+        try {
+          const token = await getIdToken();
+          if (!token) return;
+          const response = await searchBacktestSymbols(token, query, 8);
+          if (active) setSuggestions(response.suggestions);
+        } catch {
+          if (active) setSuggestions([]);
+        } finally {
+          if (active) setSearching(false);
+        }
+      })();
+    }, 250);
+    return () => {
+      active = false;
+      window.clearTimeout(timer);
+    };
+  }, [getIdToken, selectedSymbol, ticker, user]);
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -40,6 +77,7 @@ export function StrategyLabPage() {
     setRunning(true);
     setError("");
     setResult(null);
+    setSuggestions([]);
     try {
       const token = await getIdToken();
       if (!token) {
@@ -52,6 +90,14 @@ export function StrategyLabPage() {
     } finally {
       setRunning(false);
     }
+  }
+
+  function selectSuggestion(suggestion: BacktestSymbolSuggestion) {
+    const symbol = suggestion.symbol.trim().toUpperCase();
+    setTicker(symbol);
+    setSelectedSymbol(symbol);
+    setSuggestions([]);
+    setError("");
   }
 
   function beginNewRun() {
@@ -75,10 +121,29 @@ export function StrategyLabPage() {
 
     <form className="strategy-panel strategy-runner" onSubmit={submit}>
       <div className="strategy-symbol-field">
-        <label htmlFor="strategy-ticker">SEMBOL</label>
-        <input id="strategy-ticker" value={ticker} onChange={(event) => setTicker(event.target.value)} placeholder="THYAO.IS" autoComplete="off" aria-describedby="strategy-symbol-note" />
-        <small id="strategy-symbol-note">BIST sembolünü <b>.IS</b> uzantısıyla gir.</small>
-        <div className="strategy-symbol-suggestions" aria-label="Örnek semboller">{SUGGESTED_SYMBOLS.map((symbol) => <button type="button" key={symbol} onClick={() => setTicker(symbol)}>{symbol}</button>)}</div>
+        <label htmlFor="strategy-ticker">SEMBOL / ŞİRKET ARA</label>
+        <input
+          id="strategy-ticker"
+          value={ticker}
+          onChange={(event) => {
+            setTicker(event.target.value.toUpperCase());
+            setSelectedSymbol("");
+          }}
+          placeholder="NVDA, AVGO veya THYAO.IS"
+          autoComplete="off"
+          aria-describedby="strategy-symbol-note"
+          aria-autocomplete="list"
+          aria-expanded={suggestions.length > 0}
+        />
+        <small id="strategy-symbol-note">Sembol veya şirket adı yaz. Önerilerden seçim yapabilir; havuzda görünmeyen geçerli Yahoo sembolünü de doğrudan test edebilirsin.</small>
+        {searching && <div className="strategy-symbol-search-state">Semboller aranıyor…</div>}
+        {!searching && ticker.trim() && suggestions.length === 0 && !selectedSymbol && <div className="strategy-symbol-search-state">Eşleşme yoksa yazdığın sembol doğrudan backtest edilecek.</div>}
+        {suggestions.length > 0 && <div className="strategy-symbol-results" role="listbox" aria-label="Sembol önerileri">
+          {suggestions.map((suggestion) => <button type="button" role="option" aria-selected={false} key={`${suggestion.symbol}-${suggestion.exchange}`} onClick={() => selectSuggestion(suggestion)}>
+            <span><b>{suggestion.symbol}</b>{suggestion.name && <small>{suggestion.name}</small>}</span>
+            <em>{suggestion.exchange || suggestion.quote_type || "Piyasa"}</em>
+          </button>)}
+        </div>}
       </div>
       <div className="strategy-period-field">
         <span>GEÇMİŞ DÖNEM</span>
