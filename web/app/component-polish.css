@@ -63,6 +63,12 @@
 .market-strip-unavailable .market-strip-status { border-right: 0; }
 .market-strip-skeleton { opacity:.45; }
 
+.scan-lock-overlay { position:fixed; z-index:120; inset:0; display:grid; place-items:center; padding:20px; background:rgba(2,8,15,.84); backdrop-filter:blur(10px); }
+.scan-lock-card { width:min(520px,100%); padding:28px; border:1px solid rgba(25,220,228,.44); border-radius:18px; background:radial-gradient(circle at 85% 0%,rgba(22,137,255,.16),transparent 35%),linear-gradient(145deg,#081a29,#050d17); box-shadow:0 34px 110px rgba(0,0,0,.7),0 0 54px rgba(25,220,228,.09); }
+.scan-lock-brand { display:flex; align-items:center; gap:9px; color:#76cbd3; letter-spacing:.16em; }.scan-lock-brand i { width:10px; height:10px; border-radius:50%; background:#19dce4; box-shadow:0 0 0 7px rgba(25,220,228,.08),0 0 22px #19dce4; animation:scanPulse 1.2s ease-in-out infinite; }.scan-lock-card h2 { margin:20px 0 7px; color:#f0fbff; font-size:22px; }.scan-lock-card p { margin:0;color:#8cabbd;font-size:11px;line-height:1.6; }
+.scan-lock-progress { height:9px;margin:22px 0 10px;border:1px solid #16465d;border-radius:999px;background:#04101b;overflow:hidden; }.scan-lock-progress span { display:block;height:100%;min-width:4%;border-radius:inherit;background:linear-gradient(90deg,#1689ff,#19dce4);box-shadow:0 0 18px rgba(25,220,228,.48);transition:width .35s ease;animation:scanGlow 1.4s ease-in-out infinite; }.scan-lock-meta { display:flex;align-items:center;justify-content:space-between;gap:15px; }.scan-lock-meta strong { color:#21e4ea;font-size:19px; }.scan-lock-meta span,.scan-lock-card>small { color:#6f91a5;font-size:9px; }.scan-lock-card>small { display:block;margin-top:18px;padding-top:13px;border-top:1px solid rgba(92,130,151,.16); }
+@keyframes scanPulse { 50% { opacity:.45; transform:scale(.78); } } @keyframes scanGlow { 50% { filter:brightness(1.35); } }
+
 @media (max-width: 760px) {
   .market-strip { grid-template-columns: 1fr; }
   .market-strip-status { border-right:0; border-bottom:1px solid var(--line-soft); }
@@ -82,6 +88,7 @@
   .home-scan-banner { align-items: flex-start; flex-direction: column; }.home-scan-banner .primary { width: 100%; }
   .symbol-search-form { grid-template-columns:1fr; }.symbol-search-form button { width:100%; }.symbol-selection-preview { align-items:flex-start; flex-direction:column; }.symbol-selection-preview button { width:100%; }.scan-result-actions { align-items:flex-end; flex-direction:column; }.scan-summary.is-focus { inset:7px; padding:14px; border-radius:11px; }.scan-focus-meta { align-items:flex-start; flex-direction:column; }
 }
+
 
 
 
