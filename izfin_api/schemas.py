@@ -187,6 +187,7 @@ class StockDetailResponse(BaseModel):
     entry_quality: Any = None
     score: dict[str, Any]
     decision: dict[str, Any]
+    action: dict[str, Any] = Field(default_factory=dict)
     panel: dict[str, Any]
 
 
@@ -259,5 +260,6 @@ class PerformanceScorecardResponse(BaseModel):
     kucuk_orneklem: bool
     bos_mesaj: str | None
     kayit_adedi: int
+
 
 
