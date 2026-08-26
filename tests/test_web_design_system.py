@@ -57,6 +57,32 @@ def test_approved_izfin_logo_is_used_by_shell_auth_and_app_icons():
     assert (ROOT / "web/app/apple-icon.png").is_file()
 
 
+def test_web_rebuild_uses_streamlit_source_tokens_and_brand_proportions():
+    """The native web shell must inherit the established Streamlit product language."""
+    css = _read("web/app/globals.css")
+    polish = _read("web/app/component-polish.css")
+    shell = _read("web/components/app-shell.tsx")
+    auth = _read("web/components/auth-page.tsx")
+
+    for token in ("--iz-bg: #050b14", "--iz-accent: #19dce4", "--iz-info: #1689ff", "--iz-positive: #20e69a"):
+        assert token in css
+    assert "object-fit: contain" in polish
+    assert "#0d72e8" in polish
+    assert "ANALYZE · PREDICT · INVEST" in shell
+    assert 'height={72}' in auth
+
+
+def test_home_reuses_the_latest_owner_scoped_scan_for_streamlit_decision_centre():
+    home = _read("web/components/home-decision-center.tsx")
+    page = _read("web/app/page.tsx")
+
+    assert '"/api/v1/scan/jobs?limit=12"' in home
+    assert 'item.status === "completed"' in home
+    assert "MarketCenterPanel" in home
+    assert "İlk tarama bekleniyor" in home
+    assert "HomeDecisionCenter" in page
+
+
 def test_market_strip_reports_loading_and_error_without_fake_quotes():
     """Unavailable market data must stay visible without fabricated market cards."""
     source = _read("web/components/market-strip.tsx")
@@ -230,6 +256,7 @@ def test_account_keeps_sensitive_actions_and_legal_states_explicit():
     assert "account-status" in account
     assert "Hesap işlemleri Firebase ID token ile doğrulanır" in account
     assert "account-status" in css
+
 
 
 
