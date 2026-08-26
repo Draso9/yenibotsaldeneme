@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 
+from izfin_core.market_universe import ABD_HİSSELERİ, BIST_30, BIST_100, bist_ticker_listesi_guncelle
+
 from izfin_services.bootstrap_service import (
     kullanici_watchlist_bootstrap_hazirla,
     kullanici_watchlist_kaydet,
@@ -27,6 +29,7 @@ from .schemas import (
     PerformanceScorecardResponse,
     ScanUniverseRequest,
     ScanUniverseResponse,
+    ScanProfilesResponse,
     WatchlistTransitionRequest,
     WatchlistTransitionResponse,
     WatchlistResponse,
@@ -435,6 +438,22 @@ def list_scan_jobs(
     )
 
 
+@api_router.get("/scan/profiles", response_model=ScanProfilesResponse, tags=["scan"])
+def scan_profiles(
+    request: Request,
+    credentials=Depends(bearer_credentials),
+) -> ScanProfilesResponse:
+    """Expose the existing server-owned index universes without copying them into a client."""
+    authenticated_user(request, credentials)
+    return ScanProfilesResponse(
+        profiles={
+            "BIST 30": bist_ticker_listesi_guncelle(BIST_30),
+            "BIST 100": bist_ticker_listesi_guncelle(BIST_100),
+            "ABD Büyük Teknoloji": list(ABD_HİSSELERİ),
+        }
+    )
+
+
 @api_router.get(
     "/scan/jobs/{job_id}",
     response_model=ScanJobStatusResponse,
@@ -505,3 +524,4 @@ def performance_scorecard(
         bos_mesaj=paket["bos_mesaj"],
         kayit_adedi=len(paket["karne_df"]),
     )
+
