@@ -120,6 +120,7 @@ export function AccountPage() {
   const signedIn = Boolean(user);
 
   return <main className="account-page" aria-label="Gizlilik ve hesap merkezi">
+    <div className="account-path"><a href="/">← Piyasa Merkezi</a><span>Hesap / Gizlilik ve güvenlik</span></div>
     <section className="account-page-hero">
       <div><p className="eyebrow">GÜVEN & ŞEFFAFLIK</p><h1>Gizlilik & Hesap</h1><p className="account-muted">Yasal metinleri incele, sürümlü onayını yönet, verilerini indir veya hesabını kalıcı olarak sil.</p></div>
       <div className="account-identity-card">
@@ -134,7 +135,7 @@ export function AccountPage() {
       ] as Array<[Tab, string]>).map(([key, label]) => <button className={tab === key ? "active" : ""} key={key} onClick={() => { setTab(key); setMessage(""); }}>{label}</button>)}
     </nav>
 
-    {message && <div className="account-message" role="status">{message}</div>}
+    {message && <div className="account-status" role="status" aria-live="polite">{message}</div>}
 
     <section className="account-layout">
       <article className="account-panel account-main-panel">
