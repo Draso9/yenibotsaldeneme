@@ -20,7 +20,12 @@ def test_market_center_reuses_existing_rankings_without_html():
     assert package["empty"] is False
     assert package["best_ticker"] == "THYAO.IS"
     assert package["top_signals"][0]["ticker"] == "THYAO.IS"
+    assert package["top_signals"][0]["mtf"] == 75
     assert package["movers"][0]["ticker"] == "AKBNK.IS"
+    assert package["movers"][0]["degisim"] == -3.0
+    assert package["decision"]["alim_tarafi"] == 1
+    assert package["decision"]["teyit"] == 1
+    assert package["metrics"]["flow"] == 50
     assert "center_html" not in package
 
 
@@ -33,4 +38,3 @@ def test_stock_detail_contract_is_native_and_returns_none_for_unknown_ticker():
     assert detail["action"]["signal"] == "GÜÇLÜ AL"
     assert "teknik_panel_html" not in detail
     assert hisse_detay_paketi_hazirla("missing", rows, panels) is None
-

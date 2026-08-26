@@ -21,7 +21,10 @@ function tickerOf(item: Record<string, unknown> | undefined): string {
 }
 
 function numeric(value: unknown): number { const parsed = Number(value); return Number.isFinite(parsed) ? parsed : -Infinity; }
-const DECISION_LABELS: Record<string, string> = { yon: "Yön", guven: "Güven", gerekce: "Gerekçe", risk: "Risk", tetikleyici: "Tetikleyici" };
+function signedPct(value: unknown): string { const parsed = Number(value); return Number.isFinite(parsed) ? `${parsed >= 0 ? "+" : ""}${parsed.toLocaleString("tr-TR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%` : "—"; }
+function decisionCount(value: unknown): string { const parsed = Number(value); return Number.isFinite(parsed) ? String(parsed) : "0"; }
+function factorWidth(value: unknown): string { const parsed = Number(value); return `${Math.max(0, Math.min(100, Number.isFinite(parsed) ? parsed : 0))}%`; }
+const DECISION_LABELS: Record<string, string> = { karar: "Karar", guven: "Güven", mtf_uyum: "MTF uyumu", risk: "Risk", giris_puani: "Giriş" };
 
 export function MarketCenterPanel({ jobId }: Readonly<{ jobId: string }>) {
   const { user, getIdToken } = useIzfinAuth();
@@ -98,24 +101,21 @@ export function MarketCenterPanel({ jobId }: Readonly<{ jobId: string }>) {
     {error && <p role="alert">{error}</p>}
     {center?.empty && <p className="market-center-state">Bu taramada Piyasa Merkezi için gösterilecek sonuç bulunamadı.</p>}
     {center && !center.empty && <>
-      <div className="scan-metrics market-metrics">
-        <span><b>{text(center.metrics.pulse)}</b> pulse</span>
-        <span><b>{text(center.metrics.trend)}</b> trend</span>
-        <span><b>{text(center.metrics.momentum)}</b> momentum</span>
-        <span><b>{text(center.metrics.risk)}</b> risk</span>
-      </div>
-      <div className="market-mode"><span>Piyasa modu</span><strong>{text(center.decision.mod)}</strong><p>{text(center.decision.yorum)}</p></div>
+      <div className="market-decision-head"><div><p className="eyebrow">IZFIN KARAR MERKEZİ</p><h3>Son Tarama Özeti</h3><small>{text(center.metrics.kaynak)} · Son taranan evrene göre</small></div><strong className={`market-mode-badge is-${text(center.decision.mod_cls, "neutral")}`}>{text(center.decision.mod)} · {text(center.metrics.pulse)}/100</strong></div>
+      <div className="market-decision-kpis"><span><b>{decisionCount(center.decision.alim_tarafi)}</b>ALIM TARAFI<small>AL / Güçlü AL</small></span><span><b>{decisionCount(center.decision.guclu_al)}</b>GÜÇLÜ SETUP<small>yüksek öncelik</small></span><span><b>{decisionCount(center.decision.teyit)}</b>TEYİT BEKLEYEN<small>henüz tamamlanmadı</small></span><span><b>{decisionCount(center.decision.yuksek_risk)}</b>YÜKSEK RİSK<small>dikkat gerektiriyor</small></span></div>
+      <div className="market-factor-grid">{[["TREND", center.metrics.trend], ["MOMENTUM", center.metrics.momentum], ["PARA AKIŞI", center.metrics.flow], ["RİSK", center.metrics.risk]].map(([name, value]) => <div key={String(name)}><span>{text(name)}<b>{text(value)}</b></span><i><em style={{ width: factorWidth(value) }} /></i></div>)}</div>
+      <div className="market-system-comment"><span>SİSTEM YORUMU</span><p>{text(center.decision.yorum)}</p></div>
       <div className="market-columns">
         <div className="market-signals">
-          <div className="subsection-title"><span>LISTENDE DIKKAT ÇEKENLER</span><b>{center.top_signals.length}</b></div>
+          <div className="subsection-title"><span>Listende dikkat çekenler</span><b>{center.top_signals.length}</b></div>
           <div className="market-sort" aria-label="Sonuç sırası"><span>Sonuç sırası</span><button className={sortBy === "score" ? "active" : ""} type="button" onClick={() => setSortBy("score")}>Skor</button><button className={sortBy === "risk" ? "active" : ""} type="button" onClick={() => setSortBy("risk")}>Risk</button></div>
           <div className="market-signal-table" role="table" aria-label="Listende dikkat çekenler">
-            <div className="market-signal-head" role="row"><span>Sembol</span><span>Fiyat</span><span>IZFIN kararı</span><span>Skor</span><span>Güven</span></div>
+            <div className="market-signal-head" role="row"><span>Sembol</span><span>Fiyat</span><span>IZFIN kararı</span><span>Skor</span><span>Güven</span><span>MTF</span><span>Risk</span></div>
             {sortedSignals.slice(0, 7).map((item, index) => {
               const ticker = tickerOf(item);
-              if (!ticker) return <div className="market-signal-row" role="row" key={`missing-${index}`}><strong>Sembol</strong><span>—</span><span>{text(item.sinyal)}</span><span>{text(item.skor)}</span><span>{text(item.guven)}</span></div>;
+              if (!ticker) return null;
               return <a className="market-signal-row" role="row" href={stockDetailHref(jobId, ticker)} key={`${ticker}-${index}`}>
-                <strong>{ticker}</strong><span>{text(item.fiyat ?? item.price)}</span><span>{text(item.sinyal)}</span><span>{text(item.skor)}</span><span>{text(item.guven)}</span>
+                <strong>{ticker}</strong><span>{text(item.fiyat ?? item.price)}</span><span>{text(item.sinyal)}</span><span>{text(item.skor)}</span><span>%{text(item.guven)}</span><span>%{text(item.mtf)}</span><span>{text(item.risk)}</span>
               </a>;
             })}
           </div>
@@ -127,7 +127,7 @@ export function MarketCenterPanel({ jobId }: Readonly<{ jobId: string }>) {
             {!detail && !detailError && <p>Detay yükleniyor…</p>}
             {detailError && <p role="alert">{detailError}</p>}
             {detail && <>
-              <div className="focus-kv"><span>Fiyat<b>{text(detail.price)}</b></span><span>Sinyal<b>{text(detail.signal)}</b></span><span>Skor<b>{text(detail.score.nihai)}</b></span><span>Giriş<b>{text(detail.entry_quality)}</b></span></div>
+              <div className="focus-kv"><span>IZFIN Skor<b>{text(detail.score.nihai)}</b></span><span>Güven<b>%{text(detail.decision.guven)}</b></span><span>MTF<b>%{text(detail.decision.mtf_uyum)}</b></span><span>Risk<b>{text(detail.decision.risk)}</b></span></div><p className="market-focus-signal">{text(detail.signal)}</p>
               <a className="detail-open" href={stockDetailHref(jobId, selectedTicker)}>Detaylı analizi aç →</a>
               <button className="watchlist-add" type="button" onClick={() => void addSelectedToWatchlist()}>Takip listene ekle</button>
               {watchlistMessage && <p className="watchlist-message" aria-live="polite">{watchlistMessage}</p>}
@@ -136,7 +136,8 @@ export function MarketCenterPanel({ jobId }: Readonly<{ jobId: string }>) {
           </> : <p>Öne çıkan hisse bulunamadı.</p>}
         </div>
       </div>
-      {center.movers.length > 0 && <section className="market-movers" aria-label="Günlük Büyük Hareketler"><div className="subsection-title"><span>GÜNLÜK BÜYÜK HAREKETLER</span><b>HAREKETLİLER</b></div><p>{center.movers.slice(0, 6).map((item) => tickerOf(item)).filter(Boolean).join("  ·  ")}</p></section>}
+      {center.movers.length > 0 && <section className="market-movers" aria-label="Günlük Büyük Hareketler"><div className="subsection-title"><span>Günlük Büyük Hareketler</span><b>HAREKETLİLER</b></div><div className="market-mover-table"><div><span>VARLIK</span><span>FİYAT</span><span>DEĞİŞİM</span></div>{center.movers.slice(0, 6).map((item, index) => { const ticker = tickerOf(item); const change = numeric(item.degisim); if (!ticker) return null; return <a href={stockDetailHref(jobId, ticker)} key={`${ticker}-${index}`}><b>{ticker}</b><span>{text(item.fiyat)}</span><strong className={change >= 0 ? "positive" : "negative"}>{signedPct(item.degisim)}</strong></a>; })}</div></section>}
+      <p className="market-disclosure">Piyasa modu tüm piyasanın resmi breadth göstergesi değildir; IZFIN’in son taramada analiz ettiği listenin teknik bileşiminden üretilir.</p>
     </>}
   </section>;
 }
