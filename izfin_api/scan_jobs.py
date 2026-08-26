@@ -108,6 +108,20 @@ class ScanJobStore:
         ).start()
         return created
 
+    def submit_inline(self, owner_uid: str, tickers: Sequence[str], runner: Callable[..., Mapping[str, Any]]) -> ScanJobSnapshot:
+        """Run while the HTTP request owns CPU (request-based Cloud Run safety)."""
+        normalized = tuple(str(ticker).strip().upper() for ticker in tickers if str(ticker).strip())
+        record = _ScanJobRecord(job_id=str(uuid4()), owner_uid=str(owner_uid), tickers=normalized, created_at=datetime.now(timezone.utc).isoformat())
+        with self._lock:
+            self._prune_terminal_records()
+            active = sum(item.status in {"queued", "running"} for item in self._records.values())
+            if active >= self._max_active_jobs or len(self._records) >= self._max_records:
+                raise ScanJobCapacityError("Tarama kuyruğu şu anda dolu.")
+            self._records[record.job_id] = record
+            self._persist(record)
+        self._execute(record.job_id, runner)
+        return self.get_for_owner(record.job_id, owner_uid) or record.snapshot()
+
     def get_for_owner(self, job_id: str, owner_uid: str) -> ScanJobSnapshot | None:
         with self._lock:
             record = self._records.get(str(job_id))
@@ -280,3 +294,4 @@ class ScanJobStore:
             record.stage = "interrupted"
             record.error = "Tarama işlemi uygulama yeniden başlatıldığı için tamamlanamadı."
             self._persist(record)
+

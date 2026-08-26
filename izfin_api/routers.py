@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import os
+
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 
 from izfin_core.market_universe import ABD_HİSSELERİ, BIST_30, BIST_100, bist_ticker_listesi_guncelle
@@ -419,7 +421,10 @@ def create_scan_job(
             detail="Tarama sağlayıcıları henüz yapılandırılmadı.",
         )
     try:
-        snapshot = runtime.scan_job_store.submit(identity.uid, payload.tickers, runtime.scan_runner)
+        # Cloud Run request-based CPU is not guaranteed after a 202 response.
+        # K_SERVICE is injected by Cloud Run; keep that production request open.
+        submit = runtime.scan_job_store.submit_inline if os.getenv("K_SERVICE") else runtime.scan_job_store.submit
+        snapshot = submit(identity.uid, payload.tickers, runtime.scan_runner)
     except ScanJobCapacityError as error:
         raise HTTPException(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
@@ -564,6 +569,7 @@ def performance_scorecard(
         bos_mesaj=paket["bos_mesaj"],
         kayit_adedi=len(paket["karne_df"]),
     )
+
 
 
 
