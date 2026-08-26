@@ -141,4 +141,3 @@ export function MarketCenterPanel({ jobId }: Readonly<{ jobId: string }>) {
     </>}
   </section>;
 }
-
