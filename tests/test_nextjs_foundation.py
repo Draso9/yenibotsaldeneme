@@ -13,11 +13,10 @@ def test_nextjs_client_is_isolated_from_streamlit_shell() -> None:
     assert (web_root / "app" / "layout.tsx").is_file()
 
 
-def test_nextjs_landing_page_targets_versioned_api_health_endpoint() -> None:
+def test_nextjs_landing_page_keeps_internal_health_out_of_product_navigation() -> None:
     page = (PROJECT_ROOT / "web" / "app" / "page.tsx").read_text(encoding="utf-8")
 
-    assert "NEXT_PUBLIC_IZFIN_API_URL" in page
-    assert "/api/v1/health" in page
+    assert "Sistem durumunu aç" not in page
     assert "app2.py" not in page
 
 

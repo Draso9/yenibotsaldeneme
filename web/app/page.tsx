@@ -4,8 +4,6 @@ import { Dashboard } from "../components/dashboard";
 import { MarketStrip } from "../components/market-strip";
 import { ScanWorkspace } from "../components/scan-workspace";
 
-const apiBaseUrl = process.env.NEXT_PUBLIC_IZFIN_API_URL ?? "https://izfin-api-469145462773.europe-west1.run.app";
-
 export default function Home() {
   return (
     <main id="top" className="command-page">
@@ -20,7 +18,6 @@ export default function Home() {
           </p>
           <div className="actions">
             <a className="primary" href="#akilli-tarama">Taramayı başlat <span>→</span></a>
-            <a className="secondary" href={`${apiBaseUrl}/api/v1/health`} target="_blank" rel="noreferrer">Sistem durumunu aç</a>
           </div>
         </div>
         <aside className="hero-system" aria-label="IZFIN platform özeti">

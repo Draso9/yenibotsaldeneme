@@ -86,14 +86,14 @@ export function MarketCenterPanel({ jobId }: Readonly<{ jobId: string }>) {
       <div className="market-mode"><span>Piyasa modu</span><strong>{text(center.decision.mod)}</strong><p>{text(center.decision.yorum)}</p></div>
       <div className="market-columns">
         <div className="market-signals">
-          <div className="subsection-title"><span>ÖNE ÇIKAN SİNYALLER</span><b>{center.top_signals.length}</b></div>
-          <div className="result-list">
+          <div className="subsection-title"><span>LISTENDE DIKKAT ÇEKENLER</span><b>{center.top_signals.length}</b></div>
+          <div className="market-signal-table" role="table" aria-label="Listende dikkat çekenler">
+            <div className="market-signal-head" role="row"><span>Sembol</span><span>Fiyat</span><span>IZFIN kararı</span><span>Skor</span><span>Güven</span></div>
             {center.top_signals.slice(0, 7).map((item, index) => {
               const ticker = tickerOf(item);
-              if (!ticker) return <div key={`missing-${index}`}><strong>Sembol</strong><span>{text(item.sinyal)}</span></div>;
-              return <a href={stockDetailHref(jobId, ticker)} key={`${ticker}-${index}`}>
-                <strong>{ticker}</strong>
-                <span>{text(item.sinyal)} · skor {text(item.skor)} · güven {text(item.guven)}</span>
+              if (!ticker) return <div className="market-signal-row" role="row" key={`missing-${index}`}><strong>Sembol</strong><span>—</span><span>{text(item.sinyal)}</span><span>{text(item.skor)}</span><span>{text(item.guven)}</span></div>;
+              return <a className="market-signal-row" role="row" href={stockDetailHref(jobId, ticker)} key={`${ticker}-${index}`}>
+                <strong>{ticker}</strong><span>{text(item.fiyat ?? item.price)}</span><span>{text(item.sinyal)}</span><span>{text(item.skor)}</span><span>{text(item.guven)}</span>
               </a>;
             })}
           </div>
@@ -111,7 +111,7 @@ export function MarketCenterPanel({ jobId }: Readonly<{ jobId: string }>) {
           </> : <p>Öne çıkan hisse bulunamadı.</p>}
         </div>
       </div>
-      {center.movers.length > 0 && <p className="market-movers">Hareketliler · {center.movers.slice(0, 6).map((item) => tickerOf(item)).filter(Boolean).join("  ·  ")}</p>}
+      {center.movers.length > 0 && <section className="market-movers" aria-label="Günlük Büyük Hareketler"><div className="subsection-title"><span>GÜNLÜK BÜYÜK HAREKETLER</span><b>HAREKETLİLER</b></div><p>{center.movers.slice(0, 6).map((item) => tickerOf(item)).filter(Boolean).join("  ·  ")}</p></section>}
     </>}
   </section>;
 }

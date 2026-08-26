@@ -35,7 +35,11 @@
 .subsection-title { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .subsection-title span { color: #647b8c; font-size: 8px; font-weight: 850; letter-spacing: .11em; }
 .subsection-title b { color: #526b7d; font-size: 8px; }
-.market-signals .result-list { margin-top: 10px; }
+.market-signal-table { margin-top: 10px; overflow-x: auto; }
+.market-signal-head, .market-signal-row { min-width: 500px; display: grid; grid-template-columns: 1.1fr .9fr 1.5fr .7fr .7fr; gap: 9px; align-items: center; }
+.market-signal-head { padding: 0 8px 7px; color: var(--muted-2); font-size: 8px; font-weight: 850; letter-spacing: .06em; text-transform: uppercase; }
+.market-signal-row { min-height: 44px; padding: 8px; border-top: 1px solid rgba(75,111,139,.12); color: var(--muted); font-size: 10px; text-decoration: none; }
+.market-signal-row:hover { background: rgba(96,226,180,.045); }.market-signal-row strong { color: var(--text); }.market-signal-row span:nth-child(3) { color: var(--iz-accent); }
 .market-focus-card { display: flex; flex-direction: column; }
 .market-focus-card h3 { margin: 22px 0 16px; color: #edf7f3; font-size: clamp(1.7rem, 3vw, 2.7rem); letter-spacing: -.05em; }
 .market-focus-card > p { color: var(--muted); font-size: 10px; }
@@ -43,7 +47,8 @@
 .focus-kv span { min-height: 54px; display: flex; flex-direction: column; justify-content: space-between; padding: 9px; border: 1px solid rgba(75,111,139,.12); border-radius: 8px; background: #0a131d; color: #607889; font-size: 8px; font-weight: 800; text-transform: uppercase; }
 .focus-kv b { color: #d8e7e1; font-size: 11px; text-transform: none; }
 .market-focus-card .detail-open { margin-top: auto; padding-top: 16px; }
-.market-movers { margin: 12px 2px 0; color: #61798a; font-size: 9px; letter-spacing: .02em; }
+.market-movers { margin-top: 10px; padding: 14px; border: 1px solid rgba(75,111,139,.14); border-radius: 11px; background: rgba(9,17,25,.68); }
+.market-movers p { margin: 10px 0 0; color: #8aa0af; font-size: 10px; letter-spacing: .02em; }
 
 @media (max-width: 900px) {
   .market-columns { grid-template-columns: 1fr; }
