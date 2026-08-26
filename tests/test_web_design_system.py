@@ -99,3 +99,16 @@ def test_performance_keeps_period_context_and_separates_data_states():
     assert 'aria-live="polite"' in performance
     assert "Ölçüm kapsamı" in performance
     assert "performance-status" in css
+
+
+def test_strategy_lab_exposes_configuration_run_and_result_lifecycle():
+    """A backtest surface needs an explicit lifecycle, not an unexplained one-shot form."""
+    strategy = _read("web/components/strategy-lab-page.tsx")
+    css = _read("web/app/strategy-lab.css")
+
+    assert "strategy-path" in strategy
+    assert "strategy-symbol-suggestions" in strategy
+    assert 'aria-live="polite"' in strategy
+    assert "Yeni test başlat" in strategy
+    assert "Sonuç kapsamı" in strategy
+    assert "strategy-status" in css
