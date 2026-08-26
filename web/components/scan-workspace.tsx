@@ -1,7 +1,7 @@
 "use client";
 
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
-import { izfinApiFetch, izfinApiStream } from "../lib/api";
+import { IzfinApiError, isRetryableApiError, izfinApiFetch, izfinApiStream } from "../lib/api";
 import { useIzfinAuth } from "./auth-provider";
 import { MarketCenterPanel } from "./market-center";
 import { stockDetailHref } from "../lib/stock-detail-route";
@@ -44,6 +44,7 @@ export function ScanWorkspace() {
   const [activeFilter, setActiveFilter] = useState<ResultFilter>("Tümü");
   const [guideDismissed, setGuideDismissed] = useState(false);
   const [scanStarting, setScanStarting] = useState(false);
+  const [retryableError, setRetryableError] = useState(false);
 
   const recoverActiveJob = useCallback((items: ScanHistoryItem[]) => {
     if (job) return;
@@ -51,6 +52,7 @@ export function ScanWorkspace() {
     if (!activeJob) return;
     setJob(activeJob);
     setError("");
+    setRetryableError(false);
   }, [job]);
 
   const loadHistory = useCallback(async () => {
@@ -98,10 +100,14 @@ export function ScanWorkspace() {
   function addSelectedSuggestion() { if (selectedSuggestion) void replaceWatchlist([...(watchlist?.tickers ?? []), selectedSuggestion.symbol]); }
   function removeSymbol(value: string) { void replaceWatchlist((watchlist?.tickers ?? []).filter((item) => item !== value)); }
   async function submit() {
-    setError(""); setActiveFilter("Tümü"); if (!universe?.tickers.length) { setError("Taramayı başlatmadan önce en az bir varlık seçin."); return; }
+    setError(""); setRetryableError(false); setActiveFilter("Tümü"); if (!universe?.tickers.length) { setError("Taramayı başlatmadan önce en az bir varlık seçin."); return; }
     setScanStarting(true);
     try { const token = await getIdToken(); if (!token) return; const completed = await izfinApiStream<ScanJob>("/api/v1/scan/jobs/stream", token, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ tickers: universe.tickers }) }, setJob); setJob(completed); void loadHistory(); }
-    catch { setError("Canlı tarama bağlantısı kesildi. Devam eden iş geçmişten geri yükleniyor…"); void loadHistory(); } finally { setScanStarting(false); }
+    catch (caught) {
+      if (caught instanceof IzfinApiError && isRetryableApiError(caught)) { setError(caught.message); setRetryableError(true); }
+      else { setError("Canlı tarama bağlantısı kesildi. Devam eden iş geçmişten geri yükleniyor…"); }
+      void loadHistory();
+    } finally { setScanStarting(false); }
   }
   async function openHistoryJob(jobId: string) { try { const token = await getIdToken(); if (!token) return; setJob(await izfinApiFetch<ScanJob>(`/api/v1/scan/jobs/${jobId}`, token)); document.getElementById("scan-result")?.scrollIntoView({ behavior: "smooth", block: "start" }); } catch { setError("Bu tarama sonucu artık açılamıyor."); } }
   function dismissGuide() { if (user) window.localStorage.setItem(`izfin:first-scan-guide:${user.uid}`, "done"); setGuideDismissed(true); }
@@ -114,7 +120,7 @@ export function ScanWorkspace() {
     {!guideDismissed && !job && history.length === 0 && watchlist && <FirstScanGuide tickerCount={watchlist.tickers.length} onDismiss={dismissGuide} />}
     <div id="scan-control" className="scan-control-grid"><section className="scan-control-card"><p className="eyebrow">KİŞİSEL LİSTE</p><h3>Kişisel Listemi Yönet</h3><p>Kalıcı takip listen, Kendi Listem profilinin tarama evrenidir.</p>{watchlist ? <><form className="symbol-search-form" onSubmit={findSymbols}><label>Hisse / şirket ara<input value={symbolSearch} onChange={(event) => setSymbolSearch(event.target.value)} placeholder="Örn. APP, Apple, NVDA, THYAO..." /></label><button type="submit" disabled={searchingSymbols}>{searchingSymbols ? "Aranıyor…" : "Ara"}</button></form>{searchedQuery && !searchingSymbols && <p className="symbol-search-meta">{suggestions.length ? `🔎 ${suggestions.length} eşleşme bulundu` : "Bu aramayla eşleşen piyasa sembolü bulunamadı."}</p>}{suggestions.length > 0 && <div className="symbol-suggestions" aria-label="Arama sonuçları">{suggestions.map((item) => <button className={selectedSuggestion?.symbol === item.symbol ? "active" : ""} key={`${item.symbol}-${item.exchange}`} type="button" onClick={() => setSelectedSuggestion(item)}><b>{item.symbol}</b><span>{item.name || "Piyasa sembolü"}</span><small>{[item.exchange, item.quote_type].filter(Boolean).join(" · ")}</small></button>)}</div>}{selectedSuggestion && <div className="symbol-selection-preview"><div><b>{selectedSuggestion.symbol}</b><span>{selectedSuggestion.name || "Piyasa sembolü"}</span></div><button type="button" disabled={watchlist.tickers.includes(selectedSuggestion.symbol)} onClick={addSelectedSuggestion}>{watchlist.tickers.includes(selectedSuggestion.symbol) ? "Listende" : `＋ ${selectedSuggestion.symbol} Listeme Ekle`}</button></div>}<div className="ticker-list">{watchlist.tickers.map((item) => <button key={item} type="button" onClick={() => removeSymbol(item)} aria-label={`${item} sembolünü listeden sil`}>{item} <span>×</span></button>)}</div><form className="watchlist-form scan-watchlist-form" onSubmit={addSymbol}><label>Sembol ekle<input value={symbolDraft} onChange={(event) => setSymbolDraft(event.target.value)} placeholder="örn. THYAO.IS" /></label><button type="submit">Manuel ekle</button></form></> : <p className="scan-empty">Kişisel liste yükleniyor…</p>}</section>
       <section className="scan-control-card"><p className="eyebrow">TARAMA EVRENİ</p><h3>Evreni hazırla ve taramayı başlat</h3><label className="scan-profile-label">Profil<select value={profile} onChange={(event) => setProfile(event.target.value)}><option>Kendi Listem</option>{Object.keys(profiles).map((name) => <option key={name}>{name}</option>)}</select></label><div className="active-universe"><span>AKTİF TARAMA EVRENİ</span><strong>{universe?.profil ?? profile}</strong><b>{universe?.secim_ozeti.varlik_adedi ?? 0} VARLIK</b></div>{universe?.chipleri_goster && <div className="scan-universe-chips">{universe.tickers.map((item) => <span key={item}>{item}</span>)}</div>}<button className="scan-launch" disabled={running || !universe?.tickers.length} type="button" onClick={() => void submit()}>{running ? "Tarama sürüyor…" : "AKILLI TARAMAYI BAŞLAT"}</button><small>Tarama; IZFIN skor, güven, giriş kalitesi, MTF, risk ve para akışı katmanlarını birlikte çalıştırır.</small></section></div>
-    {running && <ScanOverlay job={job} total={universe?.tickers.length ?? 0} />}{error && <p role="alert">{error}</p>}{job && !running && <p className="job-progress" aria-live="polite">Durum: <strong>{job.stage}</strong> · {job.completed}/{job.total}</p>}{job?.status === "failed" && <p role="alert">{job.error ?? "Tarama tamamlanamadı."}</p>}{job?.status === "completed" && job.result && <><ScanResult jobId={job.job_id} summary={job.result} activeFilter={activeFilter} onFilterChange={setActiveFilter} /><MarketCenterPanel jobId={job.job_id} /></>}
+    {running && <ScanOverlay job={job} total={universe?.tickers.length ?? 0} />}{error && <div className="scan-service-error" role="alert"><span>{error}</span>{retryableError && <button type="button" disabled={running} onClick={() => void submit()}>Tekrar dene</button>}</div>}{job && !running && <p className="job-progress" aria-live="polite">Durum: <strong>{job.stage}</strong> · {job.completed}/{job.total}</p>}{job?.status === "failed" && <p role="alert">{job.error ?? "Tarama tamamlanamadı."}</p>}{job?.status === "completed" && job.result && <><ScanResult jobId={job.job_id} summary={job.result} activeFilter={activeFilter} onFilterChange={setActiveFilter} /><MarketCenterPanel jobId={job.job_id} /></>}
     <aside className="scan-history" aria-label="Tarama geçmişi"><div className="scan-history-head"><div><p className="eyebrow">KAYITLI TARAMALAR</p><h3>Tarama geçmişi</h3></div><button type="button" onClick={() => void loadHistory()}>Yenile</button></div>{historyError ? <p role="alert">{historyError}</p> : history.length === 0 ? <p className="scan-empty">Henüz kaydedilmiş bir taraman yok. İlk sonucu burada yeniden açabilirsin.</p> : <div className="scan-history-list">{history.map((item) => <button key={item.job_id} type="button" onClick={() => void openHistoryJob(item.job_id)}><span><b>{item.tickers.join(", ") || "Sembol grubu"}</b><small>{formatHistoryTime(item.created_at)} · {item.total} sembol</small></span><span className={`scan-history-status is-${item.status}`}>{item.status === "completed" ? "Hazır" : item.status === "failed" ? "Tamamlanamadı" : "Sürüyor"}</span><em>Son taramayı aç →</em></button>)}</div>}</aside>
   </section>;
 }
@@ -146,6 +152,5 @@ function ScanResult({ jobId, summary, activeFilter, onFilterChange }: Readonly<{
   function updateSort(column: string) { setSort((current) => ({ column, direction: current.column === column && current.direction === "desc" ? "asc" : "desc" })); }
   return <div id="scan-result" className={`scan-result scan-summary${focusMode ? " is-focus" : ""}`} aria-label="Tarama sonucu"><div className="scan-result-header"><div><p className="eyebrow">TARAMA SONUCU</p><h3>Akıllı Tarama Sonuçları</h3></div><div className="scan-result-actions"><button type="button" onClick={() => setFocusMode((value) => !value)}>{focusMode ? "↙ Geniş Görünümden Çık" : "⛶ Tabloyu Genişlet"}</button><span>{summary.sonuclar.length} sembol</span></div></div>{focusMode && <div className="scan-focus-meta"><b>Geniş sonuç görünümü</b><span>{results.length} sonuç · {activeFilter} filtresi · bir sütuna dokunarak sırala</span></div>}<div className="scan-metrics"><span><b>{summary.sonuclar.length}</b>Taranan Varlık</span><span><b>{summary.boga_sayisi}</b>Boğa Trendinde (200G)</span><span><b>{summary.alim_firsati}</b>Alım Fırsatları & Kırılımlar</span></div><div className="result-filter" aria-label="Gösterilecek sonuçlar"><span>Gösterilecek sonuçlar</span>{filters.map((filter) => <button className={activeFilter === filter ? "active" : ""} key={filter} type="button" onClick={() => onFilterChange(filter)}>{filter}</button>)}</div><p className="scan-filter-summary">{results.length} sonuç gösteriliyor · Filtre: {activeFilter}</p>{summary.basarisiz_taramalar.length > 0 && <p>Veri/hesaplama sorunu nedeniyle es geçilen varlıklar: {summary.basarisiz_taramalar.join(", ")}</p>}{summary.sonuclar.length === 0 ? <p className="scan-empty">Veriler çekilemedi. Farklı bir profil veya varlık grubu seçip tekrar deneyin.</p> : results.length === 0 ? <p className="scan-empty">Bu filtreye uyan sonuç yok. Diğer filtrelerden birini seçebilir veya taramayı daha sonra yenileyebilirsin.</p> : <div className="scan-result-table-wrap"><table className="scan-result-table"><thead><tr>{resultColumns.map((column) => <th key={column}><button type="button" onClick={() => updateSort(column)}>{column} <span>{sort.column === column ? (sort.direction === "asc" ? "↑" : "↓") : "↕"}</span></button></th>)}</tr></thead><tbody>{results.map((row, index) => { const symbol = ticker(row); return <tr key={`${symbol}-${index}`}>{resultColumns.map((column) => <td key={column} className={column === "Nihai Sinyal" ? "scan-signal-cell" : ""}>{column === "Varlık" && symbol ? <a href={stockDetailHref(jobId, symbol)}>{symbol}</a> : String(row[column] ?? "—")}</td>)}</tr>; })}</tbody></table></div>}</div>;
 }
-
 
 
