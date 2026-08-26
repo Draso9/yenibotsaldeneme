@@ -18,10 +18,11 @@ def test_admin_quality_requires_admin(monkeypatch):
 
 def test_admin_quality_returns_quality_snapshot(monkeypatch):
     monkeypatch.setenv("IZFIN_ADMIN_EMAILS", "admin@example.com")
-    client = TestClient(create_app(verify_id_token=_verify))
+    client = TestClient(create_app(verify_id_token=_verify, app_release="v1.8.19-web"))
     response = client.get("/api/v1/admin/quality", headers={"Authorization": "Bearer admin-token"})
     assert response.status_code == 200
     payload = response.json()
+    assert payload["app_release"] == "v1.8.19-web"
     assert payload["status"]["durum"]
     assert payload["status"]["seviye"] in {"success", "warning"}
     assert "css_satir" in payload["metrics"]
