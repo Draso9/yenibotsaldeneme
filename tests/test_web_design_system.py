@@ -112,3 +112,14 @@ def test_strategy_lab_exposes_configuration_run_and_result_lifecycle():
     assert "Yeni test başlat" in strategy
     assert "Sonuç kapsamı" in strategy
     assert "strategy-status" in css
+
+
+def test_account_keeps_sensitive_actions_and_legal_states_explicit():
+    """Account operations need visible context without weakening the existing safety boundary."""
+    account = _read("web/components/account-page.tsx")
+    css = _read("web/app/account.css")
+
+    assert "account-path" in account
+    assert "account-status" in account
+    assert "Hesap işlemleri Firebase ID token ile doğrulanır" in account
+    assert "account-status" in css
