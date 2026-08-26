@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import json
+import math
 from threading import Event
 from time import monotonic, sleep
 
@@ -286,6 +288,15 @@ class FakeJobRepository:
         return sorted(records, key=lambda item: item.get("created_at", ""), reverse=True)[:limit]
 
 
+class FirestoreShapeRepository(FakeJobRepository):
+    """Reject raw result maps like Firestore did in the production incident."""
+
+    def upsert_job(self, job_id, data):
+        if data.get("result") is not None:
+            raise ValueError("Property result contains an invalid nested entity")
+        super().upsert_job(job_id, data)
+
+
 def test_scan_job_persists_result_and_can_be_read_after_store_restart():
     repository = FakeJobRepository()
     first_store = ScanJobStore(job_repository=repository)
@@ -306,6 +317,60 @@ def test_scan_job_persists_result_and_can_be_read_after_store_restart():
     assert restored is not None
     assert restored.status == "completed"
     assert restored.result["sonuclar"] == [{"Varlık": "THYAO.IS"}]
+
+
+def test_cloud_run_result_is_json_safe_before_firestore_persistence():
+    repository = FirestoreShapeRepository()
+    store = ScanJobStore(job_repository=repository)
+
+    completed = store.submit_inline(
+        "uid-1",
+        ["THYAO.IS"],
+        lambda _tickers, progress_callback=None: {
+            "sonuclar": [{"Varlık": "THYAO.IS", "skor": math.nan, "matris": [[1, 2], [3, 4]]}],
+            "teknik_paneller": {"THYAO.IS": {"vwap": math.nan}},
+            "basarisiz_taramalar": [],
+            "boga_sayisi": 1,
+            "alim_firsati": 0,
+        },
+    )
+
+    persisted = repository.jobs[completed.job_id]
+    decoded = json.loads(persisted["result_json"])
+    assert completed.status == "completed"
+    assert "result" not in persisted
+    assert decoded["sonuclar"][0]["skor"] is None
+    assert decoded["sonuclar"][0]["matris"] == [[1, 2], [3, 4]]
+    assert ScanJobStore(job_repository=repository).get_for_owner(completed.job_id, "uid-1").result == decoded
+
+
+def test_persistence_outage_does_not_turn_completed_scan_into_http_failure(monkeypatch):
+    class UnavailableRepository:
+        available = True
+
+        def upsert_job(self, _job_id, _data):
+            raise RuntimeError("firestore unavailable")
+
+    monkeypatch.setenv("K_SERVICE", "izfin-api")
+    client = TestClient(create_app(
+        verify_id_token=lambda _token: {"uid": "uid-1", "email": "user@example.com"},
+        scan_job_store=ScanJobStore(job_repository=UnavailableRepository()),
+        scan_runner=lambda tickers, progress_callback=None: {
+            "sonuclar": [{"Varlık": tickers[0]}],
+            "basarisiz_taramalar": [],
+            "boga_sayisi": 1,
+            "alim_firsati": 0,
+        },
+    ))
+
+    response = client.post(
+        "/api/v1/scan/jobs",
+        headers={"Authorization": "Bearer token"},
+        json={"tickers": ["THYAO.IS"]},
+    )
+
+    assert response.status_code == 202
+    assert response.json()["status"] == "completed"
 
 
 def test_interrupted_persisted_job_is_never_reported_as_still_running_after_restart():
