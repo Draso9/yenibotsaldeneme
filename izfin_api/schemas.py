@@ -40,6 +40,20 @@ class ScanProfilesResponse(BaseModel):
     profiles: dict[str, list[str]] = Field(default_factory=dict)
 
 
+class SymbolSuggestion(BaseModel):
+    """One normalized symbol match from the existing search service."""
+
+    symbol: str
+    name: str = ""
+    exchange: str = ""
+    quote_type: str = ""
+
+
+class SymbolSearchResponse(BaseModel):
+    query: str
+    suggestions: list[SymbolSuggestion] = Field(default_factory=list)
+
+
 class WatchlistTransitionRequest(BaseModel):
     islem_sonucu: dict[str, Any] = Field(default_factory=dict)
 
@@ -245,4 +259,5 @@ class PerformanceScorecardResponse(BaseModel):
     kucuk_orneklem: bool
     bos_mesaj: str | None
     kayit_adedi: int
+
 
