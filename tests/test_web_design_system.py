@@ -30,6 +30,20 @@ def test_design_foundation_exposes_shared_tokens_and_responsive_navigation():
     assert "@media (max-width: 860px)" in css
 
 
+def test_cross_screen_shell_keeps_keyboard_and_landmark_context_consistent():
+    """Every web surface shares one accessible navigation and responsive shell contract."""
+    shell = _read("web/components/app-shell.tsx")
+    polish = _read("web/app/component-polish.css")
+
+    assert 'href="#main-content"' in shell
+    assert 'id="main-content"' in shell
+    assert 'aria-current={active ? "page" : undefined}' in shell
+    assert ":focus-visible" in polish
+    assert ".skip-link" in polish
+    for page_class in (".detail-page", ".projection-page", ".performance-page", ".strategy-page", ".account-page"):
+        assert page_class in polish
+
+
 def test_market_strip_reports_loading_and_error_without_fake_quotes():
     """Unavailable market data must stay visible without fabricated market cards."""
     source = _read("web/components/market-strip.tsx")
@@ -203,6 +217,7 @@ def test_account_keeps_sensitive_actions_and_legal_states_explicit():
     assert "account-status" in account
     assert "Hesap işlemleri Firebase ID token ile doğrulanır" in account
     assert "account-status" in css
+
 
 
 

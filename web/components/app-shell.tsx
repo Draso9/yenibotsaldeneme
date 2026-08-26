@@ -58,6 +58,7 @@ export function AppShell({ children }: Readonly<{ children: React.ReactNode }>) 
   if (pathname.startsWith("/auth")) return <>{children}</>;
 
   return <div className="app-shell">
+    <a className="skip-link" href="#main-content">Ana içeriğe geç</a>
     <aside className="sidebar">
       <div className="brand">
         <div className="brand-mark" aria-hidden="true"><span>I</span><span>Z</span></div>
@@ -81,7 +82,7 @@ export function AppShell({ children }: Readonly<{ children: React.ReactNode }>) 
                     : item.label === "Piyasa Merkezi"
                       ? pathname === "/" || pathname.startsWith("/stocks/")
                       : false;
-          return <a className={active ? "active" : ""} href={item.href} key={`${item.label}-${index}`}>
+          return <a aria-current={active ? "page" : undefined} className={active ? "active" : ""} href={item.href} key={`${item.label}-${index}`}>
             <i aria-hidden="true">{item.icon}</i><span>{item.label}</span>
           </a>;
         })}
@@ -93,7 +94,7 @@ export function AppShell({ children }: Readonly<{ children: React.ReactNode }>) 
         <span className="sidebar-user">{user?.email ?? "Oturum bekleniyor"}</span>
       </div>
     </aside>
-    <div className="app-content">
+    <main className="app-content" id="main-content" tabIndex={-1}>
       <header className="topbar">
         <div className="topbar-title"><span>IZFIN</span><b>{pageLabel}</b></div>
         <div className="topbar-actions">
@@ -101,7 +102,8 @@ export function AppShell({ children }: Readonly<{ children: React.ReactNode }>) 
         </div>
       </header>
       {children}
-    </div>
+    </main>
   </div>;
 }
+
 
