@@ -81,7 +81,7 @@ def test_scan_and_detail_share_explicit_states_and_detail_handoff():
 
     assert "stockDetailHref" in workspace
     assert 'aria-live="polite"' in workspace
-    assert "Tarama tamamlandı ancak gösterilecek sonuç bulunamadı." in workspace
+    assert "Veriler çekilemedi." in workspace
     assert "Tarama sonucu" in workspace
     assert "detail-status" in detail
     assert "Veri kaynağı" in detail
@@ -97,9 +97,23 @@ def test_scan_workspace_exposes_real_history_and_result_filters():
     assert '"/api/v1/scan/jobs", token' in workspace
     assert "Tarama geçmişi" in workspace
     assert "Son taramayı aç" in workspace
-    assert "Sonuç görünümü" in workspace
+    assert "Gösterilecek sonuçlar" in workspace
     assert "scan-history" in css
     assert "result-filter" in css
+
+
+def test_scan_workspace_uses_api_owned_profiles_and_streamlit_result_columns():
+    """The web shell must display the existing scanner result, not create a second decision model."""
+    workspace = _read("web/components/scan-workspace.tsx")
+
+    assert '"/api/v1/scan/profiles"' in workspace
+    assert '"/api/v1/scan/universe"' in workspace
+    assert "Kişisel Listemi Yönet" in workspace
+    assert "AL Sinyalleri" in workspace
+    assert "Uzun Vadeli Adaylar" in workspace
+    assert "Teyit Bekleyenler" in workspace
+    for column in ("Gelişmiş Skor", "🎯 Giriş Kalitesi", "MTF Uyum", "Para Akışı", "PEG / Değerleme"):
+        assert column in workspace
 
 
 def test_market_center_exposes_sorting_decision_context_and_safe_watchlist_action():
@@ -159,3 +173,4 @@ def test_account_keeps_sensitive_actions_and_legal_states_explicit():
     assert "account-status" in account
     assert "Hesap işlemleri Firebase ID token ile doğrulanır" in account
     assert "account-status" in css
+
