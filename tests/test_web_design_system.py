@@ -91,6 +91,18 @@ def test_scan_workspace_exposes_real_history_and_result_filters():
     assert "result-filter" in css
 
 
+def test_market_center_exposes_sorting_decision_context_and_safe_watchlist_action():
+    """Decision support must use returned score/risk data and the authenticated watchlist API."""
+    market = _read("web/components/market-center.tsx")
+    css = _read("web/app/market-center.css")
+
+    assert "Sonuç sırası" in market
+    assert "Karar bileşenleri" in market
+    assert '"/api/v1/watchlist"' in market
+    assert "Takip listene ekle" in market
+    assert "market-decision-context" in css
+
+
 def test_projection_keeps_job_context_and_explicit_model_states():
     """Projection must disclose its scenario context instead of implying a live price target."""
     projection = _read("web/components/projection-page.tsx")
