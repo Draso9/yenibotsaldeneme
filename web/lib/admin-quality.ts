@@ -20,6 +20,7 @@ export type AdminQualityStatus = {
 };
 
 export type AdminQualityResponse = {
+  app_release: string;
   metrics: AdminQualityMetrics;
   status: AdminQualityStatus;
 };
