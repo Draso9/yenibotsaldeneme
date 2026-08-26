@@ -2,6 +2,7 @@ import { adminQualityPath, type AdminQualityResponse } from "./admin-quality";
 
 const path: "/api/v1/admin/quality" = adminQualityPath();
 const shape: AdminQualityResponse = {
+  app_release: "development",
   metrics: {
     python_satir: 1,
     css_satir: 1,
