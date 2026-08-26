@@ -16,6 +16,7 @@ export type StockDetailResponse = {
   entry_quality?: unknown;
   score: Record<string, unknown>;
   decision: Record<string, unknown>;
+  action: Record<string, unknown>;
   panel: Record<string, unknown>;
 };
 
@@ -34,3 +35,4 @@ export function fetchMarketCenter(jobId: string, idToken: string): Promise<Marke
 export function fetchMarketStockDetail(jobId: string, ticker: string, idToken: string): Promise<StockDetailResponse> {
   return izfinApiFetch<StockDetailResponse>(marketStockJobPath(jobId, ticker), idToken);
 }
+
