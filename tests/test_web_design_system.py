@@ -116,6 +116,20 @@ def test_scan_workspace_uses_api_owned_profiles_and_streamlit_result_columns():
         assert column in workspace
 
 
+def test_first_scan_onboarding_reuses_the_existing_streamlit_decision_reading_flow():
+    """The first-run guide teaches the established scanner flow; it must not invent a decision model."""
+    workspace = _read("web/components/scan-workspace.tsx")
+    css = _read("web/app/globals.css")
+
+    assert "FirstScanGuide" in workspace
+    assert "Bir sonucu 30 saniyede değerlendir" in workspace
+    for marker in ("1 · TARAMA", "2 · KARAR", "3 · TEYİT", "4 · PLAN", "Skorlar karar vermez"):
+        assert marker in workspace
+    assert 'href="#scan-control"' in workspace
+    assert "izfin:first-scan-guide" in workspace
+    assert "first-scan-guide" in css
+
+
 def test_auth_is_a_dedicated_route_with_existing_firebase_lifecycle_and_safe_return():
     auth_page = _read("web/components/auth-page.tsx")
     auth_route = _read("web/app/auth/page.tsx")
@@ -189,5 +203,6 @@ def test_account_keeps_sensitive_actions_and_legal_states_explicit():
     assert "account-status" in account
     assert "Hesap işlemleri Firebase ID token ile doğrulanır" in account
     assert "account-status" in css
+
 
 
