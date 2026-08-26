@@ -21,6 +21,7 @@ from .http_boundary import ApiHttpBoundaryMiddleware, http_exception_handler, un
 from .market_strip_routes import market_strip_router
 from .performance_routes import performance_router
 from .projection_routes import projection_router
+from .readiness_routes import readiness_router
 from .routers import api_router
 from .scan_jobs import ScanJobStore
 
@@ -44,6 +45,7 @@ def create_app(*, verify_id_token: Callable[[str], dict[str, Any]] | None = None
     if allowed_origins:
         app.add_middleware(CORSMiddleware, allow_origins=allowed_origins, allow_credentials=True, allow_methods=["GET", "POST", "PUT", "DELETE"], allow_headers=["Authorization", "Content-Type"])
     app.include_router(api_router)
+    app.include_router(readiness_router)
     app.include_router(market_strip_router)
     app.include_router(account_router)
     app.include_router(projection_router)
