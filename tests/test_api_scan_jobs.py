@@ -68,6 +68,19 @@ def test_scan_job_exposes_ticker_progress_and_completed_summary():
     }
 
 
+def test_authenticated_user_can_read_server_owned_scan_profiles():
+    client = TestClient(
+        create_app(verify_id_token=lambda _token: {"uid": "uid-1", "email": "user@example.com"})
+    )
+
+    response = client.get("/api/v1/scan/profiles", headers={"Authorization": "Bearer valid-token"})
+
+    assert response.status_code == 200
+    assert set(response.json()["profiles"]) == {"BIST 30", "BIST 100", "ABD Büyük Teknoloji"}
+    assert len(response.json()["profiles"]["BIST 30"]) == 30
+    assert len(response.json()["profiles"]["BIST 100"]) == 100
+
+
 def test_scan_job_hides_foreign_owner_and_records_runner_failure():
     def failing_runner(_tickers, progress_callback=None):
         progress_callback({"stage": "data_ready", "total": 1})
@@ -364,3 +377,4 @@ def test_scan_job_history_endpoint_hides_other_users_jobs():
     assert response.json()["jobs"][0]["tickers"] == ["THYAO.IS"]
     assert foreign.status_code == 200
     assert foreign.json()["jobs"] == []
+
