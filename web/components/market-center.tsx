@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { izfinApiFetch } from "../lib/api";
 import {
   fetchMarketCenter,
   fetchMarketStockDetail,
@@ -19,6 +20,9 @@ function tickerOf(item: Record<string, unknown> | undefined): string {
   return text(item?.ticker, "");
 }
 
+function numeric(value: unknown): number { const parsed = Number(value); return Number.isFinite(parsed) ? parsed : -Infinity; }
+const DECISION_LABELS: Record<string, string> = { yon: "Yön", guven: "Güven", gerekce: "Gerekçe", risk: "Risk", tetikleyici: "Tetikleyici" };
+
 export function MarketCenterPanel({ jobId }: Readonly<{ jobId: string }>) {
   const { user, getIdToken } = useIzfinAuth();
   const [center, setCenter] = useState<MarketCenterResponse | null>(null);
@@ -26,6 +30,8 @@ export function MarketCenterPanel({ jobId }: Readonly<{ jobId: string }>) {
   const [detail, setDetail] = useState<StockDetailResponse | null>(null);
   const [error, setError] = useState("");
   const [detailError, setDetailError] = useState("");
+  const [sortBy, setSortBy] = useState<"score" | "risk">("score");
+  const [watchlistMessage, setWatchlistMessage] = useState("");
 
   useEffect(() => {
     if (!user || !jobId) return;
@@ -66,7 +72,22 @@ export function MarketCenterPanel({ jobId }: Readonly<{ jobId: string }>) {
     return () => { active = false; };
   }, [getIdToken, jobId, selectedTicker, user]);
 
+  const sortedSignals = useMemo(() => [...(center?.top_signals ?? [])].sort((left, right) => sortBy === "score" ? numeric(right.skor) - numeric(left.skor) : numeric(left.risk) - numeric(right.risk)), [center, sortBy]);
+
   if (!user) return null;
+
+  async function addSelectedToWatchlist() {
+    if (!selectedTicker) return;
+    setWatchlistMessage("");
+    try {
+      const token = await getIdToken();
+      if (!token) return;
+      const current = await izfinApiFetch<{ tickers: string[] }>("/api/v1/watchlist", token);
+      if (current.tickers.includes(selectedTicker)) { setWatchlistMessage(`${selectedTicker} zaten takip listende.`); return; }
+      await izfinApiFetch("/api/v1/watchlist", token, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ tickers: [...current.tickers, selectedTicker] }) });
+      setWatchlistMessage(`${selectedTicker} takip listene eklendi.`);
+    } catch { setWatchlistMessage("Takip listesi güncellenemedi."); }
+  }
 
   return <section className="market-center-panel" aria-label="Piyasa Merkezi">
     <div className="section-heading market-center-heading">
@@ -87,9 +108,10 @@ export function MarketCenterPanel({ jobId }: Readonly<{ jobId: string }>) {
       <div className="market-columns">
         <div className="market-signals">
           <div className="subsection-title"><span>LISTENDE DIKKAT ÇEKENLER</span><b>{center.top_signals.length}</b></div>
+          <div className="market-sort" aria-label="Sonuç sırası"><span>Sonuç sırası</span><button className={sortBy === "score" ? "active" : ""} type="button" onClick={() => setSortBy("score")}>Skor</button><button className={sortBy === "risk" ? "active" : ""} type="button" onClick={() => setSortBy("risk")}>Risk</button></div>
           <div className="market-signal-table" role="table" aria-label="Listende dikkat çekenler">
             <div className="market-signal-head" role="row"><span>Sembol</span><span>Fiyat</span><span>IZFIN kararı</span><span>Skor</span><span>Güven</span></div>
-            {center.top_signals.slice(0, 7).map((item, index) => {
+            {sortedSignals.slice(0, 7).map((item, index) => {
               const ticker = tickerOf(item);
               if (!ticker) return <div className="market-signal-row" role="row" key={`missing-${index}`}><strong>Sembol</strong><span>—</span><span>{text(item.sinyal)}</span><span>{text(item.skor)}</span><span>{text(item.guven)}</span></div>;
               return <a className="market-signal-row" role="row" href={stockDetailHref(jobId, ticker)} key={`${ticker}-${index}`}>
@@ -107,6 +129,9 @@ export function MarketCenterPanel({ jobId }: Readonly<{ jobId: string }>) {
             {detail && <>
               <div className="focus-kv"><span>Fiyat<b>{text(detail.price)}</b></span><span>Sinyal<b>{text(detail.signal)}</b></span><span>Skor<b>{text(detail.score.nihai)}</b></span><span>Giriş<b>{text(detail.entry_quality)}</b></span></div>
               <a className="detail-open" href={stockDetailHref(jobId, selectedTicker)}>Detaylı analizi aç →</a>
+              <button className="watchlist-add" type="button" onClick={() => void addSelectedToWatchlist()}>Takip listene ekle</button>
+              {watchlistMessage && <p className="watchlist-message" aria-live="polite">{watchlistMessage}</p>}
+              <div className="market-decision-context"><span>Karar bileşenleri</span>{Object.entries(detail.decision).filter(([key]) => DECISION_LABELS[key]).slice(0, 4).map(([key, value]) => <p key={key}>{DECISION_LABELS[key]}<b>{text(value)}</b></p>)}</div>
             </>}
           </> : <p>Öne çıkan hisse bulunamadı.</p>}
         </div>
