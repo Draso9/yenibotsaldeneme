@@ -6,14 +6,18 @@ from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from inspect import Parameter, signature
+import json
+import logging
 from threading import RLock, Thread
 from typing import Any
 from uuid import uuid4
 
+from izfin_services.account_data_service import json_uyumlu
 from izfin_services.scan_page_state import tarama_sonuc_durumu_hazirla
 
 
 _UNEXPECTED_SCAN_ERROR = "Tarama işlemi beklenmeyen bir hata nedeniyle tamamlanamadı."
+_LOGGER = logging.getLogger(__name__)
 
 
 class ScanJobCapacityError(RuntimeError):
@@ -187,14 +191,14 @@ class ScanJobStore:
             record.status = "completed"
             record.stage = "complete"
             record.completed = len(record.tickers)
-            record.result = {
+            record.result = json_uyumlu({
                 "sonuclar": presented["sonuclar"],
                 "teknik_paneller": presented["teknik_paneller"],
                 "sozlu_analizler": presented["sozlu_analizler"],
                 "basarisiz_taramalar": presented["basarisiz_taramalar"],
                 "boga_sayisi": presented["boga_sayisi"],
                 "alim_firsati": presented["alim_firsati"],
-            }
+            })
             self._persist(record)
 
     @staticmethod
@@ -246,20 +250,30 @@ class ScanJobStore:
         repository = self._job_repository
         if not getattr(repository, "available", False):
             return
-        repository.upsert_job(
-            record.job_id,
-            {
-                "job_id": record.job_id,
-                "owner_uid": record.owner_uid,
-                "tickers": list(record.tickers),
-                "status": record.status,
-                "stage": record.stage,
-                "completed": record.completed,
-                "result": record.result,
-                "error": record.error,
-                "created_at": record.created_at,
-            },
-        )
+        payload = {
+            "job_id": record.job_id,
+            "owner_uid": record.owner_uid,
+            "tickers": list(record.tickers),
+            "status": record.status,
+            "stage": record.stage,
+            "completed": record.completed,
+            # Firestore maps reject some provider-owned nested/scalar values.
+            # A JSON string preserves the API contract without asking Firestore
+            # to interpret the scan result's internal structure.
+            "result_json": (
+                json.dumps(record.result, ensure_ascii=False, allow_nan=False)
+                if record.result is not None
+                else None
+            ),
+            "error": record.error,
+            "created_at": record.created_at,
+        }
+        try:
+            repository.upsert_job(record.job_id, payload)
+        except Exception:
+            # Persistence is durability, not the scan computation itself. Keep
+            # the completed in-memory result available to the active request.
+            _LOGGER.exception("scan_job_persistence_failed", extra={"scan_job_id": record.job_id})
 
     def _restore_terminal_record(self, job_id: str) -> _ScanJobRecord | None:
         repository = self._job_repository
@@ -276,6 +290,13 @@ class ScanJobStore:
     @staticmethod
     def _record_from_data(job_id: str, data: Mapping[str, Any]) -> _ScanJobRecord:
         status = str(data.get("status") or "failed")
+        result = data.get("result") if isinstance(data.get("result"), dict) else None
+        if result is None and isinstance(data.get("result_json"), str):
+            try:
+                decoded = json.loads(data["result_json"])
+                result = decoded if isinstance(decoded, dict) else None
+            except (TypeError, ValueError):
+                result = None
         return _ScanJobRecord(
             job_id=str(data.get("job_id") or job_id),
             owner_uid=str(data.get("owner_uid") or ""),
@@ -283,7 +304,7 @@ class ScanJobStore:
             status=status,
             stage=str(data.get("stage") or status),
             completed=max(0, int(data.get("completed") or 0)),
-            result=data.get("result") if isinstance(data.get("result"), dict) else None,
+            result=result,
             error=str(data.get("error") or "") or None,
             created_at=str(data.get("created_at") or "") or None,
         )
