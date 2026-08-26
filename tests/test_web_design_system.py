@@ -185,6 +185,16 @@ def test_scan_reuses_streamlit_symbol_search_and_keeps_source_table_focus_mode()
     assert ".scan-summary.is-focus" in polish
 
 
+def test_scan_uses_streamlit_lock_overlay_and_refetches_inline_cloud_run_result():
+    workspace = _read("web/components/scan-workspace.tsx")
+    polish = _read("web/app/component-polish.css")
+
+    for marker in ("IZFIN SMART SCAN", "Tarama tamamlanana kadar ekran geçici olarak kilitlendi", "scan-lock-progress"):
+        assert marker in workspace or marker in polish
+    assert 'created.status === "completed"' in workspace
+    assert "aria-modal=\"true\"" in workspace
+
+
 def test_first_scan_onboarding_reuses_the_existing_streamlit_decision_reading_flow():
     """The first-run guide teaches the established scanner flow; it must not invent a decision model."""
     workspace = _read("web/components/scan-workspace.tsx")
@@ -272,6 +282,7 @@ def test_account_keeps_sensitive_actions_and_legal_states_explicit():
     assert "account-status" in account
     assert "Hesap işlemleri Firebase ID token ile doğrulanır" in account
     assert "account-status" in css
+
 
 
 
