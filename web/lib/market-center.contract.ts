@@ -24,7 +24,9 @@ const stockShape: StockDetailResponse = {
   entry_quality: "Yüksek",
   score: {},
   decision: {},
+  action: {},
   panel: {},
 };
 
 void [centerPath, stockPath, centerShape, stockShape];
+

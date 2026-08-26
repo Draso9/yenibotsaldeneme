@@ -77,11 +77,20 @@ export function StockDetailPage({ jobId, ticker }: Readonly<{ jobId: string; tic
     </div>
 
     {detail && <div className="detail-grid">
-      <DetailSection title="Skor özeti" values={detail.score} />
-      <DetailSection title="Karar motoru" values={detail.decision} />
+      <ScoreBreakdown score={detail.score} />
+      <DecisionPanel decision={detail.decision} action={detail.action} />
       <DetailSection title="Teknik panel" values={detail.panel} wide />
     </div>}
   </section>;
+}
+
+function ScoreBreakdown({ score }: Readonly<{ score: Record<string, unknown> }>) {
+  const groups: Array<[string, unknown]> = [["Eski sistem kalemleri", score.eski_kalemler], ["Bonuslar", score.bonus_kalemler], ["Cezalar", score.ceza_kalemler]];
+  return <article className="detail-section"><p className="eyebrow">SKOR NASIL OLUŞTU?</p><div className="detail-score-metrics"><span><b>{text(score.eski)}</b>eski cezalı skor</span><span><b>+{text(score.bonus, "0")}</b>gelişmiş bonus</span><span><b>-{text(score.ceza, "0")}</b>gelişmiş ceza</span><span><b>{text(score.nihai)}</b>nihai skor</span></div>{groups.map(([title, value]) => <div className="detail-score-group" key={title}><strong>{title}</strong>{Array.isArray(value) && value.length ? <ul>{value.map((item, index) => <li key={index}>{text((item as Record<string, unknown>).metin)}</li>)}</ul> : <p>Ek kalem oluşmadı.</p>}</div>)}</article>;
+}
+
+function DecisionPanel({ decision, action }: Readonly<{ decision: Record<string, unknown>; action: Record<string, unknown> }>) {
+  return <article className="detail-section detail-decision"><p className="eyebrow">ŞEFFAF KARAR MOTORU</p><h2>{text(decision.karar)}</h2><div className="detail-decision-kpis"><span><b>%{text(decision.guven)}</b>algoritma güveni</span><span><b>{text(decision.risk)}</b>risk</span><span><b>%{text(decision.mtf_uyum)}</b>MTF uyum</span></div><p><b>Olumlu teyitler:</b> {text(decision.olumlu_metin)}</p><p><b>Riskler:</b> {text(decision.risk_metin)}</p>{decision.mtf_metin ? <small>{text(decision.mtf_metin)}</small> : null}<div className="detail-action-note"><b>Giriş motoru:</b> {text(action.entry_quality)} · <b>Teknik profil:</b> {text(action.profile)}</div><small>Profil ve skorlar açıklayıcıdır; işlem aksiyonu merkezi nihai karar motorundan gelir.</small></article>;
 }
 
 function DetailSection({ title, values, wide = false }: Readonly<{ title: string; values: Record<string, unknown>; wide?: boolean }>) {
@@ -93,3 +102,4 @@ function DetailSection({ title, values, wide = false }: Readonly<{ title: string
     </div>}
   </article>;
 }
+

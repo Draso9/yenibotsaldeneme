@@ -137,6 +137,8 @@ def test_scan_and_detail_share_explicit_states_and_detail_handoff():
     assert "Veriler çekilemedi." in workspace
     assert "Tarama sonucu" in workspace
     assert "detail-status" in detail
+    assert "ScoreBreakdown" in detail
+    assert "ŞEFFAF KARAR MOTORU" in detail
     assert "Veri kaynağı" in detail
     assert "scan-result-header" in scan_css
     assert "detail-status" in detail_css
@@ -270,6 +272,7 @@ def test_account_keeps_sensitive_actions_and_legal_states_explicit():
     assert "account-status" in account
     assert "Hesap işlemleri Firebase ID token ile doğrulanır" in account
     assert "account-status" in css
+
 
 
 
