@@ -38,5 +38,3 @@ def test_stock_detail_contract_is_native_and_returns_none_for_unknown_ticker():
     assert detail["action"]["signal"] == "GÜÇLÜ AL"
     assert "teknik_panel_html" not in detail
     assert hisse_detay_paketi_hazirla("missing", rows, panels) is None
-
-
