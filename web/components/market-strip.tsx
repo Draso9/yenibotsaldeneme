@@ -30,24 +30,30 @@ export function MarketStrip() {
     return () => { active = false; };
   }, []);
 
-  if (error) return null;
-  return <section className="market-strip" aria-label="Canlı piyasa bandı">
+  if (error) return <section className="market-strip market-strip-unavailable" aria-label="Piyasa özeti">
     <div className="market-strip-status">
       <span className="eyebrow">PİYASALAR</span>
-      <strong>{snapshot?.durum ?? "VERİ HAZIRLANIYOR"}</strong>
-      <small>{snapshot ? `${freshness(snapshot.gecikme_sn)} · ${snapshot.yerel_saat}` : "Yakın canlı veriler yükleniyor…"}</small>
+      <strong>Piyasa verisi şu anda alınamıyor</strong>
+      <small>Bağlantı yeniden kurulduğunda güncel özet burada görünecek.</small>
+    </div>
+  </section>;
+
+  return <section className="market-strip" aria-label="Piyasa özeti">
+    <div className="market-strip-status">
+      <span className="eyebrow">PİYASALAR</span>
+      <strong>{snapshot?.durum ?? "Veri hazırlanıyor"}</strong>
+      <small>{snapshot ? `${freshness(snapshot.gecikme_sn)} · ${snapshot.yerel_saat}` : "Güncel piyasa özeti hazırlanıyor…"}</small>
     </div>
     <div className="market-strip-items">
       {(snapshot?.items ?? []).map((item) => {
-        const positive = (item.deg ?? 0) >= 0;
+        const direction = item.deg === null || item.deg === 0 ? "neutral" : item.deg > 0 ? "up" : "down";
         return <article key={item.ad}>
           <span>{item.ad}</span>
           <strong>{price(item.fiyat)}</strong>
-          <b className={positive ? "up" : "down"}>{positive ? "▲" : "▼"} {change(item.deg)}</b>
+          <b className={direction}>{direction === "up" ? "▲" : direction === "down" ? "▼" : "•"} {change(item.deg)}</b>
           <small>{item.kaynak}</small>
         </article>;
       })}
-      {!snapshot && Array.from({ length: 5 }, (_, index) => <article className="market-strip-skeleton" key={index}><span>—</span><strong>—</strong><b>—</b></article>)}
     </div>
   </section>;
 }
