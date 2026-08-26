@@ -58,12 +58,12 @@ export function StockDetailPage({ jobId, ticker }: Readonly<{ jobId: string; tic
   }
 
   return <section className="detail-page" aria-label={`${normalizedTicker} detaylı analiz`}>
-    <a className="detail-back" href="/">← Piyasa Merkezi</a>
+    <div className="detail-path"><a className="detail-back" href="/">← Piyasa Merkezi</a><span>Tarama sonucu / {normalizedTicker}</span></div>
     <div className="detail-section detail-hero">
       <p className="eyebrow">DETAYLI ANALİZ • JOB TABANLI</p>
       <h1>{normalizedTicker}</h1>
-      {!detail && !error && <p>Analiz yükleniyor…</p>}
-      {error && <p role="alert">{error}</p>}
+      {!detail && !error && <p className="detail-status" aria-live="polite">Analiz yükleniyor…</p>}
+      {error && <p className="detail-status" role="alert">{error}</p>}
       {detail && <>
         <div className="detail-summary">
           <span><b>{text(detail.price)}</b> fiyat</span>
@@ -72,7 +72,7 @@ export function StockDetailPage({ jobId, ticker }: Readonly<{ jobId: string; tic
           <span><b>{text(detail.entry_quality)}</b> giriş kalitesi</span>
         </div>
         <a className="projection-cta" href={projectionHref(jobId, normalizedTicker)}>45G projeksiyon senaryosunu aç →</a>
-        <p className="detail-note">Bu görünüm yalnızca senin tamamlanmış taramana ait job verisinden üretiliyor.</p>
+        <p className="detail-note"><b>Veri kaynağı</b> · Bu görünüm yalnızca senin tamamlanmış taramana ait job verisinden üretiliyor.</p>
       </>}
     </div>
 
