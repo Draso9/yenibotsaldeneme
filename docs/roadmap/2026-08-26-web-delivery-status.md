@@ -28,7 +28,7 @@ The earlier “screen polish” list is expanded below. A later phase does not s
 
 - [x] **Strateji Lab**: strategy selection/configuration, run lifecycle, parameter validation, result/comparison, empty/error states, mobile layout (PR #67).
 - [x] **Hesap, consent, and legal**: account settings, consent/OAuth status, session controls, export and legal disclosures (PR #68).
-- [ ] **Cross-screen visual consistency**: shared spacing, component states, keyboard focus, desktop/mobile behavior across all six navigation areas.
+- [x] **Cross-screen visual consistency**: shared spacing, component states, keyboard focus, desktop/mobile behavior across all six navigation areas. The shared shell now provides a keyboard skip link, active-page semantics, common focus treatment, and responsive page gutters.
 
 ### Phase 2 — Make Akıllı Tarama a full product workspace
 
@@ -81,7 +81,8 @@ The earlier “screen polish” list is expanded below. A later phase does not s
 
 ## Next package
 
-Start from current `develop`: complete **cross-screen visual consistency**, then add approved brand assets and release acceptance. The parity audit is recorded in `docs/roadmap/2026-08-26-streamlit-web-parity-audit.md`.
+Start from current `develop`: add the **approved brand assets** (logo, favicon/app icons and visual direction), then complete release acceptance. The parity audit is recorded in `docs/roadmap/2026-08-26-streamlit-web-parity-audit.md`.
+
 
 
 
