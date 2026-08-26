@@ -63,7 +63,7 @@ export function AppShell({ children }: Readonly<{ children: React.ReactNode }>) 
     <aside className="sidebar">
       <div className="brand">
         <div className="brand-mark"><Image alt="IZFIN" height={44} priority src="/brand/izfin-logo.png" width={44} /></div>
-        <div className="brand-copy"><b>IZFIN</b><span>MARKET INTELLIGENCE</span></div>
+        <div className="brand-copy"><b>IZFIN</b><span>ANALYZE · PREDICT · INVEST</span></div>
       </div>
       <div className="nav-label">ÇALIŞMA ALANI</div>
       <nav aria-label="Ana navigasyon">
@@ -106,5 +106,6 @@ export function AppShell({ children }: Readonly<{ children: React.ReactNode }>) 
     </div>
   </div>;
 }
+
 
 
