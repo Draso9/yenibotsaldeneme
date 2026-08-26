@@ -192,6 +192,23 @@ def test_authenticated_user_can_submit_and_poll_own_scan_job():
     }
 
 
+def test_cloud_run_keeps_scan_inside_request_cpu_window(monkeypatch):
+    monkeypatch.setenv("K_SERVICE", "izfin-api")
+    client = TestClient(create_app(
+        verify_id_token=lambda _token: {"uid": "uid-1", "email": "user@example.com"},
+        scan_runner=lambda tickers, progress_callback=None: {
+            "sonuclar": [{"Varlık": tickers[0]}], "basarisiz_taramalar": [], "boga_sayisi": 1, "alim_firsati": 1,
+        },
+    ))
+
+    response = client.post("/api/v1/scan/jobs", headers={"Authorization": "Bearer token"}, json={"tickers": ["THYAO.IS"]})
+
+    assert response.status_code == 202
+    assert response.json()["status"] == "completed"
+    detail = client.get(f"/api/v1/scan/jobs/{response.json()['job_id']}", headers={"Authorization": "Bearer token"})
+    assert detail.json()["result"]["sonuclar"] == [{"Varlık": "THYAO.IS"}]
+
+
 def test_scan_job_status_hides_another_authenticated_users_job():
     def verifier(token):
         return {
@@ -377,4 +394,5 @@ def test_scan_job_history_endpoint_hides_other_users_jobs():
     assert response.json()["jobs"][0]["tickers"] == ["THYAO.IS"]
     assert foreign.status_code == 200
     assert foreign.json()["jobs"] == []
+
 
