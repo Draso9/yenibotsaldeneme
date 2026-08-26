@@ -2,6 +2,7 @@
 
 import { GoogleAuthProvider, createUserWithEmailAndPassword, sendEmailVerification, sendPasswordResetEmail, signInWithEmailAndPassword, signInWithPopup } from "firebase/auth";
 import { FormEvent, useEffect, useMemo, useState } from "react";
+import Image from "next/image";
 import { useRouter, useSearchParams } from "next/navigation";
 import { acceptLegalConsent, bootstrapAccount } from "../lib/account";
 import { firebaseAuth, firebaseIsConfigured } from "../lib/firebase";
@@ -49,7 +50,7 @@ export function AuthPage() {
   async function google() { setError(""); setBusy(true); try { await signInWithPopup(firebaseAuth(), new GoogleAuthProvider()); router.push(next); } catch { setError("Google ile giriş tamamlanamadı."); } finally { setBusy(false); } }
 
   if (!firebaseIsConfigured()) return <main className="auth-page"><section className="auth-screen-card"><p className="eyebrow">IZFIN HESABI</p><h1>Giriş yapılandırması eksik</h1><p>Firebase web yapılandırması eklendiğinde güvenli giriş etkinleşecek.</p></section></main>;
-  return <main className="auth-page"><section className="auth-screen-card"><a className="auth-logo" href="/"><span>I</span><span>Z</span><b>IZFIN</b></a><p className="eyebrow">SIGNATURE INTELLIGENCE</p><h1>{mode === "login" ? "Hoş Geldiniz" : mode === "register" ? "IZFIN hesabını oluştur" : "Şifreni yenile"}</h1><p className="auth-screen-intro">Piyasayı analiz et, fırsatları filtrele, kararını tek merkezden yönet.</p>
+  return <main className="auth-page"><section className="auth-screen-card"><a className="auth-logo" href="/"><Image alt="IZFIN" height={34} priority src="/brand/izfin-logo.png" width={34} /><b>IZFIN</b></a><p className="eyebrow">SIGNATURE INTELLIGENCE</p><h1>{mode === "login" ? "Hoş Geldiniz" : mode === "register" ? "IZFIN hesabını oluştur" : "Şifreni yenile"}</h1><p className="auth-screen-intro">Piyasayı analiz et, fırsatları filtrele, kararını tek merkezden yönet.</p>
     <div className="auth-switch" aria-label="Hesap erişimi"><button className={mode === "login" ? "active" : ""} onClick={() => switchMode("login")}>Giriş Yap</button><button className={mode === "register" ? "active" : ""} onClick={() => switchMode("register")}>Kayıt Ol</button></div>
     {message && <p className="auth-screen-message" role="status">{message}</p>}{error && <p className="auth-screen-error" role="alert">{error}</p>}
     {mode === "login" && <form className="auth-screen-form" onSubmit={login}><label>E-posta<input type="email" autoComplete="email" value={email} onChange={(event) => setEmail(event.target.value)} /></label><label>Şifre<input type="password" autoComplete="current-password" value={password} onChange={(event) => setPassword(event.target.value)} /></label><button disabled={busy} type="submit">{busy ? "Giriş yapılıyor…" : "Giriş Yap"}</button><button className="auth-text-button" type="button" onClick={() => switchMode("reset")}>Şifremi unuttum</button></form>}
@@ -59,4 +60,5 @@ export function AuthPage() {
     <p className="auth-screen-foot">Firebase Auth · kişisel veri alanı · yatırım karar destek platformu</p>
   </section></main>;
 }
+
 
