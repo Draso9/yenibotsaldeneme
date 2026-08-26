@@ -14,6 +14,7 @@ import "./admin-quality.css";
 export const metadata: Metadata = {
   title: "IZFIN | Akıllı BIST Analizi",
   description: "IZFIN piyasa analizi ve karar destek web istemcisi.",
+  icons: { icon: "/brand/izfin-logo.png", apple: "/brand/izfin-logo.png" },
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
@@ -23,3 +24,4 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
     </html>
   );
 }
+
