@@ -39,7 +39,7 @@ def create_app(*, verify_id_token: Callable[[str], dict[str, Any]] | None = None
     if account_data_service is None and user_repository is not None:
         account_data_service = AccountDataService(user_repository, revoke_refresh_tokens=revoke_refresh_tokens or (lambda _uid: None), delete_user=delete_user or (lambda _uid: None), app_release=app_release)
     deletion_enabled = bool(revoke_refresh_tokens and delete_user) if account_delete_enabled is None else bool(account_delete_enabled)
-    app.state.izfin_runtime = runtime_from(verify_id_token=verify_id_token, user_repository=user_repository, default_tickers=default_tickers, scan_runner=scan_runner, scan_job_store=scan_job_store, signal_repository=signal_repository, market_overview_loader=market_overview_loader, symbol_search=symbol_search, legal_consent_service=legal_consent_service, account_data_service=account_data_service, account_delete_enabled=deletion_enabled, terms_version=terms_version, privacy_version=privacy_version, data_controller_name=data_controller_name, contact_email=contact_email, data_controller_address=data_controller_address, log_retention_days=log_retention_days)
+    app.state.izfin_runtime = runtime_from(verify_id_token=verify_id_token, user_repository=user_repository, default_tickers=default_tickers, scan_runner=scan_runner, scan_job_store=scan_job_store, signal_repository=signal_repository, market_overview_loader=market_overview_loader, symbol_search=symbol_search, legal_consent_service=legal_consent_service, account_data_service=account_data_service, account_delete_enabled=deletion_enabled, terms_version=terms_version, privacy_version=privacy_version, app_release=app_release, data_controller_name=data_controller_name, contact_email=contact_email, data_controller_address=data_controller_address, log_retention_days=log_retention_days)
     allowed_origins = [str(origin).strip() for origin in cors_origins if str(origin).strip()]
     if allowed_origins:
         app.add_middleware(CORSMiddleware, allow_origins=allowed_origins, allow_credentials=True, allow_methods=["GET", "POST", "PUT", "DELETE"], allow_headers=["Authorization", "Content-Type"])
@@ -54,4 +54,3 @@ def create_app(*, verify_id_token: Callable[[str], dict[str, Any]] | None = None
 
 
 app = create_app()
-
