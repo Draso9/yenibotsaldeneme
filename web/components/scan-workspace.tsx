@@ -45,11 +45,25 @@ export function ScanWorkspace() {
   const [guideDismissed, setGuideDismissed] = useState(false);
   const [scanStarting, setScanStarting] = useState(false);
 
+  const recoverActiveJob = useCallback((items: ScanHistoryItem[]) => {
+    if (job) return;
+    const activeJob = items.find((item) => item.status === "queued" || item.status === "running");
+    if (!activeJob) return;
+    setJob(activeJob);
+    setError("");
+  }, [job]);
+
   const loadHistory = useCallback(async () => {
     if (!user) return;
-    try { const token = await getIdToken(); if (!token) return; setHistory((await izfinApiFetch<{ jobs: ScanHistoryItem[] }>("/api/v1/scan/jobs", token)).jobs); setHistoryError(""); }
+    try {
+      const token = await getIdToken(); if (!token) return;
+      const response = await izfinApiFetch<{ jobs: ScanHistoryItem[] }>("/api/v1/scan/jobs", token);
+      setHistory(response.jobs);
+      recoverActiveJob(response.jobs);
+      setHistoryError("");
+    }
     catch { setHistoryError("Tarama geçmişi şu anda alınamıyor."); }
-  }, [getIdToken, user]);
+  }, [getIdToken, recoverActiveJob, user]);
   const loadWorkspace = useCallback(async () => {
     if (!user) return;
     try { const token = await getIdToken(); if (!token) return; const [list, availableProfiles] = await Promise.all([izfinApiFetch<Watchlist>("/api/v1/watchlist", token), izfinApiFetch<Profiles>("/api/v1/scan/profiles", token)]); setWatchlist(list); setProfiles(availableProfiles.profiles); setError(""); }
@@ -87,7 +101,7 @@ export function ScanWorkspace() {
     setError(""); setActiveFilter("Tümü"); if (!universe?.tickers.length) { setError("Taramayı başlatmadan önce en az bir varlık seçin."); return; }
     setScanStarting(true);
     try { const token = await getIdToken(); if (!token) return; const completed = await izfinApiStream<ScanJob>("/api/v1/scan/jobs/stream", token, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ tickers: universe.tickers }) }, setJob); setJob(completed); void loadHistory(); }
-    catch { setError("Tarama başlatılamadı. Lütfen tekrar deneyin."); } finally { setScanStarting(false); }
+    catch { setError("Canlı tarama bağlantısı kesildi. Devam eden iş geçmişten geri yükleniyor…"); void loadHistory(); } finally { setScanStarting(false); }
   }
   async function openHistoryJob(jobId: string) { try { const token = await getIdToken(); if (!token) return; setJob(await izfinApiFetch<ScanJob>(`/api/v1/scan/jobs/${jobId}`, token)); document.getElementById("scan-result")?.scrollIntoView({ behavior: "smooth", block: "start" }); } catch { setError("Bu tarama sonucu artık açılamıyor."); } }
   function dismissGuide() { if (user) window.localStorage.setItem(`izfin:first-scan-guide:${user.uid}`, "done"); setGuideDismissed(true); }
@@ -132,7 +146,6 @@ function ScanResult({ jobId, summary, activeFilter, onFilterChange }: Readonly<{
   function updateSort(column: string) { setSort((current) => ({ column, direction: current.column === column && current.direction === "desc" ? "asc" : "desc" })); }
   return <div id="scan-result" className={`scan-result scan-summary${focusMode ? " is-focus" : ""}`} aria-label="Tarama sonucu"><div className="scan-result-header"><div><p className="eyebrow">TARAMA SONUCU</p><h3>Akıllı Tarama Sonuçları</h3></div><div className="scan-result-actions"><button type="button" onClick={() => setFocusMode((value) => !value)}>{focusMode ? "↙ Geniş Görünümden Çık" : "⛶ Tabloyu Genişlet"}</button><span>{summary.sonuclar.length} sembol</span></div></div>{focusMode && <div className="scan-focus-meta"><b>Geniş sonuç görünümü</b><span>{results.length} sonuç · {activeFilter} filtresi · bir sütuna dokunarak sırala</span></div>}<div className="scan-metrics"><span><b>{summary.sonuclar.length}</b>Taranan Varlık</span><span><b>{summary.boga_sayisi}</b>Boğa Trendinde (200G)</span><span><b>{summary.alim_firsati}</b>Alım Fırsatları & Kırılımlar</span></div><div className="result-filter" aria-label="Gösterilecek sonuçlar"><span>Gösterilecek sonuçlar</span>{filters.map((filter) => <button className={activeFilter === filter ? "active" : ""} key={filter} type="button" onClick={() => onFilterChange(filter)}>{filter}</button>)}</div><p className="scan-filter-summary">{results.length} sonuç gösteriliyor · Filtre: {activeFilter}</p>{summary.basarisiz_taramalar.length > 0 && <p>Veri/hesaplama sorunu nedeniyle es geçilen varlıklar: {summary.basarisiz_taramalar.join(", ")}</p>}{summary.sonuclar.length === 0 ? <p className="scan-empty">Veriler çekilemedi. Farklı bir profil veya varlık grubu seçip tekrar deneyin.</p> : results.length === 0 ? <p className="scan-empty">Bu filtreye uyan sonuç yok. Diğer filtrelerden birini seçebilir veya taramayı daha sonra yenileyebilirsin.</p> : <div className="scan-result-table-wrap"><table className="scan-result-table"><thead><tr>{resultColumns.map((column) => <th key={column}><button type="button" onClick={() => updateSort(column)}>{column} <span>{sort.column === column ? (sort.direction === "asc" ? "↑" : "↓") : "↕"}</span></button></th>)}</tr></thead><tbody>{results.map((row, index) => { const symbol = ticker(row); return <tr key={`${symbol}-${index}`}>{resultColumns.map((column) => <td key={column} className={column === "Nihai Sinyal" ? "scan-signal-cell" : ""}>{column === "Varlık" && symbol ? <a href={stockDetailHref(jobId, symbol)}>{symbol}</a> : String(row[column] ?? "—")}</td>)}</tr>; })}</tbody></table></div>}</div>;
 }
-
 
 
 
