@@ -9,7 +9,8 @@ from typing import Any
 
 import pandas as pd
 
-from izfin_core.market_universe import VARSAYILAN_TICKERS, finnhub_symbol
+from izfin_core.market_universe import ABD_HİSSELERİ, BIST_100, VARSAYILAN_TICKERS, finnhub_symbol
+from izfin_services.watchlist_service import sembol_onerileri_getir
 from izfin_repositories.user_repository import UserRepository
 from izfin_repositories.signal_repository import SignalRepository
 from izfin_repositories.signal_repository import ScanJobRepository
@@ -25,6 +26,7 @@ from izfin_services.yahoo_client import (
     sektor_referanslari_indir,
     toplu_gunluk_veri_indir,
     toplu_intraday_veri_indir,
+    sembol_ara,
 )
 
 from .app import create_app
@@ -96,6 +98,21 @@ def market_overview_loader_from_providers():
     return load
 
 
+def symbol_search_from_providers(*, finnhub_client: FinnhubClient | None = None, local_universe=()):
+    """Expose the same framework-neutral symbol search used by Streamlit."""
+    universe = tuple(local_universe) or tuple(BIST_100) + tuple(ABD_HİSSELERİ)
+
+    def search(query: str):
+        return sembol_onerileri_getir(
+            query,
+            yahoo_search=sembol_ara,
+            finnhub_search=(lambda value: finnhub_client.get("search", {"q": value}, timeout=5, max_retry=1)) if finnhub_client else None,
+            local_universe=universe,
+        )
+
+    return search
+
+
 def create_environment_app(*, environment: Mapping[str, str] | None = None):
     """Build an API app from deploy-time settings without importing Streamlit secrets."""
     settings = environment if environment is not None else os.environ
@@ -118,6 +135,7 @@ def create_environment_app(*, environment: Mapping[str, str] | None = None):
             default=60,
         ),
         scan_runner=scan_runner_from_clients(finnhub_client=finnhub_client),
+        symbol_search=symbol_search_from_providers(finnhub_client=finnhub_client),
         market_overview_loader=market_overview_loader_from_providers(),
         terms_version=str(settings.get("IZFIN_TERMS_VERSION", "2026-08-19-v1")),
         privacy_version=str(settings.get("IZFIN_PRIVACY_VERSION", "2026-08-19-v1")),
@@ -157,3 +175,4 @@ def firebase_runtime_from_environment(*, environment: Mapping[str, str] | None =
         credential = credentials.Certificate(json.loads(raw)) if raw else credentials.Certificate(path)
         firebase_admin.initialize_app(credential)
     return firebase_runtime(firebase_auth=auth, firestore_client=firestore.client())
+

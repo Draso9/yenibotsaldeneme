@@ -31,6 +31,7 @@ from .schemas import (
     ScanUniverseRequest,
     ScanUniverseResponse,
     ScanProfilesResponse,
+    SymbolSearchResponse,
     WatchlistTransitionRequest,
     WatchlistTransitionResponse,
     WatchlistResponse,
@@ -478,6 +479,21 @@ def scan_profiles(
     )
 
 
+@api_router.get("/scan/symbols", response_model=SymbolSearchResponse, tags=["scan"])
+def scan_symbols(
+    q: str,
+    request: Request,
+    limit: int = 15,
+    credentials=Depends(bearer_credentials),
+) -> SymbolSearchResponse:
+    """Search symbols through the existing provider-aggregating service."""
+    authenticated_user(request, credentials)
+    query = str(q or "").strip()
+    search = request.app.state.izfin_runtime.symbol_search
+    suggestions = list(search(query) if query and search is not None else ())[: max(1, min(int(limit), 15))]
+    return SymbolSearchResponse(query=query, suggestions=suggestions)
+
+
 @api_router.get(
     "/scan/jobs/{job_id}",
     response_model=ScanJobStatusResponse,
@@ -548,5 +564,6 @@ def performance_scorecard(
         bos_mesaj=paket["bos_mesaj"],
         kayit_adedi=len(paket["karne_df"]),
     )
+
 
 

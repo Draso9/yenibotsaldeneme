@@ -25,6 +25,7 @@ class ApiRuntime:
     scan_job_store: Any = None
     signal_repository: Any = None
     market_overview_loader: Callable[[], Mapping[str, Any]] | None = None
+    symbol_search: Callable[[str], Sequence[Mapping[str, Any]]] | None = None
     legal_consent_service: Any = None
     account_data_service: Any = None
     account_delete_enabled: bool = False
@@ -89,6 +90,7 @@ def runtime_from(
     scan_job_store: Any = None,
     signal_repository: Any = None,
     market_overview_loader: Callable[[], Mapping[str, Any]] | None = None,
+    symbol_search: Callable[[str], Sequence[Mapping[str, Any]]] | None = None,
     legal_consent_service: Any = None,
     account_data_service: Any = None,
     account_delete_enabled: bool = False,
@@ -107,6 +109,7 @@ def runtime_from(
         scan_job_store=scan_job_store,
         signal_repository=signal_repository,
         market_overview_loader=market_overview_loader,
+        symbol_search=symbol_search,
         legal_consent_service=legal_consent_service,
         account_data_service=account_data_service,
         account_delete_enabled=bool(account_delete_enabled),
@@ -117,3 +120,4 @@ def runtime_from(
         data_controller_address=str(data_controller_address),
         log_retention_days=max(1, int(log_retention_days)),
     )
+

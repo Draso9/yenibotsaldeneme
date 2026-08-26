@@ -169,6 +169,20 @@ def test_scan_workspace_uses_api_owned_profiles_and_streamlit_result_columns():
         assert column in workspace
 
 
+def test_scan_reuses_streamlit_symbol_search_and_keeps_source_table_focus_mode():
+    """Symbol lookup and wide-table mode are interaction parity, not a new decision model."""
+    workspace = _read("web/components/scan-workspace.tsx")
+    polish = _read("web/app/component-polish.css")
+
+    assert "/api/v1/scan/symbols?q=${encodeURIComponent(query)}" in workspace
+    assert "Hisse / şirket ara" in workspace
+    assert "Listeme Ekle" in workspace
+    assert "Tabloyu Genişlet" in workspace
+    assert "Geniş Görünümden Çık" in workspace
+    assert "symbol-suggestions" in polish
+    assert ".scan-summary.is-focus" in polish
+
+
 def test_first_scan_onboarding_reuses_the_existing_streamlit_decision_reading_flow():
     """The first-run guide teaches the established scanner flow; it must not invent a decision model."""
     workspace = _read("web/components/scan-workspace.tsx")
@@ -256,6 +270,7 @@ def test_account_keeps_sensitive_actions_and_legal_states_explicit():
     assert "account-status" in account
     assert "Hesap işlemleri Firebase ID token ile doğrulanır" in account
     assert "account-status" in css
+
 
 
 
