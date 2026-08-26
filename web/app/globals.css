@@ -3,20 +3,20 @@
   font-family: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   background: #06090e;
   color: #eef4f8;
-  --iz-bg: #06090e;
-  --iz-bg-elevated: #090e15;
-  --iz-surface: #0c131d;
-  --iz-surface-2: #101a26;
-  --iz-surface-3: #142231;
-  --iz-text: #eef4f8;
-  --iz-text-soft: #b7c5d0;
-  --iz-muted: #74899a;
-  --iz-line: #1e3040;
-  --iz-accent: #60e2b4;
-  --iz-positive: #27c98f;
-  --iz-negative: #ff9b9b;
-  --iz-warning: #f4c86b;
-  --iz-info: #64a8ff;
+  --iz-bg: #050b14;
+  --iz-bg-elevated: #071522;
+  --iz-surface: #08131f;
+  --iz-surface-2: #0b1826;
+  --iz-surface-3: #0b2030;
+  --iz-text: #edf7ff;
+  --iz-text-soft: #c8d7e3;
+  --iz-muted: #8298ab;
+  --iz-line: #153047;
+  --iz-accent: #19dce4;
+  --iz-positive: #20e69a;
+  --iz-negative: #ff5c6c;
+  --iz-warning: #f6bd4b;
+  --iz-info: #1689ff;
   --bg: var(--iz-bg);
   --bg-elevated: var(--iz-bg-elevated);
   --surface: var(--iz-surface);
@@ -456,6 +456,7 @@ button:focus-visible, input:focus-visible, a:focus-visible { outline: 2px solid 
   .roadmap article { grid-template-columns: 42px minmax(0, 1fr); }
   .roadmap article > strong { display: none; }
 }
+
 
 
 
