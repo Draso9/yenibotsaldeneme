@@ -82,19 +82,20 @@ export function PerformancePage() {
     return () => { active = false; };
   }, [days, getIdToken, loading, user]);
 
-  if (loading) return <main className="performance-page"><p className="performance-muted">Oturum hazırlanıyor…</p></main>;
+  if (loading) return <main className="performance-page"><section className="performance-panel performance-status" aria-live="polite"><strong>Güvenli oturum hazırlanıyor</strong><span>Performans verin hesabınla eşleştiriliyor.</span></section></main>;
   if (!user) return <main className="performance-page"><section className="performance-panel performance-empty"><p className="eyebrow">TAKİP & PERFORMANS</p><h1>Performans Merkezi</h1><p>Bu ekranı görmek için IZFIN hesabınla giriş yap.</p><a href="/">Ana sayfaya dön →</a></section></main>;
 
   const closedSummary = tracking?.closed_summary ?? {};
 
   return <main className="performance-page" aria-label="IZFIN takip ve performans merkezi">
+    <div className="performance-path"><a href="/">← Piyasa Merkezi</a><span>Hesap verileri / Performans</span></div>
     <section className="performance-hero">
       <div><p className="eyebrow">TAKİP & PERFORMANS</p><h1>Performans Merkezi</h1><p className="performance-muted">Aktif alım dönemlerini, kapanmış pozisyon geçmişini ve IZFIN sinyal karnesini tek ekranda izle.</p></div>
       <div className="performance-period" aria-label="Ölçüm dönemi">{PERIODS.map((period) => <button className={days === period ? "active" : ""} key={period} onClick={() => setDays(period)}>{period}G</button>)}</div>
     </section>
 
-    {!tracking && !trackingError && <section className="performance-panel performance-state">Pozisyon takibi hazırlanıyor…</section>}
-    {trackingError && <section className="performance-panel performance-state" role="alert">{trackingError}</section>}
+    {!tracking && !trackingError && <section className="performance-panel performance-status" aria-live="polite"><strong>Pozisyon takibi hazırlanıyor</strong><span>Aktif ve kapanmış sinyal dönemleri yükleniyor.</span></section>}
+    {trackingError && <section className="performance-panel performance-status" role="alert"><strong>Pozisyon takibi kullanılamıyor</strong><span>{trackingError}</span></section>}
 
     {tracking && <>
       <section className="performance-kpi-strip" aria-label="Pozisyon takip KPI'ları">
@@ -131,8 +132,8 @@ export function PerformancePage() {
       {(Array.isArray(closedSummary.yorumlar) && closedSummary.yorumlar.length > 0) && <section className="performance-panel performance-insight-card"><p className="eyebrow">IZFIN GEÇMİŞ PERFORMANS ÖZETİ</p><div className="performance-insight-head"><h2>Sistem geçmişte ne yaptı?</h2><div><span><b>En iyi</b> {text(closedSummary.best_txt)}</span><span><b>En zayıf</b> {text(closedSummary.worst_txt)}</span></div></div><ul>{closedSummary.yorumlar.map((item, index) => <li key={index}>{text(item)}</li>)}</ul></section>}
     </>}
 
-    {!scorecard && !scoreError && <section className="performance-panel performance-state">Karne hazırlanıyor…</section>}
-    {scoreError && <section className="performance-panel performance-state" role="alert">{scoreError}</section>}
+    {!scorecard && !scoreError && <section className="performance-panel performance-status" aria-live="polite"><strong>Karne hazırlanıyor</strong><span>{days} günlük sinyal ölçümü hesaplanıyor.</span></section>}
+    {scoreError && <section className="performance-panel performance-status" role="alert"><strong>Performans karnesi kullanılamıyor</strong><span>{scoreError}</span></section>}
 
     {scorecard && <>
       <section className="performance-scorecard-heading"><div><p className="eyebrow">IZFIN PERFORMANS KARNESİ</p><h2>{days} günlük sinyal ölçümü</h2></div><span>{scorecard.kayit_adedi} kayıt</span></section>
@@ -148,7 +149,7 @@ export function PerformancePage() {
 
       <section className="performance-lower-grid">
         <article className="performance-panel performance-context-card"><p className="eyebrow">KARNE OKUMASI</p><h2>Sonuç kalitesi</h2><p>{scorecard.kucuk_orneklem ? "Örneklem henüz küçük; oranlar yeni sonuçlarla hızlı değişebilir." : "Örneklem daha dengeli bir toplu değerlendirme sunuyor."}</p><div className="performance-quality-bar"><span style={{ width: `${Math.min(100, Math.max(8, scorecard.kayit_adedi))}%` }} /></div></article>
-        <article className="performance-panel performance-context-card"><p className="eyebrow">ÖLÇÜM BAĞLAMI</p><h2>Mevcut performans motoru</h2><p>Aktif/kapanmış dönem takibi ve sinyal karnesi mevcut IZFIN hesaplarını native web arayüzünde gösterir. Streamlit akışı geçiş boyunca korunur.</p></article>
+        <article className="performance-panel performance-context-card"><p className="eyebrow">ÖLÇÜM KAPSAMI</p><h2>Mevcut performans motoru</h2><p><b>Ölçüm kapsamı</b> · Aktif/kapanmış dönem takibi ve sinyal karnesi mevcut IZFIN hesaplarını native web arayüzünde gösterir. Streamlit akışı geçiş boyunca korunur.</p></article>
       </section>
     </>}
   </main>;
