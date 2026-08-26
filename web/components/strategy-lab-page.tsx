@@ -5,6 +5,7 @@ import { runBacktest, type BacktestPeriod, type BacktestResponse } from "../lib/
 import { useIzfinAuth } from "./auth-provider";
 
 const PERIODS: BacktestPeriod[] = ["3y", "5y", "10y"];
+const SUGGESTED_SYMBOLS = ["THYAO.IS", "AKBNK.IS", "ASELS.IS"];
 const SUMMARY_COLUMNS = ["Sinyal", "Örnek", "İşlem Başarı %", "Ort. İşlem %", "TP1 İlk %", "Stop İlk %", "20G Kârda %", "20G Ort. %", "45G Kârda %", "45G Ort. %"];
 const DETAIL_COLUMNS = ["Tarih", "Sinyal", "Teknik Profil", "Ön Sinyal", "Hibrit Skor", "Güven %", "Daily MTF %", "Giriş Proxy", "Giriş", "İlk Stop", "İlk TP1", "İlk Olay", "İşlem Sonucu %", "20G %", "45G %"];
 
@@ -53,10 +54,16 @@ export function StrategyLabPage() {
     }
   }
 
-  if (authLoading) return <main className="strategy-page"><p className="strategy-muted">Güvenli oturum hazırlanıyor…</p></main>;
+  function beginNewRun() {
+    setResult(null);
+    setError("");
+  }
+
+  if (authLoading) return <main className="strategy-page"><section className="strategy-panel strategy-status" aria-live="polite"><strong>Güvenli oturum hazırlanıyor</strong><span>Backtest çalışma alanın hesabınla eşleştiriliyor.</span></section></main>;
   if (!user) return <main className="strategy-page"><section className="strategy-panel strategy-auth"><p className="eyebrow">STRATEJİ LABORATUVARI</p><h1>Daily Core Backtest</h1><p>Geçmiş IZFIN kararlarını test etmek için hesabınla giriş yap.</p><a href="/">Ana sayfaya dön →</a></section></main>;
 
   return <main className="strategy-page" aria-label="IZFIN Strateji Laboratuvarı">
+    <div className="strategy-path"><a href="/">← Piyasa Merkezi</a><span>Analiz araçları / Strateji Lab</span></div>
     <section className="strategy-hero">
       <div>
         <p className="eyebrow">STRATEJİ LABORATUVARI</p>
@@ -69,7 +76,9 @@ export function StrategyLabPage() {
     <form className="strategy-panel strategy-runner" onSubmit={submit}>
       <div className="strategy-symbol-field">
         <label htmlFor="strategy-ticker">SEMBOL</label>
-        <input id="strategy-ticker" value={ticker} onChange={(event) => setTicker(event.target.value)} placeholder="NVDA veya THYAO.IS" autoComplete="off" />
+        <input id="strategy-ticker" value={ticker} onChange={(event) => setTicker(event.target.value)} placeholder="THYAO.IS" autoComplete="off" aria-describedby="strategy-symbol-note" />
+        <small id="strategy-symbol-note">BIST sembolünü <b>.IS</b> uzantısıyla gir.</small>
+        <div className="strategy-symbol-suggestions" aria-label="Örnek semboller">{SUGGESTED_SYMBOLS.map((symbol) => <button type="button" key={symbol} onClick={() => setTicker(symbol)}>{symbol}</button>)}</div>
       </div>
       <div className="strategy-period-field">
         <span>GEÇMİŞ DÖNEM</span>
@@ -84,13 +93,13 @@ export function StrategyLabPage() {
       <article className="strategy-panel"><span>UFUKLAR</span><strong>5 / 10 / 20 / 45 gün</strong><p>Stop ve TP sonucu yanında sabit ufuk hareketleri ayrıca izlenir.</p></article>
     </section>
 
-    {error && <section className="strategy-panel strategy-state" role="alert">{error}</section>}
-    {running && <section className="strategy-panel strategy-state">{ticker.trim().toUpperCase()} için Daily Core geçmişi hesaplanıyor…</section>}
+    {error && <section className="strategy-panel strategy-status" role="alert"><strong>Backtest çalıştırılamadı</strong><span>{error}</span></section>}
+    {running && <section className="strategy-panel strategy-status" aria-live="polite"><strong>Daily Core hesaplanıyor</strong><span>{ticker.trim().toUpperCase()} · {period.toUpperCase()} geçmiş dönem verisi işleniyor.</span></section>}
 
     {result && <>
       <section className="strategy-result-head">
         <div><p className="eyebrow">BACKTEST SONUCU</p><h2>{result.ticker}</h2></div>
-        <div><span>{result.period.toUpperCase()}</span><span>{result.detail.length} işlem</span></div>
+        <div><span>{result.period.toUpperCase()}</span><span>{result.detail.length} işlem</span><button type="button" onClick={beginNewRun}>Yeni test başlat</button></div>
       </section>
 
       {result.empty ? <section className="strategy-panel strategy-empty">Seçilen dönem için yeterli veri veya alım sinyali bulunamadı.</section> : <>
@@ -107,7 +116,7 @@ export function StrategyLabPage() {
         <StrategyTable title="Geçmiş test işlemleri" eyebrow="İŞLEM DETAYI" rows={result.detail} columns={DETAIL_COLUMNS} wide />
 
         <section className="strategy-panel strategy-methodology">
-          <div><p className="eyebrow">METODOLOJİ</p><h2>Backtest nasıl okunmalı?</h2><p>{result.detail_explanation}</p></div>
+          <div><p className="eyebrow">SONUÇ KAPSAMI</p><h2>Backtest nasıl okunmalı?</h2><p><b>Sonuç kapsamı</b> · {result.detail_explanation}</p></div>
           <div className="strategy-notes">{result.reading_notes.split("\n").filter(Boolean).map((line, index) => <p key={index}>{line}</p>)}</div>
         </section>
       </>}
