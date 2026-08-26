@@ -5,6 +5,7 @@ from datetime import datetime
 import pytest
 
 from izfin_services.bootstrap_service import (
+    kullanici_kayit_bootstrap_hazirla,
     kullanici_liste_doc_id,
     kullanici_watchlist_bootstrap_hazirla,
     kullanici_watchlist_kaydet,
@@ -24,6 +25,15 @@ class FakeRepository:
         self.available = available
         self.reads = []
         self.writes = []
+        self.profile = {}
+        self.profile_writes = []
+
+    def get_profile(self, _uid):
+        return dict(self.profile)
+
+    def upsert_profile(self, _uid, data, *, merge=True):
+        self.profile_writes.append((data, merge))
+        self.profile.update(data)
 
     def get_primary_and_legacy_watchlists(self, primary_id, legacy_id=None):
         self.reads.append((primary_id, legacy_id))
@@ -170,6 +180,27 @@ def test_watchlist_save_rejects_unavailable_repository_or_missing_session():
             email="u@example.com",
             tickers=[],
         )
+
+
+def test_registration_bootstrap_reuses_profile_and_default_watchlist_contract():
+    repo = FakeRepository()
+    profile = kullanici_kayit_bootstrap_hazirla(
+        repo,
+        uid="uid-1",
+        email="USER@EXAMPLE.COM",
+        default_tickers=["THYAO.IS", "AKBNK.IS"],
+        terms_version="terms-v1",
+        privacy_version="privacy-v1",
+        now_factory=lambda: datetime(2026, 8, 26, 12, 0, 0),
+    )
+
+    assert profile["email"] == "user@example.com"
+    assert profile["terms_version"] == "terms-v1"
+    assert repo.writes[0][1]["tickers"] == ["THYAO.IS", "AKBNK.IS"]
+    assert kullanici_kayit_bootstrap_hazirla(
+        repo, uid="uid-1", email="user@example.com", default_tickers=["AAPL"], terms_version="new", privacy_version="new"
+    ) == profile
+    assert len(repo.profile_writes) == 1
     with pytest.raises(RuntimeError, match="Kullanıcı oturumu"):
         kullanici_watchlist_kaydet(
             FakeRepository(),
@@ -187,3 +218,4 @@ def test_logout_state_package_returns_fresh_default_lists_and_expected_pops():
     assert first["pop"] == ("izfin_export_json", "izfin_yasal_onayli")
     first["set"]["custom_tickers"].append("MSFT")
     assert second["set"]["custom_tickers"] == ["AAPL", "NVDA"]
+

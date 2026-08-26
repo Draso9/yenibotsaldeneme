@@ -116,6 +116,22 @@ def test_scan_workspace_uses_api_owned_profiles_and_streamlit_result_columns():
         assert column in workspace
 
 
+def test_auth_is_a_dedicated_route_with_existing_firebase_lifecycle_and_safe_return():
+    auth_page = _read("web/components/auth-page.tsx")
+    auth_route = _read("web/app/auth/page.tsx")
+    shell = _read("web/components/app-shell.tsx")
+
+    assert "signInWithEmailAndPassword" in auth_page
+    assert "createUserWithEmailAndPassword" in auth_page
+    assert "sendPasswordResetEmail" in auth_page
+    assert "sendEmailVerification" in auth_page
+    assert "bootstrapAccount" in auth_page
+    assert "safeNext" in auth_page
+    assert "AuthPage" in auth_route
+    assert 'pathname.startsWith("/auth")' in shell
+    assert 'href="/#akilli-tarama"' not in _read("web/components/performance-page.tsx")
+
+
 def test_market_center_exposes_sorting_decision_context_and_safe_watchlist_action():
     """Decision support must use returned score/risk data and the authenticated watchlist API."""
     market = _read("web/components/market-center.tsx")
@@ -173,4 +189,5 @@ def test_account_keeps_sensitive_actions_and_legal_states_explicit():
     assert "account-status" in account
     assert "Hesap işlemleri Firebase ID token ile doğrulanır" in account
     assert "account-status" in css
+
 

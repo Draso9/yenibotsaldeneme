@@ -7,6 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request, status
 from izfin_core.market_universe import ABD_HİSSELERİ, BIST_30, BIST_100, bist_ticker_listesi_guncelle
 
 from izfin_services.bootstrap_service import (
+    kullanici_kayit_bootstrap_hazirla,
     kullanici_watchlist_bootstrap_hazirla,
     kullanici_watchlist_kaydet,
 )
@@ -112,6 +113,29 @@ def get_profile(
         email=identity.email,
         profile=repository.get_profile(identity.uid) or {},
     )
+
+
+@api_router.post("/account/bootstrap", response_model=ProfileResponse, tags=["account"])
+def bootstrap_account(
+    request: Request,
+    credentials=Depends(bearer_credentials),
+) -> ProfileResponse:
+    """Persist the existing IZFIN profile/list baseline after Firebase web sign-up."""
+    identity: ApiIdentity = authenticated_user(request, credentials)
+    runtime = request.app.state.izfin_runtime
+    repository = runtime.user_repository
+    try:
+        profile = kullanici_kayit_bootstrap_hazirla(
+            repository,
+            uid=identity.uid,
+            email=identity.email,
+            default_tickers=runtime.default_tickers,
+            terms_version=runtime.terms_version,
+            privacy_version=runtime.privacy_version,
+        )
+    except RuntimeError as error:
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(error)) from error
+    return ProfileResponse(uid=identity.uid, email=identity.email, profile=profile)
 
 
 def _legal_consent_response(runtime, identity: ApiIdentity) -> LegalConsentResponse:
@@ -524,4 +548,5 @@ def performance_scorecard(
         bos_mesaj=paket["bos_mesaj"],
         kayit_adedi=len(paket["karne_df"]),
     )
+
 

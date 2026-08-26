@@ -10,6 +10,7 @@ class FakeAccountRepository:
         self.profile = {}
         self.profile_updates = []
         self.export_requests = []
+        self.watchlist_updates = []
 
     def get_profile(self, uid):
         assert uid == "uid-1"
@@ -20,6 +21,12 @@ class FakeAccountRepository:
         assert merge is True
         self.profile_updates.append((uid, data.copy()))
         self.profile.update(data)
+
+    def get_primary_and_legacy_watchlists(self, _primary_id, _legacy_id=None):
+        return {"primary_exists": False, "primary_data": {}, "legacy_exists": False, "legacy_data": {}}
+
+    def upsert_watchlist(self, document_id, data, *, merge=True):
+        self.watchlist_updates.append((document_id, data.copy(), merge))
 
     def collect_user_documents(self, uid, email):
         self.export_requests.append((uid, email))
@@ -67,6 +74,22 @@ def test_profile_uses_authenticated_identity_when_stored_profile_is_empty():
     }
 
 
+def test_authenticated_signup_bootstrap_creates_existing_izfin_profile_and_list_once():
+    repository = FakeAccountRepository()
+    client = _client(repository)
+    headers = {"Authorization": "Bearer firebase-id-token"}
+
+    first = client.post("/api/v1/account/bootstrap", headers=headers)
+    second = client.post("/api/v1/account/bootstrap", headers=headers)
+
+    assert first.status_code == 200
+    assert first.json()["profile"]["email"] == "user@example.com"
+    assert first.json()["profile"]["terms_version"] == "terms-v1"
+    assert len(repository.profile_updates) == 1
+    assert len(repository.watchlist_updates) == 1
+    assert second.json()["profile"] == first.json()["profile"]
+
+
 def test_authenticated_user_can_record_current_consent():
     repository = FakeAccountRepository()
     client = _client(repository)
@@ -111,3 +134,4 @@ def test_export_uses_only_authenticated_identity():
     assert response.json()["user_uid"] == "uid-1"
     assert response.json()["user_email"] == "user@example.com"
     assert repository.export_requests == [("uid-1", "user@example.com")]
+

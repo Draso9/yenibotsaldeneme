@@ -55,6 +55,8 @@ export function AppShell({ children }: Readonly<{ children: React.ReactNode }>) 
               ? "Admin QA · Sistem Sağlığı"
               : "Piyasa Merkezi";
 
+  if (pathname.startsWith("/auth")) return <>{children}</>;
+
   return <div className="app-shell">
     <aside className="sidebar">
       <div className="brand">
@@ -102,3 +104,4 @@ export function AppShell({ children }: Readonly<{ children: React.ReactNode }>) 
     </div>
   </div>;
 }
+

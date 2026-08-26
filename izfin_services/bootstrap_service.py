@@ -150,6 +150,56 @@ def kullanici_watchlist_kaydet(
     )
 
 
+def kullanici_kayit_bootstrap_hazirla(
+    user_repository,
+    *,
+    uid: str | None,
+    email: str | None,
+    default_tickers,
+    terms_version: str,
+    privacy_version: str,
+    now_factory: Callable[[], datetime] | None = None,
+) -> dict[str, Any]:
+    """Create the same IZFIN profile and personal-list baseline used by the legacy sign-up flow.
+
+    Firebase owns credentials; this service owns only IZFIN's user documents. Existing
+    users are deliberately left untouched so a repeat request is safe after a retry.
+    """
+    if not getattr(user_repository, "available", False):
+        raise RuntimeError("Firebase veritabanı bağlantısı kullanılamıyor.")
+
+    uid_norm = str(uid or "").strip()
+    email_norm = str(email or "").strip().lower()
+    if not uid_norm or not email_norm:
+        raise RuntimeError("Kullanıcı oturumu bulunamadı.")
+
+    existing = user_repository.get_profile(uid_norm) or {}
+    if existing:
+        return existing
+
+    now_factory = now_factory or datetime.now
+    now_iso = now_factory().isoformat()
+    profile = {
+        "uid": uid_norm,
+        "email": email_norm,
+        "olusturma_zamani": now_iso,
+        "son_giris": None,
+        "terms_version": str(terms_version),
+        "terms_accepted_at": now_iso,
+        "privacy_notice_version": str(privacy_version),
+        "privacy_notice_shown_at": now_iso,
+    }
+    user_repository.upsert_profile(uid_norm, profile)
+    kullanici_watchlist_kaydet(
+        user_repository,
+        uid=uid_norm,
+        email=email_norm,
+        tickers=default_tickers,
+        now_factory=now_factory,
+    )
+    return profile
+
+
 def logout_state_paketi(default_tickers) -> dict[str, Any]:
     tickers = list(default_tickers or [])
     return {
@@ -163,3 +213,4 @@ def logout_state_paketi(default_tickers) -> dict[str, Any]:
         },
         "pop": ("izfin_export_json", "izfin_yasal_onayli"),
     }
+
