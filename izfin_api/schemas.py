@@ -34,6 +34,26 @@ class ScanUniverseResponse(BaseModel):
     secim_ozeti: dict[str, int]
 
 
+class ScanProfilesResponse(BaseModel):
+    """Server-owned scan profiles shared by Streamlit, web, and future mobile clients."""
+
+    profiles: dict[str, list[str]] = Field(default_factory=dict)
+
+
+class SymbolSuggestion(BaseModel):
+    """One normalized symbol match from the existing search service."""
+
+    symbol: str
+    name: str = ""
+    exchange: str = ""
+    quote_type: str = ""
+
+
+class SymbolSearchResponse(BaseModel):
+    query: str
+    suggestions: list[SymbolSuggestion] = Field(default_factory=list)
+
+
 class WatchlistTransitionRequest(BaseModel):
     islem_sonucu: dict[str, Any] = Field(default_factory=dict)
 
@@ -68,12 +88,6 @@ class ProfileResponse(BaseModel):
     profile: dict[str, Any]
 
 
-class RegistrationBootstrapResponse(BaseModel):
-    profile_created: bool
-    default_watchlist_seeded: bool
-    default_watchlist_size: int
-
-
 class LegalConsentUpdateRequest(BaseModel):
     terms_accepted: Literal[True]
     privacy_notice_seen: Literal[True]
@@ -96,12 +110,13 @@ class AccountExportResponse(BaseModel):
 
 class AccountDeleteRequest(BaseModel):
     email: str = Field(min_length=3, max_length=320)
-    confirmation_text: str = Field(min_length=1, max_length=128)
-    irreversible_confirmed: Literal[True]
+    confirmation_phrase: str = Field(min_length=1, max_length=64)
+    irreversible: bool
 
 
 class AccountDeleteResponse(BaseModel):
     deleted: bool
+    deleted_documents: int
 
 
 class ScanRunRequest(BaseModel):
@@ -216,6 +231,18 @@ class BacktestResponse(BaseModel):
     reading_notes: str
 
 
+class PerformanceMetric(BaseModel):
+    label: str
+    value: str
+
+
+class PerformancePositionsResponse(BaseModel):
+    kpis: list[PerformanceMetric]
+    active: list[dict[str, Any]]
+    closed: list[dict[str, Any]]
+    closed_summary: dict[str, Any]
+
+
 class PerformanceScorecardQuery(BaseModel):
     gun: int = Field(default=20, ge=1, le=365)
 
@@ -225,10 +252,10 @@ class PerformanceScorecardApiResponse(BaseModel):
     kucuk_orneklem: bool
     bos_mesaj: str | None
     kayit_adedi: int
+    gun: int
     ozet: list[dict[str, Any]] = Field(default_factory=list)
     detay: list[dict[str, Any]] = Field(default_factory=list)
-    period_label: str | None = None
-    period_explanation: str | None = None
+    medyan_alfa_mesaji: str | None = None
 
 
 class PerformanceScorecardRequest(BaseModel):
@@ -236,17 +263,8 @@ class PerformanceScorecardRequest(BaseModel):
     gun: int = Field(ge=1, le=365)
 
 
-class PerformanceMetric(BaseModel):
-    label: str
-    value: str
-
-
 class PerformanceScorecardResponse(BaseModel):
     metrikler: list[PerformanceMetric]
     kucuk_orneklem: bool
     bos_mesaj: str | None
     kayit_adedi: int
-    ozet: list[dict[str, Any]] = Field(default_factory=list)
-    detay: list[dict[str, Any]] = Field(default_factory=list)
-    period_label: str | None = None
-    period_explanation: str | None = None
