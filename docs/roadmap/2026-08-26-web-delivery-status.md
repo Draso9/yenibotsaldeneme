@@ -41,7 +41,7 @@ The earlier “screen polish” list is expanded below. A later phase does not s
 
 - [x] **Dedicated auth routes**: separate Firebase sign-in, sign-up, password reset, email verification, Google sign-in, authenticated return flow, and the existing IZFIN profile/default-watchlist bootstrap.
 - [x] **Onboarding**: first-run explanation, consent path, watchlist start, and first-scan guidance. The signed-in scan workspace now reuses the Streamlit 4-step decision-reading guide and lets each user dismiss it locally after the first visit.
-- [ ] **Brand system**: approved IZFIN logo asset, favicon/app icons, typography/voice, and empty-state illustrations. Do not invent a final logo; add the approved asset when available.
+- [x] **Brand system**: approved IZFIN logo asset is now used in the shared web shell, dedicated auth screen, favicon, and Apple app icon. Keep the current Turkish product voice; future empty-state illustrations must extend this approved mark rather than replace it.
 
 ### Phase 4 — Product depth and trust
 
@@ -81,7 +81,7 @@ The earlier “screen polish” list is expanded below. A later phase does not s
 
 ## Next package
 
-Start from current `develop`: add the **approved brand assets** (logo, favicon/app icons and visual direction), then complete release acceptance. The parity audit is recorded in `docs/roadmap/2026-08-26-streamlit-web-parity-audit.md`.
+Start from current `develop`: begin **product depth and trust** work, then complete release acceptance. The parity audit is recorded in `docs/roadmap/2026-08-26-streamlit-web-parity-audit.md`.
 
 
 

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { fetchAdminQuality } from "../lib/admin-quality";
 import { useIzfinAuth } from "./auth-provider";
@@ -61,7 +62,7 @@ export function AppShell({ children }: Readonly<{ children: React.ReactNode }>) 
     <a className="skip-link" href="#main-content">Ana içeriğe geç</a>
     <aside className="sidebar">
       <div className="brand">
-        <div className="brand-mark" aria-hidden="true"><span>I</span><span>Z</span></div>
+        <div className="brand-mark"><Image alt="IZFIN" height={44} priority src="/brand/izfin-logo.png" width={44} /></div>
         <div className="brand-copy"><b>IZFIN</b><span>MARKET INTELLIGENCE</span></div>
       </div>
       <div className="nav-label">ÇALIŞMA ALANI</div>
@@ -94,7 +95,7 @@ export function AppShell({ children }: Readonly<{ children: React.ReactNode }>) 
         <span className="sidebar-user">{user?.email ?? "Oturum bekleniyor"}</span>
       </div>
     </aside>
-    <main className="app-content" id="main-content" tabIndex={-1}>
+    <div className="app-content" id="main-content" role="main" tabIndex={-1}>
       <header className="topbar">
         <div className="topbar-title"><span>IZFIN</span><b>{pageLabel}</b></div>
         <div className="topbar-actions">
@@ -102,7 +103,7 @@ export function AppShell({ children }: Readonly<{ children: React.ReactNode }>) 
         </div>
       </header>
       {children}
-    </main>
+    </div>
   </div>;
 }
 
