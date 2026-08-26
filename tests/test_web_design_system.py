@@ -76,3 +76,15 @@ def test_scan_and_detail_share_explicit_states_and_detail_handoff():
     assert "Veri kaynağı" in detail
     assert "scan-result-header" in scan_css
     assert "detail-status" in detail_css
+
+
+def test_projection_keeps_job_context_and_explicit_model_states():
+    """Projection must disclose its scenario context instead of implying a live price target."""
+    projection = _read("web/components/projection-page.tsx")
+    css = _read("web/app/projection.css")
+
+    assert "projection-path" in projection
+    assert 'aria-live="polite"' in projection
+    assert "Model kapsamı" in projection
+    assert "yatırım tavsiyesi değildir" in projection
+    assert "projection-status" in css
