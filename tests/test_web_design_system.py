@@ -88,3 +88,14 @@ def test_projection_keeps_job_context_and_explicit_model_states():
     assert "Model kapsamı" in projection
     assert "yatırım tavsiyesi değildir" in projection
     assert "projection-status" in css
+
+
+def test_performance_keeps_period_context_and_separates_data_states():
+    """Performance must not blur loading, unavailable, and empty portfolio data."""
+    performance = _read("web/components/performance-page.tsx")
+    css = _read("web/app/performance.css")
+
+    assert "performance-path" in performance
+    assert 'aria-live="polite"' in performance
+    assert "Ölçüm kapsamı" in performance
+    assert "performance-status" in css
