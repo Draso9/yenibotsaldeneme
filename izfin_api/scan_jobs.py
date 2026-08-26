@@ -35,6 +35,7 @@ class ScanJobSnapshot:
     error: str | None = None
     tickers: tuple[str, ...] = ()
     created_at: str | None = None
+    current_ticker: str | None = None
 
 
 @dataclass
@@ -48,6 +49,7 @@ class _ScanJobRecord:
     result: dict[str, Any] | None = None
     error: str | None = None
     created_at: str | None = None
+    current_ticker: str | None = None
 
     def snapshot(self) -> ScanJobSnapshot:
         return ScanJobSnapshot(
@@ -60,6 +62,7 @@ class _ScanJobRecord:
             error=self.error,
             tickers=self.tickers,
             created_at=self.created_at,
+            current_ticker=self.current_ticker,
         )
 
 
@@ -191,6 +194,7 @@ class ScanJobStore:
             record.status = "completed"
             record.stage = "complete"
             record.completed = len(record.tickers)
+            record.current_ticker = None
             record.result = json_uyumlu({
                 "sonuclar": presented["sonuclar"],
                 "teknik_paneller": presented["teknik_paneller"],
@@ -237,14 +241,25 @@ class ScanJobStore:
         stage = str(event.get("stage") or "running")
         with self._lock:
             record = self._records[job_id]
+            previous_completed = record.completed
             record.status = "running"
             record.stage = stage
             if stage == "ticker":
                 index = int(event.get("index") or 0)
-                record.completed = min(max(index, 0), len(record.tickers))
+                completed = int(event.get("completed", index) or 0)
+                record.completed = min(max(completed, 0), len(record.tickers))
+                record.current_ticker = str(event.get("ticker") or "") or None
+            elif stage == "finalizing":
+                record.completed = len(record.tickers)
+                record.current_ticker = None
             elif stage == "complete":
                 record.completed = len(record.tickers)
-            self._persist(record)
+                record.current_ticker = None
+            # Ticker-start events are valuable to the open stream but do not
+            # need an extra Firestore write. Persist durable phase changes and
+            # completed-ticker advances only.
+            if stage != "ticker" or record.completed != previous_completed:
+                self._persist(record)
 
     def _persist(self, record: _ScanJobRecord) -> None:
         repository = self._job_repository
@@ -267,6 +282,7 @@ class ScanJobStore:
             ),
             "error": record.error,
             "created_at": record.created_at,
+            "current_ticker": record.current_ticker,
         }
         try:
             repository.upsert_job(record.job_id, payload)
@@ -307,6 +323,7 @@ class ScanJobStore:
             result=result,
             error=str(data.get("error") or "") or None,
             created_at=str(data.get("created_at") or "") or None,
+            current_ticker=str(data.get("current_ticker") or "") or None,
         )
 
     def _mark_interrupted(self, record: _ScanJobRecord) -> None:

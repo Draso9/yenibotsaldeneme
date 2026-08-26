@@ -15,6 +15,7 @@ from izfin_ui.performance_view import (
     kapanmis_pozisyon_gorunumu_hazirla,
     performans_pozisyon_paketi_hazirla,
     performans_ust_kpi_paketi_hazirla,
+    performans_karne_paketi_hazirla,
 )
 
 
@@ -72,4 +73,28 @@ def performans_takip_paketi_hazirla(
         "active": _records(active_view),
         "closed": _records(closed_view),
         "closed_summary": _json_ready(closed_summary),
+    }
+
+
+def performans_karne_api_paketi_hazirla(
+    kayitlar: Sequence[Mapping[str, Any]] | None,
+    *,
+    gun: int,
+) -> dict[str, Any]:
+    """Expose the existing scorecard summary/detail views as a JSON API contract."""
+    normalized_days = max(1, min(int(gun), 365))
+    package = performans_karne_paketi_hazirla(kayitlar, gun=normalized_days)
+    detail = package["detay"]
+    detail_columns = package["detay_kolonlari"]
+    if detail_columns:
+        detail = detail[detail_columns]
+    return {
+        "metrikler": _json_ready(package["metrikler"]),
+        "kucuk_orneklem": bool(package["kucuk_orneklem"]),
+        "bos_mesaj": package["bos_mesaj"],
+        "kayit_adedi": int(len(package["karne_df"])),
+        "gun": normalized_days,
+        "ozet": _records(package["gorunum"]),
+        "detay": _records(detail),
+        "medyan_alfa_mesaji": package["medyan_alfa_mesaji"],
     }

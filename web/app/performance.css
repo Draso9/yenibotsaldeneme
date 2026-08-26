@@ -10,6 +10,9 @@
 .performance-period { display: flex; gap: 6px; padding: 5px; border: 1px solid var(--line); border-radius: 11px; background: rgba(10,16,24,.8); }
 .performance-period button { min-width: 50px; min-height: 34px; border: 0; border-radius: 8px; background: transparent; color: var(--muted); font-size: 9px; font-weight: 850; cursor: pointer; }
 .performance-period button.active { background: rgba(96,226,180,.11); color: var(--accent); box-shadow: inset 0 0 0 1px rgba(96,226,180,.15); }
+.performance-hero-actions { display: grid; justify-items: end; gap: 8px; }
+.performance-refresh { min-height: 34px; padding: 0 12px; border: 1px solid var(--line); border-radius: 8px; color: #9bb6c4; background: rgba(10,16,24,.8); font-size: 9px; font-weight: 800; cursor: pointer; }
+.performance-refresh:hover { color: var(--accent); border-color: rgba(96,226,180,.25); }
 .performance-status, .performance-empty { margin-top: 12px; padding: 18px 20px; color: var(--muted); font-size: 10px; }
 .performance-status { display: grid; gap: 5px; border-color: rgba(100,168,255,.18); background: rgba(100,168,255,.045); line-height: 1.55; }
 .performance-status strong { color: #dce8ee; font-size: 11px; }
@@ -36,6 +39,8 @@
 .performance-table td.negative { color: #e98589; font-weight: 800; }
 .performance-table td.neutral { color: var(--muted); }
 .performance-table-empty { margin: 18px 0 2px; padding: 16px; border: 1px dashed var(--line-soft); border-radius: 9px; color: var(--muted); font-size: 10px; }
+.performance-table-note { margin: 13px 0 0; color: var(--muted-2); font-size: 8px; line-height: 1.6; }
+.performance-detail-button { min-height: 30px; padding: 0 10px; border: 1px solid rgba(96,226,180,.18); border-radius: 7px; color: var(--accent); background: rgba(96,226,180,.045); font-size: 8px; font-weight: 850; cursor: pointer; }
 
 .performance-closed-summary { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 10px; margin-top: 12px; }
 .performance-closed-card { padding: 16px; }
@@ -49,6 +54,13 @@
 .performance-insight-head span { padding: 7px 9px; border: 1px solid var(--line-soft); border-radius: 8px; color: var(--muted); font-size: 8px; }
 .performance-insight-head span b { color: #d8e4e8; }
 .performance-insight-card ul { margin: 16px 0 0; padding-left: 18px; color: var(--muted); font-size: 9px; line-height: 1.7; }
+.performance-drilldown { margin-top: 12px; padding: 20px; border-color: rgba(25,220,228,.2); }
+.performance-drilldown .performance-section-title > button { border: 0; color: var(--muted); background: transparent; font-size: 9px; cursor: pointer; }
+.performance-drilldown-grid { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 9px; margin-top: 17px; }
+.performance-drilldown-grid span { padding: 13px; border: 1px solid var(--line-soft); border-radius: 9px; background: rgba(4,13,22,.55); }
+.performance-drilldown-grid small { display: block; color: var(--muted-2); font-size: 8px; }
+.performance-drilldown-grid b { display: block; margin-top: 7px; color: #dce8ed; font-size: 9px; line-height: 1.5; }
+.performance-drilldown-grid b.positive { color: var(--accent); }.performance-drilldown-grid b.negative { color: #e98589; }
 .performance-scorecard-heading { margin: 30px 0 12px; padding-top: 4px; }
 
 .performance-overview-grid { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 12px; }
@@ -71,6 +83,14 @@
 .performance-quality-bar span { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg,var(--blue),var(--accent)); }
 .performance-empty-state { margin-top: 12px; padding: 22px; }
 .performance-empty-state p { margin: 0; color: var(--muted); font-size: 10px; }
+.performance-sample-warning { margin-top: 12px; padding: 17px 19px; border-color: rgba(236,175,81,.25); background: rgba(236,175,81,.045); }
+.performance-sample-warning strong { color: #e8b765; font-size: 10px; }.performance-sample-warning p { margin: 6px 0 0; color: #b49a72; font-size: 9px; line-height: 1.6; }
+.performance-context-card > small { display: block; margin-top: 12px; color: #89b8c6; font-size: 8px; }
+.performance-score-detail { margin-top: 12px; padding: 18px 20px; }
+.performance-score-detail summary { display: flex; align-items: center; justify-content: space-between; gap: 15px; color: #dce8ed; font-size: 10px; font-weight: 850; cursor: pointer; }
+.performance-score-detail summary span { color: var(--accent); font-size: 8px; }.performance-score-detail > p { color: var(--muted); font-size: 9px; }
+.performance-definition-grid { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 10px; margin-top: 12px; }
+.performance-definition-grid article { padding: 16px; }.performance-definition-grid b { color: #dce8ed; font-size: 9px; }.performance-definition-grid span { display: block; margin-top: 7px; color: var(--muted); font-size: 8px; line-height: 1.55; }
 
 @media (max-width: 1050px) { .performance-kpi-strip, .performance-closed-summary, .performance-metric-grid { grid-template-columns: repeat(2,minmax(0,1fr)); } }
-@media (max-width: 720px) { .performance-page { padding: 30px 20px 70px; }.performance-path { align-items: flex-start; flex-direction: column; gap: 4px; }.performance-path > span { text-align: left; }.performance-hero { align-items: flex-start; flex-direction: column; }.performance-period { width: 100%; }.performance-period button { flex: 1; }.performance-kpi-strip, .performance-closed-summary, .performance-overview-grid, .performance-metric-grid, .performance-lower-grid { grid-template-columns: 1fr; }.performance-insight-head { flex-direction: column; }.performance-insight-head > div { justify-content: flex-start; }.performance-table-card { padding: 15px; } }
+@media (max-width: 720px) { .performance-page { padding: 30px 20px 70px; }.performance-path { align-items: flex-start; flex-direction: column; gap: 4px; }.performance-path > span { text-align: left; }.performance-hero { align-items: flex-start; flex-direction: column; }.performance-hero-actions { width: 100%; justify-items: stretch; }.performance-period { width: 100%; }.performance-period button { flex: 1; }.performance-kpi-strip, .performance-closed-summary, .performance-overview-grid, .performance-metric-grid, .performance-lower-grid, .performance-drilldown-grid, .performance-definition-grid { grid-template-columns: 1fr; }.performance-insight-head { flex-direction: column; }.performance-insight-head > div { justify-content: flex-start; }.performance-table-card { padding: 15px; } }

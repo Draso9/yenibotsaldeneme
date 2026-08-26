@@ -198,14 +198,25 @@ def test_scan_reuses_streamlit_symbol_search_and_keeps_source_table_focus_mode()
     assert ".scan-summary.is-focus" in polish
 
 
-def test_scan_uses_streamlit_lock_overlay_and_refetches_inline_cloud_run_result():
+def test_scan_uses_streamlit_lock_overlay_and_live_cloud_run_result():
     workspace = _read("web/components/scan-workspace.tsx")
     polish = _read("web/app/component-polish.css")
 
     for marker in ("IZFIN SMART SCAN", "Tarama tamamlanana kadar ekran geçici olarak kilitlendi", "scan-lock-progress"):
         assert marker in workspace or marker in polish
-    assert 'created.status === "completed"' in workspace
+    assert "izfinApiStream" in workspace
     assert "aria-modal=\"true\"" in workspace
+
+
+def test_scan_streams_real_cloud_run_progress_instead_of_waiting_at_four_percent():
+    workspace = _read("web/components/scan-workspace.tsx")
+    api = _read("web/lib/api.ts")
+
+    assert '"/api/v1/scan/jobs/stream"' in workspace
+    assert "izfinApiStream" in workspace
+    assert "current_ticker" in workspace
+    assert "application/x-ndjson" in api
+    assert "TextDecoder" in api
 
 
 def test_first_scan_onboarding_reuses_the_existing_streamlit_decision_reading_flow():
@@ -271,6 +282,10 @@ def test_performance_keeps_period_context_and_separates_data_states():
     assert 'aria-live="polite"' in performance
     assert "Ölçüm kapsamı" in performance
     assert "performance-status" in css
+    for marker in ("VARLIK BAZLI KARNE", "Sinyal bazlı ölçüm geçmişini aç", "Örneklem henüz küçük", "Verileri yenile"):
+        assert marker in performance
+    for marker in ("performance-drilldown", "performance-sample-warning", "performance-definition-grid"):
+        assert marker in css
 
 
 def test_strategy_lab_exposes_configuration_run_and_result_lifecycle():

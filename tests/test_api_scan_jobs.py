@@ -53,6 +53,7 @@ def test_scan_job_exposes_ticker_progress_and_completed_summary():
     assert in_progress.stage == "ticker"
     assert in_progress.completed == 1
     assert in_progress.total == 2
+    assert in_progress.current_ticker == "THYAO.IS"
 
     release_runner.set()
     completed = _wait_for_job(store, created.job_id, "uid-1", lambda snapshot: snapshot.status == "completed")
@@ -192,6 +193,44 @@ def test_authenticated_user_can_submit_and_poll_own_scan_job():
         "boga_sayisi": 1,
         "alim_firsati": 1,
     }
+
+
+def test_authenticated_scan_stream_emits_progress_and_terminal_result():
+    def runner(tickers, progress_callback=None):
+        progress_callback({"stage": "preparing", "total": 1, "completed": 0})
+        sleep(0.25)
+        progress_callback({"stage": "data_ready", "total": 1})
+        sleep(0.25)
+        progress_callback({"stage": "ticker", "ticker": tickers[0], "index": 1, "completed": 0, "total": 1})
+        sleep(0.25)
+        progress_callback({"stage": "ticker", "ticker": tickers[0], "index": 1, "completed": 1, "total": 1})
+        progress_callback({"stage": "finalizing", "completed": 1, "total": 1})
+        return {
+            "sonuclar": [{"Varlık": tickers[0]}],
+            "basarisiz_taramalar": [],
+            "boga_sayisi": 1,
+            "alim_firsati": 1,
+        }
+
+    client = TestClient(create_app(
+        verify_id_token=lambda _token: {"uid": "uid-1", "email": "user@example.com"},
+        scan_runner=runner,
+    ))
+
+    response = client.post(
+        "/api/v1/scan/jobs/stream",
+        headers={"Authorization": "Bearer token"},
+        json={"tickers": ["THYAO.IS"]},
+    )
+    events = [json.loads(line) for line in response.text.splitlines() if line.strip()]
+
+    assert response.status_code == 200
+    assert response.headers["content-type"].startswith("application/x-ndjson")
+    assert events[0]["status"] in {"queued", "running"}
+    assert any(event["stage"] == "ticker" and event["current_ticker"] == "THYAO.IS" for event in events)
+    assert events[-1]["status"] == "completed"
+    assert events[-1]["completed"] == 1
+    assert events[-1]["result"]["sonuclar"] == [{"Varlık": "THYAO.IS"}]
 
 
 def test_cloud_run_keeps_scan_inside_request_cpu_window(monkeypatch):

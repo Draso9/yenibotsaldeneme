@@ -76,11 +76,16 @@ def test_scan_workflow_collects_results_skips_short_history_and_emits_progress()
     assert result["boga_sayisi"] == 1
     assert result["alim_firsati"] == 1
     assert [event["stage"] for event in events] == [
+        "preparing",
         "data_ready",
         "ticker",
         "ticker",
+        "ticker",
+        "ticker",
+        "finalizing",
         "complete",
     ]
+    assert [event.get("completed") for event in events if event["stage"] == "ticker"] == [0, 1, 1, 2]
     assert events[-1]["success"] == 1
     assert events[-1]["failed"] == 1
 
