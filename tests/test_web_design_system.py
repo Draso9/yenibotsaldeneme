@@ -78,6 +78,19 @@ def test_scan_and_detail_share_explicit_states_and_detail_handoff():
     assert "detail-status" in detail_css
 
 
+def test_scan_workspace_exposes_real_history_and_result_filters():
+    """The scan workspace should reopen owner-scoped jobs and only filter returned results."""
+    workspace = _read("web/components/scan-workspace.tsx")
+    css = _read("web/app/globals.css")
+
+    assert '"/api/v1/scan/jobs", token' in workspace
+    assert "Tarama geçmişi" in workspace
+    assert "Son taramayı aç" in workspace
+    assert "Sonuç görünümü" in workspace
+    assert "scan-history" in css
+    assert "result-filter" in css
+
+
 def test_projection_keeps_job_context_and_explicit_model_states():
     """Projection must disclose its scenario context instead of implying a live price target."""
     projection = _read("web/components/projection-page.tsx")
