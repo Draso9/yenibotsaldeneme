@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { fetchProjection, type ProjectionBand, type ProjectionResponse } from "../lib/projection";
+import { fetchProjection, projectionHref, type ProjectionBand, type ProjectionResponse } from "../lib/projection";
 import { stockDetailHref } from "../lib/stock-detail-route";
 import { useIzfinAuth } from "./auth-provider";
 
@@ -95,6 +95,12 @@ export function ProjectionPage({ jobId, ticker }: Readonly<{ jobId: string; tick
         <div className="projection-title-line"><span className="projection-symbol-dot" /><p className="eyebrow">PROJEKSİYON SENARYO ANALİZİ</p></div>
         <h1>{normalizedTicker}</h1>
         <p className="projection-muted">Mevcut taramadaki teknik panelden üretilen {projection?.horizon_days ?? 45} günlük ATR + tarihsel volatilite modeli.</p>
+        {projection && projection.available_tickers.length > 1 && <label className="projection-symbol-switcher">
+          <span>TARAMADAKİ VARLIK</span>
+          <select value={projection.ticker} onChange={(event) => window.location.assign(projectionHref(jobId, event.target.value))}>
+            {projection.available_tickers.map((item) => <option value={item} key={item}>{item}</option>)}
+          </select>
+        </label>}
       </div>
       {projection && <div className="projection-hero-stats">
         <div><span>Güncel fiyat</span><strong>{price(projection.model.fiyat)}</strong></div>
@@ -113,6 +119,23 @@ export function ProjectionPage({ jobId, ticker }: Readonly<{ jobId: string; tick
           <strong className="projection-target">{price(band.target)}</strong>
           <div className="projection-band-meta"><span>{band.kind === "base" ? "Referans fiyat" : "1σ hedef"}</span><span>{band.kind === "base" ? `${projection.horizon_days}G baz` : `Geniş uç ${price(band.extreme)}`}</span></div>
         </article>)}
+      </section>
+
+      <section className="projection-scenario-grid" aria-label="Teknik senaryolar">
+        <article className="projection-panel projection-scenario-card projection-scenario-up">
+          <div className="projection-scenario-head"><div><p className="eyebrow">POZİTİF SENARYO</p><h2>{projection.technical_scenarios.up.title}</h2></div><span>YUKARI</span></div>
+          <div className="projection-scenario-row"><span>Tetik</span><strong>{projection.technical_scenarios.up.trigger}</strong></div>
+          <div className="projection-scenario-row"><span>Teknik hedefler</span><strong>{projection.technical_scenarios.up.targets.map(price).join(" → ")}</strong></div>
+          <div className="projection-scenario-row"><span>Karma model üst bantları</span><strong>{projection.technical_scenarios.up.model_bands.map(price).join(" → ")}</strong></div>
+          <div className="projection-scenario-row"><span>Risk iptali / stop</span><strong>{price(projection.technical_scenarios.up.risk_invalidation)}</strong></div>
+        </article>
+
+        <article className="projection-panel projection-scenario-card projection-scenario-down">
+          <div className="projection-scenario-head"><div><p className="eyebrow">NEGATİF SENARYO</p><h2>{projection.technical_scenarios.down.title}</h2></div><span>AŞAĞI</span></div>
+          <div className="projection-scenario-row"><span>Tetik</span><strong>{projection.technical_scenarios.down.trigger}</strong></div>
+          <div className="projection-scenario-row"><span>Karma model aşağı bantları</span><strong>{projection.technical_scenarios.down.model_bands.map(price).join(" → ")}</strong></div>
+          <div className="projection-scenario-row"><span>Senaryo geçersizliği</span><strong>{price(projection.technical_scenarios.down.invalidation)} üzeri kalıcılık</strong></div>
+        </article>
       </section>
 
       <section className="projection-workspace">
@@ -147,7 +170,7 @@ export function ProjectionPage({ jobId, ticker }: Readonly<{ jobId: string; tick
         </article>
 
         <article className="projection-panel">
-          <div className="projection-section-head"><div><p className="eyebrow">TEKNİK SENARYO</p><h2>Seviyeler ve risk iptali</h2></div><span className="projection-mini-badge">{text(projection.scenario.sinyal)}</span></div>
+          <div className="projection-section-head"><div><p className="eyebrow">TEKNİK SEVİYELER</p><h2>Seviyeler ve risk iptali</h2></div><span className="projection-mini-badge">{text(projection.scenario.sinyal)}</span></div>
           <div className="projection-level-grid">
             <div><span>Destek</span><strong>{price(projection.scenario.destek)}</strong></div>
             <div><span>Direnç</span><strong>{price(projection.scenario.direnc)}</strong></div>

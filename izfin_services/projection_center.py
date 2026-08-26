@@ -26,6 +26,33 @@ def _panel_for_ticker(
     return None
 
 
+def _technical_scenarios(
+    scenario: Mapping[str, Any],
+    projection: Mapping[str, Any],
+) -> dict[str, dict[str, Any]]:
+    """Expose the same trigger/target context rendered by the Streamlit projection presenter."""
+    destek = float(scenario["destek"])
+    direnc = float(scenario["direnc"])
+    stop = float(scenario["stop"])
+    tp1 = float(scenario["tp1"])
+    tp2 = float(scenario["tp2"])
+    return {
+        "up": {
+            "title": "Yükseliş / Alım Senaryosu",
+            "trigger": f"{direnc:.2f} üzeri kalıcılık + RSI 50 üstü + MACD yukarı kesişim",
+            "targets": [tp1, tp2],
+            "model_bands": [float(projection["ust_1s"]), float(projection["ust_2s"])],
+            "risk_invalidation": stop,
+        },
+        "down": {
+            "title": "Düşüş / Satış Baskısı",
+            "trigger": f"{destek:.2f} altı kapanış + RSI 40 altı veya MACD negatifliğinin güçlenmesi",
+            "model_bands": [float(projection["alt_1s"]), float(projection["alt_2s"])],
+            "invalidation": direnc,
+        },
+    }
+
+
 def projection_paketi_hazirla(
     ticker: str,
     teknik_paneller: Mapping[str, Mapping[str, Any]] | None,
@@ -33,7 +60,8 @@ def projection_paketi_hazirla(
     gun: int = 45,
 ) -> dict[str, Any] | None:
     """Build a presentation-free projection package from an existing scan panel."""
-    selected = _panel_for_ticker(ticker, teknik_paneller)
+    panels = dict(teknik_paneller or {})
+    selected = _panel_for_ticker(ticker, panels)
     if selected is None:
         return None
 
@@ -52,9 +80,11 @@ def projection_paketi_hazirla(
 
     return {
         "ticker": normalized,
+        "available_tickers": [str(item).strip().upper() for item in panels.keys()],
         "horizon_days": int(projection.get("gun", gun) or gun),
         "model": projection,
         "scenario": scenario,
+        "technical_scenarios": _technical_scenarios(scenario, projection),
         "metrics": metrics,
         "bands": [
             {

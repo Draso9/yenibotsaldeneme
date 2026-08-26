@@ -203,9 +203,11 @@ class ProjectionBandResponse(BaseModel):
 
 class ProjectionResponse(BaseModel):
     ticker: str
+    available_tickers: list[str] = Field(default_factory=list)
     horizon_days: int
     model: dict[str, Any]
     scenario: dict[str, Any]
+    technical_scenarios: dict[str, dict[str, Any]] = Field(default_factory=dict)
     metrics: dict[str, Any]
     bands: list[ProjectionBandResponse]
 
@@ -266,6 +268,3 @@ class PerformanceScorecardResponse(BaseModel):
     kucuk_orneklem: bool
     bos_mesaj: str | None
     kayit_adedi: int
-
-
-
