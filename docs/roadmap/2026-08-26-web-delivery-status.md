@@ -1,48 +1,84 @@
-# IZFIN Web Delivery Status
+# IZFIN Web Product Delivery Roadmap
 
 _Last reconciled: 2026-08-26_
 
-## Source of truth
+## Source of truth and working rules
 
-The current implementation status is recorded in GitHub:
+- `develop` is the integrated source of truth.
+- Every package starts from current `develop`, uses a feature branch, and targets `develop` with a PR.
+- A package merges only after GitHub CI is green; the following `develop` CI is checked too.
+- `main` is never a target of this workflow.
+- This file, its PRs, and merged commits are the shared handoff record across computers and Codex tasks. Local folders and chat history are not the source of truth.
 
-1. `develop` is the integrated source of truth.
-2. Every implementation package starts from current `develop`, uses a feature branch, and targets `develop` with a pull request.
-3. A package is only merged after its GitHub CI is green; the subsequent `develop` CI is also checked.
-4. `main` is never a target for this workflow.
+## Completed foundations
 
-This file is intentionally kept in the repository so work can continue from another computer or Codex task without relying on local folders or chat history.
+- [x] FastAPI foundation and Cloud Run deployment baseline.
+- [x] Next.js foundation: Firebase-backed session, watchlist, scan, account surfaces, and web quality CI.
+- [x] API/web boundary hardening and responsive web beta groundwork.
+- [x] Shared IZFIN design foundation and Market Center redesign (PR #61).
+- [x] Akıllı Tarama → job-scoped stock detail handoff plus explicit empty/loading/error states (PR #63).
+- [x] Projeksiyon scenario-context, model-state, and disclosure hierarchy (PR #64).
+- [x] Performans context plus explicit session/position/scorecard states (PR #65).
 
-## Completed
+## Product delivery order
 
-- FastAPI foundation and Cloud Run deployment baseline.
-- Next.js application foundation: authentication, watchlist, scan, account flow, and web quality CI.
-- API/web boundary hardening and responsive web beta groundwork.
-- Shared IZFIN web design system and Market Center redesign.
-  - Design tokens, shell, mobile navigation, live-strip states, accessible signals, movers panel, and responsive layout are in `develop`.
-  - Merged through PR #61 at `fa1fc0aa78ba556bdba3d265e426fed6839ce303`.
-  - PR CI was green.
+The earlier “screen polish” list is expanded below. A later phase does not start before its required earlier package is green and merged.
 
-## Current delivery order
+### Phase 1 — Finish shared web surfaces
 
-The functional screens already exist; the remaining web work is to bring them through the shared design system without changing product behavior.
+- [ ] **Strateji Lab**: strategy selection/configuration, run lifecycle, parameter validation, result/comparison, empty/error states, mobile layout.
+- [ ] **Hesap, consent, and legal**: account settings, consent/OAuth status, session controls, export and legal disclosures.
+- [ ] **Cross-screen visual consistency**: shared spacing, component states, keyboard focus, desktop/mobile behavior across all six navigation areas.
 
-1. **Akıllı Tarama and stock detail** — shared panels, filtering/result states, detail hierarchy, loading/error/empty states.
-2. **Projeksiyon** — consistent scenario cards, assumptions and warning hierarchy.
-3. **Performans** — portfolio performance, range controls, readable chart/table states.
-4. **Strateji Lab** — strategy configuration, run lifecycle, result/comparison states.
-5. **Hesap and legal/OAuth surfaces** — account settings, consent and session states.
-6. **Cross-screen quality gate** — mobile/desktop visual regression, accessibility, API contract tests, full CI.
-7. **Release preparation** — staging configuration, monitoring, deployment checklist, then optional custom domain/mobile client work.
+### Phase 2 — Make Akıllı Tarama a full product workspace
 
-## Working invariants
+- [ ] **Scan configuration**: ticker source/selection, filters, saved presets, understandable validation, and launch summary.
+- [ ] **Scan results**: sortable/filterable result table, decision/risk explanations, watchlist actions, and direct detail comparison.
+- [ ] **Scan history**: completed/failed job history, revisit a result safely, progress and retry states.
+- [ ] **Decision transparency**: make every score, signal, and warning traceable to the existing FastAPI job response without inventing data.
 
-- Keep Streamlit running unchanged as the legacy thin shell.
-- Reuse FastAPI contracts; do not duplicate business logic in Next.js.
-- No fabricated market data: loading, unavailable, and empty states must be explicit.
-- Preserve Turkish product language and the established IZFIN visual identity.
+### Phase 3 — Identity, onboarding, and IZFIN brand
+
+- [ ] **Dedicated auth routes**: separate sign-in, sign-up, password reset, email verification, and authenticated return flow. The current inline session panel remains only until this package is merged.
+- [ ] **Onboarding**: first-run explanation, consent path, watchlist start, and first-scan guidance.
+- [ ] **Brand system**: approved IZFIN logo asset, favicon/app icons, typography/voice, and empty-state illustrations. Do not invent a final logo; add the approved asset when available.
+
+### Phase 4 — Product depth and trust
+
+- [ ] **Portfolio/Performance depth**: range-aware presentation, understandable KPI definitions, history drill-down, and transparent small-sample warnings.
+- [ ] **Projection depth**: scenario comparison, assumptions, historical context, and risk disclosure.
+- [ ] **Operational trust**: graceful provider/API outage states, request feedback, observability, and user-safe error language.
+- [ ] **Security review**: Firebase rules/session boundaries, secret handling, rate limits, and legal copy review.
+
+### Phase 5 — Visual acceptance and release
+
+- [ ] **Visual acceptance**: signed-in and signed-out desktop/mobile checks for home, scan, detail, projection, performance, strategy, and account.
+- [ ] **Automated quality**: API contract/unit tests, architecture/static tests, browser/AppTest regression coverage, full pytest, TypeScript, production build, compile and diff checks.
+- [ ] **Staging and Cloud Run**: production-like environment, health/readiness, monitoring, rollback notes, and a deploy checklist.
+- [ ] **Public release decision**: domain/custom URL, privacy/legal review, support contact, and launch go/no-go.
+
+### Phase 6 — Mobile application preparation
+
+- [ ] Stabilize the FastAPI contracts and shared design tokens.
+- [ ] Decide the mobile client approach after the web release is accepted (React Native/Expo is the likely path).
+- [ ] Reuse the same API/auth contracts; do not fork business rules into a mobile-only backend.
+
+## Visual verification process
+
+1. After every UI package, run local Next.js production build and inspect `http://localhost:3000` at desktop and mobile widths.
+2. For protected surfaces, the user signs in locally; no password or token is shared with Codex.
+3. Each package has explicit signed-out, loading, empty, error, and populated-data checks.
+4. Before release, repeat the full flow against the Cloud Run deployment using real permitted data.
+5. Visual acceptance findings are fixed in a feature branch and go through the same CI/PR/merge process.
+
+## Invariants
+
+- Streamlit remains operational as the legacy thin shell until the web release is accepted.
+- Next.js reuses FastAPI contracts and never duplicates business logic.
+- No fabricated market data: unavailable, empty, and loading states remain explicit.
+- Preserve Turkish product language and IZFIN identity.
 - Every completed package is pushed and merged through GitHub before moving on.
 
 ## Next package
 
-Start from current `develop`: **Akıllı Tarama and stock-detail design-system migration**.
+Start from current `develop`: **Strateji Lab shared-design and run-lifecycle package**.
