@@ -143,7 +143,7 @@ export function PerformancePage() {
         <article className="performance-panel performance-summary-card"><span>DÖNEM</span><strong>{days}G</strong><small>Performans ölçümü</small></article>
       </section>
 
-      {scorecard.bos_mesaj ? <section className="performance-panel performance-empty-state"><p>{scorecard.bos_mesaj}</p><a href="/#akilli-tarama">Yeni tarama başlat →</a></section> : <section className="performance-metric-grid">
+      {scorecard.bos_mesaj ? <section className="performance-panel performance-empty-state"><p>{scorecard.bos_mesaj}</p><a href="/scan">Yeni tarama başlat →</a></section> : <section className="performance-metric-grid">
         {scorecard.metrikler.map((metric, index) => <article className="performance-panel performance-metric-card" key={`${metric.label}-${index}`}><span>{metric.label}</span><strong>{metric.value}</strong><i /></article>)}
       </section>}
 
@@ -154,3 +154,4 @@ export function PerformancePage() {
     </>}
   </main>;
 }
+
