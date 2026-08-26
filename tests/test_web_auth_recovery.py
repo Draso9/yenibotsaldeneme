@@ -16,12 +16,13 @@ def test_auth_provider_can_force_refresh_id_token():
 
 def test_api_retries_once_on_unauthorized_with_fresh_token():
     source = _read("web/lib/api.ts")
-    assert "401" in source
+    assert "response.status !== 401" in source
     assert "refreshAuthToken" in source
-    assert "retry" in source.lower()
+    assert "freshToken" in source
+    assert "send(freshToken)" in source
 
 
 def test_forbidden_response_is_not_treated_as_expired_token():
     source = _read("web/lib/api.ts")
-    assert "403" in source
+    assert "response.status === 403" in source
     assert "YETKİ" in source or "yetki" in source.lower()
