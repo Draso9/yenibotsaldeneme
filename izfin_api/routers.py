@@ -34,6 +34,8 @@ from .schemas import (
     ScanRunRequest,
     ScanRunResponse,
     ScanJobCreatedResponse,
+    ScanJobHistoryItem,
+    ScanJobHistoryResponse,
     ScanJobStatusResponse,
     PerformanceScorecardApiResponse,
     LegalDocumentResponse,
@@ -401,6 +403,35 @@ def create_scan_job(
         stage=snapshot.stage,
         completed=snapshot.completed,
         total=snapshot.total,
+    )
+
+
+@api_router.get(
+    "/scan/jobs",
+    response_model=ScanJobHistoryResponse,
+    tags=["scan"],
+)
+def list_scan_jobs(
+    request: Request,
+    limit: int = 12,
+    credentials=Depends(bearer_credentials),
+) -> ScanJobHistoryResponse:
+    identity: ApiIdentity = authenticated_user(request, credentials)
+    store = request.app.state.izfin_runtime.scan_job_store
+    snapshots = store.list_for_owner(identity.uid, limit=max(1, min(int(limit), 50))) if store is not None else []
+    return ScanJobHistoryResponse(
+        jobs=[
+            ScanJobHistoryItem(
+                job_id=snapshot.job_id,
+                status=snapshot.status,
+                stage=snapshot.stage,
+                completed=snapshot.completed,
+                total=snapshot.total,
+                tickers=list(snapshot.tickers),
+                created_at=snapshot.created_at,
+            )
+            for snapshot in snapshots
+        ]
     )
 
 
