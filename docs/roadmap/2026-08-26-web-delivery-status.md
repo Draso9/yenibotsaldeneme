@@ -26,15 +26,15 @@ The earlier “screen polish” list is expanded below. A later phase does not s
 
 ### Phase 1 — Finish shared web surfaces
 
-- [ ] **Strateji Lab**: strategy selection/configuration, run lifecycle, parameter validation, result/comparison, empty/error states, mobile layout.
-- [ ] **Hesap, consent, and legal**: account settings, consent/OAuth status, session controls, export and legal disclosures.
+- [x] **Strateji Lab**: strategy selection/configuration, run lifecycle, parameter validation, result/comparison, empty/error states, mobile layout (PR #67).
+- [x] **Hesap, consent, and legal**: account settings, consent/OAuth status, session controls, export and legal disclosures (PR #68).
 - [ ] **Cross-screen visual consistency**: shared spacing, component states, keyboard focus, desktop/mobile behavior across all six navigation areas.
 
 ### Phase 2 — Make Akıllı Tarama a full product workspace
 
-- [ ] **Scan configuration**: ticker source/selection, filters, saved presets, understandable validation, and launch summary.
-- [ ] **Scan results**: sortable/filterable result table, decision/risk explanations, watchlist actions, and direct detail comparison.
-- [ ] **Scan history**: completed/failed job history, revisit a result safely, progress and retry states.
+- [~] **Scan configuration**: ticker source/selection, clear validation, launch summary, and non-persistent quick-start sets. Saved user presets remain a later persistence package.
+- [~] **Scan results**: real returned-result filters, decision/risk explanations, watchlist actions, and direct detail comparison. Table sorting and comparison remain open.
+- [x] **Scan history**: completed/failed owner-scoped job history, safely reopen a result, plus visible progress states (this package).
 - [ ] **Decision transparency**: make every score, signal, and warning traceable to the existing FastAPI job response without inventing data.
 
 ### Phase 3 — Identity, onboarding, and IZFIN brand
@@ -81,4 +81,4 @@ The earlier “screen polish” list is expanded below. A later phase does not s
 
 ## Next package
 
-Start from current `develop`: **Strateji Lab shared-design and run-lifecycle package**.
+Start from current `develop`: **finish Akıllı Tarama decision transparency — sort/comparison, score/risk explanations, and safe watchlist actions**.
