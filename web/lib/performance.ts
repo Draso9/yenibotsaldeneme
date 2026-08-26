@@ -10,6 +10,10 @@ export type PerformanceScorecardResponse = {
   kucuk_orneklem: boolean;
   bos_mesaj: string | null;
   kayit_adedi: number;
+  gun: number;
+  ozet: Array<Record<string, unknown>>;
+  detay: Array<Record<string, unknown>>;
+  medyan_alfa_mesaji: string | null;
 };
 
 export type PerformancePositionsResponse = {

@@ -65,6 +65,7 @@ def scan_workflow_calistir(
     tickers = tuple(dict.fromkeys(str(x).strip().upper() for x in (tickers or []) if str(x).strip()))
     toplam = len(tickers)
 
+    _ilerleme_bildir(progress_callback, "preparing", total=toplam, completed=0)
     veri_paketi = data_preparer(
         tickers,
         gunluk_fetcher=gunluk_fetcher,
@@ -96,6 +97,7 @@ def scan_workflow_calistir(
             "ticker",
             ticker=ticker,
             index=sira,
+            completed=sira - 1,
             total=toplam_guvenli,
         )
         try:
@@ -147,6 +149,22 @@ def scan_workflow_calistir(
         except Exception as error:
             _hata_bildir(error_handler, "ana_tarama", error, ticker)
             basarisiz_taramalar.append(ticker)
+        finally:
+            _ilerleme_bildir(
+                progress_callback,
+                "ticker",
+                ticker=ticker,
+                index=sira,
+                completed=sira,
+                total=toplam_guvenli,
+            )
+
+    _ilerleme_bildir(
+        progress_callback,
+        "finalizing",
+        total=toplam,
+        completed=toplam,
+    )
 
     _ilerleme_bildir(
         progress_callback,

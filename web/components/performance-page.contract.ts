@@ -9,6 +9,10 @@ const shape: PerformanceScorecardResponse = {
   kucuk_orneklem: false,
   bos_mesaj: null,
   kayit_adedi: 42,
+  gun: 20,
+  ozet: [{ Varlık: "THYAO.IS", "Sinyal Sayısı": 2 }],
+  detay: [{ Varlık: "THYAO.IS", "Sinyal Tarihi": "01.08.2026" }],
+  medyan_alfa_mesaji: "Medyan göreceli performans (alfa): %+3.10",
 };
 
 void props;

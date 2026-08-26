@@ -45,9 +45,9 @@ The earlier “screen polish” list is expanded below. A later phase does not s
 
 ### Phase 4 — Product depth and trust
 
-- [ ] **Portfolio/Performance depth**: range-aware presentation, understandable KPI definitions, history drill-down, and transparent small-sample warnings.
+- [x] **Portfolio/Performance depth**: range-aware presentation, understandable KPI definitions, history drill-down, and transparent small-sample warnings. Existing Streamlit scorecard summary/detail views are now exposed by FastAPI and rendered by Next.js.
 - [ ] **Projection depth**: scenario comparison, assumptions, historical context, and risk disclosure.
-- [ ] **Operational trust**: graceful provider/API outage states, request feedback, observability, and user-safe error language.
+- [ ] **Operational trust**: graceful provider/API outage states, request feedback, observability, and user-safe error language. Smart Scan now keeps the Cloud Run request active while streaming real job stages/current ticker to the client; remaining cross-screen outage handling stays open.
 - [ ] **Security review**: Firebase rules/session boundaries, secret handling, rate limits, and legal copy review.
 
 ### Phase 5 — Visual acceptance and release
@@ -81,7 +81,7 @@ The earlier “screen polish” list is expanded below. A later phase does not s
 
 ## Next package
 
-Start from current `develop`: begin **product depth and trust** work, then complete release acceptance. The parity audit is recorded in `docs/roadmap/2026-08-26-streamlit-web-parity-audit.md`.
+Start from current `develop`: complete **Projection depth**, then finish the remaining operational-trust and security-review gates. The parity audit is recorded in `docs/roadmap/2026-08-26-streamlit-web-parity-audit.md`.
 
 
 

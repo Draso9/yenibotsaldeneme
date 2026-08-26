@@ -137,6 +137,7 @@ class ScanJobCreatedResponse(BaseModel):
     stage: str
     completed: int
     total: int
+    current_ticker: str | None = None
 
 
 class ScanJobStatusResponse(ScanJobCreatedResponse):
@@ -152,6 +153,7 @@ class ScanJobHistoryItem(BaseModel):
     total: int
     tickers: list[str] = Field(default_factory=list)
     created_at: str | None = None
+    current_ticker: str | None = None
 
 
 class ScanJobHistoryResponse(BaseModel):
@@ -248,6 +250,10 @@ class PerformanceScorecardApiResponse(BaseModel):
     kucuk_orneklem: bool
     bos_mesaj: str | None
     kayit_adedi: int
+    gun: int
+    ozet: list[dict[str, Any]] = Field(default_factory=list)
+    detay: list[dict[str, Any]] = Field(default_factory=list)
+    medyan_alfa_mesaji: str | None = None
 
 
 class PerformanceScorecardRequest(BaseModel):

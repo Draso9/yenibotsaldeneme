@@ -2,9 +2,12 @@
 
 from __future__ import annotations
 
+import json
 import os
+from time import sleep
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi.responses import StreamingResponse
 
 from izfin_core.market_universe import ABD_HİSSELERİ, BIST_30, BIST_100, bist_ticker_listesi_guncelle
 
@@ -19,6 +22,7 @@ from izfin_services.scan_page_state import (
     watchlist_islem_durumu_hazirla,
 )
 from izfin_services.market_center import hisse_detay_paketi_hazirla, piyasa_merkezi_paketi_hazirla
+from izfin_services.performance_center import performans_karne_api_paketi_hazirla
 from izfin_ui.performance_view import performans_karne_paketi_hazirla
 from izfin_ui.legal_account_view import (
     gizlilik_sayfa_paketi_hazirla,
@@ -436,6 +440,63 @@ def create_scan_job(
         stage=snapshot.stage,
         completed=snapshot.completed,
         total=snapshot.total,
+        current_ticker=snapshot.current_ticker,
+    )
+
+
+@api_router.post(
+    "/scan/jobs/stream",
+    response_class=StreamingResponse,
+    tags=["scan"],
+)
+def stream_scan_job(
+    payload: ScanRunRequest,
+    request: Request,
+    credentials=Depends(bearer_credentials),
+) -> StreamingResponse:
+    """Keep Cloud Run CPU active while emitting owner-scoped NDJSON progress."""
+    identity: ApiIdentity = authenticated_user(request, credentials)
+    runtime = request.app.state.izfin_runtime
+    if runtime.scan_runner is None or runtime.scan_job_store is None:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Tarama sağlayıcıları henüz yapılandırılmadı.",
+        )
+    try:
+        created = runtime.scan_job_store.submit(identity.uid, payload.tickers, runtime.scan_runner)
+    except ScanJobCapacityError as error:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail=str(error),
+        ) from error
+
+    def events():
+        snapshot = created
+        last_payload = ""
+        while snapshot is not None:
+            payload_data = {
+                "job_id": snapshot.job_id,
+                "status": snapshot.status,
+                "stage": snapshot.stage,
+                "completed": snapshot.completed,
+                "total": snapshot.total,
+                "current_ticker": snapshot.current_ticker,
+                "result": snapshot.result,
+                "error": snapshot.error,
+            }
+            encoded = json.dumps(payload_data, ensure_ascii=False, allow_nan=False)
+            if encoded != last_payload:
+                yield encoded + "\n"
+                last_payload = encoded
+            if snapshot.status in {"completed", "failed"}:
+                return
+            sleep(0.2)
+            snapshot = runtime.scan_job_store.get_for_owner(created.job_id, identity.uid)
+
+    return StreamingResponse(
+        events(),
+        media_type="application/x-ndjson",
+        headers={"Cache-Control": "no-store", "X-Accel-Buffering": "no"},
     )
 
 
@@ -462,6 +523,7 @@ def list_scan_jobs(
                 total=snapshot.total,
                 tickers=list(snapshot.tickers),
                 created_at=snapshot.created_at,
+                current_ticker=snapshot.current_ticker,
             )
             for snapshot in snapshots
         ]
@@ -522,6 +584,7 @@ def get_scan_job(
         total=snapshot.total,
         result=snapshot.result,
         error=snapshot.error,
+        current_ticker=snapshot.current_ticker,
     )
 
 
@@ -542,16 +605,11 @@ def get_performance_scorecard(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="Performans kaydı deposu henüz yapılandırılmadı.",
         )
-    paket = performans_karne_paketi_hazirla(
+    paket = performans_karne_api_paketi_hazirla(
         repository.list_performance_records(identity.email, limit=250),
         gun=max(1, min(int(gun), 365)),
     )
-    return PerformanceScorecardApiResponse(
-        metrikler=paket["metrikler"],
-        kucuk_orneklem=paket["kucuk_orneklem"],
-        bos_mesaj=paket["bos_mesaj"],
-        kayit_adedi=len(paket["karne_df"]),
-    )
+    return PerformanceScorecardApiResponse(**paket)
 
 
 @api_router.post(

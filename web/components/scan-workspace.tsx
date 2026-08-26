@@ -1,14 +1,14 @@
 "use client";
 
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
-import { izfinApiFetch } from "../lib/api";
+import { izfinApiFetch, izfinApiStream } from "../lib/api";
 import { useIzfinAuth } from "./auth-provider";
 import { MarketCenterPanel } from "./market-center";
 import { stockDetailHref } from "../lib/stock-detail-route";
 
 type ScanResultRow = Record<string, unknown>;
 type ScanSummary = { sonuclar: ScanResultRow[]; basarisiz_taramalar: string[]; boga_sayisi: number; alim_firsati: number };
-type ScanJob = { job_id: string; status: "queued" | "running" | "completed" | "failed"; stage: string; completed: number; total: number; result?: ScanSummary; error?: string };
+type ScanJob = { job_id: string; status: "queued" | "running" | "completed" | "failed"; stage: string; completed: number; total: number; current_ticker?: string | null; result?: ScanSummary; error?: string };
 type ScanHistoryItem = Pick<ScanJob, "job_id" | "status" | "stage" | "completed" | "total"> & { tickers: string[]; created_at?: string | null };
 type Watchlist = { tickers: string[]; recovered: boolean };
 type Profiles = { profiles: Record<string, string[]> };
@@ -64,10 +64,10 @@ export function ScanWorkspace() {
   useEffect(() => { if (user) setGuideDismissed(window.localStorage.getItem(`izfin:first-scan-guide:${user.uid}`) === "done"); }, [user]);
   useEffect(() => { void loadUniverse(); }, [loadUniverse]);
   useEffect(() => {
-    if (!job || !["queued", "running"].includes(job.status)) return;
+    if (scanStarting || !job || !["queued", "running"].includes(job.status)) return;
     const timeout = window.setTimeout(() => void (async () => { try { const token = await getIdToken(); if (!token) return; const updated = await izfinApiFetch<ScanJob>(`/api/v1/scan/jobs/${job.job_id}`, token); setJob(updated); if (["completed", "failed"].includes(updated.status)) void loadHistory(); } catch { setError("Tarama durumu güncellenemedi."); } })(), 1000);
     return () => window.clearTimeout(timeout);
-  }, [getIdToken, job, loadHistory]);
+  }, [getIdToken, job, loadHistory, scanStarting]);
 
   async function replaceWatchlist(nextTickers: string[]) {
     const normalized = normalizeTickers(nextTickers); if (!normalized.length) { setError("Kişisel listede en az bir sembol kalmalı."); return; }
@@ -86,7 +86,7 @@ export function ScanWorkspace() {
   async function submit() {
     setError(""); setActiveFilter("Tümü"); if (!universe?.tickers.length) { setError("Taramayı başlatmadan önce en az bir varlık seçin."); return; }
     setScanStarting(true);
-    try { const token = await getIdToken(); if (!token) return; const created = await izfinApiFetch<ScanJob>("/api/v1/scan/jobs", token, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ tickers: universe.tickers }) }); setJob(created.status === "completed" ? await izfinApiFetch<ScanJob>(`/api/v1/scan/jobs/${created.job_id}`, token) : created); void loadHistory(); }
+    try { const token = await getIdToken(); if (!token) return; const completed = await izfinApiStream<ScanJob>("/api/v1/scan/jobs/stream", token, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ tickers: universe.tickers }) }, setJob); setJob(completed); void loadHistory(); }
     catch { setError("Tarama başlatılamadı. Lütfen tekrar deneyin."); } finally { setScanStarting(false); }
   }
   async function openHistoryJob(jobId: string) { try { const token = await getIdToken(); if (!token) return; setJob(await izfinApiFetch<ScanJob>(`/api/v1/scan/jobs/${jobId}`, token)); document.getElementById("scan-result")?.scrollIntoView({ behavior: "smooth", block: "start" }); } catch { setError("Bu tarama sonucu artık açılamıyor."); } }
@@ -107,9 +107,18 @@ export function ScanWorkspace() {
 
 function ScanOverlay({ job, total }: Readonly<{ job: ScanJob | null; total: number }>) {
   const completed = job?.completed ?? 0; const count = job?.total || total || 1;
-  const percent = job?.stage === "complete" ? 100 : job?.stage === "data_ready" ? 12 : job?.stage === "ticker" ? 15 + Math.round((completed / count) * 77) : 4;
-  const title = job?.stage === "ticker" ? "Varlıklar analiz ediliyor" : job?.stage === "data_ready" ? "Veriler hazır" : "Akıllı Tarama başladı";
-  return <div className="scan-lock-overlay" role="dialog" aria-modal="true" aria-label="IZFIN Akıllı Tarama sürüyor"><div className="scan-lock-card"><div className="scan-lock-brand"><i /><small>IZFIN SMART SCAN</small></div><h2>{title}</h2><p>{job?.stage === "ticker" ? "IZFIN karar motoru göstergeleri değerlendiriyor…" : "Piyasa geçmişi ve güncel seans verileri hazırlanıyor…"}</p><div className="scan-lock-progress"><span style={{ width: `${percent}%` }} /></div><div className="scan-lock-meta"><strong>%{percent}</strong><span>{completed ? `${completed}/${count} varlık · skor · güven · MTF · risk` : `${count} varlık sıraya alındı`}</span></div><small>Tarama tamamlanana kadar ekran geçici olarak kilitlendi.</small></div></div>;
+  const stage = job?.stage ?? "queued";
+  const bounds = stage === "complete" ? [100, 100] : stage === "finalizing" ? [94, 98] : stage === "ticker" ? [38 + Math.round((completed / count) * 52), Math.min(92, 38 + Math.round(((completed + 1) / count) * 52) - 2)] : stage === "data_ready" ? [28, 36] : stage === "preparing" || stage === "starting" ? [7, 26] : [3, 6];
+  const [percent, setPercent] = useState(bounds[0]);
+  useEffect(() => {
+    setPercent((value) => stage === "complete" ? 100 : Math.max(value, bounds[0]));
+    if (bounds[0] >= bounds[1]) return;
+    const timer = window.setInterval(() => setPercent((value) => Math.min(bounds[1], value + 1)), 650);
+    return () => window.clearInterval(timer);
+  }, [bounds[0], bounds[1], job?.job_id, stage]);
+  const title = stage === "finalizing" ? "Sonuç ekranı hazırlanıyor" : stage === "ticker" ? "Varlıklar analiz ediliyor" : stage === "data_ready" ? "Piyasa verileri hazır" : stage === "preparing" ? "Piyasa verileri alınıyor" : "Akıllı Tarama başladı";
+  const description = stage === "finalizing" ? "Kararlar ve teknik paneller güvenli biçimde paketleniyor…" : stage === "ticker" ? `${job?.current_ticker ?? "Seçili varlık"} için skor · güven · MTF · risk katmanları değerlendiriliyor…` : "Piyasa geçmişi ve güncel seans verileri sağlayıcılardan hazırlanıyor…";
+  return <div className="scan-lock-overlay" role="dialog" aria-modal="true" aria-label="IZFIN Akıllı Tarama sürüyor"><div className="scan-lock-card"><div className="scan-lock-brand"><i /><small>IZFIN SMART SCAN</small></div><h2>{title}</h2><p>{description}</p><div className="scan-lock-progress"><span style={{ width: `${percent}%` }} /></div><div className="scan-lock-meta"><strong>%{percent}</strong><span>{stage === "ticker" ? `${completed}/${count} varlık tamamlandı` : completed ? `${completed}/${count} varlık · sonuçlar hazırlanıyor` : `${count} varlık sıraya alındı`}</span></div><small>Tarama tamamlanana kadar ekran geçici olarak kilitlendi. Canlı aşama içindeki yüzde yaklaşık ilerlemedir.</small></div></div>;
 }
 
 function FirstScanGuide({ tickerCount, onDismiss }: Readonly<{ tickerCount: number; onDismiss: () => void }>) {
