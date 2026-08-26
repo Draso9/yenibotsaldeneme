@@ -59,3 +59,20 @@ def test_homepage_removes_internal_health_shortcut_and_keeps_mobile_targets():
     assert "Sistem durumunu aç" not in page
     assert "min-height: 44px" in css
     assert "@media (max-width: 600px)" in css
+
+
+def test_scan_and_detail_share_explicit_states_and_detail_handoff():
+    """The scan flow must lead to job-scoped detail without hiding unavailable states."""
+    workspace = _read("web/components/scan-workspace.tsx")
+    detail = _read("web/components/stock-detail-page.tsx")
+    scan_css = _read("web/app/globals.css")
+    detail_css = _read("web/app/stock-detail.css")
+
+    assert "stockDetailHref" in workspace
+    assert 'aria-live="polite"' in workspace
+    assert "Tarama tamamlandı ancak gösterilecek sonuç bulunamadı." in workspace
+    assert "Tarama sonucu" in workspace
+    assert "detail-status" in detail
+    assert "Veri kaynağı" in detail
+    assert "scan-result-header" in scan_css
+    assert "detail-status" in detail_css
