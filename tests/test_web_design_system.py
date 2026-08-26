@@ -289,12 +289,15 @@ def test_performance_keeps_period_context_and_separates_data_states():
 
 
 def test_strategy_lab_exposes_configuration_run_and_result_lifecycle():
-    """A backtest surface needs an explicit lifecycle, not an unexplained one-shot form."""
+    """A backtest surface needs an explicit lifecycle and live source-faithful symbol discovery."""
     strategy = _read("web/components/strategy-lab-page.tsx")
     css = _read("web/app/strategy-lab.css")
 
     assert "strategy-path" in strategy
-    assert "strategy-symbol-suggestions" in strategy
+    assert "searchBacktestSymbols" in strategy
+    assert "strategy-symbol-results" in strategy
+    assert "havuzda görünmeyen geçerli Yahoo sembolünü de doğrudan test edebilirsin" in strategy
+    assert "strategy-symbol-results" in css
     assert 'aria-live="polite"' in strategy
     assert "Yeni test başlat" in strategy
     assert "Sonuç kapsamı" in strategy

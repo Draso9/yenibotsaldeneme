@@ -28,8 +28,35 @@ export type BacktestResponse = {
   reading_notes: string;
 };
 
+export type BacktestSymbolSuggestion = {
+  symbol: string;
+  name: string;
+  exchange: string;
+  quote_type: string;
+};
+
+export type BacktestSymbolSearchResponse = {
+  query: string;
+  suggestions: BacktestSymbolSuggestion[];
+};
+
 export function backtestRunPath(): "/api/v1/backtest/run" {
   return "/api/v1/backtest/run";
+}
+
+export function backtestSymbolSearchPath(
+  query: string,
+  limit = 8,
+): `/api/v1/scan/symbols?q=${string}&limit=${number}` {
+  return `/api/v1/scan/symbols?q=${encodeURIComponent(query.trim())}&limit=${Math.max(1, Math.min(limit, 15))}`;
+}
+
+export function searchBacktestSymbols(
+  idToken: string,
+  query: string,
+  limit = 8,
+): Promise<BacktestSymbolSearchResponse> {
+  return izfinApiFetch<BacktestSymbolSearchResponse>(backtestSymbolSearchPath(query, limit), idToken);
 }
 
 export function runBacktest(
