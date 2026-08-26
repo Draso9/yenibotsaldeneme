@@ -1,5 +1,20 @@
 const defaultApiUrl = "https://izfin-api-469145462773.europe-west1.run.app";
 
+type AuthRecoveryHandlers = {
+  refreshToken: () => Promise<string | null>;
+  onSessionExpired?: () => Promise<void> | void;
+};
+
+let authRecoveryHandlers: AuthRecoveryHandlers | null = null;
+
+export function configureAuthRecovery(handlers: AuthRecoveryHandlers | null): void {
+  authRecoveryHandlers = handlers;
+}
+
+async function refreshAuthToken(): Promise<string | null> {
+  return authRecoveryHandlers?.refreshToken() ?? null;
+}
+
 export class IzfinApiError extends Error {
   constructor(message: string, readonly status: number) {
     super(message);
@@ -14,9 +29,35 @@ function apiBaseUrl(): string {
 async function readApiResponse<T>(response: Response): Promise<T> {
   if (!response.ok) {
     const payload = await response.json().catch(() => ({}));
+    if (response.status === 401) {
+      throw new IzfinApiError("Oturum doğrulanamadı. Lütfen yeniden giriş yapın.", 401);
+    }
+    if (response.status === 403) {
+      throw new IzfinApiError("Bu işlem için yetkin bulunmuyor.", 403);
+    }
     throw new IzfinApiError(payload?.error?.message ?? payload?.detail ?? "API isteği tamamlanamadı.", response.status);
   }
   return response.json() as Promise<T>;
+}
+
+async function authenticatedFetch(
+  path: string,
+  idToken: string,
+  init: RequestInit,
+  accept: string,
+): Promise<Response> {
+  const send = (token: string) => fetch(`${apiBaseUrl()}${path}`, {
+    ...init,
+    headers: { Accept: accept, Authorization: `Bearer ${token}`, ...init.headers },
+  });
+
+  let response = await send(idToken);
+  if (response.status !== 401) return response;
+
+  const freshToken = await refreshAuthToken();
+  if (freshToken) response = await send(freshToken);
+  if (response.status === 401) await authRecoveryHandlers?.onSessionExpired?.();
+  return response;
 }
 
 export async function izfinPublicApiFetch<T>(path: string, init: RequestInit = {}): Promise<T> {
@@ -28,10 +69,7 @@ export async function izfinPublicApiFetch<T>(path: string, init: RequestInit = {
 }
 
 export async function izfinApiFetch<T>(path: string, idToken: string, init: RequestInit = {}): Promise<T> {
-  const response = await fetch(`${apiBaseUrl()}${path}`, {
-    ...init,
-    headers: { Accept: "application/json", Authorization: `Bearer ${idToken}`, ...init.headers },
-  });
+  const response = await authenticatedFetch(path, idToken, init, "application/json");
   return readApiResponse<T>(response);
 }
 
@@ -41,10 +79,7 @@ export async function izfinApiStream<T>(
   init: RequestInit,
   onEvent: (value: T) => void,
 ): Promise<T> {
-  const response = await fetch(`${apiBaseUrl()}${path}`, {
-    ...init,
-    headers: { Accept: "application/x-ndjson", Authorization: `Bearer ${idToken}`, ...init.headers },
-  });
+  const response = await authenticatedFetch(path, idToken, init, "application/x-ndjson");
   if (!response.ok) return readApiResponse<T>(response);
   if (!response.body) throw new IzfinApiError("Canlı tarama akışı başlatılamadı.", response.status);
 
