@@ -6,7 +6,9 @@ from collections.abc import Mapping, Sequence
 from typing import Any
 
 from izfin_core.decision_engine import karar_motoru_ozeti, sinyal_yonu_belirle
-from izfin_ui.detail_analysis import detay_skor_paketi_hazirla
+import pandas as pd
+
+from izfin_ui.detail_analysis import detay_analiz_paketi_hazirla
 from izfin_ui.home_dashboard import (
     home_karar_ozeti_hazirla,
     home_movers_hazirla,
@@ -71,13 +73,20 @@ def hisse_detay_paketi_hazirla(
     if not normalized or panel is None:
         return None
     row = next((item for item in _rows(sonuclar) if str(item.get("Varlık", "")).upper() == normalized), {})
-    decision = karar_motoru_ozeti(panel)
+    # Reuse the same native presenter as the Streamlit detail screen.  HTML is
+    # deliberately omitted: web/mobile receive its structured source fields.
+    detail_view = detay_analiz_paketi_hazirla(
+        pd.DataFrame(_rows(sonuclar)), normalized, panel,
+        panel_builder=lambda _panel: "", action_builder=lambda *_args: "",
+    )
     return {
         "ticker": normalized,
         "price": row.get("Fiyat"),
         "signal": row.get("Nihai Sinyal"),
         "entry_quality": row.get("🎯 Giriş Kalitesi"),
-        "score": detay_skor_paketi_hazirla(panel),
-        "decision": decision if isinstance(decision, dict) else {},
+        "score": detail_view["skor"],
+        "decision": detail_view["karar"],
+        "action": {"signal": detail_view["anlik_sinyal"], "entry_quality": detail_view["anlik_teyit"], "profile": panel.get("profil", "—")},
         "panel": panel,
     }
+
