@@ -42,6 +42,10 @@ export function fetchProfile(idToken: string): Promise<ProfileResponse> {
   return izfinApiFetch<ProfileResponse>("/api/v1/profile", idToken);
 }
 
+export function bootstrapAccount(idToken: string): Promise<ProfileResponse> {
+  return izfinApiFetch<ProfileResponse>("/api/v1/account/bootstrap", idToken, { method: "POST" });
+}
+
 export function fetchLegalConsent(idToken: string): Promise<LegalConsentResponse> {
   return izfinApiFetch<LegalConsentResponse>("/api/v1/legal/consent", idToken);
 }
@@ -72,3 +76,4 @@ export function deleteAccount(
 export function fetchLegalDocument(path: ReturnType<typeof legalTermsPath> | ReturnType<typeof legalPrivacyPath>): Promise<LegalDocumentResponse> {
   return izfinApiFetch<LegalDocumentResponse>(path, "");
 }
+
