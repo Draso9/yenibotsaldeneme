@@ -29,5 +29,8 @@ def test_stock_detail_contract_is_native_and_returns_none_for_unknown_ticker():
     detail = hisse_detay_paketi_hazirla("thyao.is", rows, panels)
     assert detail["ticker"] == "THYAO.IS"
     assert detail["score"]["nihai"] == 88
+    assert detail["decision"]["karar"]
+    assert detail["action"]["signal"] == "GÜÇLÜ AL"
     assert "teknik_panel_html" not in detail
     assert hisse_detay_paketi_hazirla("missing", rows, panels) is None
+
