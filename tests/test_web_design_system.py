@@ -96,10 +96,23 @@ def test_market_strip_reports_loading_and_error_without_fake_quotes():
 def test_market_center_prioritizes_personal_signals_and_daily_movers():
     """The market center must expose decision context without an opportunity-map detour."""
     source = _read("web/components/market-center.tsx")
+    css = _read("web/app/market-center.css")
 
     assert "Listende dikkat çekenler" in source
     assert "IZFIN kararı" in source
     assert "Günlük Büyük Hareketler" in source
+    assert "ALIM TARAFI" in source
+    assert "GÜÇLÜ SETUP" in source
+    assert "TEYİT BEKLEYEN" in source
+    assert "YÜKSEK RİSK" in source
+    assert "PARA AKIŞI" in source
+    assert "item.mtf" in source
+    assert "item.risk" in source
+    assert "signedPct(item.degisim)" in source
+    assert "Piyasa modu tüm piyasanın resmi breadth göstergesi değildir" in source
+    assert "market-decision-kpis" in css
+    assert "market-factor-grid" in css
+    assert "market-mover-table" in css
     assert "Fırsat Haritası" not in source
 
 
@@ -282,6 +295,7 @@ def test_account_keeps_sensitive_actions_and_legal_states_explicit():
     assert "account-status" in account
     assert "Hesap işlemleri Firebase ID token ile doğrulanır" in account
     assert "account-status" in css
+
 
 
 
