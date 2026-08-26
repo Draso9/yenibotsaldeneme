@@ -32,10 +32,10 @@ The earlier “screen polish” list is expanded below. A later phase does not s
 
 ### Phase 2 — Make Akıllı Tarama a full product workspace
 
-- [~] **Scan configuration**: ticker source/selection, clear validation, launch summary, and non-persistent quick-start sets. Saved user presets remain a later persistence package.
-- [~] **Scan results**: real returned-result filters, decision/risk explanations, watchlist actions, and direct detail comparison. Table sorting and comparison remain open.
+- [x] **Scan configuration**: server-owned BIST/ABD profiles, persistent personal list, active-universe confirmation, validation, and launch summary.
+- [x] **Scan results**: the existing scanner's real returned-result filters, KPI cards, complete sortable decision table, risk/score columns, and direct detail handoff. No new comparison feature was introduced.
 - [x] **Scan history**: completed/failed owner-scoped job history, safely reopen a result, plus visible progress states (this package).
-- [ ] **Decision transparency**: make every score, signal, and warning traceable to the existing FastAPI job response without inventing data.
+- [x] **Decision transparency**: expose every existing Streamlit result-table field, skipped-symbol warning, and job-scoped technical-detail handoff directly from the FastAPI response.
 
 ### Phase 3 — Identity, onboarding, and IZFIN brand
 
@@ -81,4 +81,5 @@ The earlier “screen polish” list is expanded below. A later phase does not s
 
 ## Next package
 
-Start from current `develop`: **finish Akıllı Tarama decision transparency — sort/comparison, score/risk explanations, and safe watchlist actions**.
+Start from current `develop`: **dedicated identity and onboarding routes**, then complete cross-screen visual consistency before brand assets and release acceptance.
+

@@ -34,6 +34,12 @@ class ScanUniverseResponse(BaseModel):
     secim_ozeti: dict[str, int]
 
 
+class ScanProfilesResponse(BaseModel):
+    """Server-owned scan profiles shared by Streamlit, web, and future mobile clients."""
+
+    profiles: dict[str, list[str]] = Field(default_factory=dict)
+
+
 class WatchlistTransitionRequest(BaseModel):
     islem_sonucu: dict[str, Any] = Field(default_factory=dict)
 
@@ -239,3 +245,4 @@ class PerformanceScorecardResponse(BaseModel):
     kucuk_orneklem: bool
     bos_mesaj: str | None
     kayit_adedi: int
+
