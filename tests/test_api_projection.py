@@ -4,29 +4,37 @@ from izfin_api.app import create_app
 from izfin_api.scan_jobs import ScanJobSnapshot
 
 
+def _panel(*, fiyat=100.0, sinyal="GÜÇLÜ AL"):
+    return {
+        "fiyat": fiyat,
+        "atr": 2.0,
+        "hv20": 0.30,
+        "hv60": 0.24,
+        "ema21": fiyat - 1,
+        "ema50": fiyat - 4,
+        "sma200": fiyat - 10,
+        "macd": 2.0,
+        "macd_signal": 1.0,
+        "rsi": 58.0,
+        "sinyal": sinyal,
+        "destek": fiyat - 6,
+        "direnc": fiyat + 6,
+        "stop": fiyat - 8,
+        "tp1": fiyat + 12,
+        "tp2": fiyat + 20,
+        "veri_kaynagi": "test",
+    }
+
+
 def _payload():
     return {
-        "sonuclar": [{"Varlık": "THYAO.IS", "Fiyat": 100, "Nihai Sinyal": "GÜÇLÜ AL"}],
+        "sonuclar": [
+            {"Varlık": "THYAO.IS", "Fiyat": 100, "Nihai Sinyal": "GÜÇLÜ AL"},
+            {"Varlık": "AKBNK.IS", "Fiyat": 70, "Nihai Sinyal": "AL"},
+        ],
         "teknik_paneller": {
-            "THYAO.IS": {
-                "fiyat": 100.0,
-                "atr": 2.0,
-                "hv20": 0.30,
-                "hv60": 0.24,
-                "ema21": 99.0,
-                "ema50": 96.0,
-                "sma200": 90.0,
-                "macd": 2.0,
-                "macd_signal": 1.0,
-                "rsi": 58.0,
-                "sinyal": "GÜÇLÜ AL",
-                "destek": 94.0,
-                "direnc": 106.0,
-                "stop": 92.0,
-                "tp1": 112.0,
-                "tp2": 120.0,
-                "veri_kaynagi": "test",
-            }
+            "THYAO.IS": _panel(),
+            "AKBNK.IS": _panel(fiyat=70.0, sinyal="AL"),
         },
     }
 
@@ -44,8 +52,8 @@ class OwnerScopedJobStore:
             job_id="job-1",
             status=self.status,
             stage="complete" if self.status == "completed" else self.status,
-            completed=1 if self.status == "completed" else 0,
-            total=1,
+            completed=2 if self.status == "completed" else 0,
+            total=2,
             result=self.result if self.status == "completed" else None,
         )
 
@@ -77,6 +85,25 @@ def test_projection_can_be_read_from_owned_completed_scan_job():
     assert body["horizon_days"] == 45
     assert [item["kind"] for item in body["bands"]] == ["downside", "base", "upside"]
     assert body["scenario"]["yon"] == "ALIM"
+
+
+def test_projection_exposes_source_faithful_up_and_down_scenarios_and_job_symbols():
+    response = _client().get(
+        "/api/v1/projection/jobs/job-1/stocks/THYAO.IS",
+        headers={"Authorization": "Bearer alpha-token"},
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["available_tickers"] == ["THYAO.IS", "AKBNK.IS"]
+    assert body["technical_scenarios"]["up"]["title"] == "Yükseliş / Alım Senaryosu"
+    assert "106.00 üzeri kalıcılık" in body["technical_scenarios"]["up"]["trigger"]
+    assert body["technical_scenarios"]["up"]["targets"] == [112.0, 120.0]
+    assert body["technical_scenarios"]["up"]["risk_invalidation"] == 92.0
+    assert body["technical_scenarios"]["down"]["title"] == "Düşüş / Satış Baskısı"
+    assert "94.00 altı kapanış" in body["technical_scenarios"]["down"]["trigger"]
+    assert body["technical_scenarios"]["down"]["invalidation"] == 106.0
+    assert len(body["technical_scenarios"]["down"]["model_bands"]) == 2
 
 
 def test_projection_job_read_hides_foreign_and_unknown_jobs_with_same_404():
