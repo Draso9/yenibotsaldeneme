@@ -36,7 +36,8 @@ def test_nextjs_dashboard_uses_authenticated_versioned_watchlist_api() -> None:
 
     assert '"/api/v1/watchlist"' in dashboard
     assert 'method: "PUT"' in dashboard
-    assert "Authorization: `Bearer ${idToken}`" in api_client
+    assert "authenticatedFetch" in api_client
+    assert "Authorization: `Bearer ${" in api_client
 
 
 def test_nextjs_scan_workspace_uses_async_scan_job_contract() -> None:
