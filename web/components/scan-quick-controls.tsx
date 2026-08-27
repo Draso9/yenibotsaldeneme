@@ -4,9 +4,13 @@ import { useState } from "react";
 
 const primaryProfiles = ["Kendi Listem", "BIST 30", "BIST 100"] as const;
 
-function selectProfile(profile: string) {
+function selectProfile(profile: string, attempt = 0) {
   const select = document.querySelector<HTMLSelectElement>(".scan-profile-label select");
-  if (!select) return;
+  const optionReady = select && Array.from(select.options).some((option) => option.value === profile);
+  if (!select || !optionReady) {
+    if (attempt < 20) window.setTimeout(() => selectProfile(profile, attempt + 1), 150);
+    return;
+  }
   const setter = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, "value")?.set;
   setter?.call(select, profile);
   select.dispatchEvent(new Event("change", { bubbles: true }));
@@ -22,9 +26,8 @@ export function ScanQuickControls() {
   }
 
   function focusListManager() {
-    const input = document.querySelector<HTMLInputElement>(".symbol-search-form input");
     document.getElementById("scan-control")?.scrollIntoView({ behavior: "smooth", block: "start" });
-    window.setTimeout(() => input?.focus(), 350);
+    window.setTimeout(() => document.querySelector<HTMLInputElement>(".symbol-search-form input")?.focus(), 350);
   }
 
   function launchScan() {
