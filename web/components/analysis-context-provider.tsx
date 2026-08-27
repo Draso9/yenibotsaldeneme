@@ -55,8 +55,12 @@ export function AnalysisContextProvider({ children }: Readonly<{ children: React
     const history = await fetchScanHistory(token);
     const latest = latestCompletedScan(history);
     const latestId = latest?.job_id ?? "";
+    const completedJobIds = new Set(history.filter((item) => item.status === "completed").map((item) => item.job_id));
     setLatestCompletedScanJobId(latestId);
-    setActiveScanJobId((current) => current || latestId);
+    setActiveScanJobId((current) => {
+      if (current && completedJobIds.has(current)) return current;
+      return latestId;
+    });
   }, [getIdToken, user]);
 
   useEffect(() => {
