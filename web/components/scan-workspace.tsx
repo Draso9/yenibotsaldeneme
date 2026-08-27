@@ -2,13 +2,15 @@
 
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { IzfinApiError, isRetryableApiError, izfinApiFetch, izfinApiStream } from "../lib/api";
+import { resultTickers } from "../lib/scan-context";
+import { useAnalysisContext } from "./analysis-context-provider";
 import { useIzfinAuth } from "./auth-provider";
 import { MarketCenterPanel } from "./market-center";
 import { stockDetailHref } from "../lib/stock-detail-route";
 
 type ScanResultRow = Record<string, unknown>;
 type ScanSummary = { sonuclar: ScanResultRow[]; basarisiz_taramalar: string[]; boga_sayisi: number; alim_firsati: number };
-type ScanJob = { job_id: string; status: "queued" | "running" | "completed" | "failed"; stage: string; completed: number; total: number; current_ticker?: string | null; result?: ScanSummary; error?: string };
+type ScanJob = { job_id: string; status: "queued" | "running" | "completed" | "failed"; stage: string; completed: number; total: number; tickers?: string[]; current_ticker?: string | null; result?: ScanSummary; error?: string };
 type ScanHistoryItem = Pick<ScanJob, "job_id" | "status" | "stage" | "completed" | "total"> & { tickers: string[]; created_at?: string | null };
 type Watchlist = { tickers: string[]; recovered: boolean };
 type Profiles = { profiles: Record<string, string[]> };
@@ -35,6 +37,7 @@ function sortValue(value: unknown): number | string {
 
 export function ScanWorkspace() {
   const { user, getIdToken } = useIzfinAuth();
+  const { setActiveScan, setSelectedTicker, setActiveUniverseProfile, refreshLatestCompletedScan } = useAnalysisContext();
   const [watchlist, setWatchlist] = useState<Watchlist | null>(null);
   const [profiles, setProfiles] = useState<Record<string, string[]>>({});
   const [profile, setProfile] = useState("Kendi Listem");
@@ -79,6 +82,7 @@ export function ScanWorkspace() {
   useEffect(() => { void Promise.all([loadWorkspace(), loadHistory()]); }, [loadHistory, loadWorkspace]);
   useEffect(() => { if (user) setGuideDismissed(window.localStorage.getItem(`izfin:first-scan-guide:${user.uid}`) === "done"); }, [user]);
   useEffect(() => { void loadUniverse(); }, [loadUniverse]);
+  useEffect(() => { setActiveUniverseProfile(profile); }, [profile, setActiveUniverseProfile]);
   useEffect(() => {
     if (scanStarting || !job || !["queued", "running"].includes(job.status)) return;
     const timeout = window.setTimeout(() => void (async () => { try { const token = await getIdToken(); if (!token) return; const updated = await izfinApiFetch<ScanJob>(`/api/v1/scan/jobs/${job.job_id}`, token); setJob(updated); if (["completed", "failed"].includes(updated.status)) void loadHistory(); } catch { setError("Tarama durumu güncellenemedi."); } })(), 1000);
@@ -102,14 +106,37 @@ export function ScanWorkspace() {
   async function submit() {
     setError(""); setRetryableError(false); setActiveFilter("Tümü"); if (!universe?.tickers.length) { setError("Taramayı başlatmadan önce en az bir varlık seçin."); return; }
     setScanStarting(true);
-    try { const token = await getIdToken(); if (!token) return; const completed = await izfinApiStream<ScanJob>("/api/v1/scan/jobs/stream", token, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ tickers: universe.tickers }) }, setJob); setJob(completed); void loadHistory(); }
+    try {
+      const token = await getIdToken(); if (!token) return;
+      const completed = await izfinApiStream<ScanJob>("/api/v1/scan/jobs/stream", token, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ tickers: universe.tickers }) }, setJob);
+      setJob(completed);
+      if (completed.status === "completed") {
+        setActiveScan(completed.job_id);
+        const completedTickers = resultTickers({ ...completed, tickers: completed.tickers ?? universe.tickers });
+        if (completedTickers.length === 1) setSelectedTicker(completedTickers[0]);
+        await refreshLatestCompletedScan().catch(() => undefined);
+      }
+      void loadHistory();
+    }
     catch (caught) {
       if (caught instanceof IzfinApiError && isRetryableApiError(caught)) { setError(caught.message); setRetryableError(true); }
       else { setError("Canlı tarama bağlantısı kesildi. Devam eden iş geçmişten geri yükleniyor…"); }
       void loadHistory();
     } finally { setScanStarting(false); }
   }
-  async function openHistoryJob(jobId: string) { try { const token = await getIdToken(); if (!token) return; setJob(await izfinApiFetch<ScanJob>(`/api/v1/scan/jobs/${jobId}`, token)); document.getElementById("scan-result")?.scrollIntoView({ behavior: "smooth", block: "start" }); } catch { setError("Bu tarama sonucu artık açılamıyor."); } }
+  async function openHistoryJob(jobId: string) {
+    try {
+      const token = await getIdToken(); if (!token) return;
+      const opened = await izfinApiFetch<ScanJob>(`/api/v1/scan/jobs/${jobId}`, token);
+      setJob(opened);
+      if (opened.status === "completed") {
+        setActiveScan(opened.job_id);
+        const openedTickers = resultTickers({ ...opened, tickers: opened.tickers ?? [] });
+        if (openedTickers.length === 1) setSelectedTicker(openedTickers[0]);
+      }
+      document.getElementById("scan-result")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    } catch { setError("Bu tarama sonucu artık açılamıyor."); }
+  }
   function dismissGuide() { if (user) window.localStorage.setItem(`izfin:first-scan-guide:${user.uid}`, "done"); setGuideDismissed(true); }
 
   if (!user) return null;
@@ -152,5 +179,4 @@ function ScanResult({ jobId, summary, activeFilter, onFilterChange }: Readonly<{
   function updateSort(column: string) { setSort((current) => ({ column, direction: current.column === column && current.direction === "desc" ? "asc" : "desc" })); }
   return <div id="scan-result" className={`scan-result scan-summary${focusMode ? " is-focus" : ""}`} aria-label="Tarama sonucu"><div className="scan-result-header"><div><p className="eyebrow">TARAMA SONUCU</p><h3>Akıllı Tarama Sonuçları</h3></div><div className="scan-result-actions"><button type="button" onClick={() => setFocusMode((value) => !value)}>{focusMode ? "↙ Geniş Görünümden Çık" : "⛶ Tabloyu Genişlet"}</button><span>{summary.sonuclar.length} sembol</span></div></div>{focusMode && <div className="scan-focus-meta"><b>Geniş sonuç görünümü</b><span>{results.length} sonuç · {activeFilter} filtresi · bir sütuna dokunarak sırala</span></div>}<div className="scan-metrics"><span><b>{summary.sonuclar.length}</b>Taranan Varlık</span><span><b>{summary.boga_sayisi}</b>Boğa Trendinde (200G)</span><span><b>{summary.alim_firsati}</b>Alım Fırsatları & Kırılımlar</span></div><div className="result-filter" aria-label="Gösterilecek sonuçlar"><span>Gösterilecek sonuçlar</span>{filters.map((filter) => <button className={activeFilter === filter ? "active" : ""} key={filter} type="button" onClick={() => onFilterChange(filter)}>{filter}</button>)}</div><p className="scan-filter-summary">{results.length} sonuç gösteriliyor · Filtre: {activeFilter}</p>{summary.basarisiz_taramalar.length > 0 && <p>Veri/hesaplama sorunu nedeniyle es geçilen varlıklar: {summary.basarisiz_taramalar.join(", ")}</p>}{summary.sonuclar.length === 0 ? <p className="scan-empty">Veriler çekilemedi. Farklı bir profil veya varlık grubu seçip tekrar deneyin.</p> : results.length === 0 ? <p className="scan-empty">Bu filtreye uyan sonuç yok. Diğer filtrelerden birini seçebilir veya taramayı daha sonra yenileyebilirsin.</p> : <div className="scan-result-table-wrap"><table className="scan-result-table"><thead><tr>{resultColumns.map((column) => <th key={column}><button type="button" onClick={() => updateSort(column)}>{column} <span>{sort.column === column ? (sort.direction === "asc" ? "↑" : "↓") : "↕"}</span></button></th>)}</tr></thead><tbody>{results.map((row, index) => { const symbol = ticker(row); return <tr key={`${symbol}-${index}`}>{resultColumns.map((column) => <td key={column} className={column === "Nihai Sinyal" ? "scan-signal-cell" : ""}>{column === "Varlık" && symbol ? <a href={stockDetailHref(jobId, symbol)}>{symbol}</a> : String(row[column] ?? "—")}</td>)}</tr>; })}</tbody></table></div>}</div>;
 }
-
 
