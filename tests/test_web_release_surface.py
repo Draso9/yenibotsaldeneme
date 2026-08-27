@@ -4,8 +4,9 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 
 
-def test_homepage_hides_internal_migration_copy_and_exposes_product_shortcuts():
+def test_market_center_hides_internal_migration_copy_and_uses_shell_navigation():
     source = (ROOT / "web" / "app" / "page.tsx").read_text(encoding="utf-8")
+    shell = (ROOT / "web" / "components" / "app-shell.tsx").read_text(encoding="utf-8")
 
     for internal_copy in (
         "Stage 05",
@@ -23,7 +24,9 @@ def test_homepage_hides_internal_migration_copy_and_exposes_product_shortcuts():
         "Performans",
         "Strateji Laboratuvarı",
     ):
-        assert product_surface in source
+        assert product_surface in shell
+
+    assert 'className="roadmap"' not in source
 
 
 def test_dashboard_uses_turkish_product_language():
