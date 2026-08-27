@@ -20,3 +20,11 @@ def test_analysis_context_provider_is_mounted_inside_auth():
     assert "refreshLatestCompletedScan" in provider
     assert "useIzfinAuth" in provider
     assert "localStorage" in provider
+
+
+def test_scan_workspace_publishes_completed_scan_context():
+    source = (ROOT / "web" / "components" / "scan-workspace.tsx").read_text(encoding="utf-8")
+    assert "useAnalysisContext" in source
+    assert "setActiveUniverseProfile(profile)" in source
+    assert "setActiveScan(completed.job_id)" in source
+    assert "refreshLatestCompletedScan" in source
