@@ -54,37 +54,33 @@ Primary product references:
 
 ## 4. Current Checkpoint
 
-# RECOVERY
+# SMART SCAN + DETAILED ANALYSIS
 
-Do not start new parity/UI expansion until Recovery is accepted live.
+Recovery was accepted for parity continuation on 2026-08-27 after the user
+reported that Projection shows the real ticker selector and loads the selected
+ticker. The user then explicitly approved continuing the Streamlit parity plan.
 
-The purpose of Recovery is to restore a trustworthy baseline before continuing the full Streamlit parity migration.
+Current checkpoint: restore the Streamlit per-stock decision motor directly
+below Akıllı Tarama results, remove the separate visible scan-history module,
+and retain durable scan recovery/context internally.
 
 ## 5. Current Verified / User-Reported Live Issues
 
-### A. Projection is still not accepted as working
+### A. Projection core recovery is accepted for continuation
 
-User has completed scans, but direct sidebar navigation to `/projection` has shown:
-
-- `Projeksiyon bağlamı kullanılamıyor`
-- `Son tamamlanan tarama bağlamı yüklenemedi.`
-
-Package A introduced shared analysis context and latest completed scan recovery, but **live acceptance has failed**.
-
-A stale cached `activeScanJobId` issue was identified and patched in PR #96, but Projection must still be treated as **unresolved until the user verifies it works live**.
+After PR #98, the user verified live that direct Projection navigation resolves
+the completed scan, presents the real ticker selector, and loads the selected
+ticker. Refresh/deep-link/new-account variants remain part of the final full
+authenticated journey recheck, but there is no currently reported Projection
+blocker.
 
 Do not claim Projection continuity is complete based only on CI.
 
-### B. Piyasa Merkezi still contains misplaced controls/modules
+### B. Piyasa Merkezi responsibility cleanup landed in PR #98
 
-Current `web/app/page.tsx` still includes modules that the approved product spec says should not live in Piyasa Merkezi:
-
-- `home-scan-banner`
-- `Dashboard` watchlist/list editing
-- auth/account blocks
-- roadmap/tool-launch blocks
-
-`web/components/dashboard.tsx` is a personal watchlist editor and should not be a primary Piyasa Merkezi module.
+`web/app/page.tsx` no longer renders the scan banner, watchlist editor,
+auth/account block, or roadmap/tool-launch block as primary Piyasa Merkezi
+modules. The page remains decision-oriented.
 
 Approved placement rule:
 
@@ -144,7 +140,25 @@ Status:
 - CI passed
 - merged to `develop`
 - Vercel deployed
-- **live product acceptance still pending / unresolved**
+- stale-cache fix alone was insufficient; superseded by the PR #98 root fix below
+
+### PR #98 — Projection recovery root fix + Piyasa Merkezi cleanup
+
+Merge commit:
+
+`d06a8a1`
+
+Added:
+
+- authoritative projectable ticker recovery
+- real ticker selection for multi-ticker completed scans
+- removal of misplaced Piyasa Merkezi controls/modules
+
+Status:
+
+- both CI gates passed and merged to `develop`
+- user verified the real Projection selector and selected-ticker load live
+- user explicitly approved continuing parity migration
 
 ## 7. Develop Preview
 
@@ -156,7 +170,7 @@ Do not use a one-off deployment URL as the canonical link unless debugging a spe
 
 ## 8. RECOVERY Acceptance Criteria
 
-Recovery is complete only when all of the following are true:
+Recovery behaviors remain in the final authenticated journey checklist:
 
 1. User completes or opens a completed scan.
 2. User clicks **Projeksiyon** from the sidebar.
@@ -170,7 +184,10 @@ Recovery is complete only when all of the following are true:
 10. Piyasa Merkezi no longer contains scan/list/account-management clutter.
 11. User verifies the above on the Vercel `develop` deployment.
 
-CI success alone is not sufficient for Recovery acceptance.
+The user’s 2026-08-27 live verification accepted the core Recovery path for
+parity continuation. Recheck refresh, explicit deep links, and new-account
+empty state before Stage 5 close; treat a new live failure as a Recovery
+regression, not as permission to stack a workaround.
 
 ## 9. Work Order After Recovery
 
@@ -218,8 +235,9 @@ Target:
 - symbol search/add/remove
 - launch scan
 - progress/recovery
-- scan history
+- internal durable scan recovery; no separate visible history module
 - results table
+- selected ticker decision motor below the table: why buy / why wait, confidence, risk, MTF, entry quality, technical profile, and levels
 - continuity into Detailed Analysis / Projection
 
 ### Detaylı Analiz
@@ -374,17 +392,15 @@ Internally, PRs/tests/commits are still required, but do not make them the main 
 
 ## 14. Canonical Next Action
 
-**Continue RECOVERY.**
+**Complete SMART SCAN + DETAILED ANALYSIS checkpoint.**
 
 First:
 
-1. Reproduce/trace the Projection live failure from authenticated scan history -> analysis context -> job fetch -> ticker resolution -> projection API.
-2. Identify the actual failing boundary with evidence.
-3. Add a RED regression test reproducing that exact failure.
-4. Implement the minimal root-cause fix.
-5. Run focused tests + full Python/Web gates.
-6. Merge only if both gates are green.
-7. Verify on Vercel `develop` with the user.
-8. In the same Recovery checkpoint, remove misplaced scan/list/account-management content from Piyasa Merkezi with separate tests.
-
-Do not begin the next parity package until the user accepts Recovery live.
+1. Keep the separate visible `Tarama geçmişi` module removed.
+2. Keep server-backed active-job discovery/polling as internal recovery.
+3. Render the selected ticker’s structured Streamlit decision motor directly below results.
+4. Preserve job-scoped links into Detailed Analysis and Projection.
+5. Do not render persisted verbal-analysis HTML; expose structured Python fields.
+6. Run focused tests + full Python/Web gates.
+7. Merge only if both CI gates are green.
+8. Verify the Akıllı Tarama result-selection/decision journey on Vercel `develop` with the user.

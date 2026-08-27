@@ -7,6 +7,7 @@ from izfin_api.scan_jobs import ScanJobSnapshot
 def _payload():
     return {
         "sonuclar": [{"Varlık": "THYAO.IS", "Fiyat": 100, "Nihai Sinyal": "GÜÇLÜ AL"}],
+        "sozlu_analizler": {"THYAO.IS": "<section>Mevcut teknik analiz</section>"},
         "teknik_paneller": {
             "THYAO.IS": {"cezali_skor": 88, "guven_skoru": 80, "mtf_uyum": 75, "gunluk_degisim": 2.5, "fiyat": 100, "sma200": 90, "macd": 2, "macd_signal": 1, "cmf": .2, "risk_seviyesi": "DÜŞÜK"}
         },
@@ -57,6 +58,10 @@ def test_market_center_requires_auth_and_returns_native_contract():
     response = client.post("/api/v1/market/center", json=_payload(), headers={"Authorization": "Bearer token"})
     assert response.status_code == 200
     assert response.json()["best_ticker"] == "THYAO.IS"
+    assert set(response.json()["metrics"]) == {"pulse", "trend", "momentum", "flow", "risk", "kaynak"}
+    assert response.json()["decision"]["yorum"]
+    assert response.json()["top_signals"][0]["ticker"] == "THYAO.IS"
+    assert response.json()["movers"][0]["ticker"] == "THYAO.IS"
     assert "center_html" not in response.json()
 
 
@@ -82,6 +87,22 @@ def test_market_center_can_be_read_from_owned_completed_scan_job_without_client_
     assert detail.status_code == 200
     assert detail.json()["ticker"] == "THYAO.IS"
     assert detail.json()["score"]["nihai"] == 88
+
+
+def test_job_scoped_stock_detail_does_not_return_raw_verbal_analysis_html():
+    client = _job_client()
+
+    detail = client.get(
+        "/api/v1/market/jobs/job-1/stocks/thyao.is",
+        headers={"Authorization": "Bearer alpha-token"},
+    )
+
+    assert detail.status_code == 200
+    assert "verbal_analysis" not in detail.json()
+    assert detail.json()["decision"]["karar"]
+    assert "olumlu_metin" in detail.json()["decision"]
+    assert "risk_metin" in detail.json()["decision"]
+    assert detail.json()["action"]["profile"]
 
 
 def test_market_job_reads_hide_foreign_or_unknown_jobs_with_same_404():

@@ -89,4 +89,3 @@ def hisse_detay_paketi_hazirla(
         "action": {"signal": detail_view["anlik_sinyal"], "entry_quality": detail_view["anlik_teyit"], "profile": panel.get("profil", "—")},
         "panel": panel,
     }
-

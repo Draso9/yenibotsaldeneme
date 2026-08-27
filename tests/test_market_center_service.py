@@ -25,7 +25,15 @@ def test_market_center_reuses_existing_rankings_without_html():
     assert package["movers"][0]["degisim"] == -3.0
     assert package["decision"]["alim_tarafi"] == 1
     assert package["decision"]["teyit"] == 1
-    assert package["metrics"]["flow"] == 50
+    assert package["metrics"] == {
+        "pulse": 52,
+        "trend": 50,
+        "momentum": 50,
+        "flow": 50,
+        "risk": 38,
+        "kaynak": "IZFIN TARAMASI",
+    }
+    assert package["decision"]["yorum"]
     assert "center_html" not in package
 
 

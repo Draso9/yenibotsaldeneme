@@ -35,4 +35,3 @@ export function fetchMarketCenter(jobId: string, idToken: string): Promise<Marke
 export function fetchMarketStockDetail(jobId: string, ticker: string, idToken: string): Promise<StockDetailResponse> {
   return izfinApiFetch<StockDetailResponse>(marketStockJobPath(jobId, ticker), idToken);
 }
-
