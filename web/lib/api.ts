@@ -1,5 +1,3 @@
-const defaultApiUrl = "https://izfin-api-469145462773.europe-west1.run.app";
-
 export const DEFAULT_API_TIMEOUT_MS = 20_000;
 
 type AuthRecoveryHandlers = {
@@ -29,7 +27,7 @@ export function isRetryableApiError(error: unknown): error is IzfinApiError {
 }
 
 function apiBaseUrl(): string {
-  return (process.env.NEXT_PUBLIC_IZFIN_API_URL ?? defaultApiUrl).replace(/\/$/, "");
+  return "/izfin-api";
 }
 
 function timeoutSignal(init: RequestInit, enabled: boolean): AbortSignal | undefined {
