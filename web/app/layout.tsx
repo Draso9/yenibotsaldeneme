@@ -11,6 +11,7 @@ import "./performance.css";
 import "./strategy-lab.css";
 import "./account.css";
 import "./admin-quality.css";
+import "./workspace-convergence.css";
 
 export const metadata: Metadata = {
   title: "IZFIN | Akıllı BIST Analizi",

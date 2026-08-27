@@ -1,0 +1,327 @@
+:root {
+  --workspace-max-width: 1480px;
+  --workspace-pad-x: 28px;
+  --workspace-pad-y: 24px;
+  --surface-card: rgba(10, 18, 31, .84);
+  --surface-elevated: linear-gradient(145deg, rgba(17, 27, 43, .96), rgba(9, 17, 29, .97));
+  --surface-soft: rgba(14, 24, 39, .68);
+  --border-subtle: rgba(122, 143, 173, .16);
+  --border-strong: rgba(122, 143, 173, .25);
+  --text-strong: #e9eef6;
+  --text-body: #b3bfd0;
+  --text-dim: #7f8da3;
+  --accent: #34d399;
+  --accent-soft: rgba(52, 211, 153, .1);
+  --control-height: 44px;
+  --workspace-radius: 16px;
+}
+
+.command-page,
+.scan-page,
+.detail-page,
+.projection-page,
+.performance-page {
+  width: min(var(--workspace-max-width), 100%);
+  margin-inline: auto;
+  padding: var(--workspace-pad-y) var(--workspace-pad-x) 56px;
+}
+
+.command-page,
+.scan-page,
+.detail-page,
+.projection-page,
+.performance-page,
+.market-center-panel {
+  color: var(--text-body);
+}
+
+.scan-path,
+.detail-path,
+.projection-path,
+.performance-path {
+  min-height: 28px;
+  margin-bottom: 18px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid rgba(122, 143, 173, .09);
+  color: var(--text-dim);
+  font-size: 12px;
+  letter-spacing: .015em;
+}
+
+.scan-path a,
+.detail-path a,
+.projection-path a,
+.performance-path a {
+  color: #c4cfdd;
+  font-weight: 650;
+  text-decoration: none;
+}
+.scan-path a:hover,
+.detail-path a:hover,
+.projection-path a:hover,
+.performance-path a:hover { color: #f2f6fb; }
+
+.home-decision-hero,
+.scan-command-deck,
+.detail-hero,
+.projection-hero,
+.performance-hero {
+  border: 1px solid var(--border-subtle);
+  border-radius: 18px;
+  background: var(--surface-elevated);
+  box-shadow: 0 18px 48px rgba(0, 0, 0, .16);
+}
+
+.home-decision-hero h1,
+.scan-command-deck h1,
+.detail-hero h1,
+.projection-hero h1,
+.performance-hero h1 {
+  color: var(--text-strong);
+  letter-spacing: -.035em;
+}
+
+.market-center-panel,
+.scan-control-card,
+.scan-history,
+.scan-result,
+.detail-section,
+.projection-panel,
+.performance-panel {
+  border-color: var(--border-subtle);
+  background-color: var(--surface-card);
+}
+
+.market-center-panel,
+.scan-result,
+.detail-section,
+.projection-panel,
+.performance-panel {
+  border-radius: var(--workspace-radius);
+}
+
+.market-center-panel .section-heading,
+.scan-workspace .section-heading,
+.detail-section .section-heading,
+.performance-section-title,
+.performance-scorecard-heading {
+  gap: 14px;
+}
+
+.eyebrow {
+  color: #668f88;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: .12em;
+}
+
+.section-heading h2,
+.market-center-panel h2,
+.detail-section h2,
+.projection-panel h2,
+.performance-panel h2,
+.performance-scorecard-heading h2 {
+  color: var(--text-strong);
+  letter-spacing: -.025em;
+}
+
+/* Piyasa Merkezi: yoğun karar ekranı */
+.market-center-panel {
+  margin-top: 18px;
+  padding: 22px;
+}
+.market-decision-head,
+.market-columns,
+.market-movers {
+  border-color: var(--border-subtle);
+}
+.market-decision-kpis {
+  gap: 8px;
+}
+.market-decision-kpis > span,
+.market-factor-grid > div,
+.market-focus-card,
+.market-signals {
+  border-color: var(--border-subtle);
+  background: var(--surface-soft);
+}
+.market-signal-head,
+.market-signal-row {
+  grid-template-columns: minmax(92px, 1fr) minmax(78px, .7fr) minmax(120px, 1.25fr) repeat(4, minmax(66px, .65fr));
+}
+.market-signal-row {
+  min-height: 42px;
+}
+.market-signal-row:hover { background: rgba(52, 211, 153, .045); }
+
+/* Akıllı Tarama: command deck ile çalışma alanı aynı ritimde */
+.scan-command-deck { margin-bottom: 18px; }
+.scan-control-card,
+.scan-history { box-shadow: none; }
+.scan-control-card { min-height: 100%; }
+.scan-result { overflow: hidden; }
+.scan-result-table-wrap,
+.performance-table-scroll {
+  border: 1px solid rgba(122, 143, 173, .11);
+  border-radius: 12px;
+  background: rgba(5, 11, 20, .44);
+}
+.scan-result-table,
+.performance-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: 12.5px;
+}
+.scan-result-table th,
+.performance-table th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: #0c1727;
+  color: #8696ab;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: .055em;
+  text-transform: uppercase;
+}
+.scan-result-table th,
+.scan-result-table td,
+.performance-table th,
+.performance-table td {
+  padding: 10px 11px;
+  border-bottom: 1px solid rgba(122, 143, 173, .075);
+}
+.scan-result-table tbody tr:hover,
+.performance-table tbody tr:hover { background: rgba(52, 211, 153, .035); }
+
+/* Detay: veri bloklarını bir terminal kart sistemi gibi eşitle */
+.detail-page { display: grid; gap: 16px; }
+.detail-hero { padding: 24px; }
+.detail-summary {
+  gap: 8px;
+}
+.detail-summary > span {
+  border: 1px solid var(--border-subtle);
+  border-radius: 11px;
+  background: rgba(7, 14, 25, .55);
+}
+.detail-grid { gap: 14px; }
+.detail-grid > * {
+  border-color: var(--border-subtle);
+}
+.projection-cta,
+.detail-open {
+  min-height: var(--control-height);
+  border-radius: 10px;
+}
+
+/* Projeksiyon: senaryo kartları ve model metrikleri aynı yüzey ailesinde */
+.projection-page { display: grid; gap: 16px; }
+.projection-panel { box-shadow: none; }
+.projection-hero { padding: 24px; }
+.projection-band-grid,
+.projection-metric-grid,
+.projection-technical-grid {
+  gap: 10px;
+}
+.projection-band-grid > *,
+.projection-metric-grid > *,
+.projection-technical-grid > * {
+  border-color: var(--border-subtle);
+  background-color: var(--surface-soft);
+}
+
+/* Performans: uzun veri sayfasını tutarlı yoğunlukta tut */
+.performance-page { display: grid; gap: 16px; }
+.performance-hero {
+  margin-bottom: 0;
+  padding: 24px;
+}
+.performance-panel { box-shadow: none; }
+.performance-kpi-strip,
+.performance-overview-grid,
+.performance-metric-grid,
+.performance-closed-summary,
+.performance-lower-grid {
+  gap: 10px;
+}
+.performance-track-kpi,
+.performance-summary-card,
+.performance-metric-card,
+.performance-closed-card {
+  min-height: 106px;
+}
+.performance-period {
+  border-color: var(--border-subtle);
+  background: rgba(7, 14, 25, .55);
+}
+.performance-period button,
+.performance-refresh,
+.performance-detail-button {
+  border-radius: 9px;
+}
+
+/* Ortak kontrol davranışı */
+.scan-page input,
+.scan-page select,
+.projection-page input,
+.projection-page select,
+.performance-page input,
+.performance-page select {
+  min-height: var(--control-height);
+}
+.scan-page button:focus-visible,
+.detail-page button:focus-visible,
+.projection-page button:focus-visible,
+.performance-page button:focus-visible,
+.command-page a:focus-visible {
+  outline: 2px solid rgba(52, 211, 153, .78);
+  outline-offset: 2px;
+}
+
+.scan-empty,
+.market-center-state,
+.detail-status,
+.projection-muted,
+.performance-status,
+.performance-table-empty {
+  color: var(--text-dim);
+}
+
+.positive { color: #5ed9a9; }
+.negative { color: #f08383; }
+.neutral { color: #aab5c5; }
+
+@media (max-width: 1180px) {
+  :root { --workspace-pad-x: 20px; }
+  .market-signal-head,
+  .market-signal-row {
+    grid-template-columns: minmax(90px, 1fr) minmax(75px, .75fr) minmax(115px, 1.2fr) repeat(4, minmax(62px, .65fr));
+  }
+}
+
+@media (max-width: 760px) {
+  :root { --workspace-pad-x: 12px; --workspace-pad-y: 14px; }
+  .command-page,
+  .scan-page,
+  .detail-page,
+  .projection-page,
+  .performance-page { padding-bottom: 40px; }
+  .home-decision-hero,
+  .scan-command-deck,
+  .detail-hero,
+  .projection-hero,
+  .performance-hero { border-radius: 14px; }
+  .market-center-panel,
+  .detail-hero,
+  .projection-hero,
+  .performance-hero { padding: 16px; }
+  .scan-path,
+  .detail-path,
+  .projection-path,
+  .performance-path { align-items: flex-start; flex-direction: column; gap: 5px; }
+  .market-signal-table,
+  .scan-result-table-wrap,
+  .performance-table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+}
