@@ -141,6 +141,7 @@ class ScanJobCreatedResponse(BaseModel):
 
 
 class ScanJobStatusResponse(ScanJobCreatedResponse):
+    tickers: list[str] = Field(default_factory=list)
     result: dict[str, Any] | None = None
     error: str | None = None
 

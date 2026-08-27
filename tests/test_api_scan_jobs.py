@@ -195,6 +195,26 @@ def test_authenticated_user_can_submit_and_poll_own_scan_job():
     }
 
 
+def test_completed_scan_detail_keeps_requested_tickers_when_result_rows_are_empty():
+    client = TestClient(
+        create_app(
+            verify_id_token=lambda _token: {"uid": "uid-1", "email": "user@example.com"},
+            scan_runner=lambda _tickers, progress_callback=None: {
+                "sonuclar": [],
+                "basarisiz_taramalar": ["THYAO.IS"],
+                "boga_sayisi": 0,
+                "alim_firsati": 0,
+            },
+        )
+    )
+    headers = {"Authorization": "Bearer valid-token"}
+
+    created = client.post("/api/v1/scan/jobs", headers=headers, json={"tickers": ["THYAO.IS"]})
+    completed = _wait_for_response(client, created.json()["job_id"], headers, "completed")
+
+    assert completed.json()["tickers"] == ["THYAO.IS"]
+
+
 def test_authenticated_scan_stream_emits_progress_and_terminal_result():
     def runner(tickers, progress_callback=None):
         progress_callback({"stage": "preparing", "total": 1, "completed": 0})
@@ -498,5 +518,4 @@ def test_scan_job_history_endpoint_hides_other_users_jobs():
     assert response.json()["jobs"][0]["tickers"] == ["THYAO.IS"]
     assert foreign.status_code == 200
     assert foreign.json()["jobs"] == []
-
 

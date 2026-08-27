@@ -121,7 +121,7 @@ def test_homepage_removes_internal_health_shortcut_and_keeps_mobile_targets():
     page = _read("web/app/page.tsx")
     css = _read("web/app/globals.css")
 
-    assert "Piyasa Merkezi" in page
+    assert "<HomeDecisionCenter />" in page
     assert "Sistem durumunu aç" not in page
     assert "min-height: 44px" in css
     assert "@media (max-width: 600px)" in css
@@ -133,7 +133,7 @@ def test_scan_has_a_dedicated_product_route_instead_of_a_homepage_anchor():
     scan = _read("web/app/scan/page.tsx")
 
     assert 'href: "/scan"' in shell
-    assert 'href="/scan"' in home
+    assert 'href="/scan"' not in home
     assert "ScanWorkspace" in scan
     assert 'href: "/#akilli-tarama"' not in shell
 

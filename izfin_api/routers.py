@@ -582,6 +582,7 @@ def get_scan_job(
         stage=snapshot.stage,
         completed=snapshot.completed,
         total=snapshot.total,
+        tickers=list(snapshot.tickers),
         result=snapshot.result,
         error=snapshot.error,
         current_ticker=snapshot.current_ticker,
@@ -627,7 +628,6 @@ def performance_scorecard(
         bos_mesaj=paket["bos_mesaj"],
         kayit_adedi=len(paket["karne_df"]),
     )
-
 
 
 
