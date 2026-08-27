@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { AuthProvider } from "../components/auth-provider";
+import { AnalysisContextProvider } from "../components/analysis-context-provider";
 import { AppShell } from "../components/app-shell";
 import "./globals.css";
 import "./market-center.css";
@@ -22,7 +23,13 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="tr">
-      <body><AuthProvider><AppShell>{children}</AppShell></AuthProvider></body>
+      <body>
+        <AuthProvider>
+          <AnalysisContextProvider>
+            <AppShell>{children}</AppShell>
+          </AnalysisContextProvider>
+        </AuthProvider>
+      </body>
     </html>
   );
 }
