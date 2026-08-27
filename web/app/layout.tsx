@@ -4,6 +4,7 @@ import { AppShell } from "../components/app-shell";
 import "./globals.css";
 import "./market-center.css";
 import "./component-polish.css";
+import "./scan.css";
 import "./stock-detail.css";
 import "./projection.css";
 import "./performance.css";
@@ -24,4 +25,3 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
     </html>
   );
 }
-
