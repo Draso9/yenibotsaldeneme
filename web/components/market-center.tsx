@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { izfinApiFetch } from "../lib/api";
 import {
   fetchMarketCenter,
   fetchMarketStockDetail,
@@ -34,7 +33,6 @@ export function MarketCenterPanel({ jobId }: Readonly<{ jobId: string }>) {
   const [error, setError] = useState("");
   const [detailError, setDetailError] = useState("");
   const [sortBy, setSortBy] = useState<"score" | "risk">("score");
-  const [watchlistMessage, setWatchlistMessage] = useState("");
 
   useEffect(() => {
     if (!user || !jobId) return;
@@ -79,19 +77,6 @@ export function MarketCenterPanel({ jobId }: Readonly<{ jobId: string }>) {
 
   if (!user) return null;
 
-  async function addSelectedToWatchlist() {
-    if (!selectedTicker) return;
-    setWatchlistMessage("");
-    try {
-      const token = await getIdToken();
-      if (!token) return;
-      const current = await izfinApiFetch<{ tickers: string[] }>("/api/v1/watchlist", token);
-      if (current.tickers.includes(selectedTicker)) { setWatchlistMessage(`${selectedTicker} zaten takip listende.`); return; }
-      await izfinApiFetch("/api/v1/watchlist", token, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ tickers: [...current.tickers, selectedTicker] }) });
-      setWatchlistMessage(`${selectedTicker} takip listene eklendi.`);
-    } catch { setWatchlistMessage("Takip listesi güncellenemedi."); }
-  }
-
   return <section className="market-center-panel" aria-label="Piyasa Merkezi">
     <div className="section-heading market-center-heading">
       <div><p className="eyebrow">PİYASA MERKEZİ</p><h2>Tarama karar özeti</h2></div>
@@ -99,7 +84,7 @@ export function MarketCenterPanel({ jobId }: Readonly<{ jobId: string }>) {
     </div>
     {!center && !error && <p className="market-center-state">Tarama özeti hazırlanıyor…</p>}
     {error && <p role="alert">{error}</p>}
-    {center?.empty && <p className="market-center-state">Bu taramada Piyasa Merkezi için gösterilecek sonuç bulunamadı.</p>}
+    {center?.empty && <div className="market-center-empty market-center-state">Bu taramada Piyasa Merkezi için gösterilecek sonuç bulunamadı.</div>}
     {center && !center.empty && <>
       <div className="market-decision-head"><div><p className="eyebrow">IZFIN KARAR MERKEZİ</p><h3>Son Tarama Özeti</h3><small>{text(center.metrics.kaynak)} · Son taranan evrene göre</small></div><strong className={`market-mode-badge is-${text(center.decision.mod_cls, "neutral")}`}>{text(center.decision.mod)} · {text(center.metrics.pulse)}/100</strong></div>
       <div className="market-decision-kpis"><span><b>{decisionCount(center.decision.alim_tarafi)}</b>ALIM TARAFI<small>AL / Güçlü AL</small></span><span><b>{decisionCount(center.decision.guclu_al)}</b>GÜÇLÜ SETUP<small>yüksek öncelik</small></span><span><b>{decisionCount(center.decision.teyit)}</b>TEYİT BEKLEYEN<small>henüz tamamlanmadı</small></span><span><b>{decisionCount(center.decision.yuksek_risk)}</b>YÜKSEK RİSK<small>dikkat gerektiriyor</small></span></div>
@@ -121,7 +106,7 @@ export function MarketCenterPanel({ jobId }: Readonly<{ jobId: string }>) {
           </div>
         </div>
         <div className="market-focus-card">
-          <div className="subsection-title"><span>ÖNE ÇIKAN HİSSE</span><b>LIVE</b></div>
+          <div className="subsection-title"><span>BUGÜNÜN ÖNE ÇIKAN HİSSESİ</span><b>LIVE</b></div>
           {selectedTicker ? <>
             <h3>{selectedTicker}</h3>
             {!detail && !detailError && <p>Detay yükleniyor…</p>}
@@ -129,8 +114,6 @@ export function MarketCenterPanel({ jobId }: Readonly<{ jobId: string }>) {
             {detail && <>
               <div className="focus-kv"><span>IZFIN Skor<b>{text(detail.score.nihai)}</b></span><span>Güven<b>%{text(detail.decision.guven)}</b></span><span>MTF<b>%{text(detail.decision.mtf_uyum)}</b></span><span>Risk<b>{text(detail.decision.risk)}</b></span></div><p className="market-focus-signal">{text(detail.signal)}</p>
               <a className="detail-open" href={stockDetailHref(jobId, selectedTicker)}>Detaylı analizi aç →</a>
-              <button className="watchlist-add" type="button" onClick={() => void addSelectedToWatchlist()}>Takip listene ekle</button>
-              {watchlistMessage && <p className="watchlist-message" aria-live="polite">{watchlistMessage}</p>}
               <div className="market-decision-context"><span>Karar bileşenleri</span>{Object.entries(detail.decision).filter(([key]) => DECISION_LABELS[key]).slice(0, 4).map(([key, value]) => <p key={key}>{DECISION_LABELS[key]}<b>{text(value)}</b></p>)}</div>
             </>}
           </> : <p>Öne çıkan hisse bulunamadı.</p>}

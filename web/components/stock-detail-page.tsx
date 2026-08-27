@@ -102,4 +102,3 @@ function DetailSection({ title, values, wide = false }: Readonly<{ title: string
     </div>}
   </article>;
 }
-

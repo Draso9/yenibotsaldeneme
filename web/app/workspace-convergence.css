@@ -83,7 +83,6 @@
 
 .market-center-panel,
 .scan-control-card,
-.scan-history,
 .scan-result,
 .detail-section,
 .projection-panel,
@@ -156,8 +155,7 @@
 
 /* Akıllı Tarama: command deck ile çalışma alanı aynı ritimde */
 .scan-command-deck { margin-bottom: 18px; }
-.scan-control-card,
-.scan-history { box-shadow: none; }
+.scan-control-card { box-shadow: none; }
 .scan-control-card { min-height: 100%; }
 .scan-result { overflow: hidden; }
 .scan-result-table-wrap,

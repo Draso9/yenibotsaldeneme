@@ -242,12 +242,6 @@
 .scan-control-card > small { display: block; margin-top: 10px; color: #708097; line-height: 1.5; }
 
 .scan-service-error { border-radius: 12px; }
-.scan-history {
-  margin-top: 4px;
-  border: 1px solid rgba(117, 137, 168, .14);
-  border-radius: 16px;
-  background: rgba(9, 17, 29, .68);
-}
 
 @media (max-width: 1180px) {
   .scan-command-deck { grid-template-columns: 1fr; }
