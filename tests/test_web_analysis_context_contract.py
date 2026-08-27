@@ -28,3 +28,10 @@ def test_scan_workspace_publishes_completed_scan_context():
     assert "setActiveUniverseProfile(profile)" in source
     assert "setActiveScan(completed.job_id)" in source
     assert "refreshLatestCompletedScan" in source
+
+
+def test_server_history_replaces_stale_cached_active_scan():
+    provider = (ROOT / "web" / "components" / "analysis-context-provider.tsx").read_text(encoding="utf-8")
+    assert "completedJobIds" in provider
+    assert "completedJobIds.has(current)" in provider
+    assert "return latestId" in provider
