@@ -576,6 +576,13 @@ def get_scan_job(
     snapshot = store.get_for_owner(job_id, identity.uid) if store is not None else None
     if snapshot is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Tarama işi bulunamadı.")
+    result = snapshot.result if isinstance(snapshot.result, dict) else {}
+    panels = result.get("teknik_paneller")
+    projectable_tickers = [
+        str(ticker).strip().upper()
+        for ticker, panel in (panels.items() if isinstance(panels, dict) else ())
+        if str(ticker).strip() and isinstance(panel, dict)
+    ]
     return ScanJobStatusResponse(
         job_id=snapshot.job_id,
         status=snapshot.status,
@@ -583,6 +590,7 @@ def get_scan_job(
         completed=snapshot.completed,
         total=snapshot.total,
         tickers=list(snapshot.tickers),
+        projectable_tickers=projectable_tickers,
         result=snapshot.result,
         error=snapshot.error,
         current_ticker=snapshot.current_ticker,
@@ -628,6 +636,5 @@ def performance_scorecard(
         bos_mesaj=paket["bos_mesaj"],
         kayit_adedi=len(paket["karne_df"]),
     )
-
 
 

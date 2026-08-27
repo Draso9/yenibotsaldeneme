@@ -112,6 +112,15 @@ export function ProjectionPage({ jobId, ticker }: Readonly<{ jobId: string; tick
         }
 
         const tickers = resultTickers(candidate);
+        if (!tickers.length) {
+          if (active) {
+            setResolvedJobId("");
+            setResolvedTicker("");
+            setAvailableTickers([]);
+            setError("Bu tamamlanmış taramada projeksiyon için kullanılabilir teknik veri yok.");
+          }
+          return;
+        }
         const nextTicker = resolveTicker(explicitTicker, selectedTicker, tickers);
         if (!active) return;
         setResolvedJobId(finalJobId);

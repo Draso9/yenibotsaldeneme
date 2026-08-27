@@ -14,7 +14,11 @@ export type ScanJobContext = {
   job_id: string;
   status: string;
   tickers: string[];
-  result?: { sonuclar?: Array<Record<string, unknown>> };
+  projectable_tickers?: string[];
+  result?: {
+    sonuclar?: Array<Record<string, unknown>>;
+    teknik_paneller?: Record<string, Record<string, unknown>>;
+  };
 };
 
 export async function fetchScanHistory(idToken: string): Promise<ScanHistoryItem[]> {
@@ -31,12 +35,11 @@ export async function fetchScanJobContext(jobId: string, idToken: string): Promi
 }
 
 export function resultTickers(job: ScanJobContext): string[] {
-  const rows = job.result?.sonuclar ?? [];
-  const fromResults = rows
-    .map((row) => String(row.Varlık ?? row.ticker ?? "").trim().toUpperCase())
+  const projectable = job.projectable_tickers ?? Object.keys(job.result?.teknik_paneller ?? {});
+  const normalized = projectable
+    .map((ticker) => ticker.trim().toUpperCase())
     .filter(Boolean);
-  const fallback = job.tickers.map((ticker) => ticker.trim().toUpperCase()).filter(Boolean);
-  return [...new Set(fromResults.length ? fromResults : fallback)];
+  return [...new Set(normalized)];
 }
 
 export function resolveTicker(explicitTicker: string, rememberedTicker: string, availableTickers: string[]): string {

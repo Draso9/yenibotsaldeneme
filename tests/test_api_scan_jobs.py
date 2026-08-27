@@ -213,6 +213,51 @@ def test_completed_scan_detail_keeps_requested_tickers_when_result_rows_are_empt
     completed = _wait_for_response(client, created.json()["job_id"], headers, "completed")
 
     assert completed.json()["tickers"] == ["THYAO.IS"]
+    assert completed.json()["projectable_tickers"] == []
+
+
+def test_completed_scan_detail_exposes_projectable_ticker_that_projection_can_open():
+    panel = {
+        "fiyat": 100.0,
+        "atr": 2.0,
+        "hv20": 0.30,
+        "hv60": 0.24,
+        "ema21": 99.0,
+        "ema50": 96.0,
+        "sma200": 90.0,
+        "macd": 2.0,
+        "macd_signal": 1.0,
+        "rsi": 58.0,
+        "sinyal": "GÜÇLÜ AL",
+        "destek": 94.0,
+        "direnc": 106.0,
+        "stop": 92.0,
+        "tp1": 112.0,
+        "tp2": 120.0,
+    }
+    client = TestClient(
+        create_app(
+            verify_id_token=lambda _token: {"uid": "uid-1", "email": "user@example.com"},
+            scan_runner=lambda _tickers, progress_callback=None: {
+                "sonuclar": [],
+                "teknik_paneller": {"THYAO.IS": panel},
+                "basarisiz_taramalar": [],
+                "boga_sayisi": 1,
+                "alim_firsati": 1,
+            },
+        )
+    )
+    headers = {"Authorization": "Bearer valid-token"}
+
+    created = client.post("/api/v1/scan/jobs", headers=headers, json={"tickers": ["THYAO.IS"]})
+    completed = _wait_for_response(client, created.json()["job_id"], headers, "completed")
+
+    assert completed.json()["projectable_tickers"] == ["THYAO.IS"]
+    projection = client.get(
+        f"/api/v1/projection/jobs/{created.json()['job_id']}/stocks/THYAO.IS",
+        headers=headers,
+    )
+    assert projection.status_code == 200
 
 
 def test_authenticated_scan_stream_emits_progress_and_terminal_result():
@@ -378,6 +423,35 @@ def test_scan_job_persists_result_and_can_be_read_after_store_restart():
     assert restored.result["sonuclar"] == [{"Varlık": "THYAO.IS"}]
 
 
+def test_persisted_completed_scan_detail_keeps_projectable_tickers_after_restart():
+    repository = FakeJobRepository()
+    repository.upsert_job(
+        "job-1",
+        {
+            "job_id": "job-1",
+            "owner_uid": "uid-1",
+            "tickers": ["THYAO.IS"],
+            "status": "completed",
+            "stage": "complete",
+            "completed": 1,
+            "total": 1,
+            "result": {"sonuclar": [], "teknik_paneller": {"THYAO.IS": {"fiyat": 100.0}}},
+        },
+    )
+    client = TestClient(
+        create_app(
+            verify_id_token=lambda _token: {"uid": "uid-1", "email": "user@example.com"},
+            scan_job_store=ScanJobStore(job_repository=repository),
+        )
+    )
+
+    response = client.get("/api/v1/scan/jobs/job-1", headers={"Authorization": "Bearer valid-token"})
+
+    assert response.status_code == 200
+    assert response.json()["tickers"] == ["THYAO.IS"]
+    assert response.json()["projectable_tickers"] == ["THYAO.IS"]
+
+
 def test_cloud_run_result_is_json_safe_before_firestore_persistence():
     repository = FirestoreShapeRepository()
     store = ScanJobStore(job_repository=repository)
@@ -518,4 +592,3 @@ def test_scan_job_history_endpoint_hides_other_users_jobs():
     assert response.json()["jobs"][0]["tickers"] == ["THYAO.IS"]
     assert foreign.status_code == 200
     assert foreign.json()["jobs"] == []
-
