@@ -4,7 +4,7 @@ import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { IzfinApiError, isRetryableApiError, izfinApiFetch, izfinApiStream } from "../lib/api";
 import { fetchMarketStockDetail, type StockDetailResponse } from "../lib/market-center";
 import { resultTickers } from "../lib/scan-context";
-import { preferActiveRecoveryJob, recoveryRetryDelayMs } from "../lib/scan-recovery";
+import { preferActiveRecoveryJob, recoveryRetryDelayMs } from "../lib/scan-recovery.mjs";
 import { useAnalysisContext } from "./analysis-context-provider";
 import { useIzfinAuth } from "./auth-provider";
 import { MarketCenterPanel } from "./market-center";

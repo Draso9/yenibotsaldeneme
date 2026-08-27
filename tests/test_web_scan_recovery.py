@@ -1,6 +1,5 @@
 from pathlib import Path
 import subprocess
-import tempfile
 
 
 def _read(path: str) -> str:
@@ -32,7 +31,7 @@ def test_recovered_scan_completion_publishes_analysis_context_without_visible_hi
 
 def test_transient_recovery_failures_reschedule_with_capped_backoff():
     source = _read("web/components/scan-workspace.tsx")
-    helper_path = Path("web/lib/scan-recovery.ts")
+    helper_path = Path("web/lib/scan-recovery.mjs")
 
     assert helper_path.exists(), "Tarama recovery retry helper henüz yok"
     assert "setPollFailureCount((current) => current + 1)" in source
@@ -40,34 +39,17 @@ def test_transient_recovery_failures_reschedule_with_capped_backoff():
     assert "setRecoveryDiscoveryFailures((current) => current + 1)" in source
     assert "recoveryRetryDelayMs(recoveryDiscoveryFailures)" in source
 
-    with tempfile.TemporaryDirectory() as output:
-        compiled = subprocess.run(
-            [
-                "web/node_modules/.bin/tsc",
-                str(helper_path),
-                "--target", "ES2022",
-                "--module", "commonjs",
-                "--moduleResolution", "node",
-                "--skipLibCheck",
-                "--outDir", output,
-                "--noEmit", "false",
-            ],
-            capture_output=True,
-            text=True,
-            check=False,
-        )
-        assert compiled.returncode == 0, compiled.stderr
-        executed = subprocess.run(
-            [
-                "node",
-                "-e",
-                "const { recoveryRetryDelayMs } = require(process.argv[1]); console.log([0,1,2,3,4,12].map(recoveryRetryDelayMs).join(','));",
-                str(Path(output) / "scan-recovery.js"),
-            ],
-            capture_output=True,
-            text=True,
-            check=False,
-        )
+    executed = subprocess.run(
+        [
+            "node",
+            "--input-type=module",
+            "-e",
+            "import { recoveryRetryDelayMs } from './web/lib/scan-recovery.mjs'; console.log([0,1,2,3,4,12].map(recoveryRetryDelayMs).join(','));",
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
 
     assert executed.returncode == 0, executed.stderr
     assert executed.stdout.strip() == "1000,2000,4000,8000,10000,10000"
@@ -75,40 +57,23 @@ def test_transient_recovery_failures_reschedule_with_capped_backoff():
 
 def test_discovered_active_job_replaces_previous_terminal_job():
     source = _read("web/components/scan-workspace.tsx")
-    helper_path = Path("web/lib/scan-recovery.ts")
+    helper_path = Path("web/lib/scan-recovery.mjs")
 
     assert "preferActiveRecoveryJob(current, activeJob)" in source
 
-    with tempfile.TemporaryDirectory() as output:
-        compiled = subprocess.run(
-            [
-                "web/node_modules/.bin/tsc",
-                str(helper_path),
-                "--target", "ES2022",
-                "--module", "commonjs",
-                "--moduleResolution", "node",
-                "--skipLibCheck",
-                "--outDir", output,
-                "--noEmit", "false",
-            ],
-            capture_output=True,
-            text=True,
-            check=False,
-        )
-        assert compiled.returncode == 0, compiled.stderr
-        script = (
-            "const {preferActiveRecoveryJob}=require(process.argv[1]);"
-            "const active={job_id:'new',status:'running'};"
-            "const completed={job_id:'old',status:'completed'};"
-            "const running={job_id:'current',status:'queued'};"
-            "console.log([preferActiveRecoveryJob(null,active).job_id,preferActiveRecoveryJob(completed,active).job_id,preferActiveRecoveryJob(running,active).job_id].join(','));"
-        )
-        executed = subprocess.run(
-            ["node", "-e", script, str(Path(output) / "scan-recovery.js")],
-            capture_output=True,
-            text=True,
-            check=False,
-        )
+    script = (
+        "import {preferActiveRecoveryJob} from './web/lib/scan-recovery.mjs';"
+        "const active={job_id:'new',status:'running'};"
+        "const completed={job_id:'old',status:'completed'};"
+        "const running={job_id:'current',status:'queued'};"
+        "console.log([preferActiveRecoveryJob(null,active).job_id,preferActiveRecoveryJob(completed,active).job_id,preferActiveRecoveryJob(running,active).job_id].join(','));"
+    )
+    executed = subprocess.run(
+        ["node", "--input-type=module", "-e", script],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
 
     assert executed.returncode == 0, executed.stderr
     assert executed.stdout.strip() == "new,new,current"
