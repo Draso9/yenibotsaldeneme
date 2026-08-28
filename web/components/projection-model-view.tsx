@@ -73,7 +73,7 @@ export function ProjectionModelView({ projection, ticker, availableTickers, onTi
     <section className="projection-lab-intro projection-hero projection-panel">
       <div className="projection-lab-copy">
         <p className="eyebrow">IZFIN PROJECTION LAB</p>
-        <h1>Projeksiyon &amp; Senaryo Analizi</h1>
+        <h1>Projeksiyon & Senaryo Analizi</h1>
         <p className="projection-muted">Seçilen varlık için yaklaşık {projection.horizon_days} günlük hareket bandını, model uyumunu ve yukarı/aşağı teknik senaryoları tek ekranda inceleyin.</p>
       </div>
       <div className="projection-model-note projection-panel projection-direction-card">
@@ -185,7 +185,7 @@ export function ProjectionModelView({ projection, ticker, availableTickers, onTi
 
     <section className="projection-disclaimer">
       <span>MODEL KAPSAMI</span>
-      <p><b>Belirsizlik çerçevesi</b> · Bu çıktı seçili tamamlanmış taramanın ATR ve tarihsel volatilite verisinden üretilen yaklaşık hareket bandı ve koşullu teknik senaryolardır. Kesin hedef fiyat, başarı olasılığı, getiri garantisi veya yatırım tavsiyesi değildir.</p>
+      <p><b>Model kapsamı</b> · Bu çıktı seçili tamamlanmış taramanın ATR ve tarihsel volatilite verisinden üretilen yaklaşık hareket bandı ve koşullu teknik senaryolardır. Kesin hedef fiyat, başarı olasılığı, getiri garantisi veya yatırım tavsiyesi değildir.</p>
     </section>
   </main>;
 }
