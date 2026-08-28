@@ -176,7 +176,15 @@ Completed the Projection presentation split and restored the Streamlit 45-day mo
 
 ### PR #106 — Performance full Streamlit parity
 
-Current checkpoint PR. Restores the complete Streamlit closed-position surface, typed summary contract, focused presentation boundary, and keeps the existing scorecard behavior. Merge only after final CI is green.
+Merge commit: `6c6dfcdae53011166156ea220e2a32d9bd2c2c6d`
+
+Restored the complete Streamlit closed-position surface, typed summary contract, focused presentation boundary, and existing 20G / 60G / 120G scorecard behavior.
+
+### PR #107 — truthful global system readiness
+
+Merge commit: `7f38104165de6aac26dc7071021d4de83974fdb0`
+
+Replaced unconditional `API CANLI` / `Sistemler hazır` shell claims with the existing durable readiness endpoint. The global shell now distinguishes checking, ready, degraded, and unavailable states and only shows the green live indicator when durable readiness is actually ready.
 
 ## 7. Develop Preview
 
@@ -349,13 +357,14 @@ Target:
 - some route/context coupling remains until all analysis surfaces use the same shared context consistently
 - deferred scan decision-card selected-ticker revisit behavior noted above
 
-### Debt reduced by current Performance checkpoint
+### Debt reduced by current Performance checkpoint and readiness audit
 
 - separated Performance auth/data orchestration from presentation
 - replaced the loose frontend closed-summary shape with a typed presentation contract
 - restored Streamlit information without duplicating Python financial calculations
 - preserved real-data-only rendering
 - kept scorecard and position-history responsibilities clearly separated
+- made global API/system health messaging authoritative instead of static
 
 ### Technical debt policy
 
