@@ -7,7 +7,14 @@ function text(value: unknown, fallback = "—"): string {
   return String(value);
 }
 
-export function ScanDecisionCard({ jobId, detail }: Readonly<{ jobId: string; detail: StockDetailResponse }>) {
+type ScanDecisionCardProps = Readonly<{
+  jobId: string;
+  detail: StockDetailResponse;
+  tickers: string[];
+  onTickerChange: (ticker: string) => void;
+}>;
+
+export function ScanDecisionCard({ jobId, detail, tickers, onTickerChange }: ScanDecisionCardProps) {
   const { decision, action, panel } = detail;
   const levels: Array<[string, unknown]> = [
     ["Destek", panel.destek],
@@ -19,6 +26,12 @@ export function ScanDecisionCard({ jobId, detail }: Readonly<{ jobId: string; de
   ];
 
   return <section className="scan-decision-card" aria-label={`${detail.ticker} hisse karar motoru`}>
+    <div className="scan-decision-selector">
+      <label htmlFor="scan-decision-ticker"><span>Karar motorunda gösterilen hisse</span><b>{tickers.length} tarama sonucu arasından seç</b></label>
+      <select id="scan-decision-ticker" value={detail.ticker} onChange={(event) => onTickerChange(event.target.value)}>
+        {tickers.map((symbol) => <option key={symbol} value={symbol}>{symbol}</option>)}
+      </select>
+    </div>
     <div className="scan-decision-hero">
       <div className="scan-decision-identity">
         <p className="eyebrow">HİSSEYE ÖZEL KARAR MOTORU</p>

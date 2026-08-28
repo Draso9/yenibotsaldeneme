@@ -74,6 +74,9 @@ Approved Akıllı Tarama ownership/layout refinement (2026-08-28):
 - Navigating Akıllı Tarama -> Piyasa Merkezi -> Akıllı Tarama must restore the
   newest owner-scoped completed scan result; active queued/running work still
   takes recovery priority.
+- The stock decision motor must offer an explicit ticker selector populated
+  from the current scan's real results; table-row selection and this selector
+  share the same selected ticker and job-scoped decision data.
 
 ## 5. Current Verified / User-Reported Live Issues
 

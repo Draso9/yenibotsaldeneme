@@ -255,6 +255,40 @@
     linear-gradient(145deg, rgba(7, 27, 39, .98), rgba(7, 15, 25, .98));
   box-shadow: 0 24px 70px rgba(0, 0, 0, .32), inset 0 1px rgba(255, 255, 255, .04);
 }
+.scan-decision-selector {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(220px, 320px);
+  gap: 18px;
+  align-items: end;
+  margin-bottom: 26px;
+  padding: 16px 18px;
+  border: 1px solid rgba(44, 225, 223, .2);
+  border-radius: 13px;
+  background: rgba(5, 19, 29, .76);
+}
+.scan-decision-selector label { display: grid; gap: 5px; }
+.scan-decision-selector label span { color: #e8f7f7; font-size: 15px; font-weight: 850; }
+.scan-decision-selector label b { color: #718f9d; font-size: 11px; font-weight: 650; }
+.scan-decision-selector select {
+  width: 100%;
+  min-height: 48px;
+  padding: 0 42px 0 14px;
+  border: 1px solid rgba(44, 225, 223, .4);
+  border-radius: 10px;
+  background: #081925;
+  color: #57e7d9;
+  font-size: 16px;
+  font-weight: 850;
+  outline: none;
+  cursor: pointer;
+}
+.scan-decision-selector select:focus {
+  border-color: #2ce1df;
+  box-shadow: 0 0 0 3px rgba(44, 225, 223, .1);
+}
+
 .scan-decision-card::before {
   position: absolute;
   inset: 0 auto 0 0;
@@ -358,6 +392,7 @@
   .symbol-search-form, .scan-watchlist-form { grid-template-columns: 1fr; }
   .symbol-selection-preview { align-items: stretch; flex-direction: column; }
   .scan-decision-card { padding: 19px 16px 20px; border-radius: 15px; }
+  .scan-decision-selector { grid-template-columns: 1fr; gap: 12px; margin-bottom: 20px; padding: 14px; }
   .scan-decision-hero, .scan-decision-reasons { grid-template-columns: 1fr; }
   .scan-decision-verdict { min-height: 118px; padding: 17px; }
   .scan-decision-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
