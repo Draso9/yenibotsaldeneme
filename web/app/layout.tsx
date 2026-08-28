@@ -13,6 +13,7 @@ import "./strategy-lab.css";
 import "./account.css";
 import "./admin-quality.css";
 import "./workspace-convergence.css";
+import "./usage-guide.css";
 
 export const metadata: Metadata = {
   title: "IZFIN | Akıllı Piyasa Kararları",
