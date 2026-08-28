@@ -17,6 +17,12 @@ Primary product references:
 - `izfin_ui/`
 - existing framework-neutral/domain logic in `izfin_services/`, `izfin_core/`, repositories
 
+Approved product title/tagline (2026-08-28):
+
+**IZFIN | Akıllı Piyasa Kararları**
+
+Do not reintroduce the old `Akıllı BIST Analizi` browser/product tagline.
+
 ## 2. Non-Negotiable Rules
 
 - Never touch `main`.
@@ -54,29 +60,30 @@ Primary product references:
 
 ## 4. Current Checkpoint
 
-# SMART SCAN + DETAILED ANALYSIS
+# SMART SCAN + DETAILED ANALYSIS — IMPLEMENTATION COMPLETE, LIVE ACCEPTANCE PENDING
 
 Recovery was accepted for parity continuation on 2026-08-27 after the user
 reported that Projection shows the real ticker selector and loads the selected
 ticker. The user then explicitly approved continuing the Streamlit parity plan.
 
-Current checkpoint: restore the Streamlit per-stock decision motor directly
-below Akıllı Tarama results, remove the separate visible scan-history module,
-and retain durable scan recovery/context internally.
+The SMART SCAN + DETAILED ANALYSIS implementation checkpoint now contains:
 
-Approved Akıllı Tarama ownership/layout refinement (2026-08-28):
+- no separate visible scan-history module; durable recovery stays internal
+- no duplicate Piyasa Merkezi summaries under Akıllı Tarama
+- selected-stock decision motor directly below the real scan result table
+- explicit result ticker selector synchronized with the decision card
+- why-buy / why-wait reasons, confidence, risk, MTF, entry quality, technical profile, and trade-plan levels
+- structured Detailed Analysis sections from Python: indicators, trend/momentum, support/resistance, MTF entry motor, targets, and algorithmic interpretation
+- no persisted verbal-analysis HTML in the web client
+- selected ticker is now published into shared analysis context from the decision motor
+- direct Detailed Analysis routes publish both job and ticker into shared context
+- Detailed Analysis returns to `/scan#scan-result`, allowing server-backed scan recovery to restore the result flow
+- browser/product title uses `IZFIN | Akıllı Piyasa Kararları`
 
-- Do not render Piyasa Merkezi summaries, notable names, or daily movers again
-  under Akıllı Tarama.
-- Give the selected-stock decision motor the primary space below results, with
-  prominent central decision, readable why-buy/why-wait reasons, confidence,
-  risk, MTF, entry quality, technical profile, and trade-plan levels.
-- Navigating Akıllı Tarama -> Piyasa Merkezi -> Akıllı Tarama must restore the
-  newest owner-scoped completed scan result; active queued/running work still
-  takes recovery priority.
-- The stock decision motor must offer an explicit ticker selector populated
-  from the current scan's real results; table-row selection and this selector
-  share the same selected ticker and job-scoped decision data.
+Status rule:
+
+Do not call this checkpoint fully accepted until the user verifies the deployed
+`develop` journey live. If live verification passes, move to **Projection full Streamlit parity**.
 
 ## 5. Current Verified / User-Reported Live Issues
 
@@ -122,6 +129,18 @@ Move out:
 
 These belong mainly in Akıllı Tarama / Hesap.
 
+### C. SMART SCAN + DETAILED ANALYSIS live acceptance is pending
+
+Implementation and CI are expected to be complete in the current checkpoint PR,
+but user acceptance must verify:
+
+- revisiting `/scan` restores the latest completed result
+- selecting a different result ticker changes the decision motor
+- opening Detailed Analysis keeps that same ticker/job
+- returning to Akıllı Tarama restores the result flow
+- using sidebar/CTA Projection after selecting a ticker keeps the intended context
+- structured technical sections display real data without HTML fallback artifacts
+
 ## 6. Latest Relevant Merges
 
 ### PR #95 — Analysis continuity
@@ -130,13 +149,8 @@ Merge commit:
 
 `6892be7c8a96e9b86e9dd000534e6f38b26430c8`
 
-Added:
-
-- typed scan context helpers
-- authenticated analysis context provider
-- scan -> shared context publication
-- Projection recovery attempt from explicit/shared/latest scan context
-- guided no-scan state
+Added typed scan context helpers, authenticated analysis context, scan -> shared
+context publication, Projection recovery attempts, and guided no-scan state.
 
 ### PR #96 — stale cached analysis job recovery
 
@@ -144,17 +158,7 @@ Merge commit:
 
 `d9dcc62cee1a5e7aecfb13c0232f2a72962586f9`
 
-Purpose:
-
-- validate cached `activeScanJobId` against authoritative server scan history
-- replace stale cached scan context with latest completed server scan
-
-Status:
-
-- CI passed
-- merged to `develop`
-- Vercel deployed
-- stale-cache fix alone was insufficient; superseded by the PR #98 root fix below
+Validated cached active scan context against authoritative server history.
 
 ### PR #98 — Projection recovery root fix + Piyasa Merkezi cleanup
 
@@ -162,17 +166,37 @@ Merge commit:
 
 `d06a8a1`
 
-Added:
+Added authoritative projectable ticker recovery, real Projection ticker selection,
+and removed misplaced Piyasa Merkezi controls/modules.
 
-- authoritative projectable ticker recovery
-- real ticker selection for multi-ticker completed scans
-- removal of misplaced Piyasa Merkezi controls/modules
+### PR #99 — Streamlit smart scan decision flow
 
-Status:
+Added the per-stock decision motor below scan results, removed visible scan history,
+kept recovery internal, removed raw verbal-analysis HTML, and retained job-scoped
+Detail/Projection navigation.
 
-- both CI gates passed and merged to `develop`
-- user verified the real Projection selector and selected-ticker load live
-- user explicitly approved continuing parity migration
+### PR #100 — Akıllı Tarama decision focus
+
+Removed duplicated Piyasa Merkezi content from scan, strengthened decision-card
+hierarchy, and restored completed scan results when returning to `/scan`.
+
+### PR #101 — decision ticker selector
+
+Added the real scan-result ticker selector and synchronized it with row selection.
+
+### PR #102 — structured Detailed Analysis parity
+
+Added Python-owned structured technical analysis: indicators, trend/momentum,
+support/resistance, MTF entry quality, targets, algorithmic interpretation, and
+safe sparse-panel fallback behavior.
+
+### PR #103 — SMART SCAN + DETAILED ANALYSIS checkpoint close candidate
+
+Pending merge/live acceptance at the time of this status update.
+
+Adds shared selected-ticker publication, Detailed Analysis job/ticker context
+publication, return-to-scan continuity, and the approved product title
+`IZFIN | Akıllı Piyasa Kararları`.
 
 ## 7. Develop Preview
 
@@ -239,7 +263,7 @@ Target:
 
 ### Akıllı Tarama
 
-Current state: usable baseline, but still subject to final Streamlit parity.
+Current state: functional parity checkpoint candidate, pending live acceptance.
 
 Target:
 
@@ -270,6 +294,7 @@ Target:
 - risk context
 - realistic TP / stop information
 - navigation into Projection
+- shared job/ticker continuity back to Akıllı Tarama and onward to Projection
 
 ### Projeksiyon
 
@@ -349,18 +374,22 @@ Target:
 
 Web product layer currently has meaningful debt:
 
-- duplicate UI responsibilities
-- modules placed on the wrong page
-- fragile shared analysis state
-- route/context coupling
-- incomplete Streamlit functional parity
+- incomplete Streamlit functional parity outside the completed/current checkpoints
 - generic/stacked CSS convergence layers
-- page existence being mistaken for product completion
-- too many small implementation increments obscuring the product-level state
+- final authenticated journey still needs one comprehensive acceptance pass
+- some route/context coupling remains until all analysis surfaces use the same shared context consistently
+
+Debt reduced in the SMART SCAN + DETAILED ANALYSIS checkpoint by:
+
+- removing duplicate visible responsibilities
+- eliminating a local-only selected-ticker handoff at the decision/detail boundary
+- keeping business calculations in Python
+- replacing raw HTML dependencies with structured contracts
+- making return navigation rely on server-backed scan recovery instead of duplicated client state
 
 ### Technical debt policy from now on
 
-- no new decorative/product features until Recovery is accepted
+- no unnecessary decorative features before functional parity
 - no additional CSS polish before functional parity
 - remove duplicate responsibilities instead of layering more UI
 - prefer authoritative server state over browser-only state
@@ -395,29 +424,25 @@ Internally, PRs/tests/commits are still required, but do not make them the main 
 
 - Do not repeatedly scan the whole repository.
 - Start from this file, the approved parity spec, and the files directly relevant to the current checkpoint.
-- For Recovery, focus first on:
-  - `web/components/analysis-context-provider.tsx`
-  - `web/lib/scan-context.ts`
-  - `web/components/projection-page.tsx`
-  - `web/app/projection/page.tsx`
-  - `web/app/page.tsx`
-  - `web/components/dashboard.tsx`
-  - scan-history/job API contracts in `izfin_api/`
-  - existing focused tests around analysis context and Projection
-- Trace the real live data flow before applying another Projection patch.
+- Work checkpoint-by-checkpoint and read only the Streamlit/web/API files needed for the active surface.
+- Trace real data flow before applying fixes.
 - If a fix fails repeatedly, stop and reassess the architecture rather than stacking another workaround.
 
 ## 14. Canonical Next Action
 
-**Complete SMART SCAN + DETAILED ANALYSIS checkpoint.**
+**Live-verify SMART SCAN + DETAILED ANALYSIS on Vercel `develop`.**
 
-First:
+Acceptance journey:
 
-1. Keep the separate visible `Tarama geçmişi` module removed.
-2. Keep server-backed active-job discovery/polling as internal recovery.
-3. Render the selected ticker’s structured Streamlit decision motor directly below results.
-4. Preserve job-scoped links into Detailed Analysis and Projection.
-5. Do not render persisted verbal-analysis HTML; expose structured Python fields.
-6. Run focused tests + full Python/Web gates.
-7. Merge only if both CI gates are green.
-8. Verify the Akıllı Tarama result-selection/decision journey on Vercel `develop` with the user.
+1. Open Akıllı Tarama and recover or complete a real scan.
+2. Select a ticker from the result table or decision selector.
+3. Confirm the Hisseye Özel Karar Motoru changes to that ticker.
+4. Open Detaylı Analiz and confirm the same ticker/job, structured indicators,
+   trend/momentum, support/resistance, MTF entry motor, targets, and algorithmic comment.
+5. Use `← Akıllı Tarama` and confirm the completed result is restored.
+6. From the selected ticker, open Projection and confirm context is preserved.
+7. Confirm browser title is `IZFIN | Akıllı Piyasa Kararları`.
+
+If the user accepts this journey, mark SMART SCAN + DETAILED ANALYSIS complete and
+start **Projection full Streamlit parity** next. Do not begin Projection full parity
+before recording the live acceptance unless the user explicitly asks to proceed anyway.
