@@ -193,6 +193,7 @@ class StockDetailResponse(BaseModel):
     decision: dict[str, Any]
     action: dict[str, Any] = Field(default_factory=dict)
     panel: dict[str, Any]
+    technical: dict[str, Any] = Field(default_factory=dict)
 
 
 class ProjectionBandResponse(BaseModel):
