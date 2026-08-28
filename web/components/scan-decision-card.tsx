@@ -1,6 +1,10 @@
+"use client";
+
+import { useEffect } from "react";
 import type { StockDetailResponse } from "../lib/market-center";
 import { projectionHref } from "../lib/projection";
 import { stockDetailHref } from "../lib/stock-detail-route";
+import { useAnalysisContext } from "./analysis-context-provider";
 
 function text(value: unknown, fallback = "—"): string {
   if (value === null || value === undefined || value === "") return fallback;
@@ -15,6 +19,7 @@ type ScanDecisionCardProps = Readonly<{
 }>;
 
 export function ScanDecisionCard({ jobId, detail, tickers, onTickerChange }: ScanDecisionCardProps) {
+  const { setSelectedTicker } = useAnalysisContext();
   const { decision, action, panel } = detail;
   const levels: Array<[string, unknown]> = [
     ["Destek", panel.destek],
@@ -24,6 +29,10 @@ export function ScanDecisionCard({ jobId, detail, tickers, onTickerChange }: Sca
     ["TP2", panel.tp2],
     ["TP3", panel.tp3],
   ];
+
+  useEffect(() => {
+    setSelectedTicker(detail.ticker);
+  }, [detail.ticker, setSelectedTicker]);
 
   return <section className="scan-decision-card" aria-label={`${detail.ticker} hisse karar motoru`}>
     <div className="scan-decision-selector">
