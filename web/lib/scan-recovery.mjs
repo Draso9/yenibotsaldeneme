@@ -21,3 +21,54 @@ export function recoveryRetryDelayMs(failureCount) {
 export function preferActiveRecoveryJob(current, discovered) {
   return current && ACTIVE_SCAN_STATUSES.has(current.status) ? current : discovered;
 }
+
+/**
+ * Prefer a live job; otherwise recover the newest completed job from the
+ * owner-scoped history returned newest-first by the API.
+ *
+ * @template {{ status: string }} T
+ * @param {T[]} items
+ * @returns {T | null}
+ */
+export function recoverableJob(items) {
+  return items.find((item) => ACTIVE_SCAN_STATUSES.has(item.status))
+    ?? items.find((item) => item.status === "completed")
+    ?? null;
+}
+
+/**
+ * Never replace a job that is still progressing, but allow a completed job
+ * to be rehydrated after the scan route has unmounted.
+ *
+ * @template {{ status: string }} T
+ * @param {T | null} current
+ * @param {T} recovered
+ * @returns {T}
+ */
+export function preferRecoveredJob(current, recovered) {
+  return current && ACTIVE_SCAN_STATUSES.has(current.status) ? current : recovered;
+}
+
+/**
+ * Persisted jobs from earlier releases may not contain the aggregate summary
+ * counters added later. Preserve their real rows/panels and supply neutral
+ * display defaults so revisiting the scan route remains backward compatible.
+ *
+ * @template {Record<string, any>} T
+ * @param {T} job
+ * @returns {T}
+ */
+export function normalizeRecoveredScanJob(job) {
+  const result = job?.result;
+  if (!result || typeof result !== "object" || Array.isArray(result)) return job;
+  return {
+    ...job,
+    result: {
+      ...result,
+      sonuclar: Array.isArray(result.sonuclar) ? result.sonuclar : [],
+      basarisiz_taramalar: Array.isArray(result.basarisiz_taramalar) ? result.basarisiz_taramalar : [],
+      boga_sayisi: Number.isFinite(result.boga_sayisi) ? result.boga_sayisi : 0,
+      alim_firsati: Number.isFinite(result.alim_firsati) ? result.alim_firsati : 0,
+    },
+  };
+}
