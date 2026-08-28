@@ -5,6 +5,7 @@ import pandas as pd
 from izfin_ui.detail_analysis import (
     detay_analiz_paketi_hazirla,
     detay_skor_paketi_hazirla,
+    detay_teknik_ozet_hazirla,
 )
 
 
@@ -130,3 +131,42 @@ def test_detail_score_package_has_legacy_defaults_for_sparse_panel():
     assert result["eski_kalemler"] == []
     assert result["bonus_kalemler"] == []
     assert result["ceza_kalemler"] == []
+
+
+def test_detail_technical_summary_exposes_structured_streamlit_sections():
+    panel = {
+        "ticker": "THYAO.IS", "fiyat": 100, "gunluk_degisim": 2.5,
+        "ema9": 102, "ema21": 98, "ema50": 94, "sma200": 90,
+        "rsi": 58, "macd": 2, "macd_signal": 1, "mfi": 60,
+        "obv": 1200, "obv_ema": 1100, "atr": 2, "hacim_oran": 130,
+        "bb_alt": 90, "bb_mid": 97, "bb_ust": 104,
+        "s1": 95, "s2": 92, "s3": 88, "r1": 103, "r2": 108, "r3": 112,
+        "destek": 95, "direnc": 103, "stop": 91, "tp1": 106, "tp2": 110, "tp3": 115,
+        "giris_puani": 72, "giris_seviyesi": "GÜÇLÜ", "giris_detay": ["1H pozitif", "4H teyitli"],
+        "veri_kaynagi": "Yahoo",
+    }
+
+    result = detay_teknik_ozet_hazirla(panel)
+
+    assert {item["label"] for item in result["metrics"]} >= {"Fiyat", "RSI (14)", "MACD Histogram", "Giriş Kalitesi"}
+    assert result["trend"][0] == {"label": "Ana trend", "value": "Ana trend yukarı", "tone": "positive"}
+    assert any(item["label"] == "Teknik stop" and item["value"] == "91.00" for item in result["levels"])
+    assert [item["label"] for item in result["targets"]] == ["TP1 — Yakın hedef", "TP2 — Orta hedef", "TP3 — Agresif trend"]
+    assert result["entry"] == {"score": 72, "level": "GÜÇLÜ", "details": ["1H pozitif", "4H teyitli"]}
+    assert "SMA 200 üzerinde" in result["algorithmic_comment"]
+    assert result["source"] == "Yahoo"
+
+
+def test_detail_technical_summary_is_safe_for_sparse_legacy_panels():
+    result = detay_teknik_ozet_hazirla({"fiyat": 100})
+
+    assert result["metrics"]
+    assert result["trend"]
+    assert result["levels"]
+    assert result["entry"]["details"] == []
+    assert result["algorithmic_comment"]
+    assert next(item for item in result["metrics"] if item["label"] == "Fiyat")["tone"] == "neutral"
+    assert next(item for item in result["trend"] if item["label"] == "Bollinger konumu")["tone"] == "neutral"
+
+    legacy_text = detay_teknik_ozet_hazirla({"giris_detay": "Tek teyit"})
+    assert legacy_text["entry"]["details"] == ["Tek teyit"]

@@ -253,6 +253,9 @@ Target:
 - results table
 - selected ticker decision motor below the table: why buy / why wait, confidence, risk, MTF, entry quality, technical profile, and levels
 - continuity into Detailed Analysis / Projection
+- structured Detailed Analysis sections owned by Python: indicators, trend/momentum,
+  support/resistance, MTF entry motor, targets, and algorithmic interpretation;
+  no persisted verbal-analysis HTML in the web client
 
 ### Detaylı Analiz
 

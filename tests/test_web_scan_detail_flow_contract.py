@@ -78,3 +78,14 @@ def test_stock_decision_motor_offers_a_selector_for_every_scan_result():
     assert "value={detail.ticker}" in decision_card
     assert "onChange={(event) => onTickerChange(event.target.value)}" in decision_card
     assert "tickers.map((symbol) => <option key={symbol} value={symbol}>{symbol}</option>)" in decision_card
+
+
+def test_stock_detail_renders_structured_streamlit_technical_sections_without_html():
+    detail_page = (ROOT / "web" / "components" / "stock-detail-page.tsx").read_text(encoding="utf-8")
+    contract = (ROOT / "web" / "lib" / "market-center.ts").read_text(encoding="utf-8")
+
+    assert "technical?: StructuredTechnicalAnalysis" in contract
+    assert "function TechnicalOverview" in detail_page
+    for heading in ("Trend ve momentum özeti", "Destek ve direnç bölgeleri", "Çok zaman dilimli giriş motoru", "Teknik kâr hedefleri", "Algoritmik yorum"):
+        assert heading in detail_page
+    assert "dangerouslySetInnerHTML" not in detail_page

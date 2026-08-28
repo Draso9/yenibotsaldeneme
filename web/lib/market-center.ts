@@ -9,6 +9,16 @@ export type MarketCenterResponse = {
   movers: Array<Record<string, unknown>>;
 };
 
+export type StructuredTechnicalAnalysis = {
+  metrics?: Array<Record<string, unknown>>;
+  trend?: Array<Record<string, unknown>>;
+  levels?: Array<Record<string, unknown>>;
+  targets?: Array<Record<string, unknown>>;
+  entry?: Record<string, unknown>;
+  algorithmic_comment?: unknown;
+  source?: unknown;
+};
+
 export type StockDetailResponse = {
   ticker: string;
   price?: unknown;
@@ -18,6 +28,7 @@ export type StockDetailResponse = {
   decision: Record<string, unknown>;
   action: Record<string, unknown>;
   panel: Record<string, unknown>;
+  technical?: StructuredTechnicalAnalysis;
 };
 
 export function marketCenterJobPath(jobId: string): `/api/v1/market/jobs/${string}/center` {

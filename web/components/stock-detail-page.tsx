@@ -79,7 +79,7 @@ export function StockDetailPage({ jobId, ticker }: Readonly<{ jobId: string; tic
     {detail && <div className="detail-grid">
       <ScoreBreakdown score={detail.score} />
       <DecisionPanel decision={detail.decision} action={detail.action} />
-      <DetailSection title="Teknik panel" values={detail.panel} wide />
+      <TechnicalOverview technical={detail.technical} fallback={detail.panel} />
     </div>}
   </section>;
 }
@@ -91,6 +91,37 @@ function ScoreBreakdown({ score }: Readonly<{ score: Record<string, unknown> }>)
 
 function DecisionPanel({ decision, action }: Readonly<{ decision: Record<string, unknown>; action: Record<string, unknown> }>) {
   return <article className="detail-section detail-decision"><p className="eyebrow">ŞEFFAF KARAR MOTORU</p><h2>{text(decision.karar)}</h2><div className="detail-decision-kpis"><span><b>%{text(decision.guven)}</b>algoritma güveni</span><span><b>{text(decision.risk)}</b>risk</span><span><b>%{text(decision.mtf_uyum)}</b>MTF uyum</span></div><p><b>Olumlu teyitler:</b> {text(decision.olumlu_metin)}</p><p><b>Riskler:</b> {text(decision.risk_metin)}</p>{decision.mtf_metin ? <small>{text(decision.mtf_metin)}</small> : null}<div className="detail-action-note"><b>Giriş motoru:</b> {text(action.entry_quality)} · <b>Teknik profil:</b> {text(action.profile)}</div><small>Profil ve skorlar açıklayıcıdır; işlem aksiyonu merkezi nihai karar motorundan gelir.</small></article>;
+}
+
+function technicalItems(value: unknown): Array<Record<string, unknown>> {
+  return Array.isArray(value) ? value.filter((item): item is Record<string, unknown> => Boolean(item) && typeof item === "object") : [];
+}
+
+function technicalTone(value: unknown): string {
+  const tone = String(value ?? "neutral");
+  return ["positive", "negative", "warning"].includes(tone) ? tone : "neutral";
+}
+
+function TechnicalOverview({ technical, fallback }: Readonly<{ technical?: import("../lib/market-center").StructuredTechnicalAnalysis; fallback: Record<string, unknown> }>) {
+  const metrics = technicalItems(technical?.metrics);
+  const trend = technicalItems(technical?.trend);
+  const levels = technicalItems(technical?.levels);
+  const targets = technicalItems(technical?.targets);
+  const entry = technical?.entry ?? {};
+  const entryDetails = Array.isArray(entry.details) ? entry.details : [];
+  if (!technical || metrics.length === 0) return <DetailSection title="Teknik panel" values={fallback} wide />;
+
+  return <article className="detail-section detail-wide detail-technical">
+    <div className="detail-technical-heading"><div><p className="eyebrow">TEKNİK ANALİZ HARİTASI</p><h2>Göstergeler, seviyeler ve işlem planı</h2></div><span>Veri kaynağı · {text(technical.source)}</span></div>
+    <div className="detail-technical-metrics">{metrics.map((item, index) => <div className={`is-${technicalTone(item.tone)}`} key={`${text(item.label)}-${index}`}><small>{text(item.label)}</small><strong>{text(item.value)}</strong><span>{text(item.note)}</span></div>)}</div>
+    <div className="detail-technical-sections">
+      <section><h3>Trend ve momentum özeti</h3><div className="detail-technical-rows">{trend.map((item, index) => <div key={`${text(item.label)}-${index}`}><span>{text(item.label)}</span><b className={`is-${technicalTone(item.tone)}`}>{text(item.value)}</b></div>)}</div></section>
+      <section><h3>Destek ve direnç bölgeleri</h3><div className="detail-technical-rows">{levels.map((item, index) => <div key={`${text(item.label)}-${index}`}><span>{text(item.label)}</span><b className={`is-${technicalTone(item.tone)}`}>{text(item.value)}</b></div>)}</div></section>
+      <section><h3>Çok zaman dilimli giriş motoru</h3><div className="detail-entry-score"><strong>{text(entry.score, "0")}/100</strong><span>{text(entry.level)}</span></div>{entryDetails.length ? <ul>{entryDetails.map((item, index) => <li key={index}>{text(item)}</li>)}</ul> : <p>Henüz yeterli çok zaman dilimli giriş teyidi bulunmuyor.</p>}</section>
+    </div>
+    <section className="detail-target-section"><h3>Teknik kâr hedefleri</h3><div className="detail-targets">{targets.map((item, index) => <div key={`${text(item.label)}-${index}`}><span>{text(item.label)}</span><strong>{text(item.value)}</strong><small>{"★".repeat(Math.max(1, Math.min(5, Number(item.confidence) || 1)))}</small></div>)}</div></section>
+    <div className="detail-algorithm-comment"><b>Algoritmik yorum</b><p>{text(technical.algorithmic_comment)}</p></div>
+  </article>;
 }
 
 function DetailSection({ title, values, wide = false }: Readonly<{ title: string; values: Record<string, unknown>; wide?: boolean }>) {
