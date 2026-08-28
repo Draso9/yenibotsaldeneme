@@ -15,7 +15,7 @@ import "./admin-quality.css";
 import "./workspace-convergence.css";
 
 export const metadata: Metadata = {
-  title: "IZFIN | Akıllı BIST Analizi",
+  title: "IZFIN | Akıllı Piyasa Kararları",
   description: "IZFIN piyasa analizi ve karar destek web istemcisi.",
   icons: { icon: "/brand/izfin-logo.png", apple: "/brand/izfin-logo.png" },
 };

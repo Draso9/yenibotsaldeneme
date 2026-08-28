@@ -89,3 +89,22 @@ def test_stock_detail_renders_structured_streamlit_technical_sections_without_ht
     for heading in ("Trend ve momentum özeti", "Destek ve direnç bölgeleri", "Çok zaman dilimli giriş motoru", "Teknik kâr hedefleri", "Algoritmik yorum"):
         assert heading in detail_page
     assert "dangerouslySetInnerHTML" not in detail_page
+
+
+def test_scan_and_detail_keep_the_selected_job_ticker_in_shared_analysis_context():
+    decision_card = (ROOT / "web" / "components" / "scan-decision-card.tsx").read_text(encoding="utf-8")
+    detail_page = (ROOT / "web" / "components" / "stock-detail-page.tsx").read_text(encoding="utf-8")
+
+    assert "useAnalysisContext" in decision_card
+    assert "setSelectedTicker(detail.ticker)" in decision_card
+    assert "useAnalysisContext" in detail_page
+    assert "setActiveScan(jobId)" in detail_page
+    assert "setSelectedTicker(normalizedTicker)" in detail_page
+    assert 'href="/scan#scan-result"' in detail_page
+
+
+def test_product_metadata_uses_approved_market_decisions_tagline():
+    layout = (ROOT / "web" / "app" / "layout.tsx").read_text(encoding="utf-8")
+
+    assert 'title: "IZFIN | Akıllı Piyasa Kararları"' in layout
+    assert "Akıllı BIST Analizi" not in layout
