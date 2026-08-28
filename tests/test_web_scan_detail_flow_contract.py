@@ -110,14 +110,16 @@ def test_product_metadata_uses_approved_market_decisions_tagline():
     assert "Akıllı BIST Analizi" not in layout
 
 
-def test_scan_result_restores_last_selected_ticker_for_the_same_completed_job():
-    workspace = (ROOT / "web" / "components" / "scan-workspace.tsx").read_text(encoding="utf-8")
+def test_returning_from_detail_restores_the_last_selected_scan_ticker_once():
+    decision_card = (ROOT / "web" / "components" / "scan-decision-card.tsx").read_text(encoding="utf-8")
+    detail_page = (ROOT / "web" / "components" / "stock-detail-page.tsx").read_text(encoding="utf-8")
 
-    assert "activeScanJobId" in workspace
-    assert "sharedSelectedTicker" in workspace
-    assert "activeScanJobId === jobId" in workspace
-    assert "decisionTickers.includes(sharedSelectedTicker)" in workspace
-    assert "setSharedSelectedTicker(selectedTicker)" in workspace
+    assert "lastVisitedAnalysisRoute" in decision_card
+    assert 'lastVisitedAnalysisRoute.startsWith("/stocks/")' in decision_card
+    assert "tickers.includes(sharedSelectedTicker)" in decision_card
+    assert "onTickerChange(sharedSelectedTicker)" in decision_card
+    assert 'setLastVisitedAnalysisRoute("")' in decision_card
+    assert "setLastVisitedAnalysisRoute(`/stocks/${normalizedTicker}`)" in detail_page
 
 
 def test_stock_detail_is_a_contextual_screen_not_an_active_market_center_route():
