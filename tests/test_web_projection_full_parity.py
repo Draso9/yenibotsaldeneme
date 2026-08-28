@@ -41,6 +41,8 @@ def test_projection_web_renders_every_streamlit_model_dimension_from_api_data():
     assert "projection.technical_scenarios.up" in renderer
     assert "projection.technical_scenarios.down" in renderer
     assert "projection.scenario.model_yorumu" in renderer
+    assert "Model kapsamı" in renderer
+    assert "yatırım tavsiyesi değildir" in renderer
     assert "dangerouslySetInnerHTML" not in renderer
 
 
