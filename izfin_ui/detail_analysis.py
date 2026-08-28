@@ -57,7 +57,13 @@ def detay_teknik_ozet_hazirla(panel_verisi: dict[str, Any] | None) -> dict[str, 
     gunluk_degisim = _safe_float(panel.get("gunluk_degisim"))
     giris_puani = _safe_int(panel.get("giris_puani", panel.get("tetik_puani", 0)))
     giris_seviyesi = str(panel.get("giris_seviyesi", panel.get("tetik_seviyesi", "—")) or "—")
-    giris_detay = [str(item) for item in (panel.get("giris_detay", panel.get("tetik_detay", [])) or [])][:7]
+    raw_giris_detay = panel.get("giris_detay", panel.get("tetik_detay", []))
+    if isinstance(raw_giris_detay, (list, tuple, set)):
+        giris_detay = [str(item) for item in raw_giris_detay][:7]
+    elif raw_giris_detay in (None, ""):
+        giris_detay = []
+    else:
+        giris_detay = [str(raw_giris_detay)]
 
     ana_trend, ana_tone = _relation(fiyat, sma200, "Ana trend yukarı", "Ana trend aşağı")
     orta_trend, orta_tone = _relation(fiyat, ema50, "Orta trend yukarı", "Orta trend aşağı")
@@ -91,7 +97,7 @@ def detay_teknik_ozet_hazirla(panel_verisi: dict[str, Any] | None) -> dict[str, 
         bollinger = "Bant içinde"
 
     metrics = [
-        {"label": "Fiyat", "value": _format_number(fiyat), "note": f"%{gunluk_degisim:+.2f}" if gunluk_degisim is not None else "—", "tone": "positive" if (gunluk_degisim or 0) >= 0 else "negative"},
+        {"label": "Fiyat", "value": _format_number(fiyat), "note": f"%{gunluk_degisim:+.2f}" if gunluk_degisim is not None else "—", "tone": "neutral" if gunluk_degisim is None else ("positive" if gunluk_degisim >= 0 else "negative")},
         {"label": "EMA 9 / 21", "value": f"{_format_number(ema9)} / {_format_number(ema21)}", "note": kisa_trend, "tone": kisa_tone},
         {"label": "EMA 50 / SMA 200", "value": f"{_format_number(ema50)} / {_format_number(sma200)}", "note": ana_trend, "tone": ana_tone},
         {"label": "RSI (14)", "value": _format_number(rsi), "note": rsi_note, "tone": rsi_tone},
@@ -104,12 +110,15 @@ def detay_teknik_ozet_hazirla(panel_verisi: dict[str, Any] | None) -> dict[str, 
         {"label": "Ana trend", "value": ana_trend, "tone": ana_tone},
         {"label": "Orta trend", "value": orta_trend, "tone": orta_tone},
         {"label": "Kısa trend", "value": kisa_trend, "tone": kisa_tone},
-        {"label": "Bollinger konumu", "value": bollinger, "tone": "warning" if bollinger != "Bant içinde" else "neutral"},
+        {"label": "Bollinger konumu", "value": bollinger, "tone": "warning" if bollinger in {"Üst banda yakın", "Alt banda yakın"} else "neutral"},
         {"label": "Hacim / ortalama", "value": f"%{hacim_oran:.0f}" if hacim_oran is not None else "—", "tone": "positive" if hacim_oran is not None and hacim_oran >= 100 else "neutral"},
     ]
 
     def level(label: str, key: str, fallback: str | None = None, tone: str = "neutral") -> dict[str, str]:
-        return {"label": label, "value": _format_number(panel.get(key, panel.get(fallback) if fallback else None)), "tone": tone}
+        raw_value = panel.get(key)
+        if raw_value is None and fallback:
+            raw_value = panel.get(fallback)
+        return {"label": label, "value": _format_number(raw_value), "tone": tone}
 
     levels = [
         level("S1 — Yakın destek", "s1", "destek"),

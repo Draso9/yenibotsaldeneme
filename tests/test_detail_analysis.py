@@ -165,3 +165,8 @@ def test_detail_technical_summary_is_safe_for_sparse_legacy_panels():
     assert result["levels"]
     assert result["entry"]["details"] == []
     assert result["algorithmic_comment"]
+    assert next(item for item in result["metrics"] if item["label"] == "Fiyat")["tone"] == "neutral"
+    assert next(item for item in result["trend"] if item["label"] == "Bollinger konumu")["tone"] == "neutral"
+
+    legacy_text = detay_teknik_ozet_hazirla({"giris_detay": "Tek teyit"})
+    assert legacy_text["entry"]["details"] == ["Tek teyit"]
