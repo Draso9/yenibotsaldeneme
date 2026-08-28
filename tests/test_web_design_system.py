@@ -276,16 +276,20 @@ def test_projection_keeps_job_context_and_explicit_model_states():
 
 
 def test_performance_keeps_period_context_and_separates_data_states():
-    """Performance must not blur loading, unavailable, and empty portfolio data."""
+    """Performance orchestration and its split presentation must preserve explicit states and context."""
     performance = _read("web/components/performance-page.tsx")
+    view = _read("web/components/performance-view.tsx")
     css = _read("web/app/performance.css")
 
     assert "performance-path" in performance
     assert 'aria-live="polite"' in performance
-    assert "Ölçüm kapsamı" in performance
+    assert "PerformancePositionTrackingView" in performance
+    assert "PerformanceScorecardView" in performance
+    assert "Ölçüm kapsamı" in view
     assert "performance-status" in css
-    for marker in ("VARLIK BAZLI KARNE", "Sinyal bazlı ölçüm geçmişini aç", "Örneklem henüz küçük", "Verileri yenile"):
-        assert marker in performance
+    for marker in ("VARLIK BAZLI KARNE", "Sinyal bazlı ölçüm geçmişini aç", "Örneklem henüz küçük"):
+        assert marker in view
+    assert "Verileri yenile" in performance
     for marker in ("performance-drilldown", "performance-sample-warning", "performance-definition-grid"):
         assert marker in css
 
