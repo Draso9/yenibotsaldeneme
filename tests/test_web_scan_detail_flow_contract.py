@@ -92,11 +92,11 @@ def test_stock_detail_renders_structured_streamlit_technical_sections_without_ht
 
 
 def test_scan_and_detail_keep_the_selected_job_ticker_in_shared_analysis_context():
-    workspace = (ROOT / "web" / "components" / "scan-workspace.tsx").read_text(encoding="utf-8")
+    decision_card = (ROOT / "web" / "components" / "scan-decision-card.tsx").read_text(encoding="utf-8")
     detail_page = (ROOT / "web" / "components" / "stock-detail-page.tsx").read_text(encoding="utf-8")
 
-    assert "setSharedSelectedTicker" in workspace
-    assert "setSharedSelectedTicker(selectedTicker)" in workspace
+    assert "useAnalysisContext" in decision_card
+    assert "setSelectedTicker(detail.ticker)" in decision_card
     assert "useAnalysisContext" in detail_page
     assert "setActiveScan(jobId)" in detail_page
     assert "setSelectedTicker(normalizedTicker)" in detail_page
