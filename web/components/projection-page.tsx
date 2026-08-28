@@ -8,7 +8,7 @@ import { useAnalysisContext } from "./analysis-context-provider";
 import { useIzfinAuth } from "./auth-provider";
 import { ProjectionModelView } from "./projection-model-view";
 
-// Presentation contract: the explicit "Model kapsamı" disclaimer is rendered by ProjectionModelView.
+// Presentation contract: ProjectionModelView renders "Model kapsamı" and the explicit "yatırım tavsiyesi değildir" disclaimer.
 export function ProjectionPage({ jobId, ticker }: Readonly<{ jobId: string; ticker: string }>) {
   const { loading, user, getIdToken } = useIzfinAuth();
   const {
