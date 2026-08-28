@@ -64,3 +64,17 @@ def test_stock_decision_motor_is_a_prominent_readable_workspace_section():
     assert ".scan-decision-card" in css
     assert "font-size: clamp(30px" in css
     assert "font-size: 14px" in css
+
+
+def test_stock_decision_motor_offers_a_selector_for_every_scan_result():
+    workspace = (ROOT / "web" / "components" / "scan-workspace.tsx").read_text(encoding="utf-8")
+    decision_card = (ROOT / "web" / "components" / "scan-decision-card.tsx").read_text(encoding="utf-8")
+
+    assert "const decisionTickers = useMemo" in workspace
+    assert "normalizeTickers(summary.sonuclar.map(ticker))" in workspace
+    assert "tickers={decisionTickers}" in workspace
+    assert "onTickerChange={setSelectedTicker}" in workspace
+    assert '<select id="scan-decision-ticker"' in decision_card
+    assert "value={detail.ticker}" in decision_card
+    assert "onChange={(event) => onTickerChange(event.target.value)}" in decision_card
+    assert "tickers.map((symbol) => <option key={symbol} value={symbol}>{symbol}</option>)" in decision_card
