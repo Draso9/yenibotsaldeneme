@@ -12,11 +12,19 @@ export type ScanHistoryItem = {
 
 export type ScanJobContext = {
   job_id: string;
-  status: string;
+  status: "queued" | "running" | "completed" | "failed";
+  stage: string;
+  completed: number;
+  total: number;
   tickers: string[];
+  current_ticker?: string | null;
+  error?: string;
   projectable_tickers?: string[];
   result?: {
     sonuclar?: Array<Record<string, unknown>>;
+    basarisiz_taramalar?: string[];
+    boga_sayisi?: number;
+    alim_firsati?: number;
     teknik_paneller?: Record<string, Record<string, unknown>>;
   };
 };

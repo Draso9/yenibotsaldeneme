@@ -64,6 +64,17 @@ Current checkpoint: restore the Streamlit per-stock decision motor directly
 below Akıllı Tarama results, remove the separate visible scan-history module,
 and retain durable scan recovery/context internally.
 
+Approved Akıllı Tarama ownership/layout refinement (2026-08-28):
+
+- Do not render Piyasa Merkezi summaries, notable names, or daily movers again
+  under Akıllı Tarama.
+- Give the selected-stock decision motor the primary space below results, with
+  prominent central decision, readable why-buy/why-wait reasons, confidence,
+  risk, MTF, entry quality, technical profile, and trade-plan levels.
+- Navigating Akıllı Tarama -> Piyasa Merkezi -> Akıllı Tarama must restore the
+  newest owner-scoped completed scan result; active queued/running work still
+  takes recovery priority.
+
 ## 5. Current Verified / User-Reported Live Issues
 
 ### A. Projection core recovery is accepted for continuation

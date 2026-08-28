@@ -21,7 +21,7 @@ def test_scan_result_opens_a_structured_stock_decision_motor_below_the_table():
 
     assert "fetchMarketStockDetail(jobId, selectedTicker" in workspace
     assert "<ScanDecisionCard" in workspace
-    assert "HİSSE KARAR MOTORU" in decision_card
+    assert "HİSSEYE ÖZEL KARAR MOTORU" in decision_card
     assert "Neden alınabilir?" in decision_card
     assert "Neden beklenmeli / alınmamalı?" in decision_card
     for field in ("decision.guven", "decision.risk", "decision.mtf_uyum", "action.entry_quality", "action.profile"):
@@ -42,3 +42,25 @@ def test_job_scoped_detail_and_projection_links_encode_the_supplied_route_values
     assert "encodeURIComponent(ticker)" in projection_route
     assert "stockDetailHref(jobId, detail.ticker)" in decision_card
     assert "projectionHref(jobId, detail.ticker)" in decision_card
+
+
+def test_scan_route_is_stock_decision_focused_without_market_center_duplication():
+    workspace = (ROOT / "web" / "components" / "scan-workspace.tsx").read_text(encoding="utf-8")
+
+    assert 'import { MarketCenterPanel } from "./market-center";' not in workspace
+    assert "<MarketCenterPanel" not in workspace
+    assert "<ScanDecisionCard" in workspace
+
+
+def test_stock_decision_motor_is_a_prominent_readable_workspace_section():
+    decision_card = (ROOT / "web" / "components" / "scan-decision-card.tsx").read_text(encoding="utf-8")
+    css = (ROOT / "web" / "app" / "scan.css").read_text(encoding="utf-8")
+
+    assert "HİSSEYE ÖZEL KARAR MOTORU" in decision_card
+    assert "scan-decision-hero" in decision_card
+    assert "scan-decision-verdict" in decision_card
+    assert "Olumlu teyitler" in decision_card
+    assert "Riskler ve bekleme nedenleri" in decision_card
+    assert ".scan-decision-card" in css
+    assert "font-size: clamp(30px" in css
+    assert "font-size: 14px" in css
