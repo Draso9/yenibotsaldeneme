@@ -5,6 +5,7 @@ import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { fetchAdminQuality } from "../lib/admin-quality";
 import { useIzfinAuth } from "./auth-provider";
+import { UsageGuide } from "./usage-guide";
 
 const navItems = [
   { icon: "⌂", label: "Piyasa Merkezi", href: "/", adminOnly: false },
@@ -81,12 +82,15 @@ export function AppShell({ children }: Readonly<{ children: React.ReactNode }>) 
                   : item.label === "Admin QA"
                     ? pathname.startsWith("/admin/quality")
                     : item.label === "Piyasa Merkezi"
-                      ? pathname === "/" || pathname.startsWith("/stocks/")
+                      ? pathname === "/"
                       : false;
           return <a aria-current={active ? "page" : undefined} className={active ? "active" : ""} href={item.href} key={`${item.label}-${index}`}>
             <i aria-hidden="true">{item.icon}</i><span>{item.label}</span>
           </a>;
         })}
+        {pathname.startsWith("/stocks/") ? <a aria-current="page" className="active contextual-nav-item" href={pathname}>
+          <i aria-hidden="true">◎</i><span>Detaylı Analiz</span><em>BAĞLAM</em>
+        </a> : null}
       </nav>
       <div className="sidebar-spacer" />
       <div className="sidebar-status">
@@ -102,10 +106,8 @@ export function AppShell({ children }: Readonly<{ children: React.ReactNode }>) 
           <span className="api-chip"><i className="live-dot" /> API CANLI</span>
         </div>
       </header>
+      <UsageGuide />
       {children}
     </div>
   </div>;
 }
-
-
-

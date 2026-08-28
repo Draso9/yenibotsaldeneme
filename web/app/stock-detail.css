@@ -88,6 +88,14 @@
 .detail-kv strong { color: #d8e5ea; font-size: 10px; text-align: right; overflow-wrap: anywhere; }
 .detail-page [role="alert"] { color: var(--danger); font-size: 10px; }
 .detail-score-metrics, .detail-decision-kpis { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:7px; margin-top:13px; }.detail-score-metrics span, .detail-decision-kpis span { display:grid; gap:4px; padding:9px; border:1px solid rgba(25,220,228,.14); border-radius:8px; background:rgba(7,28,40,.56); color:#7798aa; font-size:8px; text-transform:uppercase; }.detail-score-metrics b, .detail-decision-kpis b { color:#dff7fb; font-size:12px; text-transform:none; }.detail-score-group { margin-top:12px; }.detail-score-group strong { color:#9fdce5; font-size:9px; }.detail-score-group ul { margin:6px 0 0; padding-left:16px; color:#8aa6b5; font-size:9px; line-height:1.65; }.detail-score-group p, .detail-decision p, .detail-decision small { color:#829eae; font-size:9px; line-height:1.6; }.detail-decision h2 { margin:7px 0 0; color:#27dce4; font-size:16px; }.detail-action-note { margin:12px 0 8px; padding:9px; border-left:3px solid #1adce4; background:rgba(16,95,122,.18); color:#b8dce7; font-size:9px; line-height:1.55; }
+.detail-score-breakdown { align-self: start; }
+.detail-score-breakdown > summary { display: flex; align-items: center; justify-content: space-between; gap: 16px; cursor: pointer; list-style: none; }
+.detail-score-breakdown > summary::-webkit-details-marker { display: none; }
+.detail-score-breakdown > summary span { display: grid; gap: 5px; }
+.detail-score-breakdown > summary small { color: #6d8d9d; font-size: 8px; font-weight: 850; letter-spacing: .1em; }
+.detail-score-breakdown > summary b { color: #dff7f5; font-size: 18px; }
+.detail-score-breakdown > summary em { color: #71cfc9; font-size: 9px; font-style: normal; font-weight: 800; }
+.detail-score-breakdown[open] > summary { padding-bottom: 12px; border-bottom: 1px solid rgba(75,111,139,.12); }
 
 .detail-technical-heading { display: flex; align-items: end; justify-content: space-between; gap: 18px; }
 .detail-technical-heading h2 { margin: 7px 0 0; color: #edf8f7; font-size: 21px; letter-spacing: -.025em; }
@@ -139,6 +147,7 @@
   .detail-hero { padding: 22px; }
   .detail-summary, .detail-grid, .detail-kv, .detail-technical-metrics, .detail-targets { grid-template-columns: 1fr; }
   .detail-technical-heading { align-items: flex-start; flex-direction: column; }
+  .detail-score-breakdown > summary { align-items: flex-start; flex-direction: column; }
   .detail-wide { grid-column: auto; }
 }
 

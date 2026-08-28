@@ -24,7 +24,7 @@ function label(value: string): string {
 
 export function StockDetailPage({ jobId, ticker }: Readonly<{ jobId: string; ticker: string }>) {
   const { loading, user, getIdToken } = useIzfinAuth();
-  const { setActiveScan, setSelectedTicker } = useAnalysisContext();
+  const { setActiveScan, setSelectedTicker, setLastVisitedAnalysisRoute } = useAnalysisContext();
   const [detail, setDetail] = useState<StockDetailResponse | null>(null);
   const [error, setError] = useState("");
   const normalizedTicker = String(ticker || "").trim().toUpperCase();
@@ -33,7 +33,8 @@ export function StockDetailPage({ jobId, ticker }: Readonly<{ jobId: string; tic
     if (loading || !user || !jobId || !normalizedTicker) return;
     setActiveScan(jobId);
     setSelectedTicker(normalizedTicker);
-  }, [jobId, loading, normalizedTicker, setActiveScan, setSelectedTicker, user]);
+    setLastVisitedAnalysisRoute(`/stocks/${normalizedTicker}`);
+  }, [jobId, loading, normalizedTicker, setActiveScan, setLastVisitedAnalysisRoute, setSelectedTicker, user]);
 
   useEffect(() => {
     if (loading || !user || !jobId || !normalizedTicker) return;
@@ -54,19 +55,19 @@ export function StockDetailPage({ jobId, ticker }: Readonly<{ jobId: string; tic
   }, [getIdToken, jobId, loading, normalizedTicker, user]);
 
   if (!jobId || !normalizedTicker) {
-    return <section className="detail-page"><a className="detail-back" href="/scan#scan-result">← Akıllı Tarama</a><div className="detail-section"><h1>Detaylı Analiz</h1><p>Bu ekran bir tamamlanmış tarama ve sembol bilgisiyle açılmalıdır.</p></div></section>;
+    return <section className="detail-page"><a className="detail-back" href="/scan#scan-result">← Akıllı Tarama sonuçlarına dön</a><div className="detail-section"><h1>Detaylı Analiz</h1><p>Bu ekran bir tamamlanmış tarama ve sembol bilgisiyle açılmalıdır.</p></div></section>;
   }
 
   if (loading) {
-    return <section className="detail-page"><a className="detail-back" href="/scan#scan-result">← Akıllı Tarama</a><p>Güvenli oturum hazırlanıyor…</p></section>;
+    return <section className="detail-page"><a className="detail-back" href="/scan#scan-result">← Akıllı Tarama sonuçlarına dön</a><p>Güvenli oturum hazırlanıyor…</p></section>;
   }
 
   if (!user) {
-    return <section className="detail-page"><a className="detail-back" href="/scan#scan-result">← Akıllı Tarama</a><div className="detail-section"><p className="eyebrow">DETAYLI ANALİZ</p><h1>{normalizedTicker}</h1><p>Bu taramaya ait analizi görmek için IZFIN hesabınla giriş yap.</p></div></section>;
+    return <section className="detail-page"><a className="detail-back" href="/scan#scan-result">← Akıllı Tarama sonuçlarına dön</a><div className="detail-section"><p className="eyebrow">DETAYLI ANALİZ</p><h1>{normalizedTicker}</h1><p>Bu taramaya ait analizi görmek için IZFIN hesabınla giriş yap.</p></div></section>;
   }
 
   return <section className="detail-page" aria-label={`${normalizedTicker} detaylı analiz`}>
-    <div className="detail-path"><a className="detail-back" href="/scan#scan-result">← Akıllı Tarama</a><span>Tarama sonucu / {normalizedTicker}</span></div>
+    <div className="detail-path"><a className="detail-back" href="/scan#scan-result">← Akıllı Tarama sonuçlarına dön</a><span>Akıllı Tarama → Detaylı Analiz → {normalizedTicker}</span></div>
     <div className="detail-section detail-hero">
       <p className="eyebrow">DETAYLI ANALİZ • JOB TABANLI</p>
       <h1>{normalizedTicker}</h1>
@@ -94,7 +95,11 @@ export function StockDetailPage({ jobId, ticker }: Readonly<{ jobId: string; tic
 
 function ScoreBreakdown({ score }: Readonly<{ score: Record<string, unknown> }>) {
   const groups: Array<[string, unknown]> = [["Eski sistem kalemleri", score.eski_kalemler], ["Bonuslar", score.bonus_kalemler], ["Cezalar", score.ceza_kalemler]];
-  return <article className="detail-section"><p className="eyebrow">SKOR NASIL OLUŞTU?</p><div className="detail-score-metrics"><span><b>{text(score.eski)}</b>eski cezalı skor</span><span><b>+{text(score.bonus, "0")}</b>gelişmiş bonus</span><span><b>-{text(score.ceza, "0")}</b>gelişmiş ceza</span><span><b>{text(score.nihai)}</b>nihai skor</span></div>{groups.map(([title, value]) => <div className="detail-score-group" key={title}><strong>{title}</strong>{Array.isArray(value) && value.length ? <ul>{value.map((item, index) => <li key={index}>{text((item as Record<string, unknown>).metin)}</li>)}</ul> : <p>Ek kalem oluşmadı.</p>}</div>)}</article>;
+  return <details className="detail-section detail-score-breakdown">
+    <summary><span><small>SKOR ÖZETİ</small><b>Nihai skor {text(score.nihai)}</b></span><em>Skor detayını göster</em></summary>
+    <div className="detail-score-metrics"><span><b>{text(score.eski)}</b>eski cezalı skor</span><span><b>+{text(score.bonus, "0")}</b>gelişmiş bonus</span><span><b>-{text(score.ceza, "0")}</b>gelişmiş ceza</span><span><b>{text(score.nihai)}</b>nihai skor</span></div>
+    {groups.map(([title, value]) => <div className="detail-score-group" key={title}><strong>{title}</strong>{Array.isArray(value) && value.length ? <ul>{value.map((item, index) => <li key={index}>{text((item as Record<string, unknown>).metin)}</li>)}</ul> : <p>Ek kalem oluşmadı.</p>}</div>)}
+  </details>;
 }
 
 function DecisionPanel({ decision, action }: Readonly<{ decision: Record<string, unknown>; action: Record<string, unknown> }>) {

@@ -19,7 +19,12 @@ type ScanDecisionCardProps = Readonly<{
 }>;
 
 export function ScanDecisionCard({ jobId, detail, tickers, onTickerChange }: ScanDecisionCardProps) {
-  const { setSelectedTicker } = useAnalysisContext();
+  const {
+    selectedTicker: sharedSelectedTicker,
+    lastVisitedAnalysisRoute,
+    setLastVisitedAnalysisRoute,
+    setSelectedTicker,
+  } = useAnalysisContext();
   const { decision, action, panel } = detail;
   const levels: Array<[string, unknown]> = [
     ["Destek", panel.destek],
@@ -31,8 +36,18 @@ export function ScanDecisionCard({ jobId, detail, tickers, onTickerChange }: Sca
   ];
 
   useEffect(() => {
+    const returningFromDetail = lastVisitedAnalysisRoute.startsWith("/stocks/");
+    if (returningFromDetail && sharedSelectedTicker && tickers.includes(sharedSelectedTicker)) {
+      if (sharedSelectedTicker !== detail.ticker) {
+        onTickerChange(sharedSelectedTicker);
+        return;
+      }
+      setLastVisitedAnalysisRoute("");
+    } else if (returningFromDetail) {
+      setLastVisitedAnalysisRoute("");
+    }
     setSelectedTicker(detail.ticker);
-  }, [detail.ticker, setSelectedTicker]);
+  }, [detail.ticker, lastVisitedAnalysisRoute, onTickerChange, setLastVisitedAnalysisRoute, setSelectedTicker, sharedSelectedTicker, tickers]);
 
   return <section className="scan-decision-card" aria-label={`${detail.ticker} hisse karar motoru`}>
     <div className="scan-decision-selector">

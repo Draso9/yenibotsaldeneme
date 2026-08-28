@@ -108,3 +108,58 @@ def test_product_metadata_uses_approved_market_decisions_tagline():
 
     assert 'title: "IZFIN | Akıllı Piyasa Kararları"' in layout
     assert "Akıllı BIST Analizi" not in layout
+
+
+def test_returning_from_detail_restores_the_last_selected_scan_ticker_once():
+    decision_card = (ROOT / "web" / "components" / "scan-decision-card.tsx").read_text(encoding="utf-8")
+    detail_page = (ROOT / "web" / "components" / "stock-detail-page.tsx").read_text(encoding="utf-8")
+
+    assert "lastVisitedAnalysisRoute" in decision_card
+    assert 'lastVisitedAnalysisRoute.startsWith("/stocks/")' in decision_card
+    assert "tickers.includes(sharedSelectedTicker)" in decision_card
+    assert "onTickerChange(sharedSelectedTicker)" in decision_card
+    assert 'setLastVisitedAnalysisRoute("")' in decision_card
+    assert "setLastVisitedAnalysisRoute(`/stocks/${normalizedTicker}`)" in detail_page
+
+
+def test_stock_detail_is_a_contextual_screen_not_an_active_market_center_route():
+    shell = (ROOT / "web" / "components" / "app-shell.tsx").read_text(encoding="utf-8")
+    detail_page = (ROOT / "web" / "components" / "stock-detail-page.tsx").read_text(encoding="utf-8")
+
+    assert 'item.label === "Piyasa Merkezi"' in shell
+    assert 'pathname === "/"' in shell
+    assert 'pathname.startsWith("/stocks/")' in shell
+    assert "contextual-nav-item" in shell
+    assert "Detaylı Analiz" in shell
+    assert "Akıllı Tarama → Detaylı Analiz" in detail_page
+    assert "Akıllı Tarama sonuçlarına dön" in detail_page
+
+
+def test_score_breakdown_is_compact_and_collapsed_by_default():
+    detail_page = (ROOT / "web" / "components" / "stock-detail-page.tsx").read_text(encoding="utf-8")
+
+    assert '<details className="detail-section detail-score-breakdown">' in detail_page
+    assert "Skor detayını göster" in detail_page
+    assert "Nihai skor" in detail_page
+    assert "<summary" in detail_page
+    assert "open=" not in detail_page.split("function ScoreBreakdown", 1)[1].split("function DecisionPanel", 1)[0]
+
+
+def test_global_usage_guide_preserves_the_streamlit_reading_model():
+    shell = (ROOT / "web" / "components" / "app-shell.tsx").read_text(encoding="utf-8")
+    guide_path = ROOT / "web" / "components" / "usage-guide.tsx"
+
+    assert guide_path.exists(), "Global Nasıl Kullanılır rehberi henüz yok"
+    guide = guide_path.read_text(encoding="utf-8")
+    assert "<UsageGuide />" in shell
+    assert '<details className="usage-guide">' in guide
+    for heading in (
+        "Bir sonucu 30 saniyede değerlendirin",
+        "Skorlar ne söylüyor?",
+        "Karar etiketleri nasıl yorumlanır?",
+        "Hangi alan ne işe yarar?",
+    ):
+        assert heading in guide
+    assert "Skorlar karar vermez; kararı açıklar." in guide
+    assert "80 puan, %80 başarı ihtimali anlamına gelmez." in guide
+    assert "yatırım tavsiyesi veya getiri garantisi değildir" in guide
