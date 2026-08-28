@@ -20,9 +20,9 @@ export function UsageGuide() {
       <section className="usage-guide-section">
         <div className="usage-guide-head"><div><small>DÖRT ANA GÖSTERGE</small><h2>Skorlar ne söylüyor?</h2><p>Her puan farklı bir soruya cevap verir; tek başına alım veya satım emri değildir.</p></div><span>0–100</span></div>
         <div className="usage-guide-grid usage-guide-grid-four">
-          <article><small>IZFIN SKORU</small><b>Teknik yapı</b><p>Trend, momentum, hacim ve risk bileşimini özetler.</p></article>
+          <article><small>IZFIN SKORU</small><b>Teknik yapı</b><p>Tablodaki Gelişmiş Skor; trend, momentum, hacim ve risk bileşimini özetler.</p></article>
           <article><small>GÜVEN</small><b>Kanıt uyumu</b><p>Kararı destekleyen teknik verilerin birbirleriyle ne kadar tutarlı olduğunu gösterir.</p></article>
-          <article><small>GİRİŞ KALİTESİ</small><b>Zamanlama</b><p>Kısa zaman dilimlerinde giriş koşullarının olgunluğunu ölçer.</p></article>
+          <article><small>GİRİŞ KALİTESİ</small><b>Zamanlama</b><p>5 dakika, 15 dakika ve 1 saat verilerinde giriş koşullarının olgunluğunu ölçer.</p></article>
           <article><small>MTF UYUM</small><b>Çoklu teyit</b><p>Farklı zaman dilimlerinin aynı yönü destekleyip desteklemediğini gösterir.</p></article>
         </div>
         <div className="usage-guide-rule"><small>ÖNEMLİ</small><p><b>80 puan, %80 başarı ihtimali anlamına gelmez.</b> Puanlar aynı taramadaki adayları karşılaştırmayı kolaylaştıran teknik ölçümlerdir.</p></div>
@@ -51,11 +51,11 @@ export function UsageGuide() {
           <article><small>4 · PLAN</small><b>Nerede vazgeçmeli?</b></article>
         </div>
         <div className="usage-guide-notes">
-          <p><b>Risk:</b> Risk seviyesi ve olumsuz gerekçeler, yüksek görünen bir skoru sınırlandırabilir.</p>
-          <p><b>Para akışı:</b> Fiyat hareketinin hacim ve para katılımıyla desteklenip desteklenmediğini gösterir.</p>
-          <p><b>PEG / değerleme:</b> Teknik karardan ayrı, tamamlayıcı bir değerleme bilgisidir.</p>
-          <p><b>Seans dışı:</b> Ek fiyat bilgisidir; normal seans göstergelerini ve Giriş Kalitesi puanını değiştirmez.</p>
-          <p><b>Stop / hedefler:</b> Stop teknik iptal noktasıdır; TP1, TP2 ve TP3 risk–ödül planlama seviyeleridir, fiyat garantisi değildir.</p>
+          <p><b>Risk:</b> Risk seviyesi ve olumsuz gerekçeler, yüksek görünen bir skoru sınırlandırabilir. Merkezi Karar bu çelişkileri sizin yerinize birlikte değerlendirir.</p>
+          <p><b>Para akışı:</b> Fiyat hareketinin hacim ve para katılımıyla desteklenip desteklenmediğini gösterir. Zayıf akış, güçlü görünen hareketin kalıcılığını azaltabilir.</p>
+          <p><b>PEG / değerleme:</b> Teknik karardan ayrı, tamamlayıcı bir değerleme bilgisidir. IZFIN Skoru'na veya Merkezi Karar'a doğrudan puan eklemez.</p>
+          <p><b>Seans dışı:</b> ABD hisselerinde ek fiyat bilgisidir. Normal seans göstergelerini ve Giriş Kalitesi puanını değiştirmez.</p>
+          <p><b>Stop / hedefler:</b> Stop teknik iptal noktasıdır; TP1, TP2 ve TP3 risk–ödül planlama seviyeleridir. Bunlar fiyat garantisi veya kesin tahmin değildir.</p>
         </div>
       </section>
 
