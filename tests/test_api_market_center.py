@@ -131,3 +131,22 @@ def test_market_job_reads_reject_non_completed_job():
     )
 
     assert response.status_code == 409
+
+
+def test_market_stock_detail_exposes_structured_technical_analysis_without_html():
+    client = _job_client()
+
+    detail = client.get(
+        "/api/v1/market/jobs/job-1/stocks/thyao.is",
+        headers={"Authorization": "Bearer alpha-token"},
+    )
+
+    assert detail.status_code == 200
+    technical = detail.json()["technical"]
+    assert isinstance(technical["metrics"], list)
+    assert isinstance(technical["trend"], list)
+    assert isinstance(technical["levels"], list)
+    assert isinstance(technical["targets"], list)
+    assert isinstance(technical["entry"], dict)
+    assert technical["algorithmic_comment"]
+    assert "html" not in technical
