@@ -24,7 +24,7 @@ function label(value: string): string {
 
 export function StockDetailPage({ jobId, ticker }: Readonly<{ jobId: string; ticker: string }>) {
   const { loading, user, getIdToken } = useIzfinAuth();
-  const { setActiveScan, setSelectedTicker } = useAnalysisContext();
+  const { setActiveScan, setSelectedTicker, setLastVisitedAnalysisRoute } = useAnalysisContext();
   const [detail, setDetail] = useState<StockDetailResponse | null>(null);
   const [error, setError] = useState("");
   const normalizedTicker = String(ticker || "").trim().toUpperCase();
@@ -33,7 +33,8 @@ export function StockDetailPage({ jobId, ticker }: Readonly<{ jobId: string; tic
     if (loading || !user || !jobId || !normalizedTicker) return;
     setActiveScan(jobId);
     setSelectedTicker(normalizedTicker);
-  }, [jobId, loading, normalizedTicker, setActiveScan, setSelectedTicker, user]);
+    setLastVisitedAnalysisRoute(`/stocks/${normalizedTicker}`);
+  }, [jobId, loading, normalizedTicker, setActiveScan, setLastVisitedAnalysisRoute, setSelectedTicker, user]);
 
   useEffect(() => {
     if (loading || !user || !jobId || !normalizedTicker) return;
