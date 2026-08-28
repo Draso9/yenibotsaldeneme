@@ -60,40 +60,35 @@ Do not reintroduce `Akıllı BIST Analizi`.
 
 ## 4. Current Checkpoint
 
-# PROJECTION FULL STREAMLIT PARITY — IMPLEMENTED, LIVE ACCEPTANCE PENDING
+# PERFORMANCE FULL STREAMLIT PARITY — IMPLEMENTED, LIVE ACCEPTANCE PENDING
 
-The user live-accepted the **SMART SCAN + DETAILED ANALYSIS** checkpoint on 2026-08-28 and explicitly approved continuing.
+The user live-accepted **Projection full Streamlit parity** on 2026-08-28 and explicitly approved continuing to Performance.
 
-Projection implementation now preserves the Streamlit 45-day model content while retaining the existing authenticated context recovery. The presentation is separated from context/auth/data fetching:
+Performance implementation now preserves the established Streamlit tracking and scorecard model while separating auth/data orchestration from presentation:
 
-- `web/components/projection-page.tsx` owns auth, completed-scan recovery, explicit deep-link precedence, ticker resolution, loading/error states, and `fetchProjection`
-- `web/components/projection-model-view.tsx` owns presentation only
-- Python/FastAPI remain the owners of ATR, volatility, combined movement, bands, confidence, agreement, scenarios, and direction calculations
+- `web/components/performance-page.tsx` owns authentication, period selection, refresh, loading/error state, and API fetching
+- `web/components/performance-view.tsx` owns active/closed-position and scorecard presentation
+- Python/FastAPI remain the owners of position aggregation, return statistics, target/stop hit calculations, historical interpretation, and scorecard calculations
+- `web/lib/performance.ts` exposes the typed presentation contract only; React does not recompute financial metrics
 
-Projection web parity now includes:
+Performance web parity now includes:
 
-- `IZFIN PROJECTION LAB`
-- `Projeksiyon & Senaryo Analizi`
-- `45G MODEL`
-- `ATR + Tarihsel Volatilite`
-- current price
-- ATR model movement
-- historical-volatility model movement
-- combined movement
-- 45G combined band
-- wider risk band
-- model confidence
-- model agreement
-- volatility explanation
-- downside/base/upside model bands
-- positive technical scenario
-- negative technical scenario
-- algorithmic direction summary
-- support / resistance / stop / TP / model-difference context
-- explicit model-scope / non-advice disclosure
-- real ticker selector for multi-ticker completed scans
+- active-position KPI strip and active-position history
+- closed-position summary KPIs
+- separate closed-period and unique-stock counts
+- positive-close rate, average return, median return, median duration, TP1-hit rate, and stop-hit rate
+- full closed-position table with entry/close prices, days held, max profit/drawdown, initial stop, initial TP1, and TP1/TP2/TP3/Stop markers
+- closed-position drilldown
+- most common close-reason summary
+- best/worst historical interpretation and Python-owned commentary
+- 20G / 60G / 120G scorecard selection
+- small-sample warning
+- aggregate scorecard metrics
+- asset-level scorecard
+- collapsible signal-level detail history
+- benchmark-relative interpretation
 
-Do **not** call Projection accepted until the user verifies the deployed `develop` journey live.
+Do **not** call Performance accepted until the user verifies the deployed `develop` journey live.
 
 ## 5. User-Reported / Accepted State
 
@@ -121,7 +116,21 @@ Accepted behaviors include:
 - global Streamlit-style `Nasıl Kullanılır?` guide
 - browser/product title `IZFIN | Akıllı Piyasa Kararları`
 
-### D. Deferred low-priority scan selection behavior
+### D. Projection — live accepted 2026-08-28
+
+The user verified the deployed Projection screen and reported it appeared problem-free, then explicitly approved continuing.
+
+Accepted checkpoint includes:
+
+- completed-scan context recovery
+- real ticker selector
+- Streamlit 45-day model hierarchy
+- ATR and historical-volatility model dimensions
+- combined and wider risk bands
+- confidence / agreement / scenario / direction context
+- explicit model-scope disclosure
+
+### E. Deferred low-priority scan selection behavior
 
 When the user leaves Akıllı Tarama and later revisits it, the decision card can still fall back to the first ticker in the result table instead of the previously selected ticker.
 
@@ -161,6 +170,14 @@ Merge commit: `2597f0fb77517eb1cf020fbe40a72e0f0869894e`
 
 Made Detailed Analysis a contextual workspace route, collapsed score-depth by default, restored the Streamlit-style global `Nasıl Kullanılır?` guide, and improved return-context behavior.
 
+### PR #105 — Projection full Streamlit parity
+
+Completed the Projection presentation split and restored the Streamlit 45-day model hierarchy while keeping all financial calculations Python-owned.
+
+### PR #106 — Performance full Streamlit parity
+
+Current checkpoint PR. Restores the complete Streamlit closed-position surface, typed summary contract, focused presentation boundary, and keeps the existing scorecard behavior. Merge only after final CI is green.
+
 ## 7. Develop Preview
 
 Canonical develop URL:
@@ -175,8 +192,8 @@ Do not change this order without an explicit user decision.
 
 1. Piyasa Merkezi functional parity — accepted for continuation
 2. Detaylı Analiz functional parity — live accepted
-3. **Projeksiyon full Streamlit parity — current, live acceptance pending**
-4. Performans parity
+3. Projeksiyon full Streamlit parity — live accepted
+4. **Performans parity — current, implementation complete; live acceptance pending**
 5. Strategy Lab parity
 6. Account/Admin parity audit
 7. Visual parity / responsive Streamlit-to-web translation
@@ -246,9 +263,9 @@ Includes:
 
 Reference: `izfin_ui/projection_view.py`
 
-Current state: implementation complete; user live acceptance pending.
+Current state: live accepted 2026-08-28.
 
-Required model content:
+Includes:
 
 - approximately 45-day model
 - current price
@@ -269,7 +286,9 @@ Required model content:
 
 Reference: `izfin_ui/performance_view.py`
 
-Target:
+Current state: implementation complete; user live acceptance pending.
+
+Includes:
 
 - active positions
 - closed-position history
@@ -277,6 +296,8 @@ Target:
 - win rate / average / median where supported
 - median duration
 - best/worst interpretation
+- most common close reasons
+- full closed-position risk/target history
 - 20G / 60G / 120G scorecards
 - asset-level scorecard
 - signal-level detail history
@@ -321,20 +342,20 @@ Target:
 
 ### Remaining web product debt
 
-- incomplete Streamlit parity in Performans, Strategy Lab, Account/Admin, and final visual pass
+- incomplete Streamlit parity in Strategy Lab, Account/Admin, and final visual pass
+- Performance live acceptance still pending
 - generic/stacked CSS convergence layers
 - final authenticated journey still needs one comprehensive acceptance pass
 - some route/context coupling remains until all analysis surfaces use the same shared context consistently
 - deferred scan decision-card selected-ticker revisit behavior noted above
 
-### Debt reduced by current Projection checkpoint
+### Debt reduced by current Performance checkpoint
 
-- split auth/context/data resolution from projection presentation
-- retained a typed API-owned model boundary
-- kept financial calculations in Python
-- removed pressure to duplicate ATR/volatility/scenario calculations in React
-- made uncertainty/model-scope disclosure explicit
+- separated Performance auth/data orchestration from presentation
+- replaced the loose frontend closed-summary shape with a typed presentation contract
+- restored Streamlit information without duplicating Python financial calculations
 - preserved real-data-only rendering
+- kept scorecard and position-history responsibilities clearly separated
 
 ### Technical debt policy
 
@@ -367,17 +388,17 @@ Internally, PRs/tests/commits remain required, but they are not the user-facing 
 
 ## 13. Canonical Next Action
 
-**Live-verify Projection full Streamlit parity on Vercel `develop`.**
+**Live-verify Performance full Streamlit parity on Vercel `develop`.**
 
 Acceptance journey:
 
-1. Have a completed Akıllı Tarama available.
-2. Open **Projeksiyon** from the sidebar.
-3. Confirm the real completed-scan ticker resolves; if multiple valid tickers exist, switch between them.
-4. Confirm `IZFIN PROJECTION LAB`, `Projeksiyon & Senaryo Analizi`, `45G MODEL`, and `ATR + Tarihsel Volatilite` are visible.
-5. Confirm real data is populated for current price, ATR model, volatility model, combined movement, 45G combined band, wider risk band, confidence, agreement, model bands, technical scenarios, and algorithmic direction.
-6. Switch ticker and confirm the model updates without leaving Projection.
-7. Refresh Projection and confirm context is recovered.
-8. Confirm the model-scope disclosure is visible and does not imply a guaranteed target price.
+1. Sign in and open **Performans** from the application navigation.
+2. Confirm active-position KPIs and the active-position table load from real account data.
+3. Confirm the closed-position summary shows separate closed-period and different-stock counts plus positive-close rate, average/median return, median duration, TP1-hit rate, and stop-hit rate.
+4. Confirm the closed-position table includes entry and close prices, days held, max profit/drawdown, initial stop, initial TP1, and TP1/TP2/TP3/Stop markers.
+5. Open a closed-position detail and confirm the period detail is coherent with the table row.
+6. Confirm **En Sık Kapanış Nedenleri** and **IZFIN Geçmiş Performans Özeti** appear when the underlying data supports them.
+7. Switch between **20G / 60G / 120G** and confirm scorecard metrics, asset-level table, and signal-level history update without affecting the position-history tables.
+8. Confirm the small-sample warning appears when applicable, refresh the page, and verify account performance data recovers cleanly.
 
-If the user accepts this journey, mark Projection complete and begin **Performans parity**. If live behavior differs from these expectations, treat it as a Projection checkpoint defect and fix it before advancing.
+If the user accepts this journey, mark Performance complete and begin **Strategy Lab parity**. If live behavior differs from these expectations, treat it as a Performance checkpoint defect and fix it before advancing.

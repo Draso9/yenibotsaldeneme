@@ -16,11 +16,26 @@ export type PerformanceScorecardResponse = {
   medyan_alfa_mesaji: string | null;
 };
 
+export type PerformanceClosedSummary = {
+  adet: number;
+  unique_tickers: number;
+  win_rate: number | null;
+  avg_ret: number | null;
+  median_ret: number | null;
+  median_days: number | null;
+  tp1_rate: number | null;
+  stop_rate: number | null;
+  best_txt: string;
+  worst_txt: string;
+  yorumlar: string[];
+  reason_counts: Array<[string, number]>;
+};
+
 export type PerformancePositionsResponse = {
   kpis: PerformanceMetric[];
   active: Array<Record<string, unknown>>;
   closed: Array<Record<string, unknown>>;
-  closed_summary: Record<string, unknown>;
+  closed_summary: PerformanceClosedSummary;
 };
 
 export function performanceScorecardPath(days = 20): `/api/v1/performance/scorecard?${string}` {
