@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { fetchAdminQuality } from "../lib/admin-quality";
+import { fetchSystemReadiness } from "../lib/system-health";
 import { useIzfinAuth } from "./auth-provider";
 import { UsageGuide } from "./usage-guide";
 
@@ -17,10 +18,39 @@ const navItems = [
   { icon: "⚙", label: "Admin QA", href: "/admin/quality", adminOnly: true },
 ] as const;
 
+type SystemState = "checking" | "ready" | "degraded" | "unavailable";
+
+const systemCopy: Record<SystemState, { system: string; api: string }> = {
+  checking: { system: "Sistem kontrol ediliyor", api: "API KONTROL" },
+  ready: { system: "Sistemler hazır", api: "API HAZIR" },
+  degraded: { system: "Sistem kısıtlı", api: "API KISITLI" },
+  unavailable: { system: "Sistem durumu alınamadı", api: "API DURUMU" },
+};
+
 export function AppShell({ children }: Readonly<{ children: React.ReactNode }>) {
   const { user, loading, getIdToken } = useIzfinAuth();
   const pathname = usePathname();
   const [isAdmin, setIsAdmin] = useState(false);
+  const [systemState, setSystemState] = useState<SystemState>("checking");
+
+  useEffect(() => {
+    if (pathname.startsWith("/auth")) return;
+    let active = true;
+    const checkReadiness = async () => {
+      try {
+        const readiness = await fetchSystemReadiness();
+        if (active) setSystemState(readiness.ready ? "ready" : "degraded");
+      } catch {
+        if (active) setSystemState("unavailable");
+      }
+    };
+    void checkReadiness();
+    const interval = window.setInterval(() => void checkReadiness(), 60_000);
+    return () => {
+      active = false;
+      window.clearInterval(interval);
+    };
+  }, [pathname]);
 
   useEffect(() => {
     if (loading || !user) {
@@ -59,6 +89,8 @@ export function AppShell({ children }: Readonly<{ children: React.ReactNode }>) 
 
   if (pathname.startsWith("/auth")) return <>{children}</>;
 
+  const statusCopy = systemCopy[systemState];
+
   return <div className="app-shell">
     <a className="skip-link" href="#main-content">Ana içeriğe geç</a>
     <aside className="sidebar">
@@ -94,7 +126,7 @@ export function AppShell({ children }: Readonly<{ children: React.ReactNode }>) 
       </nav>
       <div className="sidebar-spacer" />
       <div className="sidebar-status">
-        <div className="system-line"><span className="live-dot" /><strong>Sistemler hazır</strong></div>
+        <div className="system-line" aria-live="polite">{systemState === "ready" ? <span className="live-dot" /> : <span aria-hidden="true">○</span>}<strong>{statusCopy.system}</strong></div>
         <span className="sidebar-meta">FastAPI · Next.js · güvenli oturum</span>
         <span className="sidebar-user">{user?.email ?? "Oturum bekleniyor"}</span>
       </div>
@@ -103,7 +135,7 @@ export function AppShell({ children }: Readonly<{ children: React.ReactNode }>) 
       <header className="topbar">
         <div className="topbar-title"><span>IZFIN</span><b>{pageLabel}</b></div>
         <div className="topbar-actions">
-          <span className="api-chip"><i className="live-dot" /> API CANLI</span>
+          <span className="api-chip" aria-live="polite">{systemState === "ready" ? <i className="live-dot" /> : null}{statusCopy.api}</span>
         </div>
       </header>
       <UsageGuide />
