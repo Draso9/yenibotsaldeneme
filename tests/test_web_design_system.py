@@ -290,6 +290,19 @@ def test_performance_keeps_period_context_and_separates_data_states():
         assert marker in css
 
 
+def test_performance_renders_streamlit_closed_position_reason_distribution():
+    """The web summary must not drop the real close-reason distribution from Python."""
+    performance = _read("web/components/performance-page.tsx")
+    css = _read("web/app/performance.css")
+
+    assert "closedSummary.reason_counts" in performance
+    assert "EN SIK KAPANIŞ NEDENLERİ" in performance
+    assert "performance-reason-summary" in performance
+    assert "performance-reason-list" in performance
+    assert ".performance-reason-summary" in css
+    assert ".performance-reason-list" in css
+
+
 def test_strategy_lab_exposes_configuration_run_and_result_lifecycle():
     """A backtest surface needs an explicit lifecycle and live source-faithful symbol discovery."""
     strategy = _read("web/components/strategy-lab-page.tsx")

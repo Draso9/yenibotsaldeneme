@@ -43,6 +43,7 @@ def test_performance_tracking_package_is_native_and_json_ready():
     assert package["closed"][0]["Varlık"] == "AKBNK.IS"
     assert package["closed_summary"]["adet"] == 1
     assert package["closed_summary"]["best_txt"].startswith("AKBNK.IS")
+    assert package["closed_summary"]["reason_counts"] == [["NÖTR", 1]]
 
 
 def test_performance_tracking_package_handles_empty_records():

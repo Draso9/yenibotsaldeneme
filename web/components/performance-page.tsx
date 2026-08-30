@@ -47,6 +47,16 @@ function scorecardValue(column: string, value: unknown): string {
   return text(value);
 }
 
+function closeReasonEntries(value: unknown): Array<{ label: string; count: number }> {
+  if (!Array.isArray(value)) return [];
+  return value.flatMap((item) => {
+    if (!Array.isArray(item) || item.length < 2) return [];
+    const label = text(item[0], "").trim();
+    const count = number(item[1]);
+    return label && count !== null && count > 0 ? [{ label, count }] : [];
+  });
+}
+
 export function PerformancePage() {
   const { loading, user, getIdToken } = useIzfinAuth();
   const [days, setDays] = useState<(typeof PERIODS)[number]>(20);
@@ -94,6 +104,7 @@ export function PerformancePage() {
   }, [days, getIdToken, loading, refreshKey, user]);
 
   const closedSummary = tracking?.closed_summary ?? {};
+  const closeReasons = closeReasonEntries(closedSummary.reason_counts);
   const selectedClosed = selectedClosedIndex === null ? null : tracking?.closed[selectedClosedIndex] ?? null;
   const scoreSummaryColumns = useMemo(() => Object.keys(scorecard?.ozet[0] ?? {}), [scorecard]);
   const scoreDetailColumns = useMemo(() => Object.keys(scorecard?.detay[0] ?? {}), [scorecard]);
@@ -136,6 +147,11 @@ export function PerformancePage() {
         <article className="performance-panel performance-closed-card"><span>TP1 GÖRÜLME</span><strong>{pct(closedSummary.tp1_rate)}</strong><small>İlk hedefe ulaşan dönemler</small></article>
         <article className="performance-panel performance-closed-card"><span>STOP GÖRÜLME</span><strong>{pct(closedSummary.stop_rate)}</strong><small>İlk stopu gören dönemler</small></article>
       </section>
+
+      {closeReasons.length > 0 ? <section className="performance-panel performance-reason-summary" aria-label="Kapanmış pozisyon nedenleri">
+        <div className="performance-section-title"><div><p className="eyebrow">EN SIK KAPANIŞ NEDENLERİ</p><h2>Pozisyonlar neden kapandı?</h2></div><span>{closeReasons.length} neden</span></div>
+        <div className="performance-reason-list">{closeReasons.map((reason, index) => <article key={reason.label}><span>{String(index + 1).padStart(2, "0")}</span><div><strong>{reason.label}</strong><small>Gerçekleşmiş kapanış</small></div><b>{reason.count}</b></article>)}</div>
+      </section> : null}
 
       <section className="performance-panel performance-table-card">
         <div className="performance-section-title"><div><p className="eyebrow">KAPANMIŞ POZİSYON GEÇMİŞİ</p><h2>Gerçekleşmiş alım dönemleri</h2></div><span>{tracking.closed.length} kayıt</span></div>
@@ -183,4 +199,3 @@ export function PerformancePage() {
     </>}
   </main>;
 }
-

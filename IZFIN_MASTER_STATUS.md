@@ -54,15 +54,16 @@ Primary product references:
 
 ## 4. Current Checkpoint
 
-# SMART SCAN + DETAILED ANALYSIS
+# PROJECTION + PERFORMANCE
 
 Recovery was accepted for parity continuation on 2026-08-27 after the user
 reported that Projection shows the real ticker selector and loads the selected
 ticker. The user then explicitly approved continuing the Streamlit parity plan.
 
-Current checkpoint: restore the Streamlit per-stock decision motor directly
-below Akıllı Tarama results, remove the separate visible scan-history module,
-and retain durable scan recovery/context internally.
+The user accepted the live Akıllı Tarama stock selector and the newly restored
+structured Detailed Analysis sections on 2026-08-30. The current checkpoint is
+Projection + Performance Streamlit parity, with Projection recovery behavior
+kept unchanged.
 
 Approved Akıllı Tarama ownership/layout refinement (2026-08-28):
 
@@ -77,6 +78,16 @@ Approved Akıllı Tarama ownership/layout refinement (2026-08-28):
 - The stock decision motor must offer an explicit ticker selector populated
   from the current scan's real results; table-row selection and this selector
   share the same selected ticker and job-scoped decision data.
+
+Current Projection + Performance finding (2026-08-30):
+
+- Projection already renders the approved real-data model bands, volatility,
+  agreement, scenarios, direction summary, and technical levels.
+- Performance already renders active/closed positions, KPIs, scorecards,
+  detail history, interpretation, and the small-sample warning.
+- The remaining Streamlit field being restored is the Python-produced closed
+  position reason distribution (`reason_counts`); React only presents this
+  structured response and does not calculate financial results.
 
 ## 5. Current Verified / User-Reported Live Issues
 
@@ -173,6 +184,27 @@ Status:
 - both CI gates passed and merged to `develop`
 - user verified the real Projection selector and selected-ticker load live
 - user explicitly approved continuing parity migration
+
+### PR #99 / #100 — Akıllı Tarama decision parity and recovery
+
+Added:
+
+- selected-stock decision motor below scan results
+- removal of duplicate Piyasa Merkezi modules and visible scan history
+- owner-scoped completed/active scan restoration across route navigation
+
+### PR #101 / #102 — ticker selector and structured Detailed Analysis
+
+Added:
+
+- explicit ticker selector sharing the table's selected stock
+- Python-owned structured technical analysis sections
+- neutral handling for sparse technical data
+
+Status:
+
+- both merged to `develop` with green gates
+- user reported live that the selector was added and Detailed Analysis looked good
 
 ## 7. Develop Preview
 
@@ -409,15 +441,14 @@ Internally, PRs/tests/commits are still required, but do not make them the main 
 
 ## 14. Canonical Next Action
 
-**Complete SMART SCAN + DETAILED ANALYSIS checkpoint.**
+**Complete PROJECTION + PERFORMANCE checkpoint.**
 
 First:
 
-1. Keep the separate visible `Tarama geçmişi` module removed.
-2. Keep server-backed active-job discovery/polling as internal recovery.
-3. Render the selected ticker’s structured Streamlit decision motor directly below results.
-4. Preserve job-scoped links into Detailed Analysis and Projection.
-5. Do not render persisted verbal-analysis HTML; expose structured Python fields.
-6. Run focused tests + full Python/Web gates.
-7. Merge only if both CI gates are green.
-8. Verify the Akıllı Tarama result-selection/decision journey on Vercel `develop` with the user.
+1. Keep the accepted Projection job/ticker recovery unchanged.
+2. Preserve all approved Projection bands, scenarios, explanations, and levels.
+3. Render the Python-produced closed-position reason distribution in Performance.
+4. Keep 20G / 60G / 120G scorecards and active/closed position details intact.
+5. Run focused tests + full Python/Web gates.
+6. Merge only if both CI gates are green.
+7. Verify Projection and Performance on Vercel `develop` with the user.
