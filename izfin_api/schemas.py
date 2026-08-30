@@ -228,6 +228,8 @@ class BacktestResponse(BaseModel):
     kpis: dict[str, Any]
     summary: list[dict[str, Any]]
     detail: list[dict[str, Any]]
+    summary_formats: dict[str, str] = Field(default_factory=dict)
+    detail_formats: dict[str, str] = Field(default_factory=dict)
     ambiguity_count: int
     ambiguity_message: str | None = None
     detail_explanation: str

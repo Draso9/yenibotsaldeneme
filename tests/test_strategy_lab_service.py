@@ -78,6 +78,8 @@ def test_strategy_lab_package_reuses_existing_backtest_and_presenters():
     # Existing presenter ranks decision groups by trade success, then sample count.
     assert package["summary"][0]["Sinyal"] == "GÜÇLÜ AL 🟢"
     assert package["detail"][0]["Tarih"] == "2026-01-02"
+    assert package["summary_formats"]["Ort. İşlem %"] == "{:+.2f}%"
+    assert package["detail_formats"]["Giriş"] == "{:.2f}"
     assert package["ambiguity_count"] == 1
     assert "Daily MTF" in package["reading_notes"]
     assert "Komisyon, vergi, spread" in package["reading_notes"]

@@ -60,35 +60,20 @@ Do not reintroduce `Akıllı BIST Analizi`.
 
 ## 4. Current Checkpoint
 
-# PERFORMANCE FULL STREAMLIT PARITY — IMPLEMENTED, LIVE ACCEPTANCE PENDING
+# STRATEGY LAB STREAMLIT PARITY — IMPLEMENTED, LIVE ACCEPTANCE PENDING
 
-The user live-accepted **Projection full Streamlit parity** on 2026-08-28 and explicitly approved continuing to Performance.
+The user live-accepted **Performance full Streamlit parity** on 2026-08-30 and explicitly approved continuing to Strategy Lab.
 
-Performance implementation now preserves the established Streamlit tracking and scorecard model while separating auth/data orchestration from presentation:
+Strategy Lab now preserves the established Streamlit Daily Core workflow:
 
-- `web/components/performance-page.tsx` owns authentication, period selection, refresh, loading/error state, and API fetching
-- `web/components/performance-view.tsx` owns active/closed-position and scorecard presentation
-- Python/FastAPI remain the owners of position aggregation, return statistics, target/stop hit calculations, historical interpretation, and scorecard calculations
-- `web/lib/performance.ts` exposes the typed presentation contract only; React does not recompute financial metrics
+- real symbol/company search with direct Yahoo-symbol fallback
+- 3y / 5y / 10y period selection and authenticated backtest execution
+- Python-owned Daily Core calculations, KPI packages, result rows, and display-format maps
+- Streamlit-equivalent percent/sign/precision formatting without moving financial calculations to React
+- visible decision-type summary with historical decision detail and reading notes collapsed by default
+- owner-scoped session recovery for the last selected or submitted ticker
 
-Performance web parity now includes:
-
-- active-position KPI strip and active-position history
-- closed-position summary KPIs
-- separate closed-period and unique-stock counts
-- positive-close rate, average return, median return, median duration, TP1-hit rate, and stop-hit rate
-- full closed-position table with entry/close prices, days held, max profit/drawdown, initial stop, initial TP1, and TP1/TP2/TP3/Stop markers
-- closed-position drilldown
-- most common close-reason summary
-- best/worst historical interpretation and Python-owned commentary
-- 20G / 60G / 120G scorecard selection
-- small-sample warning
-- aggregate scorecard metrics
-- asset-level scorecard
-- collapsible signal-level detail history
-- benchmark-relative interpretation
-
-Do **not** call Performance accepted until the user verifies the deployed `develop` journey live.
+Do **not** call Strategy Lab accepted until the user verifies the deployed `develop` journey live.
 
 ## 5. User-Reported / Accepted State
 
@@ -130,7 +115,11 @@ Accepted checkpoint includes:
 - confidence / agreement / scenario / direction context
 - explicit model-scope disclosure
 
-### E. Deferred low-priority scan selection behavior
+### E. Performance — live accepted 2026-08-30
+
+The user reported no issues after checking the deployed Performance screen and approved continuing to Strategy Lab. The final Stage 5 journey will recheck the full flow collectively.
+
+### F. Deferred low-priority scan selection behavior
 
 When the user leaves Akıllı Tarama and later revisits it, the decision card can still fall back to the first ticker in the result table instead of the previously selected ticker.
 
@@ -201,8 +190,8 @@ Do not change this order without an explicit user decision.
 1. Piyasa Merkezi functional parity — accepted for continuation
 2. Detaylı Analiz functional parity — live accepted
 3. Projeksiyon full Streamlit parity — live accepted
-4. **Performans parity — current, implementation complete; live acceptance pending**
-5. Strategy Lab parity
+4. Performans parity — live accepted
+5. **Strategy Lab parity — current, implementation complete; live acceptance pending**
 6. Account/Admin parity audit
 7. Visual parity / responsive Streamlit-to-web translation
 8. Full authenticated user journey / Stage 5 close
@@ -294,7 +283,7 @@ Includes:
 
 Reference: `izfin_ui/performance_view.py`
 
-Current state: implementation complete; user live acceptance pending.
+Current state: live accepted 2026-08-30; final journey recheck remains.
 
 Includes:
 
@@ -323,6 +312,8 @@ Target:
 - explanatory context
 - no fake data
 
+Current state: implementation complete; user live acceptance pending.
+
 ### Account / Admin
 
 Target:
@@ -350,14 +341,14 @@ Target:
 
 ### Remaining web product debt
 
-- incomplete Streamlit parity in Strategy Lab, Account/Admin, and final visual pass
-- Performance live acceptance still pending
+- incomplete Streamlit parity in Account/Admin and the final visual pass
+- Strategy Lab live acceptance still pending
 - generic/stacked CSS convergence layers
 - final authenticated journey still needs one comprehensive acceptance pass
 - some route/context coupling remains until all analysis surfaces use the same shared context consistently
 - deferred scan decision-card selected-ticker revisit behavior noted above
 
-### Debt reduced by current Performance checkpoint and readiness audit
+### Debt reduced by completed Performance and current Strategy Lab checkpoints
 
 - separated Performance auth/data orchestration from presentation
 - replaced the loose frontend closed-summary shape with a typed presentation contract
@@ -365,6 +356,8 @@ Target:
 - preserved real-data-only rendering
 - kept scorecard and position-history responsibilities clearly separated
 - made global API/system health messaging authoritative instead of static
+- restored Python-owned Strategy Lab display formats instead of rendering raw table numbers
+- restored Streamlit disclosure hierarchy and owner-scoped last-ticker continuity
 
 ### Technical debt policy
 
@@ -397,17 +390,15 @@ Internally, PRs/tests/commits remain required, but they are not the user-facing 
 
 ## 13. Canonical Next Action
 
-**Live-verify Performance full Streamlit parity on Vercel `develop`.**
+**Live-verify Strategy Lab Streamlit parity on Vercel `develop`.**
 
 Acceptance journey:
 
-1. Sign in and open **Performans** from the application navigation.
-2. Confirm active-position KPIs and the active-position table load from real account data.
-3. Confirm the closed-position summary shows separate closed-period and different-stock counts plus positive-close rate, average/median return, median duration, TP1-hit rate, and stop-hit rate.
-4. Confirm the closed-position table includes entry and close prices, days held, max profit/drawdown, initial stop, initial TP1, and TP1/TP2/TP3/Stop markers.
-5. Open a closed-position detail and confirm the period detail is coherent with the table row.
-6. Confirm **En Sık Kapanış Nedenleri** and **IZFIN Geçmiş Performans Özeti** appear when the underlying data supports them.
-7. Switch between **20G / 60G / 120G** and confirm scorecard metrics, asset-level table, and signal-level history update without affecting the position-history tables.
-8. Confirm the small-sample warning appears when applicable, refresh the page, and verify account performance data recovers cleanly.
+1. Sign in and open **Strateji Lab** from the application navigation.
+2. Search a real symbol/company, select a suggestion or enter a valid Yahoo symbol directly, then choose 3Y / 5Y / 10Y.
+3. Run the backtest and confirm KPI cards plus the decision-type summary use percent signs, signed returns, and Streamlit-equivalent precision.
+4. Open **Geçmiş IZFIN kararlarını incele** and confirm the detailed table plus result-scope explanation appear.
+5. Open **Backtest sonuçları nasıl okunur?** and confirm the Daily MTF / Giriş Proxy / no-guarantee notes are readable.
+6. Navigate away and return; confirm the last selected/run symbol is restored without automatically rerunning or persisting financial results.
 
-If the user accepts this journey, mark Performance complete and begin **Strategy Lab parity**. If live behavior differs from these expectations, treat it as a Performance checkpoint defect and fix it before advancing.
+If the user accepts this journey, mark Strategy Lab complete and begin the **Account/Admin parity audit**. If live behavior differs, treat it as a Strategy Lab checkpoint defect and fix it before advancing.
