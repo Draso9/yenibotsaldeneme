@@ -72,8 +72,10 @@ def test_stock_decision_motor_offers_a_selector_for_every_scan_result():
 
     assert "const decisionTickers = useMemo" in workspace
     assert "normalizeTickers(summary.sonuclar.map(ticker))" in workspace
+    assert "selectedTicker: rememberedTicker" in workspace
+    assert "setSelectedTicker: setSharedSelectedTicker" in workspace
     assert "tickers={decisionTickers}" in workspace
-    assert "onTickerChange={setSelectedTicker}" in workspace
+    assert "onTickerChange={setSharedSelectedTicker}" in workspace
     assert '<select id="scan-decision-ticker"' in decision_card
     assert "value={detail.ticker}" in decision_card
     assert "onChange={(event) => onTickerChange(event.target.value)}" in decision_card
