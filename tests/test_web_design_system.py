@@ -139,7 +139,7 @@ def test_scan_has_a_dedicated_product_route_instead_of_a_homepage_anchor():
 
 
 def test_scan_and_detail_share_explicit_states_and_detail_handoff():
-    """The scan flow must lead to job-scoped detail without hiding unavailable states."""
+    """The scan flow must lead to job-scoped technical detail without duplicating the decision motor."""
     workspace = _read("web/components/scan-workspace.tsx")
     decision_card = _read("web/components/scan-decision-card.tsx")
     detail = _read("web/components/stock-detail-page.tsx")
@@ -153,7 +153,8 @@ def test_scan_and_detail_share_explicit_states_and_detail_handoff():
     assert "Tarama sonucu" in workspace
     assert "detail-status" in detail
     assert "ScoreBreakdown" in detail
-    assert "ŞEFFAF KARAR MOTORU" in detail
+    assert "ŞEFFAF KARAR MOTORU" not in detail
+    assert "Karar Motoru'nu tekrar etmez" in detail
     assert "Veri kaynağı" in detail
     assert "scan-result-header" in scan_css
     assert "detail-status" in detail_css
@@ -251,12 +252,14 @@ def test_auth_is_a_dedicated_route_with_existing_firebase_lifecycle_and_safe_ret
     assert 'href="/#akilli-tarama"' not in _read("web/components/performance-page.tsx")
 
 
-def test_market_center_exposes_sorting_and_decision_context_without_list_editing():
-    """Piyasa Merkezi stays decision-only; list editing belongs to Akıllı Tarama."""
+def test_market_center_keeps_decision_context_without_sorting_or_list_editing():
+    """Piyasa Merkezi stays decision-only and shows the seven-item list without extra sort controls."""
     market = _read("web/components/market-center.tsx")
     css = _read("web/app/market-center.css")
 
-    assert "Sonuç sırası" in market
+    assert "Sonuç sırası" not in market
+    assert 'className="market-sort"' not in market
+    assert "center.top_signals.slice(0, 7)" in market
     assert "Karar bileşenleri" in market
     assert '"/api/v1/watchlist"' not in market
     assert "Takip listene ekle" not in market
