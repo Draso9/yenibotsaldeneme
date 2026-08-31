@@ -160,10 +160,11 @@ def kullanici_kayit_bootstrap_hazirla(
     privacy_version: str,
     now_factory: Callable[[], datetime] | None = None,
 ) -> dict[str, Any]:
-    """Create the same IZFIN profile and personal-list baseline used by the legacy sign-up flow.
+    """Create or repair IZFIN profile/watchlist baseline without granting legal consent.
 
-    Firebase owns credentials; this service owns only IZFIN's user documents. Existing
-    users are deliberately left untouched so a repeat request is safe after a retry.
+    Firebase owns credentials. Explicit legal acceptance is persisted only by the legal
+    consent flow; bootstrap is deliberately idempotent and may safely repair a missing
+    UID watchlist after a partial earlier write.
     """
     if not getattr(user_repository, "available", False):
         raise RuntimeError("Firebase veritabanı bağlantısı kullanılamıyor.")
@@ -173,21 +174,36 @@ def kullanici_kayit_bootstrap_hazirla(
     if not uid_norm or not email_norm:
         raise RuntimeError("Kullanıcı oturumu bulunamadı.")
 
+    now_factory = now_factory or datetime.now
     existing = user_repository.get_profile(uid_norm) or {}
     if existing:
+        watchlist = kullanici_watchlist_bootstrap_hazirla(
+            user_repository,
+            uid=uid_norm,
+            email=email_norm,
+            default_tickers=default_tickers,
+            now_factory=now_factory,
+        )
+        if not watchlist["primary_exists"] and not watchlist["wrote_uid_copy"]:
+            kullanici_watchlist_kaydet(
+                user_repository,
+                uid=uid_norm,
+                email=email_norm,
+                tickers=watchlist["tickers"],
+                now_factory=now_factory,
+            )
         return existing
 
-    now_factory = now_factory or datetime.now
     now_iso = now_factory().isoformat()
     profile = {
         "uid": uid_norm,
         "email": email_norm,
         "olusturma_zamani": now_iso,
         "son_giris": None,
-        "terms_version": str(terms_version),
-        "terms_accepted_at": now_iso,
-        "privacy_notice_version": str(privacy_version),
-        "privacy_notice_shown_at": now_iso,
+        "terms_version": None,
+        "terms_accepted_at": None,
+        "privacy_notice_version": None,
+        "privacy_notice_shown_at": None,
     }
     user_repository.upsert_profile(uid_norm, profile)
     kullanici_watchlist_kaydet(
@@ -213,4 +229,3 @@ def logout_state_paketi(default_tickers) -> dict[str, Any]:
         },
         "pop": ("izfin_export_json", "izfin_yasal_onayli"),
     }
-
