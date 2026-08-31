@@ -95,7 +95,7 @@ export function AppShell({ children }: Readonly<{ children: React.ReactNode }>) 
     <a className="skip-link" href="#main-content">Ana içeriğe geç</a>
     <aside className="sidebar">
       <div className="brand">
-        <IzfinBrandMark className="sidebar-brand-mark" imageSize={52} priority />
+        <IzfinBrandMark priority />
         <div className="brand-copy"><b>IZFIN</b><span>ANALYZE · PREDICT · INVEST</span></div>
       </div>
       <div className="nav-label">ÇALIŞMA ALANI</div>

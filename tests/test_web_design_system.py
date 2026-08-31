@@ -51,8 +51,8 @@ def test_approved_izfin_logo_is_used_by_shell_auth_and_app_icons():
     layout = _read("web/app/layout.tsx")
 
     assert "IzfinBrandMark" in shell
+    assert "IzfinBrandMark" in auth
     assert "/brand/izfin-logo.png" in shared_mark
-    assert "/brand/izfin-logo.png" in auth
     assert "/brand/izfin-logo.png" in layout
     assert (ROOT / "web/public/brand/izfin-logo.png").is_file()
     assert (ROOT / "web/app/icon.png").is_file()
@@ -65,13 +65,15 @@ def test_web_rebuild_uses_streamlit_source_tokens_and_brand_proportions():
     polish = _read("web/app/component-polish.css")
     shell = _read("web/components/app-shell.tsx")
     auth = _read("web/components/auth-page.tsx")
+    shared_mark = _read("web/components/izfin-brand-mark.tsx")
 
     for token in ("--iz-bg: #050b14", "--iz-accent: #19dce4", "--iz-info: #1689ff", "--iz-positive: #20e69a"):
         assert token in css
     assert "object-fit: contain" in polish
     assert "#0d72e8" in polish
     assert "ANALYZE · PREDICT · INVEST" in shell
-    assert 'height={72}' in auth
+    assert "IzfinBrandMark" in auth
+    assert 'height={72}' in shared_mark
 
 
 def test_home_reuses_the_latest_owner_scoped_scan_for_streamlit_decision_centre():
