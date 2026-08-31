@@ -46,10 +46,12 @@ def test_cross_screen_shell_keeps_keyboard_and_landmark_context_consistent():
 
 def test_approved_izfin_logo_is_used_by_shell_auth_and_app_icons():
     shell = _read("web/components/app-shell.tsx")
+    shared_mark = _read("web/components/izfin-brand-mark.tsx")
     auth = _read("web/components/auth-page.tsx")
     layout = _read("web/app/layout.tsx")
 
-    assert "/brand/izfin-logo.png" in shell
+    assert "IzfinBrandMark" in shell
+    assert "/brand/izfin-logo.png" in shared_mark
     assert "/brand/izfin-logo.png" in auth
     assert "/brand/izfin-logo.png" in layout
     assert (ROOT / "web/public/brand/izfin-logo.png").is_file()
