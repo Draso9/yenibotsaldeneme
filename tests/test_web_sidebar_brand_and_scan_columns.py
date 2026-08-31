@@ -12,6 +12,8 @@ def test_sidebar_and_market_center_share_the_same_izfin_brand_mark_component():
     shell = _read("web/components/app-shell.tsx")
     home = _read("web/components/home-decision-center.tsx")
     shared = ROOT / "web" / "components" / "izfin-brand-mark.tsx"
+    shared_css = _read("web/app/brand-scan-visibility.css")
+    market_css = _read("web/app/market-center.css")
 
     assert shared.exists(), "IZFIN marka işareti ortak bileşene taşınmalı"
     shared_source = shared.read_text(encoding="utf-8")
@@ -21,6 +23,9 @@ def test_sidebar_and_market_center_share_the_same_izfin_brand_mark_component():
     assert "IzfinBrandMark" in shell
     assert "IzfinBrandMark" in home
     assert 'className="brand-mark"' not in shell
+    assert ".home-decision-brand-mark" in shared_css
+    assert ".sidebar-brand-mark" in shared_css
+    assert ".home-decision-brand-mark" not in market_css
 
 
 def test_scan_table_keeps_peg_and_after_hours_visible_in_normal_desktop_mode():
