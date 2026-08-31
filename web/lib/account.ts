@@ -1,4 +1,4 @@
-import { izfinApiFetch } from "./api";
+import { izfinApiFetch, izfinPublicApiFetch } from "./api";
 
 export type ProfileResponse = {
   uid: string;
@@ -74,6 +74,6 @@ export function deleteAccount(
 }
 
 export function fetchLegalDocument(path: ReturnType<typeof legalTermsPath> | ReturnType<typeof legalPrivacyPath>): Promise<LegalDocumentResponse> {
-  return izfinApiFetch<LegalDocumentResponse>(path, "");
+  return izfinPublicApiFetch<LegalDocumentResponse>(path);
 }
 
