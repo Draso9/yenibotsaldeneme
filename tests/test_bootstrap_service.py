@@ -195,7 +195,10 @@ def test_registration_bootstrap_reuses_profile_and_default_watchlist_contract():
     )
 
     assert profile["email"] == "user@example.com"
-    assert profile["terms_version"] == "terms-v1"
+    assert profile["terms_version"] is None
+    assert profile["terms_accepted_at"] is None
+    assert profile["privacy_notice_version"] is None
+    assert profile["privacy_notice_shown_at"] is None
     assert repo.writes[0][1]["tickers"] == ["THYAO.IS", "AKBNK.IS"]
     assert kullanici_kayit_bootstrap_hazirla(
         repo, uid="uid-1", email="user@example.com", default_tickers=["AAPL"], terms_version="new", privacy_version="new"
@@ -218,4 +221,3 @@ def test_logout_state_package_returns_fresh_default_lists_and_expected_pops():
     assert first["pop"] == ("izfin_export_json", "izfin_yasal_onayli")
     first["set"]["custom_tickers"].append("MSFT")
     assert second["set"]["custom_tickers"] == ["AAPL", "NVDA"]
-
