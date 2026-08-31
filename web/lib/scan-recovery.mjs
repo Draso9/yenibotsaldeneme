@@ -1,5 +1,6 @@
 const BASE_RECOVERY_DELAY_MS = 1_000;
 const MAX_RECOVERY_DELAY_MS = 10_000;
+export const MAX_RECOVERY_RETRIES = 4;
 const ACTIVE_SCAN_STATUSES = new Set(["queued", "running"]);
 
 /**
@@ -10,6 +11,19 @@ export function recoveryRetryDelayMs(failureCount) {
   const normalizedFailures = Math.max(0, Math.floor(Number.isFinite(failureCount) ? failureCount : 0));
   const exponent = Math.min(normalizedFailures, 4);
   return Math.min(BASE_RECOVERY_DELAY_MS * (2 ** exponent), MAX_RECOVERY_DELAY_MS);
+}
+
+/**
+ * A recovery sequence may retry after the first four transient failures.
+ * Once the count reaches the limit, the UI stops scheduling automatic work
+ * until a fresh user action or route mount restarts recovery.
+ *
+ * @param {number} failureCount
+ * @returns {boolean}
+ */
+export function canRetryRecovery(failureCount) {
+  const normalizedFailures = Math.max(0, Math.floor(Number.isFinite(failureCount) ? failureCount : 0));
+  return normalizedFailures < MAX_RECOVERY_RETRIES;
 }
 
 /**

@@ -55,9 +55,13 @@ export function AnalysisContextProvider({ children }: Readonly<{ children: React
     const history = await fetchScanHistory(token);
     const latest = latestCompletedScan(history);
     const latestId = latest?.job_id ?? "";
+    const activeServerJob = history.find((item) => item.status === "queued" || item.status === "running");
     const completedJobIds = new Set(history.filter((item) => item.status === "completed").map((item) => item.job_id));
+    const activeJobIds = new Set(history.filter((item) => item.status === "queued" || item.status === "running").map((item) => item.job_id));
     setLatestCompletedScanJobId(latestId);
     setActiveScanJobId((current) => {
+      if (current && activeJobIds.has(current)) return current;
+      if (activeServerJob) return activeServerJob.job_id;
       if (current && completedJobIds.has(current)) return current;
       return latestId;
     });
