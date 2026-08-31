@@ -77,7 +77,8 @@ def test_stock_decision_motor_offers_a_selector_for_every_scan_result():
     assert "tickers={decisionTickers}" in workspace
     assert "onTickerChange={setSharedSelectedTicker}" in workspace
     assert '<select id="scan-decision-ticker"' in decision_card
-    assert "value={detail.ticker}" in decision_card
+    assert "selectorTicker" in decision_card
+    assert "value={selectorTicker}" in decision_card
     assert "onChange={(event) => onTickerChange(event.target.value)}" in decision_card
     assert "tickers.map((symbol) => <option key={symbol} value={symbol}>{symbol}</option>)" in decision_card
 
@@ -98,7 +99,8 @@ def test_scan_and_detail_keep_the_selected_job_ticker_in_shared_analysis_context
     detail_page = (ROOT / "web" / "components" / "stock-detail-page.tsx").read_text(encoding="utf-8")
 
     assert "useAnalysisContext" in decision_card
-    assert "setSelectedTicker(detail.ticker)" in decision_card
+    assert "selectedTicker: sharedSelectedTicker" in decision_card
+    assert "setSelectedTicker(detail.ticker)" not in decision_card
     assert "useAnalysisContext" in detail_page
     assert "setActiveScan(jobId)" in detail_page
     assert "setSelectedTicker(normalizedTicker)" in detail_page
