@@ -16,6 +16,10 @@
   --iz-section-title: clamp(20px, 2.2vw, 28px);
   --iz-body-size: 14px;
   --iz-label-size: 11px;
+  --iz-table-head-size: 12px;
+  --iz-table-cell-size: 13px;
+  --iz-control-size: 13px;
+  --iz-support-size: 12px;
   --iz-card-padding: clamp(18px, 2vw, 24px);
   --iz-card-radius: 16px;
   --iz-focus-ring: 0 0 0 3px rgba(25, 220, 228, .26);
@@ -237,4 +241,74 @@ summary:focus-visible {
 .api-chip,
 .market-mode-badge {
   border-color: color-mix(in srgb, var(--iz-info) 32%, transparent);
+}
+
+/* Non-home desktop readability scale. */
+:is(.scan-page, .detail-page, .projection-page, .performance-page, .strategy-page, .account-page, .admin-quality-page) :where(p, li) {
+  font-size: var(--iz-body-size);
+  line-height: 1.65;
+}
+
+:is(.scan-page, .detail-page, .projection-page, .performance-page, .strategy-page, .account-page, .admin-quality-page) :where(small) {
+  font-size: var(--iz-support-size);
+  line-height: 1.5;
+}
+
+:is(.scan-page, .detail-page, .projection-page, .performance-page, .strategy-page, .account-page, .admin-quality-page) :where(a, button, input, select, textarea, label, dd) {
+  font-size: var(--iz-control-size);
+}
+
+:is(.scan-page, .detail-page, .projection-page, .performance-page, .strategy-page, .account-page, .admin-quality-page) :where(dt) {
+  font-size: var(--iz-support-size);
+}
+
+:is(.scan-page, .detail-page, .projection-page, .performance-page, .strategy-page, .account-page, .admin-quality-page) :where(table th) {
+  font-size: var(--iz-table-head-size);
+  line-height: 1.4;
+}
+
+:is(.scan-page, .detail-page, .projection-page, .performance-page, .strategy-page, .account-page, .admin-quality-page) :where(table td) {
+  font-size: var(--iz-table-cell-size);
+  line-height: 1.5;
+}
+
+:is(.scan-page, .detail-page, .projection-page, .performance-page, .strategy-page, .account-page, .admin-quality-page) :where(table td b, table td strong) {
+  font-size: inherit;
+}
+
+:is(.scan-page, .detail-page, .projection-page, .performance-page, .strategy-page, .account-page, .admin-quality-page) :where(h2) {
+  font-size: var(--iz-section-title);
+  line-height: 1.15;
+}
+
+:is(.scan-page, .detail-page, .projection-page, .performance-page, .strategy-page, .account-page, .admin-quality-page) :where(h3) {
+  font-size: clamp(18px, 1.6vw, 22px);
+  line-height: 1.2;
+}
+
+:is(.scan-page, .detail-page, .projection-page, .performance-page, .strategy-page, .account-page, .admin-quality-page) :where(
+  [class*="-path"] > span,
+  [class*="-badge"],
+  [class*="-chip"],
+  [class*="-meta"],
+  [class*="-status"],
+  [class*="kpi"] > span,
+  [class*="metric"] > span,
+  [class*="summary"] > span,
+  [class*="stats"] span,
+  [class*="section-head"] > span,
+  [class*="heading"] > span
+) {
+  font-size: var(--iz-support-size);
+  line-height: 1.4;
+}
+
+/* Preserve intentionally prominent Scan decision text while raising support copy. */
+.scan-decision-selector label span,
+.scan-decision-identity > span {
+  font-size: var(--iz-body-size);
+}
+
+.scan-decision-level-heading span {
+  font-size: 16px;
 }
