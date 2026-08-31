@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import {
   fetchMarketCenter,
   fetchMarketStockDetail,
@@ -32,7 +32,6 @@ export function MarketCenterPanel({ jobId }: Readonly<{ jobId: string }>) {
   const [detail, setDetail] = useState<StockDetailResponse | null>(null);
   const [error, setError] = useState("");
   const [detailError, setDetailError] = useState("");
-  const [sortBy, setSortBy] = useState<"score" | "risk">("score");
 
   useEffect(() => {
     if (!user || !jobId) return;
@@ -73,8 +72,6 @@ export function MarketCenterPanel({ jobId }: Readonly<{ jobId: string }>) {
     return () => { active = false; };
   }, [getIdToken, jobId, selectedTicker, user]);
 
-  const sortedSignals = useMemo(() => [...(center?.top_signals ?? [])].sort((left, right) => sortBy === "score" ? numeric(right.skor) - numeric(left.skor) : numeric(left.risk) - numeric(right.risk)), [center, sortBy]);
-
   if (!user) return null;
 
   return <section className="market-center-panel" aria-label="Piyasa Merkezi">
@@ -93,10 +90,9 @@ export function MarketCenterPanel({ jobId }: Readonly<{ jobId: string }>) {
       <div className="market-columns">
         <div className="market-signals">
           <div className="subsection-title"><span>Listende dikkat çekenler</span><b>{center.top_signals.length}</b></div>
-          <div className="market-sort" aria-label="Sonuç sırası"><span>Sonuç sırası</span><button className={sortBy === "score" ? "active" : ""} type="button" onClick={() => setSortBy("score")}>Skor</button><button className={sortBy === "risk" ? "active" : ""} type="button" onClick={() => setSortBy("risk")}>Risk</button></div>
           <div className="market-signal-table" role="table" aria-label="Listende dikkat çekenler">
             <div className="market-signal-head" role="row"><span>Sembol</span><span>Fiyat</span><span>IZFIN kararı</span><span>Skor</span><span>Güven</span><span>MTF</span><span>Risk</span></div>
-            {sortedSignals.slice(0, 7).map((item, index) => {
+            {center.top_signals.slice(0, 7).map((item, index) => {
               const ticker = tickerOf(item);
               if (!ticker) return null;
               return <a className="market-signal-row" role="row" href={stockDetailHref(jobId, ticker)} key={`${ticker}-${index}`}>
