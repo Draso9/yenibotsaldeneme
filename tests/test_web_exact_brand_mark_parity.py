@@ -22,7 +22,9 @@ def test_shell_home_and_auth_use_the_exact_same_izfin_mark_geometry():
     assert 'from "next/image"' not in auth
 
     assert 'imageSize' not in mark
-    assert 'className' not in mark
+    assert 'className?: string' not in mark
+    assert 'className = ""' not in mark
+    assert 'className="izfin-brand-mark"' in mark
     assert 'height={72}' in mark
     assert 'width={72}' in mark
 
