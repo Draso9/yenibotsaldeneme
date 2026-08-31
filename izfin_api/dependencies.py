@@ -24,6 +24,7 @@ class ApiRuntime:
     scan_runner: Callable[[Sequence[str]], Mapping[str, Any]] | None = None
     scan_job_store: Any = None
     signal_repository: Any = None
+    performance_refresher: Any = None
     market_overview_loader: Callable[[], Mapping[str, Any]] | None = None
     symbol_search: Callable[[str], Sequence[Mapping[str, Any]]] | None = None
     legal_consent_service: Any = None
@@ -67,7 +68,7 @@ def bearer_credentials(credentials: HTTPAuthorizationCredentials | None = Depend
     return credentials
 
 
-def runtime_from(*, verify_id_token: Callable[[str], dict[str, Any]] | None = None, user_repository: Any = None, default_tickers: Sequence[str] = (), scan_runner: Callable[[Sequence[str]], Mapping[str, Any]] | None = None, scan_job_store: Any = None, signal_repository: Any = None, market_overview_loader: Callable[[], Mapping[str, Any]] | None = None, symbol_search: Callable[[str], Sequence[Mapping[str, Any]]] | None = None, legal_consent_service: Any = None, account_data_service: Any = None, account_delete_enabled: bool = False, terms_version: str = "2026-08-19-v1", privacy_version: str = "2026-08-19-v1", app_release: str = "development", data_controller_name: str = "", contact_email: str = "", data_controller_address: str = "", log_retention_days: int = 30) -> ApiRuntime:
+def runtime_from(*, verify_id_token: Callable[[str], dict[str, Any]] | None = None, user_repository: Any = None, default_tickers: Sequence[str] = (), scan_runner: Callable[[Sequence[str]], Mapping[str, Any]] | None = None, scan_job_store: Any = None, signal_repository: Any = None, performance_refresher: Any = None, market_overview_loader: Callable[[], Mapping[str, Any]] | None = None, symbol_search: Callable[[str], Sequence[Mapping[str, Any]]] | None = None, legal_consent_service: Any = None, account_data_service: Any = None, account_delete_enabled: bool = False, terms_version: str = "2026-08-19-v1", privacy_version: str = "2026-08-19-v1", app_release: str = "development", data_controller_name: str = "", contact_email: str = "", data_controller_address: str = "", log_retention_days: int = 30) -> ApiRuntime:
     return ApiRuntime(
         verify_id_token=verify_id_token,
         user_repository=user_repository,
@@ -75,6 +76,7 @@ def runtime_from(*, verify_id_token: Callable[[str], dict[str, Any]] | None = No
         scan_runner=scan_runner,
         scan_job_store=scan_job_store,
         signal_repository=signal_repository,
+        performance_refresher=performance_refresher,
         market_overview_loader=market_overview_loader,
         symbol_search=symbol_search,
         legal_consent_service=legal_consent_service,
