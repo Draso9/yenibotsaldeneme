@@ -10,7 +10,8 @@ def _read(path: str) -> str:
 
 def test_sidebar_exposes_a_visible_firebase_logout_action_and_returns_to_auth():
     shell = _read("web/components/app-shell.tsx")
-    css = _read("web/app/globals.css")
+    css = _read("web/app/sidebar-session.css")
+    layout = _read("web/app/layout.tsx")
 
     assert "logout" in shell
     assert "handleLogout" in shell
@@ -18,3 +19,4 @@ def test_sidebar_exposes_a_visible_firebase_logout_action_and_returns_to_auth():
     assert 'className="sidebar-logout"' in shell
     assert "Çıkış Yap" in shell
     assert ".sidebar-logout" in css
+    assert 'import "./sidebar-session.css";' in layout
