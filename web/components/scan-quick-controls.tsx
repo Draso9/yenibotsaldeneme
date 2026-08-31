@@ -1,41 +1,22 @@
 "use client";
 
-import { useState } from "react";
-
 const primaryProfiles = ["Kendi Listem", "BIST 30", "BIST 100"] as const;
 
-function selectProfile(profile: string, attempt = 0) {
-  const select = document.querySelector<HTMLSelectElement>(".scan-profile-label select");
-  const optionReady = select && Array.from(select.options).some((option) => option.value === profile);
-  if (!select || !optionReady) {
-    if (attempt < 20) window.setTimeout(() => selectProfile(profile, attempt + 1), 150);
-    return;
-  }
-  const setter = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, "value")?.set;
-  setter?.call(select, profile);
-  select.dispatchEvent(new Event("change", { bubbles: true }));
-  document.getElementById("scan-control")?.scrollIntoView({ behavior: "smooth", block: "start" });
-}
+type ScanQuickControlsProps = {
+  activeProfile: string;
+  launchDisabled?: boolean;
+  onChooseProfile: (profile: string) => void;
+  onFocusListManager: () => void;
+  onLaunchScan: () => void;
+};
 
-export function ScanQuickControls() {
-  const [activeProfile, setActiveProfile] = useState<string>("Kendi Listem");
-
-  function chooseProfile(profile: string) {
-    setActiveProfile(profile);
-    selectProfile(profile);
-  }
-
-  function focusListManager() {
-    document.getElementById("scan-control")?.scrollIntoView({ behavior: "smooth", block: "start" });
-    window.setTimeout(() => document.querySelector<HTMLInputElement>(".symbol-search-form input")?.focus(), 350);
-  }
-
-  function launchScan() {
-    const button = document.querySelector<HTMLButtonElement>(".scan-launch");
-    button?.scrollIntoView({ behavior: "smooth", block: "center" });
-    if (button && !button.disabled) button.click();
-  }
-
+export function ScanQuickControls({
+  activeProfile,
+  launchDisabled = false,
+  onChooseProfile,
+  onFocusListManager,
+  onLaunchScan,
+}: Readonly<ScanQuickControlsProps>) {
   return (
     <section className="scan-command-deck" aria-label="Akıllı Tarama hızlı kontrol">
       <div className="scan-command-copy">
@@ -49,7 +30,7 @@ export function ScanQuickControls() {
             className={`scan-preset-button${activeProfile === profile ? " active" : ""}`}
             key={profile}
             type="button"
-            onClick={() => chooseProfile(profile)}
+            onClick={() => onChooseProfile(profile)}
           >
             <strong>{profile}</strong>
             <span>{profile === "Kendi Listem" ? "Kaydettiğin hisseler" : profile === "BIST 30" ? "BIST'in en büyük 30 hissesi" : "Geniş BIST 100 evreni"}</span>
@@ -57,8 +38,8 @@ export function ScanQuickControls() {
         ))}
       </div>
       <div className="scan-command-actions">
-        <button className="scan-list-manager" type="button" onClick={focusListManager}>＋ Hisse / şirket ekle</button>
-        <button className="scan-primary-action" type="button" onClick={launchScan}>Taramayı Başlat →</button>
+        <button className="scan-list-manager" type="button" onClick={onFocusListManager}>＋ Hisse / şirket ekle</button>
+        <button className="scan-primary-action" type="button" disabled={launchDisabled} onClick={onLaunchScan}>Taramayı Başlat →</button>
       </div>
     </section>
   );
