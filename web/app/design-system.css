@@ -312,3 +312,321 @@ summary:focus-visible {
 .scan-decision-level-heading span {
   font-size: 16px;
 }
+
+/* Secondary-page specificity repair. */
+:is(.projection-page, .performance-page, .strategy-page, .detail-page, .account-page, .admin-quality-page) {
+  --iz-secondary-body-size: 14px;
+  --iz-secondary-value-size: 14px;
+}
+
+/* Projection: scenario copy, controls, labels and lower-model detail. */
+.projection-page .projection-muted,
+.projection-page .projection-status,
+.projection-page .projection-direction-card p,
+.projection-page .projection-volatility,
+.projection-page .projection-disclaimer p {
+  font-size: var(--iz-secondary-body-size);
+  line-height: 1.65;
+}
+
+.projection-page .projection-path > span,
+.projection-page .projection-symbol-switcher > span,
+.projection-page .projection-hero-stats span,
+.projection-page .projection-hero-stats strong small,
+.projection-page .projection-band-head span,
+.projection-page .projection-band-meta,
+.projection-page .projection-range-zones,
+.projection-page .projection-level-grid span,
+.projection-page .projection-metric-list span,
+.projection-page .projection-secondary-metrics span,
+.projection-page .projection-scenario-head > span,
+.projection-page .projection-scenario-row > span,
+.projection-page .projection-confidence,
+.projection-page .projection-mini-badge,
+.projection-page .projection-direction,
+.projection-page .projection-direction-card small,
+.projection-page .projection-disclaimer span {
+  font-size: var(--iz-support-size);
+  line-height: 1.45;
+}
+
+.projection-page .projection-back,
+.projection-page .projection-symbol-switcher select,
+.projection-page .projection-band-head b,
+.projection-page .projection-range-labels,
+.projection-page .projection-cta {
+  font-size: var(--iz-control-size);
+}
+
+.projection-page .projection-scenario-row > strong,
+.projection-page .projection-metric-list strong,
+.projection-page .projection-secondary-metrics strong,
+.projection-page .projection-level-grid strong {
+  font-size: var(--iz-secondary-value-size);
+  line-height: 1.55;
+}
+
+/* Performance: keep dense scorecards readable without changing KPI emphasis. */
+.performance-page .performance-muted,
+.performance-page .performance-status,
+.performance-page .performance-insight-card ul,
+.performance-page .performance-context-card p:not(.eyebrow),
+.performance-page .performance-empty-state p,
+.performance-page .performance-sample-warning p,
+.performance-page .performance-score-detail > p,
+.performance-page .performance-definition-grid span {
+  font-size: var(--iz-secondary-body-size);
+  line-height: 1.65;
+}
+
+.performance-page .performance-period button,
+.performance-page .performance-refresh,
+.performance-page .performance-detail-button,
+.performance-page .performance-drilldown .performance-section-title > button,
+.performance-page .performance-empty a,
+.performance-page .performance-empty-state a {
+  font-size: var(--iz-control-size);
+}
+
+.performance-page .performance-track-kpi span,
+.performance-page .performance-closed-card span,
+.performance-page .performance-section-title > span,
+.performance-page .performance-scorecard-heading > span,
+.performance-page .performance-table-note,
+.performance-page .performance-closed-card small,
+.performance-page .performance-insight-head span,
+.performance-page .performance-drilldown-grid small,
+.performance-page .performance-summary-card > span,
+.performance-page .performance-metric-card > span,
+.performance-page .performance-summary-card > small,
+.performance-page .performance-context-card > small,
+.performance-page .performance-score-detail summary span {
+  font-size: var(--iz-support-size);
+  line-height: 1.45;
+}
+
+.performance-page .performance-table th {
+  font-size: var(--iz-table-head-size);
+}
+
+.performance-page .performance-table td {
+  font-size: var(--iz-table-cell-size);
+  line-height: 1.5;
+}
+
+.performance-page .performance-table td b {
+  font-size: inherit;
+}
+
+.performance-page .performance-drilldown-grid b,
+.performance-page .performance-definition-grid b {
+  font-size: var(--iz-secondary-value-size);
+}
+
+/* Strategy Lab: runner, results table, notes and methodology. */
+.strategy-page .strategy-muted,
+.strategy-page .strategy-context-grid p,
+.strategy-page .strategy-status,
+.strategy-page .strategy-auth p,
+.strategy-page .strategy-warning p,
+.strategy-page .strategy-table-empty,
+.strategy-page .strategy-detail-explanation,
+.strategy-page .strategy-notes p {
+  font-size: var(--iz-secondary-body-size);
+  line-height: 1.65;
+}
+
+.strategy-page .strategy-symbol-field label,
+.strategy-page .strategy-period-field > span,
+.strategy-page .strategy-context-grid article > span,
+.strategy-page .strategy-kpi > span,
+.strategy-page .strategy-secondary-kpis span,
+.strategy-page .strategy-symbol-field > small,
+.strategy-page .strategy-symbol-search-state,
+.strategy-page .strategy-symbol-results small,
+.strategy-page .strategy-symbol-results em,
+.strategy-page .strategy-engine-chip,
+.strategy-page .strategy-result-head > div:last-child span,
+.strategy-page .strategy-section-head > span,
+.strategy-page .strategy-warning b,
+.strategy-page .strategy-disclosure > summary small {
+  font-size: var(--iz-support-size);
+  line-height: 1.45;
+}
+
+.strategy-page .strategy-symbol-field input,
+.strategy-page .strategy-period-field button,
+.strategy-page .strategy-run-button,
+.strategy-page .strategy-result-head button,
+.strategy-page .strategy-disclosure > summary,
+.strategy-page .strategy-auth a {
+  font-size: var(--iz-control-size);
+}
+
+.strategy-page .strategy-symbol-results b,
+.strategy-page .strategy-context-grid strong {
+  font-size: var(--iz-secondary-value-size);
+}
+
+.strategy-page .strategy-table th {
+  font-size: var(--iz-table-head-size);
+}
+
+.strategy-page .strategy-table td {
+  font-size: var(--iz-table-cell-size);
+  line-height: 1.5;
+}
+
+.strategy-page .strategy-table td b {
+  font-size: inherit;
+}
+
+/* Detailed Analysis: score explanation and technical rows were still visually compressed. */
+.detail-page .detail-summary span,
+.detail-page .detail-kv span,
+.detail-page .detail-score-metrics span,
+.detail-page .detail-score-breakdown > summary small,
+.detail-page .score-band,
+.detail-page .detail-technical-heading > span,
+.detail-page .detail-technical-metrics small,
+.detail-page .detail-technical-rows span,
+.detail-page .detail-targets span,
+.detail-page .detail-targets small {
+  font-size: var(--iz-support-size);
+  line-height: 1.45;
+}
+
+.detail-page .detail-open,
+.detail-page .detail-back,
+.detail-page .detail-kv strong,
+.detail-page .detail-score-group strong,
+.detail-page .detail-score-breakdown > summary em,
+.detail-page .detail-score-reading b,
+.detail-page .detail-algorithm-comment b {
+  font-size: var(--iz-control-size);
+}
+
+.detail-page .detail-summary b,
+.detail-page .detail-score-metrics b,
+.detail-page .detail-score-driver strong,
+.detail-page .detail-technical-rows b {
+  font-size: var(--iz-secondary-value-size);
+}
+
+.detail-page .detail-note,
+.detail-page .detail-status,
+.detail-page .detail-score-group ul,
+.detail-page .detail-score-group p,
+.detail-page .detail-score-explanation p,
+.detail-page .detail-score-driver ul,
+.detail-page .detail-score-driver p,
+.detail-page .detail-score-reading p,
+.detail-page .detail-technical-metrics span,
+.detail-page .detail-technical-sections ul,
+.detail-page .detail-technical-sections p,
+.detail-page .detail-algorithm-comment p {
+  font-size: var(--iz-secondary-body-size);
+  line-height: 1.65;
+}
+
+.detail-page .detail-score-explanation small {
+  font-size: var(--iz-support-size);
+}
+
+.detail-page .detail-score-explanation h3,
+.detail-page .detail-technical h3 {
+  font-size: clamp(18px, 1.5vw, 21px);
+  line-height: 1.25;
+}
+
+/* Account: privacy/legal/profile copy must be comfortably readable. */
+.account-page .account-muted,
+.account-page .account-side p:not(.eyebrow),
+.account-page .account-legal-copy p,
+.account-page .account-action-copy > p:not(.eyebrow),
+.account-page .account-delete-zone > p:not(.eyebrow) {
+  font-size: var(--iz-secondary-body-size);
+  line-height: 1.7;
+}
+
+.account-page .account-path > span,
+.account-page .account-identity-card > span,
+.account-page .account-identity-card small,
+.account-page .account-status,
+.account-page .account-profile-summary dt,
+.account-page .account-section-head > span,
+.account-page .account-warning,
+.account-page .account-info,
+.account-page .account-check span {
+  font-size: var(--iz-support-size);
+  line-height: 1.5;
+}
+
+.account-page .account-path a,
+.account-page .account-tabs button,
+.account-page .account-primary,
+.account-page .account-secondary,
+.account-page .account-danger,
+.account-page .account-delete-form label {
+  font-size: var(--iz-control-size);
+}
+
+.account-page .account-profile-summary dd {
+  font-size: var(--iz-secondary-value-size);
+}
+
+/* Admin QA: status labels and readiness cards stay compact, not tiny. */
+.admin-quality-page .admin-quality-muted,
+.admin-quality-page .admin-quality-state,
+.admin-quality-page .admin-quality-notes p:not(.eyebrow),
+.admin-quality-page .admin-quality-notes li {
+  font-size: var(--iz-secondary-body-size);
+  line-height: 1.65;
+}
+
+.admin-quality-page .admin-quality-status,
+.admin-quality-page .admin-readiness-grid article span,
+.admin-quality-page .admin-quality-card span,
+.admin-quality-page .admin-quality-readiness-error {
+  font-size: var(--iz-support-size);
+}
+
+.admin-quality-page .admin-readiness-grid article strong {
+  font-size: var(--iz-secondary-value-size);
+}
+
+/* Shared usage guide sits outside page wrappers, so it needs its own readable scale. */
+.usage-guide > summary span,
+.usage-guide > summary b {
+  font-size: var(--iz-control-size);
+}
+
+.usage-guide > summary em,
+.usage-guide-head small,
+.usage-guide-head > span,
+.usage-guide-grid article small,
+.usage-guide-rule small {
+  font-size: var(--iz-support-size);
+  line-height: 1.4;
+}
+
+.usage-guide-head h2 {
+  font-size: clamp(20px, 1.8vw, 24px);
+}
+
+.usage-guide-head p,
+.usage-guide-grid article p,
+.usage-guide-rule p,
+.usage-guide-notes p {
+  font-size: var(--iz-secondary-body-size);
+  line-height: 1.65;
+}
+
+.usage-guide-grid article b {
+  font-size: var(--iz-secondary-value-size);
+}
+
+.usage-guide-warning {
+  font-size: var(--iz-control-size);
+  line-height: 1.65;
+}
