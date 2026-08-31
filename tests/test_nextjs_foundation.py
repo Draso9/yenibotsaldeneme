@@ -49,10 +49,10 @@ def test_nextjs_scan_workspace_uses_async_scan_job_contract() -> None:
     assert "setTimeout" in workspace
 
 
-def test_nextjs_account_center_uses_authenticated_account_api() -> None:
-    account_center = (PROJECT_ROOT / "web" / "components" / "account-center.tsx").read_text(encoding="utf-8")
+def test_nextjs_account_page_uses_shared_authenticated_account_client() -> None:
+    account_client = (PROJECT_ROOT / "web" / "lib" / "account.ts").read_text(encoding="utf-8")
 
-    assert '"/api/v1/profile"' in account_center
-    assert '"/api/v1/legal/consent"' in account_center
-    assert '"/api/v1/account/export"' in account_center
-    assert "Authorization" not in account_center
+    assert '"/api/v1/profile"' in account_client
+    assert '"/api/v1/legal/consent"' in account_client
+    assert '"/api/v1/account/export"' in account_client
+    assert "Authorization" not in account_client

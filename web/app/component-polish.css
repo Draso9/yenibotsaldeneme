@@ -44,10 +44,6 @@
 .symbol-selection-preview { display: flex; align-items: center; justify-content: space-between; gap: 9px; margin: 9px 0; padding: 10px; border: 1px solid rgba(25,220,228,.26); border-radius: 9px; background: rgba(11,63,86,.25); }.symbol-selection-preview div { min-width: 0; display:grid; gap:3px; }.symbol-selection-preview b { color:#f1fbff; font-size:11px; }.symbol-selection-preview span { overflow:hidden; color:#8fb4c5; font-size:8px; text-overflow:ellipsis; white-space:nowrap; }.symbol-selection-preview button { flex:0 0 auto; min-height:32px; padding:0 9px; border:1px solid #22cbd3; border-radius:7px; background:linear-gradient(100deg,#0d72e8,#13cbd7); color:#fff; font:inherit; font-size:8px; font-weight:850; cursor:pointer; }.symbol-selection-preview button:disabled { border-color:rgba(136,177,190,.25); background:rgba(85,117,131,.22); color:#97acb5; }
 .scan-result-actions { display:flex; align-items:center; gap:8px; }.scan-result-actions > button { min-height:29px; padding:0 9px; border:1px solid #24546e; border-radius:7px; background:#092235; color:#9fdde4; font:inherit; font-size:8px; font-weight:850; cursor:pointer; }.scan-result-actions > button:hover { border-color:#20dce4; color:#dffcff; }.scan-focus-meta { display:flex; align-items:center; justify-content:space-between; gap:10px; margin:-4px 0 12px; padding:9px 10px; border:1px solid rgba(25,220,228,.22); border-radius:8px; background:rgba(8,62,84,.25); }.scan-focus-meta b { color:#bdeff2; font-size:9px; }.scan-focus-meta span { color:#779cb0; font-size:8px; }.scan-summary.is-focus { position:fixed; z-index:70; inset:18px; margin:0; overflow:auto; padding:24px; border:1px solid #218ba7; border-radius:16px; background:#050f1a; box-shadow:0 30px 100px rgba(0,0,0,.72); }.scan-summary.is-focus .scan-result-table-wrap { max-height:calc(100vh - 260px); }
 .dashboard > p:not([role="alert"]) { color: var(--muted); font-size: 10px; }
-.account-status-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
-.account-status-row .account-email { margin: 0; }
-.consent-pill { display: inline-flex; align-items: center; min-height: 28px; padding: 0 9px; border: 1px solid rgba(255,155,155,.16); border-radius: 999px; background: rgba(255,155,155,.045); color: #c18f8f; font-size: 8px; font-weight: 800; letter-spacing: .04em; }
-.consent-pill.is-current { border-color: rgba(96,226,180,.16); background: rgba(96,226,180,.045); color: #8fc4b2; }
 .scan-summary { padding-top: 4px; }
 .scan-summary .scan-metrics { grid-template-columns: repeat(3, minmax(0,1fr)); }
 .roadmap article > a { color: #91c9b6; font-size: 8px; font-weight: 850; letter-spacing: .08em; text-decoration: none; }
@@ -77,7 +73,6 @@
   .detail-page, .projection-page, .performance-page, .strategy-page, .account-page, .admin-quality-page { padding-left: 28px; padding-right: 28px; }
 }
 @media (max-width: 600px) {
-  .account-status-row { align-items: flex-start; flex-direction: column; }
   .scan-summary .scan-metrics { grid-template-columns: 1fr; }
   .roadmap article > a { grid-column: 2; justify-self: start; }
   .detail-page, .projection-page, .performance-page, .strategy-page, .account-page, .admin-quality-page { padding-right: 14px; padding-left: 14px; }
@@ -88,7 +83,6 @@
   .home-scan-banner { align-items: flex-start; flex-direction: column; }.home-scan-banner .primary { width: 100%; }
   .symbol-search-form { grid-template-columns:1fr; }.symbol-search-form button { width:100%; }.symbol-selection-preview { align-items:flex-start; flex-direction:column; }.symbol-selection-preview button { width:100%; }.scan-result-actions { align-items:flex-end; flex-direction:column; }.scan-summary.is-focus { inset:7px; padding:14px; border-radius:11px; }.scan-focus-meta { align-items:flex-start; flex-direction:column; }
 }
-
 
 
 
