@@ -69,11 +69,11 @@ def test_market_center_hero_uses_the_real_izfin_mark_instead_of_plain_iz_text():
     shared = (ROOT / "web" / "components" / "izfin-brand-mark.tsx").read_text(encoding="utf-8")
     css = (ROOT / "web" / "app" / "brand-scan-visibility.css").read_text(encoding="utf-8")
 
-    assert "IzfinBrandMark" in home
-    assert 'className="home-decision-brand-mark"' in home
+    assert '<IzfinBrandMark decorative priority />' in home
     assert 'src="/brand/izfin-logo.png"' in shared
     assert '<span aria-hidden="true">IZ</span>' not in home
     assert ".izfin-brand-mark" in css
+    assert ".home-decision-brand-mark" not in css
     assert "border-radius: 50%" in css
     assert "justify-content: center" in css
     assert "align-items: center" in css
