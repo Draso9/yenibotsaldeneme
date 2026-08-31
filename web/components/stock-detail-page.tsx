@@ -93,7 +93,7 @@ export function StockDetailPage({ jobId, ticker }: Readonly<{ jobId: string; tic
           <span><b>{text(detail.score.nihai)}</b> Gelişmiş Skor</span>
         </div>
         <a className="projection-cta" href={projectionHref(jobId, normalizedTicker)}>45G projeksiyon senaryosunu aç →</a>
-        <p className="detail-note"><b>Odak</b> · Karar Motoru işlem yönünü merkezde tutar. Bu ekran yalnızca skorun nedenlerini, teknik göstergeleri, trend/momentumu, seviyeleri ve teknik planı ayrıntılandırır.</p>
+        <p className="detail-note"><b>Odak</b> · Bu ekran Karar Motoru'nu tekrar etmez; işlem yönünü merkezde tutan Karar Motoru yerine skorun nedenlerini, teknik göstergeleri, trend/momentumu, seviyeleri ve teknik planı ayrıntılandırır.</p>
       </>}
     </div>
 
