@@ -25,12 +25,14 @@ def test_sidebar_and_market_center_share_the_same_izfin_brand_mark_component():
 
 def test_scan_table_keeps_peg_and_after_hours_visible_in_normal_desktop_mode():
     workspace = _read("web/components/scan-workspace.tsx")
-    css = _read("web/app/globals.css")
+    css = _read("web/app/brand-scan-visibility.css")
+    layout = _read("web/app/layout.tsx")
 
     assert '"PEG / Değerleme"' in workspace
     assert '"Seans Dışı"' in workspace
+    assert 'import "./brand-scan-visibility.css";' in layout
     assert "table-layout: fixed" in css
-    assert "min-width: 1060px" not in css
+    assert "min-width: 0" in css
     assert ".scan-result-table th:nth-child(10)" in css
     assert ".scan-result-table th:nth-child(11)" in css
     assert "white-space: normal" in css
