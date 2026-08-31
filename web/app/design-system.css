@@ -1,0 +1,240 @@
+/* Checkpoint 5: incremental IZFIN design-system layer.
+   Loaded last so touched surfaces converge without a repo-wide CSS rewrite. */
+:root {
+  --iz-bg: #050b14;
+  --iz-bg-elevated: #071522;
+  --iz-surface: #08131f;
+  --iz-surface-raised: #0b1826;
+  --iz-line: #153047;
+  --iz-text: #edf7ff;
+  --iz-text-soft: #c8d7e3;
+  --iz-positive: #20e69a;
+  --iz-warning: #f6bd4b;
+  --iz-risk: #ff5c6c;
+  --iz-info: #1689ff;
+  --iz-page-title: clamp(30px, 3.6vw, 44px);
+  --iz-section-title: clamp(20px, 2.2vw, 28px);
+  --iz-body-size: 14px;
+  --iz-label-size: 11px;
+  --iz-card-padding: clamp(18px, 2vw, 24px);
+  --iz-card-radius: 16px;
+  --iz-focus-ring: 0 0 0 3px rgba(25, 220, 228, .26);
+}
+
+body {
+  background-color: var(--iz-bg);
+  color: var(--iz-text);
+  font-size: var(--iz-body-size);
+}
+
+a:focus-visible,
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+summary:focus-visible {
+  outline: 2px solid var(--iz-accent, #19dce4);
+  outline-offset: 3px;
+  box-shadow: var(--iz-focus-ring);
+}
+
+/* Canonical type hierarchy for primary product surfaces. */
+.home-decision-hero h1,
+.scan-command-copy h1,
+.detail-hero h1,
+.auth-gate-card h1,
+.legal-public-card h1 {
+  font-size: var(--iz-page-title);
+  line-height: 1.04;
+}
+
+.section-heading h2,
+.dashboard h2,
+.scan-workspace h2,
+.scan-control-card h3,
+.detail-technical-heading h2,
+.market-decision-head h3 {
+  font-size: var(--iz-section-title);
+  line-height: 1.15;
+}
+
+.home-decision-hero p,
+.scan-command-copy p,
+.scan-control-card > p:not(.eyebrow),
+.detail-note,
+.detail-status,
+.detail-score-explanation p,
+.detail-score-explanation small,
+.detail-score-driver li,
+.detail-score-driver p,
+.detail-score-reading p,
+.detail-technical-metrics span,
+.detail-technical-sections li,
+.detail-technical-sections p,
+.detail-algorithm-comment p,
+.auth-gate-card > p:not(.eyebrow),
+.legal-public-card > p,
+.market-system-comment p,
+.market-focus-card > p,
+.market-disclosure {
+  font-size: var(--iz-body-size);
+  line-height: 1.6;
+}
+
+/* Remove unreadable 7–8px product microcopy from the touched primary surfaces. */
+.brand-copy span,
+.nav-label,
+.environment-chip,
+.api-chip,
+.system-card-head span,
+.hero-kicker,
+.eyebrow,
+.market-decision-kpis > span,
+.market-decision-kpis small,
+.market-factor-grid span,
+.market-system-comment span,
+.subsection-title span,
+.subsection-title b,
+.market-signal-head,
+.market-focus-signal,
+.focus-kv span,
+.market-decision-context > span,
+.market-mover-table > div,
+.market-disclosure,
+.detail-score-metrics span,
+.detail-score-breakdown > summary small,
+.score-band,
+.detail-technical-metrics small,
+.detail-targets span {
+  font-size: var(--iz-label-size);
+  line-height: 1.35;
+}
+
+.sidebar nav a,
+.sidebar-meta,
+.sidebar-user,
+.system-line,
+.topbar-title b,
+.scan-path,
+.scan-profile-label,
+.symbol-search-form label,
+.scan-watchlist-form label,
+.detail-path > span,
+.detail-back,
+.detail-kv span,
+.detail-kv strong,
+.detail-score-group strong,
+.detail-score-group ul,
+.detail-score-group p,
+.detail-score-breakdown > summary em,
+.detail-score-driver strong,
+.detail-score-reading b,
+.detail-technical-heading > span,
+.detail-technical h3,
+.detail-technical-rows span,
+.detail-technical-rows b,
+.detail-targets small,
+.detail-algorithm-comment b,
+.auth-gate-actions button,
+.auth-gate-legal-links a,
+.legal-public-back,
+.auth-gate-check,
+.auth-gate-message,
+.legal-public-brand small,
+.legal-public-head span,
+.market-center-state,
+.market-center-panel [role="alert"],
+.market-decision-head small,
+.market-mode-badge,
+.market-signal-row,
+.market-focus-card .market-focus-signal,
+.focus-kv b,
+.market-decision-context p,
+.market-decision-context b,
+.market-mover-table > a {
+  font-size: 12px;
+}
+
+/* One asset, one circular ring treatment; size changes only by context. */
+.sidebar .izfin-brand-mark {
+  --izfin-mark-size: 54px;
+  flex: 0 0 var(--izfin-mark-size);
+}
+
+.home-decision-hero .izfin-brand-mark,
+.auth-gate-card > .izfin-brand-mark,
+.legal-public-brand .izfin-brand-mark {
+  --izfin-mark-size: 88px;
+}
+
+.izfin-brand-mark {
+  border-color: var(--iz-accent, #19dce4);
+  border-radius: 50%;
+}
+
+/* Shared card geometry and semantic surface tokens for touched high-value cards. */
+.market-center-panel,
+.market-signals,
+.market-focus-card,
+.scan-control-card,
+.scan-decision-card,
+.detail-section,
+.auth-gate-card,
+.legal-public-card {
+  border-color: var(--iz-line);
+  border-radius: var(--iz-card-radius);
+  background-color: var(--iz-surface-raised);
+}
+
+.market-center-panel,
+.scan-control-card,
+.detail-section,
+.auth-gate-card,
+.legal-public-card {
+  padding: var(--iz-card-padding);
+}
+
+.market-signals,
+.market-focus-card {
+  padding: calc(var(--iz-card-padding) * .75);
+}
+
+.scan-decision-card {
+  padding: clamp(22px, 3vw, 36px);
+}
+
+/* State meaning is never color-only: existing textual labels remain prominent. */
+.market-mode-badge,
+.score-band,
+.scan-decision-verdict strong,
+.scan-decision-kpis strong {
+  font-weight: 850;
+}
+
+.market-mode-badge.is-positive,
+.market-mode-badge.is-bullish,
+.market-mode-badge.is-pozitif,
+.score-band.is-positive,
+.score-band.is-strong,
+.score-band.is-very-strong {
+  color: var(--iz-positive);
+}
+
+.detail-technical .is-warning,
+.score-band.is-balanced {
+  color: var(--iz-warning);
+}
+
+.market-mode-badge.is-negative,
+.market-mode-badge.is-bearish,
+.market-mode-badge.is-negatif,
+.score-band.is-penalized,
+.score-band.is-weak,
+.detail-technical .is-negative {
+  color: var(--iz-risk);
+}
+
+.api-chip,
+.market-mode-badge {
+  border-color: color-mix(in srgb, var(--iz-info) 32%, transparent);
+}

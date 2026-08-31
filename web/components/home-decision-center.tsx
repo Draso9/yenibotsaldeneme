@@ -36,7 +36,7 @@ export function HomeDecisionCenter() {
 
   return <section className="home-decision" aria-label="IZFIN karar merkezi">
     <div className="home-decision-hero">
-      <div><p className="eyebrow">IZFIN SIGNATURE COMMAND CENTER</p><h1>IZFIN Piyasa Merkezi</h1><p>Son taramanın karar dağılımını, piyasa modunu ve en güçlü setup’ı tek bakışta gör.</p></div>
+      <div><p className="eyebrow">IZFIN SIGNATURE COMMAND CENTER</p><h1>Piyasa Merkezi</h1><p>Son taramanın karar dağılımını, piyasa modunu ve en güçlü setup’ı tek bakışta gör.</p></div>
       <IzfinBrandMark decorative priority />
     </div>
     {!user && <div className="home-decision-empty"><p className="eyebrow">IZFIN KARAR MERKEZİ</p><h2>Giriş yaptıktan sonra ilk taramanı başlat</h2><p>Karar dağılımı, piyasa modu ve öne çıkan setup bu alanda oluşacak.</p><a className="primary" href="/auth?next=/scan">Giriş yap →</a></div>}
