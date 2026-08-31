@@ -1,4 +1,4 @@
-/* Shared IZFIN mark: hero and sidebar use one visual source; only size changes. */
+/* Shared IZFIN mark: every surface uses this exact geometry and treatment. */
 .izfin-brand-mark {
   --izfin-mark-size: 88px;
   --izfin-mark-ring: #39d9e8;
@@ -21,9 +21,8 @@
   height: 100%;
   border-radius: 50%;
   object-fit: contain;
+  box-shadow: none;
 }
-.home-decision-brand-mark { --izfin-mark-size: 88px; }
-.sidebar-brand-mark { --izfin-mark-size: 52px; }
 
 /* Desktop scan result: keep all eleven columns visible without focus mode. */
 .scan-result-table {
@@ -60,11 +59,6 @@
 .scan-result-table td:nth-child(7),
 .scan-result-table td:nth-child(8),
 .scan-result-table td:nth-child(11) { white-space: nowrap; }
-
-@media (max-width: 900px) {
-  .home-decision-brand-mark { --izfin-mark-size: 68px; }
-  .sidebar-brand-mark { --izfin-mark-size: 44px; }
-}
 
 @media (max-width: 860px) {
   .scan-result-table {
