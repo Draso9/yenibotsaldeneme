@@ -17,6 +17,8 @@ const shape: BacktestResponse = {
   },
   summary: [{ Sinyal: "AL 🟢", "Örnek": 1 }],
   detail: [{ Tarih: "2026-01-02", Sinyal: "AL 🟢" }],
+  summary_formats: { "Ort. İşlem %": "{:+.2f}%" },
+  detail_formats: { Giriş: "{:.2f}" },
   ambiguity_count: 0,
   ambiguity_message: null,
   detail_explanation: "detay",

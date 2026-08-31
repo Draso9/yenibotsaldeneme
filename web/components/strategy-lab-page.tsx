@@ -8,7 +8,9 @@ import {
   type BacktestResponse,
   type BacktestSymbolSuggestion,
 } from "../lib/backtest";
+import { formatBacktestValue, readStrategyTicker, writeStrategyTicker } from "../lib/backtest-format.mjs";
 import { useIzfinAuth } from "./auth-provider";
+import { StrategyDisclosure } from "./strategy-disclosure";
 
 const PERIODS: BacktestPeriod[] = ["3y", "5y", "10y"];
 const SUMMARY_COLUMNS = ["Sinyal", "Örnek", "İşlem Başarı %", "Ort. İşlem %", "TP1 İlk %", "Stop İlk %", "20G Kârda %", "20G Ort. %", "45G Kârda %", "45G Ort. %"];
@@ -29,6 +31,7 @@ function valueClass(column: string, value: unknown): string {
 
 export function StrategyLabPage() {
   const { loading: authLoading, user, getIdToken } = useIzfinAuth();
+  const userId = user?.uid ?? "";
   const [ticker, setTicker] = useState("");
   const [period, setPeriod] = useState<BacktestPeriod>("5y");
   const [result, setResult] = useState<BacktestResponse | null>(null);
@@ -37,6 +40,14 @@ export function StrategyLabPage() {
   const [suggestions, setSuggestions] = useState<BacktestSymbolSuggestion[]>([]);
   const [searching, setSearching] = useState(false);
   const [selectedSymbol, setSelectedSymbol] = useState("");
+
+  useEffect(() => {
+    const restored = userId ? readStrategyTicker(window.sessionStorage, userId) : "";
+    setTicker(restored);
+    setSelectedSymbol(restored);
+    setResult(null);
+    setError("");
+  }, [userId]);
 
   useEffect(() => {
     const query = ticker.trim();
@@ -74,10 +85,15 @@ export function StrategyLabPage() {
       setError("Backtest için bir sembol girin.");
       return;
     }
+    if (!user) {
+      setError("Güvenli oturum hazırlanamadı.");
+      return;
+    }
     setRunning(true);
     setError("");
     setResult(null);
     setSuggestions([]);
+    writeStrategyTicker(window.sessionStorage, userId, normalized);
     try {
       const token = await getIdToken();
       if (!token) {
@@ -98,6 +114,7 @@ export function StrategyLabPage() {
     setSelectedSymbol(symbol);
     setSuggestions([]);
     setError("");
+    if (userId) writeStrategyTicker(window.sessionStorage, userId, symbol);
   }
 
   function beginNewRun() {
@@ -177,24 +194,25 @@ export function StrategyLabPage() {
 
         {result.ambiguity_count > 0 && result.ambiguity_message && <section className="strategy-panel strategy-warning"><b>MUHAFAZAKÂR SIRALAMA</b><p>{result.ambiguity_message}</p></section>}
 
-        <StrategyTable title="Merkezi karar türlerine göre özet" eyebrow="KARAR TİPLERİ" rows={result.summary} columns={SUMMARY_COLUMNS} />
-        <StrategyTable title="Geçmiş test işlemleri" eyebrow="İŞLEM DETAYI" rows={result.detail} columns={DETAIL_COLUMNS} wide />
-
-        <section className="strategy-panel strategy-methodology">
-          <div><p className="eyebrow">SONUÇ KAPSAMI</p><h2>Backtest nasıl okunmalı?</h2><p><b>Sonuç kapsamı</b> · {result.detail_explanation}</p></div>
+        <StrategyTable title="Merkezi karar türlerine göre özet" eyebrow="KARAR TİPLERİ" rows={result.summary} columns={SUMMARY_COLUMNS} formats={result.summary_formats} />
+        <StrategyDisclosure label="Geçmiş IZFIN kararlarını incele" count={result.detail.length}>
+          <StrategyTable title="Geçmiş test işlemleri" eyebrow="İŞLEM DETAYI" rows={result.detail} columns={DETAIL_COLUMNS} formats={result.detail_formats} wide />
+          <p className="strategy-detail-explanation"><b>Sonuç kapsamı</b> · {result.detail_explanation}</p>
+        </StrategyDisclosure>
+        <StrategyDisclosure label="Backtest sonuçları nasıl okunur?">
           <div className="strategy-notes">{result.reading_notes.split("\n").filter(Boolean).map((line, index) => <p key={index}>{line}</p>)}</div>
-        </section>
+        </StrategyDisclosure>
       </>}
     </>}
   </main>;
 }
 
-function StrategyTable({ title, eyebrow, rows, columns, wide = false }: Readonly<{ title: string; eyebrow: string; rows: Array<Record<string, unknown>>; columns: string[]; wide?: boolean }>) {
+function StrategyTable({ title, eyebrow, rows, columns, formats, wide = false }: Readonly<{ title: string; eyebrow: string; rows: Array<Record<string, unknown>>; columns: string[]; formats: Record<string, string>; wide?: boolean }>) {
   return <section className="strategy-panel strategy-table-card">
     <div className="strategy-section-head"><div><p className="eyebrow">{eyebrow}</p><h2>{title}</h2></div><span>{rows.length} satır</span></div>
     {rows.length === 0 ? <p className="strategy-table-empty">Gösterilecek sonuç bulunamadı.</p> : <div className="strategy-table-scroll"><table className={`strategy-table${wide ? " strategy-table-wide" : ""}`}>
       <thead><tr>{columns.map((column) => <th key={column}>{column}</th>)}</tr></thead>
-      <tbody>{rows.map((row, rowIndex) => <tr key={rowIndex}>{columns.map((column) => <td className={valueClass(column, row[column])} key={column}>{column === "Sinyal" || column === "Varlık" ? <b>{text(row[column])}</b> : text(row[column])}</td>)}</tr>)}</tbody>
+      <tbody>{rows.map((row, rowIndex) => <tr key={rowIndex}>{columns.map((column) => <td className={valueClass(column, row[column])} key={column}>{column === "Sinyal" || column === "Varlık" ? <b>{formatBacktestValue(column, row[column], formats)}</b> : formatBacktestValue(column, row[column], formats)}</td>)}</tr>)}</tbody>
     </table></div>}
   </section>;
 }

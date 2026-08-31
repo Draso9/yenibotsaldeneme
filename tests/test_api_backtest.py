@@ -16,6 +16,8 @@ def _client(monkeypatch):
             "kpis": {"birincil": [{"label": "Bağımsız Test İşlemi", "value": "1"}], "ikincil": [], "belirsiz": 0, "belirsizlik_mesaji": None},
             "summary": [{"Sinyal": "AL 🟢", "Örnek": 1}],
             "detail": [{"Tarih": "2026-01-02", "Sinyal": "AL 🟢"}],
+            "summary_formats": {"Ort. İşlem %": "{:+.2f}%"},
+            "detail_formats": {"Giriş": "{:.2f}"},
             "ambiguity_count": 0,
             "ambiguity_message": None,
             "detail_explanation": "detay",
@@ -47,6 +49,8 @@ def test_backtest_run_returns_native_package_for_authenticated_user(monkeypatch)
     assert body["period"] == "5y"
     assert body["empty"] is False
     assert body["summary"][0]["Sinyal"] == "AL 🟢"
+    assert body["summary_formats"] == {"Ort. İşlem %": "{:+.2f}%"}
+    assert body["detail_formats"] == {"Giriş": "{:.2f}"}
 
 
 def test_backtest_run_rejects_unsupported_period(monkeypatch):

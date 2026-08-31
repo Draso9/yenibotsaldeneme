@@ -22,6 +22,8 @@ export type BacktestResponse = {
   kpis: BacktestKpis;
   summary: Array<Record<string, unknown>>;
   detail: Array<Record<string, unknown>>;
+  summary_formats: Record<string, string>;
+  detail_formats: Record<string, string>;
   ambiguity_count: number;
   ambiguity_message: string | null;
   detail_explanation: string;

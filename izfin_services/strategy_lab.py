@@ -77,6 +77,8 @@ def strateji_backtest_paketi_hazirla(
         "kpis": _json_ready(kpis),
         "summary": _records(result["ozet"]),
         "detail": _records(result["detay"]),
+        "summary_formats": _json_ready(result["ozet_format"]),
+        "detail_formats": _json_ready(result["detay_format"]),
         "ambiguity_count": int(kpis.get("belirsiz", 0) or 0),
         "ambiguity_message": kpis.get("belirsizlik_mesaji"),
         "detail_explanation": str(result["detay_aciklama"]),
