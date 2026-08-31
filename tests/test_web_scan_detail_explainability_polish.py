@@ -66,13 +66,14 @@ def test_usage_guide_is_route_scoped_instead_of_repeating_the_same_guide_everywh
 
 def test_market_center_hero_uses_the_real_izfin_mark_instead_of_plain_iz_text():
     home = (ROOT / "web" / "components" / "home-decision-center.tsx").read_text(encoding="utf-8")
-    css = (ROOT / "web" / "app" / "market-center.css").read_text(encoding="utf-8")
+    shared = (ROOT / "web" / "components" / "izfin-brand-mark.tsx").read_text(encoding="utf-8")
+    css = (ROOT / "web" / "app" / "brand-scan-visibility.css").read_text(encoding="utf-8")
 
-    assert 'import Image from "next/image";' in home
-    assert 'src="/brand/izfin-logo.png"' in home
+    assert "IzfinBrandMark" in home
     assert 'className="home-decision-brand-mark"' in home
+    assert 'src="/brand/izfin-logo.png"' in shared
     assert '<span aria-hidden="true">IZ</span>' not in home
-    assert ".home-decision-brand-mark" in css
+    assert ".izfin-brand-mark" in css
     assert "border-radius: 50%" in css
     assert "justify-content: center" in css
     assert "align-items: center" in css

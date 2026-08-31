@@ -1,0 +1,74 @@
+/* Shared IZFIN mark: hero and sidebar use one visual source; only size changes. */
+.izfin-brand-mark {
+  --izfin-mark-size: 88px;
+  width: var(--izfin-mark-size);
+  height: var(--izfin-mark-size);
+  flex: 0 0 var(--izfin-mark-size);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px;
+  border: 3px solid rgba(96,226,180,.34);
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(96,226,180,.08), rgba(7,15,22,.92) 70%);
+  box-shadow: inset 0 0 0 1px rgba(100,168,255,.12), 0 0 28px rgba(38,141,241,.08);
+  overflow: hidden;
+}
+.izfin-brand-mark img {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  object-fit: contain;
+}
+.home-decision-brand-mark { --izfin-mark-size: 88px; }
+.sidebar-brand-mark { --izfin-mark-size: 52px; }
+
+/* Desktop scan result: keep all eleven columns visible without focus mode. */
+.scan-result-table {
+  min-width: 0;
+  table-layout: fixed;
+}
+.scan-result-table th button {
+  min-height: 42px;
+  padding: 7px 5px;
+  line-height: 1.25;
+  white-space: normal;
+}
+.scan-result-table td {
+  padding: 8px 5px;
+  line-height: 1.35;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+.scan-result-table th:nth-child(1), .scan-result-table td:nth-child(1) { width: 7.5%; }
+.scan-result-table th:nth-child(2), .scan-result-table td:nth-child(2) { width: 7%; }
+.scan-result-table th:nth-child(3), .scan-result-table td:nth-child(3) { width: 13.5%; }
+.scan-result-table th:nth-child(4), .scan-result-table td:nth-child(4) { width: 9%; }
+.scan-result-table th:nth-child(5), .scan-result-table td:nth-child(5) { width: 7%; }
+.scan-result-table th:nth-child(6), .scan-result-table td:nth-child(6) { width: 10.5%; }
+.scan-result-table th:nth-child(7), .scan-result-table td:nth-child(7) { width: 8%; }
+.scan-result-table th:nth-child(8), .scan-result-table td:nth-child(8) { width: 7%; }
+.scan-result-table th:nth-child(9), .scan-result-table td:nth-child(9) { width: 9%; }
+.scan-result-table th:nth-child(10), .scan-result-table td:nth-child(10) { width: 12.5%; }
+.scan-result-table th:nth-child(11), .scan-result-table td:nth-child(11) { width: 9%; }
+.scan-result-table td:nth-child(1),
+.scan-result-table td:nth-child(2),
+.scan-result-table td:nth-child(4),
+.scan-result-table td:nth-child(5),
+.scan-result-table td:nth-child(7),
+.scan-result-table td:nth-child(8),
+.scan-result-table td:nth-child(11) { white-space: nowrap; }
+
+@media (max-width: 900px) {
+  .home-decision-brand-mark { --izfin-mark-size: 68px; }
+  .sidebar-brand-mark { --izfin-mark-size: 44px; }
+}
+
+@media (max-width: 860px) {
+  .scan-result-table {
+    min-width: 980px;
+    table-layout: auto;
+  }
+  .scan-result-table th button,
+  .scan-result-table td { white-space: nowrap; }
+}

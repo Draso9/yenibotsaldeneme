@@ -1,11 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { fetchAdminQuality } from "../lib/admin-quality";
 import { fetchSystemReadiness } from "../lib/system-health";
 import { useIzfinAuth } from "./auth-provider";
+import { IzfinBrandMark } from "./izfin-brand-mark";
 import { UsageGuide } from "./usage-guide";
 
 const navItems = [
@@ -95,7 +95,7 @@ export function AppShell({ children }: Readonly<{ children: React.ReactNode }>) 
     <a className="skip-link" href="#main-content">Ana içeriğe geç</a>
     <aside className="sidebar">
       <div className="brand">
-        <div className="brand-mark"><Image alt="IZFIN" height={44} priority src="/brand/izfin-logo.png" width={44} /></div>
+        <IzfinBrandMark className="sidebar-brand-mark" imageSize={52} priority />
         <div className="brand-copy"><b>IZFIN</b><span>ANALYZE · PREDICT · INVEST</span></div>
       </div>
       <div className="nav-label">ÇALIŞMA ALANI</div>
