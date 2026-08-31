@@ -60,7 +60,29 @@ Do not reintroduce `Akıllı BIST Analizi`.
 
 ## 4. Current Checkpoint
 
-# ACCOUNT / ADMIN STREAMLIT PARITY — IMPLEMENTED, LIVE ACCEPTANCE PENDING
+# WEB COMPLETION PROGRAM — APPROVED, CHECKPOINT 1 READY
+
+The user approved the comprehensive web completion program on 2026-08-31.
+The durable design source is:
+
+`docs/superpowers/specs/2026-08-31-web-completion-program-design.md`
+
+Execution order is locked to seven checkpoint-sized packages:
+
+1. Auth / registration / legal consent safety
+2. Market Center and Performance correctness
+3. Smart Scan state continuity
+4. Information hierarchy and page-specific guides
+5. Streamlit visual system and brand parity
+6. Mobile / responsive close
+7. Admin QA, quality gates, and full release acceptance
+
+The next implementation checkpoint is `fix/auth-legal-consent-gate`.
+Do not touch or absorb unmerged changes from other conversations/worktrees.
+
+## Previous checkpoint
+
+ACCOUNT / ADMIN STREAMLIT PARITY — IMPLEMENTED, LIVE ACCEPTANCE PENDING
 
 The user accepted **Strategy Lab parity for continuation** on 2026-08-31 and explicitly deferred detail polish to the final comprehensive pass.
 
