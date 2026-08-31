@@ -1,16 +1,15 @@
 "use client";
 
-import { sendEmailVerification } from "firebase/auth";
 import { useCallback, useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { acceptLegalConsent, bootstrapAccount, fetchLegalConsent } from "../lib/account";
+import { sendIzfinVerificationEmail } from "../lib/auth-verification";
 import { IzfinBrandMark } from "./izfin-brand-mark";
 import { useIzfinAuth } from "./auth-provider";
 
 type GateState = "checking" | "verification" | "consent" | "error" | "ready";
 
 const VERIFICATION_AUTO_SEND_COOLDOWN_MS = 5 * 60 * 1000;
-const VERIFICATION_RETURN_URL = "https://izfin-web.vercel.app/auth?verified=1";
 
 function verificationDeliveryKey(uid: string): string {
   return `izfin:verification-delivery:${uid}`;
@@ -65,7 +64,7 @@ export function AuthAccessGate({ children }: Readonly<{ children: React.ReactNod
     setVerificationSending(true);
     setMessage("");
     try {
-      await sendEmailVerification(user, { url: VERIFICATION_RETURN_URL });
+      await sendIzfinVerificationEmail(user);
       if (manual) window.sessionStorage.setItem(deliveryKey, String(Date.now()));
       setMessage(manual
         ? "Doğrulama bağlantısı yeniden gönderildi. E-postanı kontrol et."

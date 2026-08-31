@@ -23,9 +23,11 @@ export function ScanDecisionCard({ jobId, detail, tickers, onTickerChange }: Sca
     selectedTicker: sharedSelectedTicker,
     lastVisitedAnalysisRoute,
     setLastVisitedAnalysisRoute,
-    setSelectedTicker,
   } = useAnalysisContext();
   const { decision, action, panel } = detail;
+  const selectorTicker = sharedSelectedTicker && tickers.includes(sharedSelectedTicker)
+    ? sharedSelectedTicker
+    : detail.ticker;
   const levels: Array<[string, unknown]> = [
     ["Destek", panel.destek],
     ["Direnç", panel.direnc],
@@ -46,13 +48,12 @@ export function ScanDecisionCard({ jobId, detail, tickers, onTickerChange }: Sca
     } else if (returningFromDetail) {
       setLastVisitedAnalysisRoute("");
     }
-    setSelectedTicker(detail.ticker);
-  }, [detail.ticker, lastVisitedAnalysisRoute, onTickerChange, setLastVisitedAnalysisRoute, setSelectedTicker, sharedSelectedTicker, tickers]);
+  }, [detail.ticker, lastVisitedAnalysisRoute, onTickerChange, setLastVisitedAnalysisRoute, sharedSelectedTicker, tickers]);
 
   return <section className="scan-decision-card" aria-label={`${detail.ticker} hisse karar motoru`}>
     <div className="scan-decision-selector">
       <label htmlFor="scan-decision-ticker"><span>Karar motorunda gösterilen hisse</span><b>{tickers.length} tarama sonucu arasından seç</b></label>
-      <select id="scan-decision-ticker" value={detail.ticker} onChange={(event) => onTickerChange(event.target.value)}>
+      <select id="scan-decision-ticker" value={selectorTicker} onChange={(event) => onTickerChange(event.target.value)}>
         {tickers.map((symbol) => <option key={symbol} value={symbol}>{symbol}</option>)}
       </select>
     </div>
