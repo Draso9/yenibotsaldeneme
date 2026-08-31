@@ -50,3 +50,11 @@ def test_registration_legal_labels_link_to_public_readable_documents():
     assert "legalTermsPath" in terms_page
     assert "fetchLegalDocument" in privacy_page
     assert "legalPrivacyPath" in privacy_page
+
+
+def test_public_legal_documents_use_public_api_fetch_without_fake_bearer_token():
+    account = _read("web/lib/account.ts")
+
+    assert "izfinPublicApiFetch" in account
+    assert "return izfinPublicApiFetch<LegalDocumentResponse>(path);" in account
+    assert 'izfinApiFetch<LegalDocumentResponse>(path, "")' not in account
