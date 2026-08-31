@@ -9,6 +9,13 @@ import { useIzfinAuth } from "./auth-provider";
 
 type GateState = "checking" | "verification" | "consent" | "error" | "ready";
 
+const VERIFICATION_AUTO_SEND_COOLDOWN_MS = 5 * 60 * 1000;
+const VERIFICATION_RETURN_URL = "https://izfin-web.vercel.app/auth?verified=1";
+
+function verificationDeliveryKey(uid: string): string {
+  return `izfin:verification-delivery:${uid}`;
+}
+
 export function AuthAccessGate({ children }: Readonly<{ children: React.ReactNode }>) {
   const { loading, user, getIdToken, logout } = useIzfinAuth();
   const pathname = usePathname();
@@ -17,6 +24,7 @@ export function AuthAccessGate({ children }: Readonly<{ children: React.ReactNod
   const [termsAccepted, setTermsAccepted] = useState(false);
   const [privacySeen, setPrivacySeen] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [verificationSending, setVerificationSending] = useState(false);
   const [message, setMessage] = useState("");
 
   const checkAccess = useCallback(async () => {
@@ -45,9 +53,38 @@ export function AuthAccessGate({ children }: Readonly<{ children: React.ReactNod
     }
   }, [getIdToken, loading, pathname, router, user]);
 
+  const sendVerification = useCallback(async (manual: boolean) => {
+    if (!user || user.emailVerified || verificationSending) return;
+    const deliveryKey = verificationDeliveryKey(user.uid);
+    if (!manual) {
+      const lastAttempt = Number(window.sessionStorage.getItem(deliveryKey) ?? "0");
+      if (Date.now() - lastAttempt < VERIFICATION_AUTO_SEND_COOLDOWN_MS) return;
+      window.sessionStorage.setItem(deliveryKey, String(Date.now()));
+    }
+
+    setVerificationSending(true);
+    setMessage("");
+    try {
+      await sendEmailVerification(user, { url: VERIFICATION_RETURN_URL });
+      if (manual) window.sessionStorage.setItem(deliveryKey, String(Date.now()));
+      setMessage(manual
+        ? "Doğrulama bağlantısı yeniden gönderildi. E-postanı kontrol et."
+        : "Doğrulama bağlantısı e-posta adresine gönderildi. Gelen kutunu ve spam klasörünü kontrol et.");
+    } catch {
+      setMessage("Doğrulama bağlantısı gönderilemedi. E-postayı Yeniden Gönder düğmesiyle tekrar deneyebilirsin.");
+    } finally {
+      setVerificationSending(false);
+    }
+  }, [user, verificationSending]);
+
   useEffect(() => {
     void checkAccess();
   }, [checkAccess]);
+
+  useEffect(() => {
+    if (state !== "verification" || !user || user.emailVerified) return;
+    void sendVerification(false);
+  }, [sendVerification, state, user]);
 
   async function handleLogout() {
     if (busy) return;
@@ -61,17 +98,7 @@ export function AuthAccessGate({ children }: Readonly<{ children: React.ReactNod
   }
 
   async function resendVerification() {
-    if (!user || busy) return;
-    setBusy(true);
-    setMessage("");
-    try {
-      await sendEmailVerification(user);
-      setMessage("Doğrulama bağlantısı yeniden gönderildi. E-postanı kontrol et.");
-    } catch {
-      setMessage("Doğrulama bağlantısı gönderilemedi. Biraz sonra tekrar deneyebilirsin.");
-    } finally {
-      setBusy(false);
-    }
+    await sendVerification(true);
   }
 
   async function recheckVerification() {
@@ -114,12 +141,12 @@ export function AuthAccessGate({ children }: Readonly<{ children: React.ReactNod
   }
 
   if (state === "verification") {
-    return <GateFrame title="E-posta doğrulaması gerekli" text="Şifreyle oluşturulan hesabınla devam etmeden önce e-posta adresini doğrulamalısın.">
+    return <GateFrame title="E-posta doğrulaması gerekli" text="Şifreyle oluşturulan hesabınla devam etmeden önce e-posta adresini doğrulamalısın. Doğrulama bağlantısı bu ekrana geldiğinde otomatik gönderilir.">
       {message ? <p className="auth-gate-message" role="status">{message}</p> : null}
       <div className="auth-gate-actions">
-        <button disabled={busy} onClick={() => void recheckVerification()} type="button">Doğrulamayı Kontrol Et</button>
-        <button className="secondary" disabled={busy} onClick={() => void resendVerification()} type="button">E-postayı Yeniden Gönder</button>
-        <button className="text" disabled={busy} onClick={() => void handleLogout()} type="button">Çıkış Yap</button>
+        <button disabled={busy || verificationSending} onClick={() => void recheckVerification()} type="button">Doğrulamayı Kontrol Et</button>
+        <button className="secondary" disabled={busy || verificationSending} onClick={() => void resendVerification()} type="button">{verificationSending ? "Gönderiliyor…" : "E-postayı Yeniden Gönder"}</button>
+        <button className="text" disabled={busy || verificationSending} onClick={() => void handleLogout()} type="button">Çıkış Yap</button>
       </div>
     </GateFrame>;
   }
