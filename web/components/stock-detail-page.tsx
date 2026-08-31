@@ -138,7 +138,7 @@ function ScoreBreakdown({ score }: Readonly<{ score: Record<string, unknown> }>)
       </section>
     </div>
     <div className="detail-score-group">
-      <strong>Eski skorun temel teknik kalemleri</strong>
+      <strong>Skorun temel teknik kalemleri</strong>
       {baseItems.length ? <ul>{baseItems.map((item, index) => <li key={index}>{text(item.metin)}</li>)}</ul> : <p>Ek temel skor kalemi oluşmadı.</p>}
     </div>
     <div className="detail-score-reading"><b>{interpretation.label} ne demek?</b><p>{interpretation.meaning} İşlem yönünün merkezi kaynağı Akıllı Tarama'daki Hisseye Özel Karar Motoru olarak kalır.</p></div>
