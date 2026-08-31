@@ -11,6 +11,7 @@ class FakeAccountRepository:
         self.profile_updates = []
         self.export_requests = []
         self.watchlist_updates = []
+        self.watchlist = {}
 
     def get_profile(self, uid):
         assert uid == "uid-1"
@@ -23,10 +24,16 @@ class FakeAccountRepository:
         self.profile.update(data)
 
     def get_primary_and_legacy_watchlists(self, _primary_id, _legacy_id=None):
-        return {"primary_exists": False, "primary_data": {}, "legacy_exists": False, "legacy_data": {}}
+        return {
+            "primary_exists": bool(self.watchlist),
+            "primary_data": self.watchlist.copy(),
+            "legacy_exists": False,
+            "legacy_data": {},
+        }
 
     def upsert_watchlist(self, document_id, data, *, merge=True):
         self.watchlist_updates.append((document_id, data.copy(), merge))
+        self.watchlist.update(data)
 
     def collect_user_documents(self, uid, email):
         self.export_requests.append((uid, email))
@@ -74,7 +81,7 @@ def test_profile_uses_authenticated_identity_when_stored_profile_is_empty():
     }
 
 
-def test_authenticated_signup_bootstrap_creates_existing_izfin_profile_and_list_once():
+def test_authenticated_signup_bootstrap_creates_profile_and_list_without_implicit_consent_once():
     repository = FakeAccountRepository()
     client = _client(repository)
     headers = {"Authorization": "Bearer firebase-id-token"}
@@ -84,7 +91,8 @@ def test_authenticated_signup_bootstrap_creates_existing_izfin_profile_and_list_
 
     assert first.status_code == 200
     assert first.json()["profile"]["email"] == "user@example.com"
-    assert first.json()["profile"]["terms_version"] == "terms-v1"
+    assert first.json()["profile"]["terms_version"] is None
+    assert first.json()["profile"]["privacy_notice_version"] is None
     assert len(repository.profile_updates) == 1
     assert len(repository.watchlist_updates) == 1
     assert second.json()["profile"] == first.json()["profile"]
