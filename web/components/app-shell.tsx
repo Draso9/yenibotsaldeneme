@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { fetchAdminQuality } from "../lib/admin-quality";
 import { fetchSystemReadiness } from "../lib/system-health";
 import { useIzfinAuth } from "./auth-provider";
@@ -28,10 +28,12 @@ const systemCopy: Record<SystemState, { system: string; api: string }> = {
 };
 
 export function AppShell({ children }: Readonly<{ children: React.ReactNode }>) {
-  const { user, loading, getIdToken } = useIzfinAuth();
+  const { user, loading, getIdToken, logout } = useIzfinAuth();
   const pathname = usePathname();
+  const router = useRouter();
   const [isAdmin, setIsAdmin] = useState(false);
   const [systemState, setSystemState] = useState<SystemState>("checking");
+  const [logoutBusy, setLogoutBusy] = useState(false);
 
   useEffect(() => {
     if (pathname.startsWith("/auth")) return;
@@ -70,6 +72,17 @@ export function AppShell({ children }: Readonly<{ children: React.ReactNode }>) 
     })();
     return () => { active = false; };
   }, [getIdToken, loading, user]);
+
+  async function handleLogout() {
+    if (logoutBusy) return;
+    setLogoutBusy(true);
+    try {
+      await logout();
+      router.replace("/auth");
+    } finally {
+      setLogoutBusy(false);
+    }
+  }
 
   const pageLabel = pathname.startsWith("/stocks/")
     ? "Detaylı Analiz"
@@ -129,6 +142,9 @@ export function AppShell({ children }: Readonly<{ children: React.ReactNode }>) 
         <div className="system-line" aria-live="polite">{systemState === "ready" ? <span className="live-dot" /> : <span aria-hidden="true">○</span>}<strong>{statusCopy.system}</strong></div>
         <span className="sidebar-meta">FastAPI · Next.js · güvenli oturum</span>
         <span className="sidebar-user">{user?.email ?? "Oturum bekleniyor"}</span>
+        {user ? <button className="sidebar-logout" disabled={logoutBusy} onClick={() => void handleLogout()} type="button">
+          <span aria-hidden="true">↪</span>{logoutBusy ? "Çıkış yapılıyor…" : "Çıkış Yap"}
+        </button> : null}
       </div>
     </aside>
     <div className="app-content" id="main-content" role="main" tabIndex={-1}>

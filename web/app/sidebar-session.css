@@ -1,0 +1,35 @@
+.sidebar-logout {
+  width: 100%;
+  min-height: 38px;
+  margin-top: 11px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border: 1px solid rgba(57, 217, 232, .18);
+  border-radius: 10px;
+  background: rgba(57, 217, 232, .045);
+  color: #9fc5cf;
+  cursor: pointer;
+  font-size: 10px;
+  font-weight: 750;
+  letter-spacing: .02em;
+  transition: border-color .18s ease, background .18s ease, color .18s ease, transform .18s ease;
+}
+
+.sidebar-logout:hover:not(:disabled) {
+  border-color: rgba(57, 217, 232, .38);
+  background: rgba(57, 217, 232, .09);
+  color: #e2f8fb;
+  transform: translateY(-1px);
+}
+
+.sidebar-logout:disabled {
+  cursor: wait;
+  opacity: .58;
+}
+
+.sidebar-logout span {
+  font-size: 14px;
+  line-height: 1;
+}
