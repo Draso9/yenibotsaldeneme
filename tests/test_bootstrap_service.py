@@ -210,6 +210,59 @@ def test_registration_bootstrap_reuses_profile_and_default_watchlist_contract():
         )
 
 
+def test_account_bootstrap_never_records_legal_acceptance_without_explicit_consent():
+    repo = FakeRepository()
+
+    profile = kullanici_kayit_bootstrap_hazirla(
+        repo,
+        uid="uid-google",
+        email="GOOGLE@EXAMPLE.COM",
+        default_tickers=["THYAO.IS"],
+        terms_version="terms-v2",
+        privacy_version="privacy-v2",
+        now_factory=lambda: datetime(2026, 8, 31, 15, 30, 0),
+    )
+
+    assert profile["email"] == "google@example.com"
+    assert "terms_version" not in profile
+    assert "terms_accepted_at" not in profile
+    assert "privacy_notice_version" not in profile
+    assert "privacy_notice_shown_at" not in profile
+
+
+def test_account_bootstrap_retry_completes_missing_watchlist_without_overwriting_profile():
+    repo = FakeRepository(
+        {
+            "primary_exists": False,
+            "primary_data": {},
+            "legacy_exists": False,
+            "legacy_data": {},
+        }
+    )
+    repo.profile = {
+        "uid": "uid-1",
+        "email": "user@example.com",
+        "olusturma_zamani": "2026-08-30T12:00:00",
+    }
+
+    profile = kullanici_kayit_bootstrap_hazirla(
+        repo,
+        uid="uid-1",
+        email="user@example.com",
+        default_tickers=["THYAO.IS", "AKBNK.IS"],
+        terms_version="terms-v2",
+        privacy_version="privacy-v2",
+        now_factory=lambda: datetime(2026, 8, 31, 15, 31, 0),
+    )
+
+    assert profile == repo.profile
+    assert repo.profile_writes == []
+    assert repo.reads == [("uid-1", "user@example.com")]
+    assert repo.writes
+    assert repo.writes[-1][0] == "uid-1"
+    assert repo.writes[-1][1]["tickers"] == ["THYAO.IS", "AKBNK.IS"]
+
+
 def test_logout_state_package_returns_fresh_default_lists_and_expected_pops():
     first = logout_state_paketi(["AAPL", "NVDA"])
     second = logout_state_paketi(["AAPL", "NVDA"])
@@ -218,4 +271,3 @@ def test_logout_state_package_returns_fresh_default_lists_and_expected_pops():
     assert first["pop"] == ("izfin_export_json", "izfin_yasal_onayli")
     first["set"]["custom_tickers"].append("MSFT")
     assert second["set"]["custom_tickers"] == ["AAPL", "NVDA"]
-
