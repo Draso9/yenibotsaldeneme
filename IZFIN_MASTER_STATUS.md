@@ -60,20 +60,21 @@ Do not reintroduce `Akıllı BIST Analizi`.
 
 ## 4. Current Checkpoint
 
-# STRATEGY LAB STREAMLIT PARITY — IMPLEMENTED, LIVE ACCEPTANCE PENDING
+# ACCOUNT / ADMIN STREAMLIT PARITY — IMPLEMENTED, LIVE ACCEPTANCE PENDING
 
-The user live-accepted **Performance full Streamlit parity** on 2026-08-30 and explicitly approved continuing to Strategy Lab.
+The user accepted **Strategy Lab parity for continuation** on 2026-08-31 and explicitly deferred detail polish to the final comprehensive pass.
 
-Strategy Lab now preserves the established Streamlit Daily Core workflow:
+Account/Admin parity now preserves the established Streamlit account and operational boundaries:
 
-- real symbol/company search with direct Yahoo-symbol fallback
-- 3y / 5y / 10y period selection and authenticated backtest execution
-- Python-owned Daily Core calculations, KPI packages, result rows, and display-format maps
-- Streamlit-equivalent percent/sign/precision formatting without moving financial calculations to React
-- visible decision-type summary with historical decision detail and reading notes collapsed by default
-- owner-scoped session recovery for the last selected or submitted ticker
+- profile identity, account creation, last-login, and legal-consent context
+- versioned legal documents, authenticated data export, and irreversible account deletion
+- safe logout and auth transition after successful deletion
+- admin-only navigation and server-side authorization
+- truthful durable readiness boundaries shown separately from static quality metrics
+- release identity and GitHub Actions as the explicit CI source-of-truth
+- removal of the unused duplicate account-center client
 
-Do **not** call Strategy Lab accepted until the user verifies the deployed `develop` journey live.
+Do **not** call Account/Admin accepted until the user verifies the deployed `develop` journey live.
 
 ## 5. User-Reported / Accepted State
 
@@ -119,7 +120,11 @@ Accepted checkpoint includes:
 
 The user reported no issues after checking the deployed Performance screen and approved continuing to Strategy Lab. The final Stage 5 journey will recheck the full flow collectively.
 
-### F. Deferred low-priority scan selection behavior
+### F. Strategy Lab — accepted for continuation 2026-08-31
+
+The user approved continuing after checking the deployed Strategy Lab and explicitly deferred detail polish to the final comprehensive pass.
+
+### G. Deferred low-priority scan selection behavior
 
 When the user leaves Akıllı Tarama and later revisits it, the decision card can still fall back to the first ticker in the result table instead of the previously selected ticker.
 
@@ -175,6 +180,12 @@ Merge commit: `7f38104165de6aac26dc7071021d4de83974fdb0`
 
 Replaced unconditional `API CANLI` / `Sistemler hazır` shell claims with the existing durable readiness endpoint. The global shell now distinguishes checking, ready, degraded, and unavailable states and only shows the green live indicator when durable readiness is actually ready.
 
+### PR #110 — Strategy Lab Streamlit parity
+
+Merge commit: `e7adf7a58ee952e7714118084e989e5f058cc78e`
+
+Restored Python-owned table display formats, collapsed historical disclosures, and owner-scoped last-ticker continuity.
+
 ## 7. Develop Preview
 
 Canonical develop URL:
@@ -191,8 +202,8 @@ Do not change this order without an explicit user decision.
 2. Detaylı Analiz functional parity — live accepted
 3. Projeksiyon full Streamlit parity — live accepted
 4. Performans parity — live accepted
-5. **Strategy Lab parity — current, implementation complete; live acceptance pending**
-6. Account/Admin parity audit
+5. Strategy Lab parity — accepted for continuation; detail polish deferred to final pass
+6. **Account/Admin parity audit — current, implementation complete; live acceptance pending**
 7. Visual parity / responsive Streamlit-to-web translation
 8. Full authenticated user journey / Stage 5 close
 9. Stage 6 Mobile only after Stage 5 is accepted
@@ -312,7 +323,7 @@ Target:
 - explanatory context
 - no fake data
 
-Current state: implementation complete; user live acceptance pending.
+Current state: accepted for continuation 2026-08-31; detail polish deferred to the final comprehensive pass.
 
 ### Account / Admin
 
@@ -322,6 +333,8 @@ Target:
 - safe post-delete transition
 - admin-only System Health / CI / release / readiness
 - common product visual language
+
+Current state: implementation complete; user live acceptance pending.
 
 ## 10. Technical Debt Snapshot
 
@@ -341,8 +354,8 @@ Target:
 
 ### Remaining web product debt
 
-- incomplete Streamlit parity in Account/Admin and the final visual pass
-- Strategy Lab live acceptance still pending
+- Account/Admin live acceptance still pending
+- final visual parity and responsive convergence pass remains
 - generic/stacked CSS convergence layers
 - final authenticated journey still needs one comprehensive acceptance pass
 - some route/context coupling remains until all analysis surfaces use the same shared context consistently
@@ -358,6 +371,9 @@ Target:
 - made global API/system health messaging authoritative instead of static
 - restored Python-owned Strategy Lab display formats instead of rendering raw table numbers
 - restored Streamlit disclosure hierarchy and owner-scoped last-ticker continuity
+- restored account profile history without exposing raw user identifiers
+- separated real runtime readiness from static quality metrics in the admin-only surface
+- removed the unused duplicate account-center client
 
 ### Technical debt policy
 
@@ -390,15 +406,15 @@ Internally, PRs/tests/commits remain required, but they are not the user-facing 
 
 ## 13. Canonical Next Action
 
-**Live-verify Strategy Lab Streamlit parity on Vercel `develop`.**
+**Live-verify Account/Admin parity on Vercel `develop`.**
 
 Acceptance journey:
 
-1. Sign in and open **Strateji Lab** from the application navigation.
-2. Search a real symbol/company, select a suggestion or enter a valid Yahoo symbol directly, then choose 3Y / 5Y / 10Y.
-3. Run the backtest and confirm KPI cards plus the decision-type summary use percent signs, signed returns, and Streamlit-equivalent precision.
-4. Open **Geçmiş IZFIN kararlarını incele** and confirm the detailed table plus result-scope explanation appear.
-5. Open **Backtest sonuçları nasıl okunur?** and confirm the Daily MTF / Giriş Proxy / no-guarantee notes are readable.
-6. Navigate away and return; confirm the last selected/run symbol is restored without automatically rerunning or persisting financial results.
+1. Sign in and open **Hesap** from the application navigation.
+2. Confirm the account summary shows the authenticated email plus available creation and last-login history without exposing a raw UID.
+3. Confirm KVKK and Usage Terms load with their current version labels.
+4. Download the authenticated JSON export and confirm the file is created; do not execute account deletion during routine acceptance.
+5. With a regular user, confirm **Admin QA** is absent from navigation and direct access is denied.
+6. With the configured admin account, open **Admin QA** and confirm live readiness boundaries, release identity, static quality metrics, and the GitHub Actions source-of-truth link appear.
 
-If the user accepts this journey, mark Strategy Lab complete and begin the **Account/Admin parity audit**. If live behavior differs, treat it as a Strategy Lab checkpoint defect and fix it before advancing.
+If the user accepts this journey, mark Account/Admin complete and begin the **visual parity / responsive Streamlit-to-web translation**. If live behavior differs, treat it as an Account/Admin checkpoint defect and fix it before advancing.

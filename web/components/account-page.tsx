@@ -15,6 +15,7 @@ import {
   type LegalDocumentResponse,
   type ProfileResponse,
 } from "../lib/account";
+import { accountProfileSummary } from "../lib/account-presentation.mjs";
 import { useIzfinAuth } from "./auth-provider";
 
 type Tab = "privacy" | "terms" | "export" | "delete";
@@ -60,7 +61,10 @@ export function AccountPage() {
   }, []);
 
   useEffect(() => {
-    if (loading || !user) { setProfile(null); setConsent(null); return; }
+    setProfile(null);
+    setConsent(null);
+    setDeleteEmail("");
+    if (loading || !user) return;
     let active = true;
     void (async () => {
       try {
@@ -120,6 +124,11 @@ export function AccountPage() {
   }
 
   const signedIn = Boolean(user);
+  const profileSummary = accountProfileSummary(
+    profile?.profile,
+    profile?.email ?? user?.email,
+    user?.metadata,
+  );
 
   return <main className="account-page" aria-label="Gizlilik ve hesap merkezi">
     <div className="account-path"><a href="/">← Piyasa Merkezi</a><span>Hesap / Gizlilik ve güvenlik</span></div>
@@ -148,6 +157,11 @@ export function AccountPage() {
       </article>
 
       <aside className="account-side">
+        <section className="account-panel account-profile-summary"><p className="eyebrow">HESAP ÖZETİ</p><h3>Kişisel profil</h3><dl>
+          <div><dt>E-posta</dt><dd>{profileSummary.email}</dd></div>
+          <div><dt>Hesap oluşturma</dt><dd>{profileSummary.createdAt}</dd></div>
+          <div><dt>Son giriş</dt><dd>{profileSummary.lastLogin}</dd></div>
+        </dl></section>
         <section className="account-panel"><p className="eyebrow">ONAY DURUMU</p><h3>{consent?.accepted ? "Belgeler güncel" : "Onay bekleniyor"}</h3><p>{consent ? `Koşul ${consent.terms_version} · KVKK ${consent.privacy_version}` : "Giriş yaptıktan sonra mevcut onay kaydın burada görünür."}</p>{signedIn && !consent?.accepted && <button className="account-secondary" disabled={busy} onClick={() => void handleConsent()}>Belgeleri okudum, onayı kaydet</button>}</section>
         <section className="account-panel"><p className="eyebrow">HESAP GÜVENLİĞİ</p><h3>Kimlik sınırı</h3><p>Hesap işlemleri Firebase ID token ile doğrulanır; silme çağrısı yalnızca doğrulanmış kullanıcının kendi UID ve e-postasıyla çalışır.</p></section>
       </aside>
