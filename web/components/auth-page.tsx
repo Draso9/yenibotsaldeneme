@@ -5,7 +5,6 @@ import {
   browserLocalPersistence,
   browserSessionPersistence,
   createUserWithEmailAndPassword,
-  sendEmailVerification,
   sendPasswordResetEmail,
   setPersistence,
   signInWithEmailAndPassword,
@@ -14,6 +13,7 @@ import {
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { acceptLegalConsent, bootstrapAccount } from "../lib/account";
+import { sendIzfinVerificationEmail } from "../lib/auth-verification";
 import { firebaseAuth, firebaseIsConfigured } from "../lib/firebase";
 import { useIzfinAuth } from "./auth-provider";
 import { IzfinBrandMark } from "./izfin-brand-mark";
@@ -96,7 +96,7 @@ export function AuthPage() {
       const token = await credential.user.getIdToken();
       await bootstrapAccount(token);
       await acceptLegalConsent(token);
-      await sendEmailVerification(credential.user);
+      await sendIzfinVerificationEmail(credential.user);
       setMessage("Hesabın oluşturuldu. Doğrulama bağlantısı e-posta adresine gönderildi.");
       router.push(next);
     } catch {
