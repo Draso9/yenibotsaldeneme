@@ -248,7 +248,7 @@ def test_auth_is_a_dedicated_route_with_existing_firebase_lifecycle_and_safe_ret
     assert "signInWithEmailAndPassword" in auth_page
     assert "createUserWithEmailAndPassword" in auth_page
     assert "sendPasswordResetEmail" in auth_page
-    assert "sendEmailVerification" in auth_page
+    assert "sendIzfinVerificationEmail" in auth_page
     assert "bootstrapAccount" in auth_page
     assert "safeNext" in auth_page
     assert "AuthPage" in auth_route
