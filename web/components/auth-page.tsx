@@ -10,10 +10,30 @@ import { useIzfinAuth } from "./auth-provider";
 
 type Mode = "login" | "register" | "reset";
 
+const STABLE_IZFIN_HOST = "izfin-web.vercel.app";
+
 function safeNext(value: string | null): string { return value && value.startsWith("/") && !value.startsWith("//") ? value : "/scan"; }
 function validEmail(value: string): boolean { const normalized = value.trim().toLowerCase(); return normalized.includes("@") && normalized.split("@")[1]?.includes("."); }
 function validPassword(value: string): boolean { return value.length >= 8 && /[A-ZÇĞİÖŞÜ]/.test(value) && /[a-zçğıöşü]/.test(value) && /\d/.test(value); }
 function newChallenge() { return { a: Math.floor(Math.random() * 8) + 2, b: Math.floor(Math.random() * 8) + 2 }; }
+function firebaseErrorCode(reason: unknown): string {
+  if (typeof reason !== "object" || reason === null || !("code" in reason)) return "";
+  return String((reason as { code?: unknown }).code ?? "");
+}
+function googleAuthErrorMessage(reason: unknown): string {
+  switch (firebaseErrorCode(reason)) {
+    case "auth/unauthorized-domain":
+      return `Google girişi bu alan adı için yetkilendirilmemiş. IZFIN'i https://${STABLE_IZFIN_HOST} üzerinden açın; yönetici tarafında bu alan Firebase Authorized domains listesinde olmalı.`;
+    case "auth/operation-not-allowed":
+      return "Google ile giriş Firebase tarafında etkin değil. Google sağlayıcısının Authentication > Sign-in method bölümünde etkinleştirilmesi gerekiyor.";
+    case "auth/popup-blocked":
+      return "Tarayıcı Google giriş penceresini engelledi. Bu site için pop-up izni verip tekrar deneyin.";
+    case "auth/popup-closed-by-user":
+      return "Google giriş penceresi tamamlanmadan kapatıldı. Tekrar deneyebilirsiniz.";
+    default:
+      return "Google ile giriş tamamlanamadı. Firebase Google sağlayıcısı ve yetkili alan adı ayarlarını kontrol edin.";
+  }
+}
 
 export function AuthPage() {
   const router = useRouter(); const search = useSearchParams(); const { loading, user } = useIzfinAuth();
@@ -48,7 +68,7 @@ export function AuthPage() {
     event.preventDefault(); setError(""); if (!validEmail(email)) { setError("Geçerli bir e-posta girin."); return; }
     setBusy(true); try { await sendPasswordResetEmail(firebaseAuth(), email.trim().toLowerCase()); setMessage("Şifre sıfırlama bağlantısı e-posta adresine gönderildi."); } catch { setError("Şifre sıfırlama bağlantısı gönderilemedi."); } finally { setBusy(false); }
   }
-  async function google() { setError(""); setBusy(true); try { await signInWithPopup(firebaseAuth(), new GoogleAuthProvider()); router.push(next); } catch { setError("Google ile giriş tamamlanamadı."); } finally { setBusy(false); } }
+  async function google() { setError(""); setBusy(true); try { await signInWithPopup(firebaseAuth(), new GoogleAuthProvider()); router.push(next); } catch (reason) { setError(googleAuthErrorMessage(reason)); } finally { setBusy(false); } }
 
   if (!firebaseIsConfigured()) return <main className="auth-page"><section className="auth-screen-card"><p className="eyebrow">IZFIN HESABI</p><h1>Giriş yapılandırması eksik</h1><p>Firebase web yapılandırması eklendiğinde güvenli giriş etkinleşecek.</p></section></main>;
   return <main className="auth-page"><section className="auth-screen-card"><a className="auth-logo" href="/"><Image alt="IZFIN" height={72} priority src="/brand/izfin-logo.png" width={72} /><span><b>IZFIN</b><small>ANALYZE · PREDICT · INVEST</small></span></a><p className="eyebrow">SIGNATURE INTELLIGENCE</p><h1>{mode === "login" ? "Hoş Geldiniz" : mode === "register" ? "IZFIN hesabını oluştur" : "Şifreni yenile"}</h1><p className="auth-screen-intro">Piyasayı analiz et, fırsatları filtrele, kararını tek merkezden yönet.</p>
