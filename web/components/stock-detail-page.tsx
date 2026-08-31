@@ -31,12 +31,9 @@ function scoreItems(value: unknown): Array<Record<string, unknown>> {
 function scoreInterpretation(value: unknown): { label: string; tone: string; meaning: string } {
   const parsed = Number(value);
   if (!Number.isFinite(parsed)) return { label: "Değerlendiriliyor", tone: "neutral", meaning: "Skor etiketi için yeterli sayısal veri bulunmuyor." };
-  if (parsed < 30) return { label: "Cezalı", tone: "penalized", meaning: "Risk veya olumsuz teknik kalemler baskın; olumlu sinyaller nihai skoru taşımaya yetmiyor." };
-  if (parsed < 50) return { label: "Zayıf", tone: "weak", meaning: "Teknik yapı henüz yeterince destekleyici değil; teyit kalitesi sınırlı." };
-  if (parsed < 65) return { label: "Dengeli", tone: "balanced", meaning: "Olumlu ve olumsuz teknik etkiler birbirine yakın; belirgin üstünlük oluşmamış." };
-  if (parsed < 80) return { label: "Olumlu", tone: "positive", meaning: "Teknik bileşenlerin önemli bölümü destekleyici, ancak güçlü sınıfa geçmek için bazı eksikler var." };
-  if (parsed < 90) return { label: "Güçlü", tone: "strong", meaning: "Birden fazla teknik teyit skoru yukarı taşıyor ve cezalar genel yapıyı bozmuyor." };
-  return { label: "Çok Güçlü", tone: "very-strong", meaning: "Teknik bileşenlerin büyük bölümü aynı yönde güçlü uyum gösteriyor." };
+  if (parsed < 50) return { label: "Cezalı", tone: "penalized", meaning: "Olumsuz teknik kalemler ve cezalar nihai skoru baskılıyor; olumlu bileşenler güçlü banda taşımaya yetmiyor." };
+  if (parsed < 70) return { label: "Nötr", tone: "neutral", meaning: "Olumlu ve olumsuz teknik etkiler birlikte bulunuyor; skor tek başına belirgin bir yön üstünlüğü göstermiyor." };
+  return { label: "Güçlü", tone: "strong", meaning: "Birden fazla teknik bileşen nihai skoru destekliyor; yine de risk ve merkezi karar işlem yönünü sınırlayabilir." };
 }
 
 export function StockDetailPage({ jobId, ticker }: Readonly<{ jobId: string; ticker: string }>) {
@@ -96,7 +93,7 @@ export function StockDetailPage({ jobId, ticker }: Readonly<{ jobId: string; tic
           <span><b>{text(detail.score.nihai)}</b> Gelişmiş Skor</span>
         </div>
         <a className="projection-cta" href={projectionHref(jobId, normalizedTicker)}>45G projeksiyon senaryosunu aç →</a>
-        <p className="detail-note"><b>Odak</b> · Bu ekran Karar Motoru'nu tekrar etmez; skorun nedenlerini, teknik göstergeleri, seviyeleri ve planı ayrıntılandırır.</p>
+        <p className="detail-note"><b>Odak</b> · Karar Motoru işlem yönünü merkezde tutar. Bu ekran yalnızca skorun nedenlerini, teknik göstergeleri, trend/momentumu, seviyeleri ve teknik planı ayrıntılandırır.</p>
       </>}
     </div>
 
@@ -122,10 +119,10 @@ function ScoreBreakdown({ score }: Readonly<{ score: Record<string, unknown> }>)
     <div className="detail-score-explanation">
       <h3>Gelişmiş Skor ne anlatıyor?</h3>
       <p><b>{scoreValue}/100 · {interpretation.label}</b> — {interpretation.meaning}</p>
-      <small>Bu etiket yalnızca mevcut nihai skoru açıklar; yeni bir işlem kararı veya başarı olasılığı üretmez.</small>
+      <small>Bu skor otomatik AL değildir ve başarı olasılığı anlamına gelmez. Risk, giriş koşulları ve Akıllı Tarama'daki merkezi Karar Motoru güçlü bir skoru dahi sınırlayabilir.</small>
     </div>
     <div className="detail-score-metrics">
-      <span><b>{text(score.eski)}</b>temel teknik skor</span>
+      <span><b>{text(score.eski)}</b>eski / temel teknik skor</span>
       <span><b>+{text(score.bonus, "0")}</b>gelişmiş bonus</span>
       <span><b>-{text(score.ceza, "0")}</b>gelişmiş ceza</span>
       <span><b>{scoreValue}</b>nihai Gelişmiş Skor</span>
@@ -141,10 +138,10 @@ function ScoreBreakdown({ score }: Readonly<{ score: Record<string, unknown> }>)
       </section>
     </div>
     <div className="detail-score-group">
-      <strong>Temel teknik yapı</strong>
+      <strong>Eski skorun temel teknik kalemleri</strong>
       {baseItems.length ? <ul>{baseItems.map((item, index) => <li key={index}>{text(item.metin)}</li>)}</ul> : <p>Ek temel skor kalemi oluşmadı.</p>}
     </div>
-    <div className="detail-score-reading"><b>{interpretation.label} ne demek?</b><p>{interpretation.meaning} Merkezi işlem yönü yine Akıllı Tarama'daki Hisseye Özel Karar Motoru tarafından değerlendirilir.</p></div>
+    <div className="detail-score-reading"><b>{interpretation.label} ne demek?</b><p>{interpretation.meaning} İşlem yönünün merkezi kaynağı Akıllı Tarama'daki Hisseye Özel Karar Motoru olarak kalır.</p></div>
   </details>;
 }
 
