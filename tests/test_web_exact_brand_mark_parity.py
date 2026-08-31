@@ -14,7 +14,6 @@ def test_shell_home_and_auth_use_the_exact_same_izfin_mark_geometry():
     auth = _read("web/components/auth-page.tsx")
     mark = _read("web/components/izfin-brand-mark.tsx")
     css = _read("web/app/brand-scan-visibility.css")
-    globals_css = _read("web/app/globals.css")
 
     assert '<IzfinBrandMark priority />' in shell
     assert '<IzfinBrandMark decorative priority />' in home
@@ -33,5 +32,4 @@ def test_shell_home_and_auth_use_the_exact_same_izfin_mark_geometry():
     assert '--izfin-mark-size: 68px' not in css
     assert '--izfin-mark-size: 52px' not in css
     assert '--izfin-mark-size: 44px' not in css
-
-    assert '.auth-logo img {' not in globals_css
+    assert 'box-shadow: none' in css
