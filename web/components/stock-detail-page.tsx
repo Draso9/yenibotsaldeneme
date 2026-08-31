@@ -22,6 +22,23 @@ function label(value: string): string {
   return value.replaceAll("_", " ").replace(/\b\w/g, (character) => character.toLocaleUpperCase("tr-TR"));
 }
 
+function scoreItems(value: unknown): Array<Record<string, unknown>> {
+  return Array.isArray(value)
+    ? value.filter((item): item is Record<string, unknown> => Boolean(item) && typeof item === "object")
+    : [];
+}
+
+function scoreInterpretation(value: unknown): { label: string; tone: string; meaning: string } {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) return { label: "Değerlendiriliyor", tone: "neutral", meaning: "Skor etiketi için yeterli sayısal veri bulunmuyor." };
+  if (parsed < 30) return { label: "Cezalı", tone: "penalized", meaning: "Risk veya olumsuz teknik kalemler baskın; olumlu sinyaller nihai skoru taşımaya yetmiyor." };
+  if (parsed < 50) return { label: "Zayıf", tone: "weak", meaning: "Teknik yapı henüz yeterince destekleyici değil; teyit kalitesi sınırlı." };
+  if (parsed < 65) return { label: "Dengeli", tone: "balanced", meaning: "Olumlu ve olumsuz teknik etkiler birbirine yakın; belirgin üstünlük oluşmamış." };
+  if (parsed < 80) return { label: "Olumlu", tone: "positive", meaning: "Teknik bileşenlerin önemli bölümü destekleyici, ancak güçlü sınıfa geçmek için bazı eksikler var." };
+  if (parsed < 90) return { label: "Güçlü", tone: "strong", meaning: "Birden fazla teknik teyit skoru yukarı taşıyor ve cezalar genel yapıyı bozmuyor." };
+  return { label: "Çok Güçlü", tone: "very-strong", meaning: "Teknik bileşenlerin büyük bölümü aynı yönde güçlü uyum gösteriyor." };
+}
+
 export function StockDetailPage({ jobId, ticker }: Readonly<{ jobId: string; ticker: string }>) {
   const { loading, user, getIdToken } = useIzfinAuth();
   const { setActiveScan, setSelectedTicker, setLastVisitedAnalysisRoute } = useAnalysisContext();
@@ -76,34 +93,59 @@ export function StockDetailPage({ jobId, ticker }: Readonly<{ jobId: string; tic
       {detail && <>
         <div className="detail-summary">
           <span><b>{text(detail.price)}</b> fiyat</span>
-          <span><b>{text(detail.signal)}</b> nihai sinyal</span>
-          <span><b>{text(detail.score.nihai)}</b> skor</span>
-          <span><b>{text(detail.entry_quality)}</b> giriş kalitesi</span>
+          <span><b>{text(detail.score.nihai)}</b> Gelişmiş Skor</span>
         </div>
         <a className="projection-cta" href={projectionHref(jobId, normalizedTicker)}>45G projeksiyon senaryosunu aç →</a>
-        <p className="detail-note"><b>Veri kaynağı</b> · Bu görünüm yalnızca senin tamamlanmış taramana ait job verisinden üretiliyor.</p>
+        <p className="detail-note"><b>Odak</b> · Bu ekran Karar Motoru'nu tekrar etmez; skorun nedenlerini, teknik göstergeleri, seviyeleri ve planı ayrıntılandırır.</p>
       </>}
     </div>
 
     {detail && <div className="detail-grid">
       <ScoreBreakdown score={detail.score} />
-      <DecisionPanel decision={detail.decision} action={detail.action} />
       <TechnicalOverview technical={detail.technical} fallback={detail.panel} />
     </div>}
   </section>;
 }
 
 function ScoreBreakdown({ score }: Readonly<{ score: Record<string, unknown> }>) {
-  const groups: Array<[string, unknown]> = [["Eski sistem kalemleri", score.eski_kalemler], ["Bonuslar", score.bonus_kalemler], ["Cezalar", score.ceza_kalemler]];
-  return <details className="detail-section detail-score-breakdown">
-    <summary><span><small>SKOR ÖZETİ</small><b>Nihai skor {text(score.nihai)}</b></span><em>Skor detayını göster</em></summary>
-    <div className="detail-score-metrics"><span><b>{text(score.eski)}</b>eski cezalı skor</span><span><b>+{text(score.bonus, "0")}</b>gelişmiş bonus</span><span><b>-{text(score.ceza, "0")}</b>gelişmiş ceza</span><span><b>{text(score.nihai)}</b>nihai skor</span></div>
-    {groups.map(([title, value]) => <div className="detail-score-group" key={title}><strong>{title}</strong>{Array.isArray(value) && value.length ? <ul>{value.map((item, index) => <li key={index}>{text((item as Record<string, unknown>).metin)}</li>)}</ul> : <p>Ek kalem oluşmadı.</p>}</div>)}
-  </details>;
-}
+  const scoreValue = text(score.nihai);
+  const interpretation = scoreInterpretation(score.nihai);
+  const positiveItems = scoreItems(score.bonus_kalemler);
+  const penaltyItems = scoreItems(score.ceza_kalemler);
+  const baseItems = scoreItems(score.eski_kalemler);
 
-function DecisionPanel({ decision, action }: Readonly<{ decision: Record<string, unknown>; action: Record<string, unknown> }>) {
-  return <article className="detail-section detail-decision"><p className="eyebrow">ŞEFFAF KARAR MOTORU</p><h2>{text(decision.karar)}</h2><div className="detail-decision-kpis"><span><b>%{text(decision.guven)}</b>algoritma güveni</span><span><b>{text(decision.risk)}</b>risk</span><span><b>%{text(decision.mtf_uyum)}</b>MTF uyum</span></div><p><b>Olumlu teyitler:</b> {text(decision.olumlu_metin)}</p><p><b>Riskler:</b> {text(decision.risk_metin)}</p>{decision.mtf_metin ? <small>{text(decision.mtf_metin)}</small> : null}<div className="detail-action-note"><b>Giriş motoru:</b> {text(action.entry_quality)} · <b>Teknik profil:</b> {text(action.profile)}</div><small>Profil ve skorlar açıklayıcıdır; işlem aksiyonu merkezi nihai karar motorundan gelir.</small></article>;
+  return <details className="detail-section detail-score-breakdown">
+    <summary>
+      <span><small>GELİŞMİŞ SKOR</small><b>{scoreValue}/100 · {interpretation.label}</b><i className={`score-band is-${interpretation.tone}`}>{interpretation.label}</i></span>
+      <em>Bu skor neden {scoreValue}?</em>
+    </summary>
+    <div className="detail-score-explanation">
+      <h3>Gelişmiş Skor ne anlatıyor?</h3>
+      <p><b>{scoreValue}/100 · {interpretation.label}</b> — {interpretation.meaning}</p>
+      <small>Bu etiket yalnızca mevcut nihai skoru açıklar; yeni bir işlem kararı veya başarı olasılığı üretmez.</small>
+    </div>
+    <div className="detail-score-metrics">
+      <span><b>{text(score.eski)}</b>temel teknik skor</span>
+      <span><b>+{text(score.bonus, "0")}</b>gelişmiş bonus</span>
+      <span><b>-{text(score.ceza, "0")}</b>gelişmiş ceza</span>
+      <span><b>{scoreValue}</b>nihai Gelişmiş Skor</span>
+    </div>
+    <div className="detail-score-drivers">
+      <section className="detail-score-driver is-positive">
+        <strong>Skoru yukarı çekenler</strong>
+        {positiveItems.length ? <ul>{positiveItems.map((item, index) => <li key={index}>{text(item.metin)}</li>)}</ul> : <p>Bu taramada belirgin ek bonus oluşmadı.</p>}
+      </section>
+      <section className="detail-score-driver is-negative">
+        <strong>Skoru aşağı çekenler</strong>
+        {penaltyItems.length ? <ul>{penaltyItems.map((item, index) => <li key={index}>{text(item.metin)}</li>)}</ul> : <p>Bu taramada belirgin ek ceza oluşmadı.</p>}
+      </section>
+    </div>
+    <div className="detail-score-group">
+      <strong>Temel teknik yapı</strong>
+      {baseItems.length ? <ul>{baseItems.map((item, index) => <li key={index}>{text(item.metin)}</li>)}</ul> : <p>Ek temel skor kalemi oluşmadı.</p>}
+    </div>
+    <div className="detail-score-reading"><b>{interpretation.label} ne demek?</b><p>{interpretation.meaning} Merkezi işlem yönü yine Akıllı Tarama'daki Hisseye Özel Karar Motoru tarafından değerlendirilir.</p></div>
+  </details>;
 }
 
 function technicalItems(value: unknown): Array<Record<string, unknown>> {

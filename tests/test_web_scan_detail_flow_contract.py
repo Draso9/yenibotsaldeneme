@@ -139,10 +139,13 @@ def test_score_breakdown_is_compact_and_collapsed_by_default():
     detail_page = (ROOT / "web" / "components" / "stock-detail-page.tsx").read_text(encoding="utf-8")
 
     assert '<details className="detail-section detail-score-breakdown">' in detail_page
-    assert "Skor detayını göster" in detail_page
-    assert "Nihai skor" in detail_page
+    assert "Bu skor neden" in detail_page
+    assert "GELİŞMİŞ SKOR" in detail_page
+    assert "Skoru yukarı çekenler" in detail_page
+    assert "Skoru aşağı çekenler" in detail_page
     assert "<summary" in detail_page
-    assert "open=" not in detail_page.split("function ScoreBreakdown", 1)[1].split("function DecisionPanel", 1)[0]
+    score_section = detail_page.split("function ScoreBreakdown", 1)[1].split("function technicalItems", 1)[0]
+    assert "open=" not in score_section
 
 
 def test_global_usage_guide_preserves_the_streamlit_reading_model():

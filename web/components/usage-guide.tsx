@@ -1,65 +1,138 @@
+"use client";
+
+import { usePathname } from "next/navigation";
+
+type UsageGuideSurface = "market" | "scan" | "detail" | "projection" | "performance" | "strategy";
+
+type GuideCopy = {
+  title: string;
+  eyebrow: string;
+  intro: string;
+  badge: string;
+  cards: Array<{ step: string; title: string; body: string }>;
+  rule: string;
+  notes: string[];
+};
+
+function usageGuideSurface(pathname: string): UsageGuideSurface | null {
+  if (pathname.startsWith("/stocks/")) return "detail";
+  if (pathname.startsWith("/scan")) return "scan";
+  if (pathname.startsWith("/projection")) return "projection";
+  if (pathname.startsWith("/performance")) return "performance";
+  if (pathname.startsWith("/strategy-lab")) return "strategy";
+  if (pathname === "/") return "market";
+  return null;
+}
+
+const guideCopy: Record<UsageGuideSurface, GuideCopy> = {
+  market: {
+    title: "Piyasa Merkezi nasıl kullanılır?",
+    eyebrow: "PİYASA MERKEZİ REHBERİ",
+    intro: "Bir sonucu 30 saniyede değerlendirin: önce piyasa modunu, sonra listedeki karar dağılımını ve öne çıkan setup'ı okuyun.",
+    badge: "GENEL BAKIŞ",
+    cards: [
+      { step: "1 · MOD", title: "Piyasa tonunu okuyun", body: "Trend, momentum, para akışı ve risk bileşiminin son taramadaki ortak tonunu görün." },
+      { step: "2 · DAĞILIM", title: "Karar sayılarını karşılaştırın", body: "Alım tarafı, güçlü setup, teyit bekleyen ve yüksek risk sayıları taranan listenin dengesini gösterir." },
+      { step: "3 · LİSTE", title: "Dikkat çekenleri inceleyin", body: "Yedi öne çıkan hisseyi doğrudan karşılaştırın; ekstra sıralama seçimi olmadan taramanın mevcut önceliğini koruyun." },
+      { step: "4 · DETAY", title: "Tek hisseye inin", body: "Karar gerekçesi için Akıllı Tarama Karar Motoru'nu, teknik derinlik için Detaylı Analiz'i kullanın." },
+    ],
+    rule: "Piyasa modu resmi piyasa breadth verisi değildir; yalnızca son IZFIN taramasındaki listenin teknik bileşimidir.",
+    notes: ["Skorlar karar vermez; kararı açıklar.", "Piyasa Merkezi tek bir hisse için işlem emri üretmez; listeyi hızlı okumaya yardım eder."],
+  },
+  scan: {
+    title: "Akıllı Tarama nasıl kullanılır?",
+    eyebrow: "AKILLI TARAMA REHBERİ",
+    intro: "Evreni seçin, taramayı çalıştırın ve karar kartında neden alınabilir / neden beklenmeli ayrımını okuyun.",
+    badge: "KARAR ODAĞI",
+    cards: [
+      { step: "1 · EVREN", title: "Doğru listeyi seçin", body: "Kendi listenizi veya profili belirleyin; sonuçlar yalnızca taranan varlıkları karşılaştırır." },
+      { step: "2 · KARAR", title: "Merkezi kararı önce okuyun", body: "Sinyal, güven, risk ve MTF birlikte değerlendirilir; tek bir skor üzerinden karar vermeyin." },
+      { step: "3 · NEDEN", title: "Artı ve eksileri karşılaştırın", body: "Olumlu teyitleri ve bekleme / kaçınma nedenlerini yan yana okuyun." },
+      { step: "4 · DEVAM", title: "Tekniğe derinleşin", body: "Skorun nedenleri, seviyeler ve hedefler için Detaylı Analiz'e geçin." },
+    ],
+    rule: "Karar Motoru işlem yönünün merkezi kaynağıdır; Detaylı Analiz aynı kararı tekrar etmek yerine teknik derinlik sağlar.",
+    notes: ["Karar etiketleri nasıl yorumlanır? Güçlü Al / Al daha fazla teyit, Teyit Bekle ise eksik koşul anlamına gelir.", "Sonuç tablosundaki alanları birlikte okuyun; tek bir yüksek değer diğer riskleri geçersiz kılmaz."],
+  },
+  detail: {
+    title: "Detaylı Analiz nasıl kullanılır?",
+    eyebrow: "DETAYLI ANALİZ REHBERİ",
+    intro: "Bu bölüm Karar Motoru'nu tekrarlamaz; Gelişmiş Skorun nedenini, teknik göstergeleri, seviyeleri ve işlem planını açar.",
+    badge: "TEKNİK DERİNLİK",
+    cards: [
+      { step: "1 · SKOR", title: "Skorlar ne söylüyor?", body: "Gelişmiş Skor kartını açıp bonusları, cezaları ve temel teknik kalemleri ayrı ayrı okuyun." },
+      { step: "2 · YAPI", title: "Trend ve momentumu kontrol edin", body: "Göstergelerin aynı yönü destekleyip desteklemediğini, tek bir indikatöre bağlı kalmadan değerlendirin." },
+      { step: "3 · SEVİYE", title: "Destek ve direnci okuyun", body: "Teknik seviyeleri giriş, iptal ve risk planının referans bölgeleri olarak kullanın." },
+      { step: "4 · HEDEF", title: "Hedefleri senaryo olarak görün", body: "TP seviyeleri garanti değildir; teknik risk–ödül planının senaryo noktalarıdır." },
+    ],
+    rule: "80 puan, %80 başarı ihtimali anlamına gelmez. Skor bandı mevcut teknik puanı açıklar; işlem yönünü Karar Motoru belirler.",
+    notes: ["Cezalı / Zayıf bantlarda ceza kalemlerinin baskın olup olmadığına bakın.", "Güçlü / Çok Güçlü bantlarda dahi stop, volatilite ve haber riskini ayrıca değerlendirin."],
+  },
+  projection: {
+    title: "Projeksiyon nasıl kullanılır?",
+    eyebrow: "45G PROJEKSİYON REHBERİ",
+    intro: "Projeksiyonu kesin fiyat tahmini değil, mevcut teknik yapıdan türetilen olasılıklı senaryo haritası olarak okuyun.",
+    badge: "SENARYO",
+    cards: [
+      { step: "1 · BAĞLAM", title: "Doğru hisseyi doğrulayın", body: "Projeksiyonun hangi tarama ve ticker bağlamından geldiğini kontrol edin." },
+      { step: "2 · SENARYO", title: "Merkez ve bantları birlikte okuyun", body: "Tek bir hedefe değil, olası yol ve belirsizlik aralığına odaklanın." },
+      { step: "3 · RİSK", title: "Bozulma koşulunu izleyin", body: "Teknik yapı değişirse önceki senaryonun geçerliliğinin azalabileceğini kabul edin." },
+      { step: "4 · KARŞILAŞTIR", title: "Kararla bağlam kurun", body: "Projeksiyon karar üretmez; Akıllı Tarama ve Detaylı Analiz bağlamını tamamlar." },
+    ],
+    rule: "Projeksiyon fiyat garantisi değildir; yeni veri geldikçe teknik senaryo değişebilir.",
+    notes: ["Olasılık ve bantları birlikte değerlendirin.", "Haber, bilanço ve gap hareketleri teknik projeksiyonu hızlı biçimde geçersiz kılabilir."],
+  },
+  performance: {
+    title: "Performans nasıl kullanılır?",
+    eyebrow: "PERFORMANS REHBERİ",
+    intro: "Sinyal kalitesini tek bir kazanç oranıyla değil; dönem, örneklem, kapanış nedeni ve varlık dağılımıyla birlikte okuyun.",
+    badge: "GERİYE DÖNÜK",
+    cards: [
+      { step: "1 · DÖNEM", title: "20G / 60G / 120G'yi ayırın", body: "Kısa ve daha uzun dönem skorlarının aynı davranışı gösterip göstermediğini karşılaştırın." },
+      { step: "2 · ÖRNEKLEM", title: "Sinyal sayısını kontrol edin", body: "Az sayıda işlem yüksek veya düşük oranları olduğundan daha güçlü gösterebilir." },
+      { step: "3 · NEDEN", title: "Kapanış nedenlerini okuyun", body: "Hedef, stop ve diğer kapanış nedenlerinin dağılımı sonuç kalitesini anlamaya yardım eder." },
+      { step: "4 · VARLIK", title: "Hisse bazında karşılaştırın", body: "Tek bir varlığın toplam performansı sürükleyip sürüklemediğini kontrol edin." },
+    ],
+    rule: "Hangi alan ne işe yarar? Başarı oranı, ortalama getiri, örneklem ve kapanış nedeni birlikte anlamlıdır.",
+    notes: ["Geçmiş performans gelecekte aynı sonucu garanti etmez.", "Küçük örneklem uyarısını gördüğünüzde yüzdeleri daha temkinli yorumlayın."],
+  },
+  strategy: {
+    title: "Strateji Lab nasıl kullanılır?",
+    eyebrow: "STRATEJİ LAB REHBERİ",
+    intro: "Backtest'i geçmişteki Daily Core karar davranışını incelemek için kullanın; bugünkü işlem sinyalinin yerine koymayın.",
+    badge: "BACKTEST",
+    cards: [
+      { step: "1 · SEMBOL", title: "Varlık ve dönemi seçin", body: "3Y / 5Y / 10Y dönemlerinde yeterli veri kapsamı olup olmadığını kontrol edin." },
+      { step: "2 · KPI", title: "Özet metrikleri okuyun", body: "Getiri, başarı ve karar dağılımını tek başına değil birlikte değerlendirin." },
+      { step: "3 · KARAR", title: "Geçmiş kararları açın", body: "Karar etiketleri nasıl yorumlanır? Ayrıntılı geçmiş tablo ile hangi koşullarda hangi etiketin oluştuğunu görün." },
+      { step: "4 · SINIR", title: "Backtest sınırını unutmayın", body: "Geçmiş veri, işlem maliyeti ve piyasa rejimi gelecekte farklı davranabilir." },
+    ],
+    rule: "Backtest sonuçları geçmiş veri üzerindeki model davranışını gösterir; canlı getiri vaadi değildir.",
+    notes: ["Sonuçları dönemler arasında karşılaştırın.", "IZFIN algoritmik teknik analiz ve karar desteği sağlar; yatırım tavsiyesi veya getiri garantisi değildir."],
+  },
+};
+
 export function UsageGuide() {
+  const pathname = usePathname();
+  const surface = usageGuideSurface(pathname);
+  if (!surface) return null;
+  const copy = guideCopy[surface];
+
   return <details className="usage-guide">
     <summary>
       <span>📘 Nasıl Kullanılır?</span>
-      <b>IZFIN sonuçlarını doğru okuyun</b>
+      <b>{copy.title}</b>
       <em>Rehberi aç</em>
     </summary>
     <div className="usage-guide-body">
       <section className="usage-guide-section">
-        <div className="usage-guide-head"><div><small>IZFIN KISA REHBER</small><h2>Bir sonucu 30 saniyede değerlendirin</h2><p>Önce merkezi kararı, sonra kararın güvenini ve risk planını okuyun.</p></div><span>4 ADIM</span></div>
+        <div className="usage-guide-head"><div><small>{copy.eyebrow}</small><h2>{copy.title}</h2><p>{copy.intro}</p></div><span>{copy.badge}</span></div>
         <div className="usage-guide-grid usage-guide-grid-four">
-          <article><small>1 · TARAMA</small><b>Evreni seçin</b><p>İzlemek istediğiniz listeyle Akıllı Tarama'yı çalıştırın.</p></article>
-          <article><small>2 · KARAR</small><b>Aksiyonu okuyun</b><p>İlk referansınız puan değil, Merkezi Karar olsun.</p></article>
-          <article><small>3 · TEYİT</small><b>Nedeni kontrol edin</b><p>Güven, giriş kalitesi ve MTF uyumunu birlikte değerlendirin.</p></article>
-          <article><small>4 · PLAN</small><b>Riski belirleyin</b><p>Destek, stop ve hedefleri işlemden önce planlayın.</p></article>
+          {copy.cards.map((card) => <article key={card.step}><small>{card.step}</small><b>{card.title}</b><p>{card.body}</p></article>)}
         </div>
-        <div className="usage-guide-rule"><small>ANA KURAL</small><p><b>Skorlar karar vermez; kararı açıklar.</b> İşlem yönünü trend, momentum, para akışı, zamanlama ve risk filtrelerini birlikte değerlendiren Merkezi Karar belirler.</p></div>
+        <div className="usage-guide-rule"><small>ANA KURAL</small><p>{copy.rule}</p></div>
+        <div className="usage-guide-notes">{copy.notes.map((note) => <p key={note}>{note}</p>)}</div>
       </section>
-
-      <section className="usage-guide-section">
-        <div className="usage-guide-head"><div><small>DÖRT ANA GÖSTERGE</small><h2>Skorlar ne söylüyor?</h2><p>Her puan farklı bir soruya cevap verir; tek başına alım veya satım emri değildir.</p></div><span>0–100</span></div>
-        <div className="usage-guide-grid usage-guide-grid-four">
-          <article><small>IZFIN SKORU</small><b>Teknik yapı</b><p>Tablodaki Gelişmiş Skor; trend, momentum, hacim ve risk bileşimini özetler.</p></article>
-          <article><small>GÜVEN</small><b>Kanıt uyumu</b><p>Kararı destekleyen teknik verilerin birbirleriyle ne kadar tutarlı olduğunu gösterir.</p></article>
-          <article><small>GİRİŞ KALİTESİ</small><b>Zamanlama</b><p>5 dakika, 15 dakika ve 1 saat verilerinde giriş koşullarının olgunluğunu ölçer.</p></article>
-          <article><small>MTF UYUM</small><b>Çoklu teyit</b><p>Farklı zaman dilimlerinin aynı yönü destekleyip desteklemediğini gösterir.</p></article>
-        </div>
-        <div className="usage-guide-rule"><small>ÖNEMLİ</small><p><b>80 puan, %80 başarı ihtimali anlamına gelmez.</b> Puanlar aynı taramadaki adayları karşılaştırmayı kolaylaştıran teknik ölçümlerdir.</p></div>
-      </section>
-
-      <section className="usage-guide-section">
-        <div className="usage-guide-head"><div><small>MERKEZİ KARAR SÖZLÜĞÜ</small><h2>Karar etiketleri nasıl yorumlanır?</h2><p>Etiket, sistemin mevcut koşullarda önerdiği davranışı sade biçimde özetler.</p></div><span>GÜNCEL</span></div>
-        <div className="usage-guide-grid usage-guide-grid-decisions">
-          <article><small>EN GÜÇLÜ TEYİT</small><b>Güçlü Al</b><p>Trend, zamanlama, para akışı ve risk filtreleri birlikte olumlu.</p></article>
-          <article><small>YETERLİ TEYİT</small><b>Al</b><p>Teknik yapı alım yönünü destekliyor; risk planı yine korunmalı.</p></article>
-          <article><small>OLUMLU / ERKEN</small><b>Erken Al</b><p>Yapı olumlu ancak tüm güçlü teyitler henüz tamamlanmış değil.</p></article>
-          <article><small>ADAY / EKSİK TEYİT</small><b>Teyit Bekle</b><p>Olumlu unsurlar var; final alım koşulları henüz yeterli değil.</p></article>
-          <article><small>YÖN BELİRSİZ</small><b>İzle / Nötr</b><p>Göstergeler ortak ve yeterince güçlü bir işlem yönü üretmiyor.</p></article>
-          <article><small>YENİ GİRİŞ ZAYIF</small><b>Kâr Koru</b><p>Aşırı ısınma veya momentum kaybı nedeniyle mevcut kazancı koruma öncelikli.</p></article>
-          <article><small>SERMAYE KORUMA</small><b>Sat / Kaçın</b><p>Trend veya risk yapısı yeni pozisyon için yeterli avantaj sunmuyor.</p></article>
-          <article><small>SON KONTROL</small><b>Gerekçeyi açın</b><p>Detay panelindeki olumlu teyitleri ve riskleri mutlaka okuyun.</p></article>
-        </div>
-      </section>
-
-      <section className="usage-guide-section">
-        <div className="usage-guide-head"><div><small>SONUÇ SATIRINI OKUMA</small><h2>Hangi alan ne işe yarar?</h2><p>Tek bir değere odaklanmak yerine kararın bütününü bu sırayla kontrol edin.</p></div><span>RİSK ÖNCE</span></div>
-        <div className="usage-guide-grid usage-guide-grid-four usage-guide-compact">
-          <article><small>1 · KARAR</small><b>Ne yapmalı?</b></article>
-          <article><small>2 · RİSK</small><b>Ne bozabilir?</b></article>
-          <article><small>3 · TEYİT</small><b>Ne destekliyor?</b></article>
-          <article><small>4 · PLAN</small><b>Nerede vazgeçmeli?</b></article>
-        </div>
-        <div className="usage-guide-notes">
-          <p><b>Risk:</b> Risk seviyesi ve olumsuz gerekçeler, yüksek görünen bir skoru sınırlandırabilir. Merkezi Karar bu çelişkileri sizin yerinize birlikte değerlendirir.</p>
-          <p><b>Para akışı:</b> Fiyat hareketinin hacim ve para katılımıyla desteklenip desteklenmediğini gösterir. Zayıf akış, güçlü görünen hareketin kalıcılığını azaltabilir.</p>
-          <p><b>PEG / değerleme:</b> Teknik karardan ayrı, tamamlayıcı bir değerleme bilgisidir. IZFIN Skoru'na veya Merkezi Karar'a doğrudan puan eklemez.</p>
-          <p><b>Seans dışı:</b> ABD hisselerinde ek fiyat bilgisidir. Normal seans göstergelerini ve Giriş Kalitesi puanını değiştirmez.</p>
-          <p><b>Stop / hedefler:</b> Stop teknik iptal noktasıdır; TP1, TP2 ve TP3 risk–ödül planlama seviyeleridir. Bunlar fiyat garantisi veya kesin tahmin değildir.</p>
-        </div>
-      </section>
-
-      <p className="usage-guide-warning">IZFIN algoritmik teknik analiz ve karar desteği sağlar; yatırım tavsiyesi veya getiri garantisi değildir. Haber, bilanço, makro gelişme, likidite ve piyasa boşlukları teknik seviyeleri geçersiz kılabilir.</p>
+      <p className="usage-guide-warning">IZFIN analizleri açıklayıcı karar desteğidir; piyasa koşulları, haberler ve likidite teknik yapıyı değiştirebilir.</p>
     </div>
   </details>;
 }
