@@ -248,6 +248,12 @@ class PerformancePositionsResponse(BaseModel):
     closed_summary: dict[str, Any]
 
 
+class PerformanceRefreshResponse(BaseModel):
+    status: Literal["updated", "already_current", "in_progress", "source_error"]
+    updated_records: int = Field(default=0, ge=0)
+    message: str
+
+
 class PerformanceScorecardQuery(BaseModel):
     gun: int = Field(default=20, ge=1, le=365)
 
