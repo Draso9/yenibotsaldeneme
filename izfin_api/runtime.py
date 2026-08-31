@@ -16,8 +16,10 @@ from izfin_repositories.signal_repository import SignalRepository
 from izfin_repositories.signal_repository import ScanJobRepository
 from izfin_services.finnhub_client import FinnhubClient
 from izfin_services.market_overview import piyasa_bandi_paketi_hazirla
+from izfin_services.performance_refresh import PerformanceRefreshService
 from izfin_services.scan_workflow import scan_workflow_calistir
 from izfin_services.yahoo_client import (
+    gunluk_kapanis_serisi_indir,
     intraday_veri_indir,
     peg_degeri_indir,
     piyasa_bandi_gunluk_indir,
@@ -113,12 +115,33 @@ def symbol_search_from_providers(*, finnhub_client: FinnhubClient | None = None,
     return search
 
 
+def performance_refresher_from_providers(*, repository, finnhub_client: FinnhubClient | None = None):
+    """Compose the owner-scoped performance mutation from existing Python providers."""
+    if repository is None or not getattr(repository, "available", False):
+        return None
+    quote_fetcher = (
+        (lambda ticker: finnhub_client.quote(finnhub_symbol(ticker)))
+        if finnhub_client is not None
+        else None
+    )
+    return PerformanceRefreshService(
+        repository=repository,
+        quote_fetcher=quote_fetcher,
+        intraday_fetcher=intraday_veri_indir,
+        daily_close_fetcher=gunluk_kapanis_serisi_indir,
+    )
+
+
 def create_environment_app(*, environment: Mapping[str, str] | None = None):
     """Build an API app from deploy-time settings without importing Streamlit secrets."""
     settings = environment if environment is not None else os.environ
     api_key = str(settings.get("FINNHUB_API_KEY", "") or "").strip()
     finnhub_client = FinnhubClient(api_key) if api_key else None
     firebase = firebase_runtime_from_environment(environment=settings)
+    performance_refresher = performance_refresher_from_providers(
+        repository=firebase.get("signal_repository"),
+        finnhub_client=finnhub_client,
+    )
     log_retention_days = environment_positive_int(
         settings.get("IZFIN_LOG_RETENTION_DAYS"),
         default=30,
@@ -137,6 +160,7 @@ def create_environment_app(*, environment: Mapping[str, str] | None = None):
         scan_runner=scan_runner_from_clients(finnhub_client=finnhub_client),
         symbol_search=symbol_search_from_providers(finnhub_client=finnhub_client),
         market_overview_loader=market_overview_loader_from_providers(),
+        performance_refresher=performance_refresher,
         terms_version=str(settings.get("IZFIN_TERMS_VERSION", "2026-08-19-v1")),
         privacy_version=str(settings.get("IZFIN_PRIVACY_VERSION", "2026-08-19-v1")),
         app_release=str(settings.get("IZFIN_RELEASE", "development")),
@@ -175,4 +199,3 @@ def firebase_runtime_from_environment(*, environment: Mapping[str, str] | None =
         credential = credentials.Certificate(json.loads(raw)) if raw else credentials.Certificate(path)
         firebase_admin.initialize_app(credential)
     return firebase_runtime(firebase_auth=auth, firestore_client=firestore.client())
-

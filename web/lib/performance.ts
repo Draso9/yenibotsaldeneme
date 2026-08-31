@@ -38,6 +38,12 @@ export type PerformancePositionsResponse = {
   closed_summary: PerformanceClosedSummary;
 };
 
+export type PerformanceRefreshResponse = {
+  status: "updated" | "already_current" | "in_progress" | "source_error";
+  updated_records: number;
+  message: string;
+};
+
 export function performanceScorecardPath(days = 20): `/api/v1/performance/scorecard?${string}` {
   const normalized = Math.max(1, Math.min(365, Math.round(days)));
   return `/api/v1/performance/scorecard?gun=${normalized}`;
@@ -47,10 +53,20 @@ export function performancePositionsPath(): "/api/v1/performance/positions" {
   return "/api/v1/performance/positions";
 }
 
+export function performanceRefreshPath(): "/api/v1/performance/refresh" {
+  return "/api/v1/performance/refresh";
+}
+
 export function fetchPerformanceScorecard(idToken: string, days = 20): Promise<PerformanceScorecardResponse> {
   return izfinApiFetch<PerformanceScorecardResponse>(performanceScorecardPath(days), idToken);
 }
 
 export function fetchPerformancePositions(idToken: string): Promise<PerformancePositionsResponse> {
   return izfinApiFetch<PerformancePositionsResponse>(performancePositionsPath(), idToken);
+}
+
+export function refreshPerformance(idToken: string): Promise<PerformanceRefreshResponse> {
+  return izfinApiFetch<PerformanceRefreshResponse>("/api/v1/performance/refresh", idToken, {
+    method: "POST",
+  });
 }
