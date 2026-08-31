@@ -19,7 +19,7 @@ def test_protected_shell_uses_fail_closed_auth_access_gate():
     assert "fetchLegalConsent" in gate
     assert "acceptLegalConsent" in gate
     assert "user.emailVerified" in gate
-    assert "sendEmailVerification" in gate
+    assert "sendIzfinVerificationEmail" in gate
     assert "Yasal onay durumu kontrol edilemedi" in gate
     assert "Tekrar Dene" in gate
     assert "Çıkış Yap" in gate
