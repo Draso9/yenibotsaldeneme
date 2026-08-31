@@ -136,7 +136,7 @@ export function AuthAccessGate({ children }: Readonly<{ children: React.ReactNod
   }
 
   if (loading || state === "checking" || !user) {
-    return <GateFrame title="Hesabın kontrol ediliyor" text="Kimlik, hesap başlangıcı ve güncel yasal onay güvenli biçimde doğrulanıyor." />;
+    return null;
   }
 
   if (state === "verification") {

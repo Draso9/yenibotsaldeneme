@@ -27,6 +27,17 @@ def test_protected_shell_uses_fail_closed_auth_access_gate():
     assert 'href="/legal/privacy"' in gate
 
 
+def test_auth_gate_checking_state_is_silent_but_fail_closed():
+    gate = _read("web/components/auth-access-gate.tsx")
+
+    assert 'return <GateFrame title="Hesabın kontrol ediliyor"' not in gate
+    assert 'if (loading || state === "checking" || !user) {\n    return null;\n  }' in gate
+    assert 'if (state === "verification")' in gate
+    assert 'if (state === "error")' in gate
+    assert 'if (state === "consent")' in gate
+    assert 'return <>{children}</>;' in gate
+
+
 def test_auth_page_defaults_remember_me_on_and_sets_firebase_persistence_before_auth():
     auth = _read("web/components/auth-page.tsx")
 
