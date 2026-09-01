@@ -7,6 +7,7 @@ import { fetchSystemReadiness } from "../lib/system-health";
 import { AuthAccessGate } from "./auth-access-gate";
 import { useIzfinAuth } from "./auth-provider";
 import { IzfinBrandMark } from "./izfin-brand-mark";
+import { MobileNavigation } from "./mobile-navigation";
 import { UsageGuide } from "./usage-guide";
 
 const navItems = [
@@ -115,7 +116,7 @@ export function AppShell({ children }: Readonly<{ children: React.ReactNode }>) 
           <div className="brand-copy"><b>IZFIN</b><span>ANALYZE · PREDICT · INVEST</span></div>
         </div>
         <div className="nav-label">ÇALIŞMA ALANI</div>
-        <nav aria-label="Ana navigasyon">
+        <nav aria-label="Ana navigasyon" className="desktop-navigation">
           {navItems.filter((item) => !item.adminOnly || isAdmin).map((item, index) => {
             const active = item.label === "Akıllı Tarama"
               ? pathname.startsWith("/scan")
@@ -150,6 +151,7 @@ export function AppShell({ children }: Readonly<{ children: React.ReactNode }>) 
           </button> : null}
         </div>
       </aside>
+      <MobileNavigation isAdmin={isAdmin} pathname={pathname} />
       <div className="app-content" id="main-content" role="main" tabIndex={-1}>
         <header className="topbar">
           <div className="topbar-title"><span>IZFIN</span><b>{pageLabel}</b></div>
