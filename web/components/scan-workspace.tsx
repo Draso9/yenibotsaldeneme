@@ -15,7 +15,9 @@ import {
 import { useAnalysisContext } from "./analysis-context-provider";
 import { useIzfinAuth } from "./auth-provider";
 import { ScanDecisionCard } from "./scan-decision-card";
+import { ScanMobileResultList } from "./scan-mobile-result-list";
 import { ScanQuickControls } from "./scan-quick-controls";
+import { ModalSurface } from "./modal-surface";
 
 type ScanResultRow = Record<string, unknown>;
 type ScanSummary = { sonuclar: ScanResultRow[]; basarisiz_taramalar: string[]; boga_sayisi: number; alim_firsati: number; teknik_paneller?: Record<string, Record<string, unknown>> };
@@ -360,7 +362,7 @@ function ScanOverlay({ job, total }: Readonly<{ job: ScanJob | null; total: numb
   }, [bounds[0], bounds[1], job?.job_id, stage]);
   const title = stage === "finalizing" ? "Sonuç ekranı hazırlanıyor" : stage === "ticker" ? "Varlıklar analiz ediliyor" : stage === "data_ready" ? "Piyasa verileri hazır" : stage === "preparing" ? "Piyasa verileri alınıyor" : "Akıllı Tarama başladı";
   const description = stage === "finalizing" ? "Kararlar ve teknik paneller güvenli biçimde paketleniyor…" : stage === "ticker" ? `${job?.current_ticker ?? "Seçili varlık"} için skor · güven · MTF · risk katmanları değerlendiriliyor…` : "Piyasa geçmişi ve güncel seans verileri sağlayıcılardan hazırlanıyor…";
-  return <div className="scan-lock-overlay" role="dialog" aria-modal="true" aria-label="IZFIN Akıllı Tarama sürüyor"><div className="scan-lock-card"><div className="scan-lock-brand"><i /><small>IZFIN SMART SCAN</small></div><h2>{title}</h2><p>{description}</p><div className="scan-lock-progress"><span style={{ width: `${percent}%` }} /></div><div className="scan-lock-meta"><strong>%{percent}</strong><span>{stage === "ticker" ? `${completed}/${count} varlık tamamlandı` : completed ? `${completed}/${count} varlık · sonuçlar hazırlanıyor` : `${count} varlık sıraya alındı`}</span></div><small>Tarama tamamlanana kadar ekran geçici olarak kilitlendi. Canlı aşama içindeki yüzde yaklaşık ilerlemedir.</small></div></div>;
+  return <ModalSurface className="scan-lock-overlay" label="IZFIN Akıllı Tarama sürüyor"><div className="scan-lock-card" role="status" aria-live="polite"><div className="scan-lock-brand"><i /><small>IZFIN SMART SCAN</small></div><h2 data-modal-focus tabIndex={-1}>{title}</h2><p>{description}</p><div className="scan-lock-progress"><span style={{ width: `${percent}%` }} /></div><div className="scan-lock-meta"><strong>%{percent}</strong><span>{stage === "ticker" ? `${completed}/${count} varlık tamamlandı` : completed ? `${completed}/${count} varlık · sonuçlar hazırlanıyor` : `${count} varlık sıraya alındı`}</span></div><small>Tarama tamamlanana kadar ekran geçici olarak kilitlendi. Canlı aşama içindeki yüzde yaklaşık ilerlemedir.</small></div></ModalSurface>;
 }
 
 function FirstScanGuide({ tickerCount, onDismiss }: Readonly<{ tickerCount: number; onDismiss: () => void }>) {
@@ -404,16 +406,19 @@ function ScanResult({ jobId, summary, activeFilter, onFilterChange }: Readonly<{
 
   function updateSort(column: string) { setSort((current) => ({ column, direction: current.column === column && current.direction === "desc" ? "asc" : "desc" })); }
 
-  return <div id="scan-result" className={`scan-result scan-summary${focusMode ? " is-focus" : ""}`} aria-label="Tarama sonucu">
-    <div className="scan-result-header"><div><p className="eyebrow">TARAMA SONUCU</p><h3>Akıllı Tarama Sonuçları</h3></div><div className="scan-result-actions"><button type="button" onClick={() => setFocusMode((value) => !value)}>{focusMode ? "↙ Geniş Görünümden Çık" : "⛶ Tabloyu Genişlet"}</button><span>{summary.sonuclar.length} sembol</span></div></div>
+  return <ModalSurface id="scan-result" className={`scan-result scan-summary${focusMode ? " is-focus" : ""}`} label="Tarama sonucu" modal={focusMode} onDismiss={() => setFocusMode(false)}>
+    <div className="scan-result-header"><div><p className="eyebrow">TARAMA SONUCU</p><h3>Akıllı Tarama Sonuçları</h3></div><div className="scan-result-actions"><button data-modal-focus type="button" onClick={() => setFocusMode((value) => !value)}>{focusMode ? "↙ Geniş Görünümden Çık" : "⛶ Tabloyu Genişlet"}</button><span>{summary.sonuclar.length} sembol</span></div></div>
     {focusMode && <div className="scan-focus-meta"><b>Geniş sonuç görünümü</b><span>{results.length} sonuç · {activeFilter} filtresi · bir sütuna dokunarak sırala</span></div>}
     <div className="scan-metrics"><span><b>{summary.sonuclar.length}</b>Taranan Varlık</span><span><b>{summary.boga_sayisi}</b>Boğa Trendinde (200G)</span><span><b>{summary.alim_firsati}</b>Alım Fırsatları & Kırılımlar</span></div>
     <div className="result-filter" aria-label="Gösterilecek sonuçlar"><span>Gösterilecek sonuçlar</span>{filters.map((filter) => <button className={activeFilter === filter ? "active" : ""} key={filter} type="button" onClick={() => onFilterChange(filter)}>{filter}</button>)}</div>
     <p className="scan-filter-summary">{results.length} sonuç gösteriliyor · Filtre: {activeFilter}</p>
     {summary.basarisiz_taramalar.length > 0 && <p>Veri/hesaplama sorunu nedeniyle es geçilen varlıklar: {summary.basarisiz_taramalar.join(", ")}</p>}
-    {summary.sonuclar.length === 0 ? <p className="scan-empty">Veriler çekilemedi. Farklı bir profil veya varlık grubu seçip tekrar deneyin.</p> : results.length === 0 ? <p className="scan-empty">Bu filtreye uyan sonuç yok. Diğer filtrelerden birini seçebilir veya taramayı daha sonra yenileyebilirsin.</p> : <div className="scan-result-table-wrap"><table className="scan-result-table"><thead><tr>{resultColumns.map((column) => <th key={column}><button type="button" onClick={() => updateSort(column)}>{column} <span>{sort.column === column ? (sort.direction === "asc" ? "↑" : "↓") : "↕"}</span></button></th>)}</tr></thead><tbody>{results.map((row, index) => { const symbol = ticker(row); const profile = String(row["Teknik Profil"] ?? "").trim(); return <tr className={selectedTicker === symbol ? "is-selected" : ""} key={`${symbol}-${index}`}>{resultColumns.map((column) => <td key={column} className={column === "Nihai Sinyal" ? "scan-signal-cell" : ""}>{column === "Varlık" && symbol ? <button className="scan-result-symbol" type="button" onClick={() => setSharedSelectedTicker(symbol)}>{symbol}</button> : column === "Nihai Sinyal" && profile ? <><span>{String(row[column] ?? "—")}</span><small className="scan-signal-profile">Teknik Profil: {profile}</small></> : String(row[column] ?? "—")}</td>)}</tr>; })}</tbody></table></div>}
+    {summary.sonuclar.length === 0 ? <p className="scan-empty">Veriler çekilemedi. Farklı bir profil veya varlık grubu seçip tekrar deneyin.</p> : results.length === 0 ? <p className="scan-empty">Bu filtreye uyan sonuç yok. Diğer filtrelerden birini seçebilir veya taramayı daha sonra yenileyebilirsin.</p> : <>
+      <ScanMobileResultList rows={results} selectedTicker={selectedTicker} onSelectTicker={setSharedSelectedTicker} />
+      <div className="scan-result-table-wrap"><table className="scan-result-table"><thead><tr>{resultColumns.map((column) => <th key={column}><button type="button" onClick={() => updateSort(column)}>{column} <span>{sort.column === column ? (sort.direction === "asc" ? "↑" : "↓") : "↕"}</span></button></th>)}</tr></thead><tbody>{results.map((row, index) => { const symbol = ticker(row); const profile = String(row["Teknik Profil"] ?? "").trim(); return <tr className={selectedTicker === symbol ? "is-selected" : ""} key={`${symbol}-${index}`}>{resultColumns.map((column) => <td key={column} className={column === "Nihai Sinyal" ? "scan-signal-cell" : ""}>{column === "Varlık" && symbol ? <button className="scan-result-symbol" type="button" onClick={() => setSharedSelectedTicker(symbol)}>{symbol}</button> : column === "Nihai Sinyal" && profile ? <><span>{String(row[column] ?? "—")}</span><small className="scan-signal-profile">Teknik Profil: {profile}</small></> : String(row[column] ?? "—")}</td>)}</tr>; })}</tbody></table></div>
+    </>}
     {selectedTicker && !decisionDetail && !decisionError ? <p className="scan-decision-state" aria-live="polite">{selectedTicker} karar motoru yükleniyor…</p> : null}
     {decisionError ? <p className="scan-decision-state" role="alert">{decisionError}</p> : null}
     {decisionDetail ? <ScanDecisionCard jobId={jobId} detail={decisionDetail} tickers={decisionTickers} onTickerChange={setSharedSelectedTicker} /> : null}
-  </div>;
+  </ModalSurface>;
 }

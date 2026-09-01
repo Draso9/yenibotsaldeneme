@@ -45,6 +45,9 @@ jobs:
       - name: Typecheck Next.js web client
         run: pnpm --dir web typecheck
 
+      - name: Check mobile component behavior
+        run: node --test web/tests/checkpoint6-ui.test.cjs
+
       - name: Build Next.js web client
         run: pnpm --dir web build
 
