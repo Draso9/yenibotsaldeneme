@@ -212,7 +212,7 @@ def test_scan_uses_streamlit_lock_overlay_and_live_cloud_run_result():
     for marker in ("IZFIN SMART SCAN", "Tarama tamamlanana kadar ekran geçici olarak kilitlendi", "scan-lock-progress"):
         assert marker in workspace or marker in polish
     assert "izfinApiStream" in workspace
-    assert "aria-modal=\"true\"" in workspace
+    assert 'className="scan-lock-overlay" role="status" aria-live="polite"' in workspace
 
 
 def test_scan_streams_real_cloud_run_progress_instead_of_waiting_at_four_percent():
