@@ -10,7 +10,7 @@ import {
   signInWithEmailAndPassword,
   signInWithPopup,
 } from "firebase/auth";
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { acceptLegalConsent, bootstrapAccount } from "../lib/account";
 import { sendIzfinVerificationEmail } from "../lib/auth-verification";
@@ -19,6 +19,7 @@ import { useIzfinAuth } from "./auth-provider";
 import { IzfinBrandMark } from "./izfin-brand-mark";
 
 type Mode = "login" | "register" | "reset";
+type AuthField = "email" | "password" | "repeat" | "captcha" | "terms" | "privacy";
 
 const STABLE_IZFIN_HOST = "izfin-web.vercel.app";
 
@@ -60,6 +61,8 @@ export function AuthPage() {
   const [remember, setRemember] = useState(true);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+  const [invalidFields, setInvalidFields] = useState<AuthField[]>([]);
+  const errorRef = useRef<HTMLParagraphElement>(null);
   const [busy, setBusy] = useState(false);
   const next = useMemo(() => safeNext(search.get("next")), [search]);
   const deleted = search.get("deleted") === "1";
@@ -68,27 +71,53 @@ export function AuthPage() {
     if (!loading && user && !busy) router.replace(next);
   }, [busy, loading, next, router, user]);
 
-  function switchMode(value: Mode) { setMode(value); setError(""); setMessage(""); }
+  useEffect(() => {
+    if (error) errorRef.current?.focus();
+  }, [error, invalidFields]);
+
+  function fieldAccessibility(field: AuthField) {
+    const invalid = invalidFields.includes(field);
+    const hint = field === "password" && mode === "register" ? "password-requirements" : "";
+    return {
+      "aria-invalid": invalid || undefined,
+      "aria-describedby": [hint, invalid && error ? "auth-error" : ""].filter(Boolean).join(" ") || undefined,
+    };
+  }
+
+  function switchMode(value: Mode) { setMode(value); setError(""); setInvalidFields([]); setMessage(""); }
   async function configurePersistence() {
     await setPersistence(firebaseAuth(), remember ? browserLocalPersistence : browserSessionPersistence);
   }
 
   async function login(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault(); setError(""); setBusy(true);
+    event.preventDefault(); setError(""); setInvalidFields([]); setBusy(true);
     try {
-      if (!email.trim() || !password) throw new Error("E-posta ve şifre gerekli.");
+      if (!email.trim() || !password) {
+        setInvalidFields([...(!email.trim() ? ["email" as const] : []), ...(!password ? ["password" as const] : [])]);
+        throw new Error("E-posta ve şifre gerekli.");
+      }
       await configurePersistence();
       await signInWithEmailAndPassword(firebaseAuth(), email.trim().toLowerCase(), password);
       router.push(next);
     } catch (reason) {
+      if (["auth/invalid-credential", "auth/wrong-password", "auth/user-not-found", "auth/invalid-email"].includes(firebaseErrorCode(reason))) setInvalidFields(["email", "password"]);
       setError(reason instanceof Error && reason.message === "E-posta ve şifre gerekli." ? reason.message : "E-posta veya şifre doğrulanamadı.");
     } finally { setBusy(false); }
   }
 
   async function register(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault(); setError("");
-    const problems = [!validEmail(email) && "Geçerli bir e-posta girin.", password !== repeat && "Şifreler eşleşmiyor.", !validPassword(password) && "Şifre en az 8 karakter, büyük/küçük harf ve rakam içermeli.", Number(captcha) !== challenge.a + challenge.b && "Doğrulama işlemi yanlış.", !terms && "Kullanım koşulları onaylanmalı.", !privacy && "KVKK Aydınlatma Metni görüntülenip doğrulanmalı."].filter(Boolean);
-    if (problems.length) { setError(problems.join(" ")); setChallenge(newChallenge()); setCaptcha(""); return; }
+    event.preventDefault(); setError(""); setInvalidFields([]);
+    const problems: Partial<Record<AuthField, string>> = {};
+    if (!validEmail(email)) problems.email = "Geçerli bir e-posta girin.";
+    if (password !== repeat) problems.repeat = "Şifreler eşleşmiyor.";
+    if (!validPassword(password)) problems.password = "Şifre en az 8 karakter, büyük/küçük harf ve rakam içermeli.";
+    if (Number(captcha) !== challenge.a + challenge.b) problems.captcha = "Doğrulama işlemi yanlış.";
+    if (!terms) problems.terms = "Kullanım koşulları onaylanmalı.";
+    if (!privacy) problems.privacy = "KVKK Aydınlatma Metni görüntülenip doğrulanmalı.";
+    if (Object.keys(problems).length) {
+      setInvalidFields(Object.keys(problems) as AuthField[]);
+      setError(Object.values(problems).join(" ")); setChallenge(newChallenge()); setCaptcha(""); return;
+    }
     setBusy(true);
     try {
       await configurePersistence();
@@ -105,8 +134,8 @@ export function AuthPage() {
   }
 
   async function reset(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault(); setError("");
-    if (!validEmail(email)) { setError("Geçerli bir e-posta girin."); return; }
+    event.preventDefault(); setError(""); setInvalidFields([]);
+    if (!validEmail(email)) { setInvalidFields(["email"]); setError("Geçerli bir e-posta girin."); return; }
     setBusy(true);
     try { await sendPasswordResetEmail(firebaseAuth(), email.trim().toLowerCase()); setMessage("Şifre sıfırlama bağlantısı e-posta adresine gönderildi."); }
     catch { setError("Şifre sıfırlama bağlantısı gönderilemedi."); }
@@ -114,7 +143,7 @@ export function AuthPage() {
   }
 
   async function google() {
-    setError(""); setBusy(true);
+    setError(""); setInvalidFields([]); setBusy(true);
     try {
       await configurePersistence();
       const credential = await signInWithPopup(firebaseAuth(), new GoogleAuthProvider());
@@ -130,11 +159,11 @@ export function AuthPage() {
   return <main className="auth-page"><section className="auth-screen-card"><a className="auth-logo" href="/"><IzfinBrandMark priority /><span><b>IZFIN</b><small>ANALYZE · PREDICT · INVEST</small></span></a><p className="eyebrow">SIGNATURE INTELLIGENCE</p><h1>{mode === "login" ? "Hoş Geldiniz" : mode === "register" ? "IZFIN hesabını oluştur" : "Şifreni yenile"}</h1><p className="auth-screen-intro">Piyasayı analiz et, fırsatları filtrele, kararını tek merkezden yönet.</p>
     <div className="auth-switch" aria-label="Hesap erişimi"><button className={mode === "login" ? "active" : ""} onClick={() => switchMode("login")}>Giriş Yap</button><button className={mode === "register" ? "active" : ""} onClick={() => switchMode("register")}>Kayıt Ol</button></div>
     {deleted && <p className="auth-screen-message" role="status">Hesabın ve kullanıcı verilerin kalıcı olarak silindi.</p>}
-    {message && <p className="auth-screen-message" role="status">{message}</p>}{error && <p className="auth-screen-error" role="alert">{error}</p>}
+    {message && <p className="auth-screen-message" role="status">{message}</p>}{error && <p className="auth-screen-error" id="auth-error" ref={errorRef} role="alert" tabIndex={-1}>{error}</p>}
     {mode !== "reset" ? <label className="auth-checkbox auth-remember"><input type="checkbox" checked={remember} onChange={(event) => setRemember(event.target.checked)} /><span>Beni hatırla</span></label> : null}
-    {mode === "login" && <form className="auth-screen-form" onSubmit={login}><label>E-posta<input type="email" autoComplete="email" value={email} onChange={(event) => setEmail(event.target.value)} /></label><label>Şifre<input type="password" autoComplete="current-password" value={password} onChange={(event) => setPassword(event.target.value)} /></label><button disabled={busy} type="submit">{busy ? "Giriş yapılıyor…" : "Giriş Yap"}</button><button className="auth-text-button" type="button" onClick={() => switchMode("reset")}>Şifremi unuttum</button></form>}
-    {mode === "register" && <form className="auth-screen-form" onSubmit={register}><label>E-posta<input type="email" autoComplete="email" value={email} onChange={(event) => setEmail(event.target.value)} /></label><label>Şifre<input type="password" autoComplete="new-password" value={password} onChange={(event) => setPassword(event.target.value)} /><small>En az 8 karakter; büyük harf, küçük harf ve rakam içersin.</small></label><label>Şifre tekrar<input type="password" autoComplete="new-password" value={repeat} onChange={(event) => setRepeat(event.target.value)} /></label><label>İnsan doğrulaması: {challenge.a} + {challenge.b} = ?<input inputMode="numeric" value={captcha} onChange={(event) => setCaptcha(event.target.value)} /></label><label className="auth-checkbox"><input type="checkbox" checked={terms} onChange={(event) => setTerms(event.target.checked)} /><span><a href="/legal/terms" target="_blank" rel="noreferrer">Kullanım Koşulları</a>&apos;nı okudum ve kabul ediyorum.</span></label><label className="auth-checkbox"><input type="checkbox" checked={privacy} onChange={(event) => setPrivacy(event.target.checked)} /><span><a href="/legal/privacy" target="_blank" rel="noreferrer">KVKK Aydınlatma Metni</a> tarafıma sunuldu.</span></label><button disabled={busy} type="submit">{busy ? "Hesap hazırlanıyor…" : "Hesabımı Oluştur"}</button></form>}
-    {mode === "reset" && <form className="auth-screen-form" onSubmit={reset}><label>E-posta<input type="email" autoComplete="email" value={email} onChange={(event) => setEmail(event.target.value)} /></label><button disabled={busy} type="submit">{busy ? "Gönderiliyor…" : "Şifre Sıfırlama Bağlantısı Gönder"}</button><button className="auth-text-button" type="button" onClick={() => switchMode("login")}>Giriş ekranına dön</button></form>}
+    {mode === "login" && <form className="auth-screen-form" onSubmit={login}><label>E-posta<input type="email" autoComplete="email" {...fieldAccessibility("email")} value={email} onChange={(event) => setEmail(event.target.value)} /></label><label>Şifre<input type="password" autoComplete="current-password" {...fieldAccessibility("password")} value={password} onChange={(event) => setPassword(event.target.value)} /></label><button disabled={busy} type="submit">{busy ? "Giriş yapılıyor…" : "Giriş Yap"}</button><button className="auth-text-button" type="button" onClick={() => switchMode("reset")}>Şifremi unuttum</button></form>}
+    {mode === "register" && <form className="auth-screen-form" onSubmit={register}><label>E-posta<input type="email" autoComplete="email" {...fieldAccessibility("email")} value={email} onChange={(event) => setEmail(event.target.value)} /></label><label>Şifre<input type="password" autoComplete="new-password" {...fieldAccessibility("password")} value={password} onChange={(event) => setPassword(event.target.value)} /><small id="password-requirements">En az 8 karakter; büyük harf, küçük harf ve rakam içersin.</small></label><label>Şifre tekrar<input type="password" autoComplete="new-password" {...fieldAccessibility("repeat")} value={repeat} onChange={(event) => setRepeat(event.target.value)} /></label><label>İnsan doğrulaması: {challenge.a} + {challenge.b} = ?<input inputMode="numeric" {...fieldAccessibility("captcha")} value={captcha} onChange={(event) => setCaptcha(event.target.value)} /></label><label className="auth-checkbox"><input type="checkbox" {...fieldAccessibility("terms")} checked={terms} onChange={(event) => setTerms(event.target.checked)} /><span><a href="/legal/terms" target="_blank" rel="noreferrer">Kullanım Koşulları</a>&apos;nı okudum ve kabul ediyorum.</span></label><label className="auth-checkbox"><input type="checkbox" {...fieldAccessibility("privacy")} checked={privacy} onChange={(event) => setPrivacy(event.target.checked)} /><span><a href="/legal/privacy" target="_blank" rel="noreferrer">KVKK Aydınlatma Metni</a> tarafıma sunuldu.</span></label><button disabled={busy} type="submit">{busy ? "Hesap hazırlanıyor…" : "Hesabımı Oluştur"}</button></form>}
+    {mode === "reset" && <form className="auth-screen-form" onSubmit={reset}><label>E-posta<input type="email" autoComplete="email" {...fieldAccessibility("email")} value={email} onChange={(event) => setEmail(event.target.value)} /></label><button disabled={busy} type="submit">{busy ? "Gönderiliyor…" : "Şifre Sıfırlama Bağlantısı Gönder"}</button><button className="auth-text-button" type="button" onClick={() => switchMode("login")}>Giriş ekranına dön</button></form>}
     {mode !== "reset" && <><div className="auth-divider">veya</div><button className="auth-google" disabled={busy} type="button" onClick={() => void google()}>Google ile devam et</button></>}
     <p className="auth-screen-foot">Firebase Auth · kişisel veri alanı · yatırım karar destek platformu</p>
   </section></main>;

@@ -8,6 +8,38 @@
   display: none;
 }
 
+.modal-surface.scan-result:not(.is-focus) {
+  position: static;
+  width: auto;
+  max-width: none;
+  max-height: none;
+  margin: 0;
+  padding: 4px 0 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+}
+
+.modal-surface.scan-summary.is-focus {
+  width: auto;
+  max-width: none;
+  max-height: none;
+  color: inherit;
+}
+
+.modal-surface.scan-lock-overlay {
+  width: 100%;
+  height: 100dvh;
+  max-width: none;
+  max-height: none;
+  margin: 0;
+  border: 0;
+  color: inherit;
+}
+
+.modal-surface:not([open]) { display: none; }
+.modal-surface::backdrop { background: rgba(2, 8, 15, .7); }
+
 .legal-public-list {
   margin: 12px 0 18px;
   padding-left: 22px;
@@ -31,7 +63,7 @@
     z-index: 50;
     display: grid;
     grid-template-columns: repeat(5, minmax(0, 1fr));
-    min-height: calc(var(--mobile-nav-height) + env(safe-area-inset-bottom));
+    height: calc(var(--mobile-nav-height) + env(safe-area-inset-bottom));
     padding: 7px max(8px, env(safe-area-inset-right)) calc(7px + env(safe-area-inset-bottom)) max(8px, env(safe-area-inset-left));
     border-top: 1px solid var(--line-soft);
     background: rgba(7, 12, 18, .97);
@@ -53,7 +85,7 @@
     border-radius: 10px;
     color: #8da1b1;
     text-decoration: none;
-    font-size: 9px;
+    font-size: 12px;
     font-weight: 700;
     text-align: center;
   }
@@ -125,13 +157,23 @@
     padding-bottom: calc(var(--mobile-nav-height) + env(safe-area-inset-bottom));
   }
 
-  .command-page,
-  .scan-page,
-  .performance-page,
-  .strategy-lab-page {
-    padding-bottom: calc(var(--mobile-nav-height) + env(safe-area-inset-bottom) + 24px);
+  .strategy-page {
+    padding-bottom: 24px;
   }
 
+  .app-shell button,
+  .app-shell select,
+  .auth-page button,
+  .auth-page input:not([type="checkbox"]),
+  .auth-gate-actions button,
+  .auth-gate-legal-links a,
+  .legal-public-back,
+  .auth-checkbox,
+  .auth-gate-check {
+    min-height: 44px;
+  }
+
+  .performance-mobile-secondary > summary,
   .strategy-disclosure > summary,
   .usage-guide > summary {
     min-height: 44px;
@@ -143,6 +185,10 @@
     display: grid;
     gap: 10px;
     margin-top: 12px;
+  }
+
+  .performance-position-table {
+    display: none;
   }
 
   .scan-result-table-wrap {
@@ -158,6 +204,10 @@
 
   .scan-mobile-result-card.is-selected {
     border-color: rgba(96, 226, 180, .3);
+  }
+
+  .scan-mobile-primary:focus-visible {
+    outline-offset: -3px;
   }
 
   .scan-mobile-primary {
@@ -181,7 +231,7 @@
 
   .scan-mobile-primary small,
   .performance-mobile-card small {
-    font-size: 8px;
+    font-size: 12px;
     font-weight: 850;
     letter-spacing: .08em;
   }
@@ -201,7 +251,7 @@
     display: flex;
     align-items: center;
     padding: 0 12px;
-    font-size: 10px;
+    font-size: 12px;
     font-weight: 800;
   }
 
@@ -221,7 +271,7 @@
   .scan-mobile-secondary dt,
   .scan-mobile-secondary dd {
     margin: 0;
-    font-size: 9px;
+    font-size: 12px;
     line-height: 1.45;
   }
 
@@ -275,7 +325,7 @@
   .performance-mobile-card dt,
   .performance-mobile-card dd {
     margin: 0;
-    font-size: 9px;
+    font-size: 12px;
     line-height: 1.45;
   }
 
@@ -291,7 +341,13 @@
   .watchlist-form button,
   .scan-launch,
   .performance-period button,
-  .performance-refresh {
+  .performance-refresh,
+  .performance-mobile-card button,
+  .strategy-period-field button,
+  .strategy-run-button,
+  .auth-checkbox,
+  .auth-text-button {
     min-height: 44px;
   }
 }
+.performance-mobile-secondary > summary { display: flex; align-items: center; margin-top: 12px; cursor: pointer; font-size: 13px; }

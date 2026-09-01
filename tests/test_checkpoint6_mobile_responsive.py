@@ -86,10 +86,10 @@ def test_scan_mobile_surface_prioritizes_stock_decision_score_and_risk():
     assert 'className="scan-result-table"' in scan
 
 
-def test_scan_progress_overlay_is_status_not_fake_modal():
+def test_scan_progress_status_lives_inside_real_modal():
     scan = _read("web/components/scan-workspace.tsx")
 
-    assert 'className="scan-lock-overlay" role="status" aria-live="polite"' in scan
+    assert 'className="scan-lock-card" role="status" aria-live="polite"' in scan
     assert 'className="scan-lock-overlay" role="dialog"' not in scan
     assert 'aria-modal="true"' not in scan
 
@@ -100,8 +100,8 @@ def test_performance_is_card_first_on_mobile_without_removing_desktop_tables():
     mobile = _read("web/components/performance-mobile-cards.tsx")
     css = _read("web/app/responsive.css")
 
-    assert 'import { PerformanceMobileCards } from "./performance-mobile-cards";' in page
-    assert page.count("<PerformanceMobileCards") >= 2
+    assert 'import { PerformanceMobileCards } from "./performance-mobile-cards";' in performance
+    assert performance.count("<PerformanceMobileCards") >= 2
     assert 'className="performance-mobile-cards"' in mobile
     assert "performance-mobile-card" in mobile
     assert 'className="performance-table"' in performance
@@ -117,3 +117,56 @@ def test_strategy_lab_keeps_kpis_before_native_transaction_disclosure():
     assert "<details" in disclosure
     assert "<summary" in disclosure
     assert "strategy-disclosure-body" in disclosure
+
+
+def test_auth_errors_are_associated_with_inputs_and_focusable_summary():
+    auth = _read("web/components/auth-page.tsx")
+    assert 'id="auth-error"' in auth
+    assert 'tabIndex={-1}' in auth
+    assert "errorRef.current?.focus()" in auth
+    for field in ("email", "password", "repeat", "captcha", "terms", "privacy"):
+        assert f'fieldAccessibility("{field}")' in auth
+    assert '"aria-describedby"' in auth
+    assert '"aria-invalid"' in auth
+    assert 'id="password-requirements"' in auth
+
+
+def test_legacy_mobile_sidebar_does_not_define_a_second_fixed_menu():
+    css = _read("web/app/globals.css")
+    mobile = css[css.index("@media (max-width: 860px)"):]
+    assert "repeat(6, minmax(0, 1fr))" not in mobile
+    assert "66px + env(safe-area-inset-bottom)" not in mobile
+
+
+def test_mobile_financial_labels_remain_readable():
+    css = _read("web/app/responsive.css")
+    assert not re.search(r"font-size:\s*(?:[7-9]|10)px", css)
+    assert ".strategy-page" in css
+
+
+def test_mobile_closed_cards_share_the_desktop_drilldown():
+    view = _read("web/components/performance-view.tsx")
+    css = _read("web/app/responsive.css")
+    assert "onInspectClosed={setSelectedClosedIndex}" in view
+    assert 'className="performance-table-scroll performance-position-table"' in view
+    assert re.search(r"\.performance-position-table\s*\{\s*display:\s*none", css)
+
+
+def test_scan_fullscreen_surfaces_use_native_modal_focus_isolation():
+    scan = _read("web/components/scan-workspace.tsx")
+    assert scan.count("<ModalSurface") == 2
+    modal = _read("web/components/modal-surface.tsx")
+    assert "showModal()" in modal
+    assert "dialog.close()" in modal
+    assert "<dialog" in modal
+
+
+def test_repeat_invalid_auth_submission_refocuses_summary():
+    auth = _read("web/components/auth-page.tsx")
+    assert "}, [error, invalidFields]);" in auth
+
+
+def test_expanded_results_reopen_before_restoring_inline_focus():
+    modal = _read("web/components/modal-surface.tsx")
+    inline = modal[modal.index("if (!modal)"):modal.index("const previousFocus")]
+    assert inline.index("dialog.open = true") < inline.index("returnFocus.current?.focus()")

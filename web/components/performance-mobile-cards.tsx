@@ -11,6 +11,7 @@ function display(value: unknown) {
 }
 
 function percent(value: unknown) {
+  if (value === null || value === undefined || (typeof value === "string" && !value.trim())) return "—";
   const numeric = Number(value);
   if (!Number.isFinite(numeric)) return "—";
   return `${numeric > 0 ? "+" : ""}${numeric.toLocaleString("tr-TR", { maximumFractionDigits: 2 })}%`;
@@ -35,8 +36,15 @@ export function PerformanceMobileCards({ rows, variant, onInspectClosed }: Perfo
           <div><dt>Pozisyonda gün</dt><dd>{display(row["Pozisyonda Gün"])}</dd></div>
           <div><dt>Son sinyal</dt><dd>{display(row["Son Alım Sinyali"])}</dd></div>
         </dl>
-        {onInspectClosed ? <button type="button" onClick={() => onInspectClosed(index)}>Dönemi incele</button> : null}
+        {onInspectClosed ? <button className="performance-detail-button" type="button" onClick={() => onInspectClosed(index)}>Dönemi incele</button> : null}
       </>}
+      <details className="performance-mobile-secondary">
+        <summary>Diğer pozisyon bilgileri</summary>
+        <dl>{(variant === "active"
+          ? ["İlk Sinyal", "İlk Alım Fiyatı", "Güncel Fiyat"]
+          : ["İlk Alım Tarihi", "İlk Alım Fiyatı", "Kapanış Fiyatı", "Maks. Kâr %", "Maks. Düşüş %", "İlk Stop", "İlk TP1", "TP1", "TP2", "TP3", "Stop"]
+        ).map((field) => <div key={field}><dt>{field}</dt><dd>{field.endsWith("%") ? percent(row[field]) : display(row[field])}</dd></div>)}</dl>
+      </details>
     </article>)}
   </div>;
 }

@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { PerformanceMobileCards } from "./performance-mobile-cards";
 import type {
   PerformancePositionsResponse,
   PerformanceScorecardResponse,
@@ -56,7 +57,8 @@ export function PerformancePositionTrackingView({ tracking }: { tracking: Perfor
 
     <section className="performance-panel performance-table-card">
       <div className="performance-section-title"><div><p className="eyebrow">AKTİF ALIM POZİSYONLARI</p><h2>Devam eden sinyal dönemleri</h2></div><span>{tracking.active.length} aktif</span></div>
-      {tracking.active.length === 0 ? <p className="performance-table-empty">Şu anda açık alım pozisyonu bulunmuyor.</p> : <div className="performance-table-scroll"><table className="performance-table">
+      <div className="performance-mobile-section"><PerformanceMobileCards rows={tracking.active} variant="active" /></div>
+      {tracking.active.length === 0 ? <p className="performance-table-empty">Şu anda açık alım pozisyonu bulunmuyor.</p> : <div className="performance-table-scroll performance-position-table"><table className="performance-table">
         <thead><tr><th>İlk alım</th><th>Varlık</th><th>İlk sinyal</th><th>Güncel sinyal</th><th>İlk fiyat</th><th>Güncel fiyat</th><th>K/Z</th><th>Geçen gün</th><th>Durum</th></tr></thead>
         <tbody>{tracking.active.map((row, index) => <tr key={rowKey(row, index)}>
           <td>{text(row["İlk Alım Tarihi"])}</td><td><b>{text(row["Varlık"])}</b></td><td>{text(row["İlk Sinyal"])}</td><td>{text(row["Güncel Sinyal"])}</td><td>{price(row["İlk Alım Fiyatı"])}</td><td>{price(row["Güncel Fiyat"])}</td><td className={pctClass(row["Kâr / Zarar %"])}>{pct(row["Kâr / Zarar %"])}</td><td>{text(row["Geçen Gün"])}</td><td>{text(row.Durum)}</td>
@@ -78,7 +80,8 @@ export function PerformancePositionTrackingView({ tracking }: { tracking: Perfor
 
     <section className="performance-panel performance-table-card">
       <div className="performance-section-title"><div><p className="eyebrow">KAPANMIŞ POZİSYON GEÇMİŞİ</p><h2>Gerçekleşmiş alım dönemleri</h2></div><span>{tracking.closed.length} kayıt</span></div>
-      {tracking.closed.length === 0 ? <p className="performance-table-empty">Henüz kapanmış alım dönemi bulunmuyor.</p> : <div className="performance-table-scroll"><table className="performance-table performance-table-wide">
+      <div className="performance-mobile-section"><PerformanceMobileCards rows={tracking.closed} variant="closed" onInspectClosed={setSelectedClosedIndex} /></div>
+      {tracking.closed.length === 0 ? <p className="performance-table-empty">Henüz kapanmış alım dönemi bulunmuyor.</p> : <div className="performance-table-scroll performance-position-table"><table className="performance-table performance-table-wide">
         <thead><tr><th>İlk alım</th><th>Kapanış</th><th>Varlık</th><th>Son sinyal</th><th>Kapanış nedeni</th><th>Giriş</th><th>Kapanış</th><th>K/Z</th><th>Gün</th><th>Maks. kâr</th><th>Maks. düşüş</th><th>İlk stop</th><th>İlk TP1</th><th>TP1</th><th>TP2</th><th>TP3</th><th>Stop</th><th>Detay</th></tr></thead>
         <tbody>{tracking.closed.map((row, index) => <tr key={rowKey(row, index)}>
           <td>{text(row["İlk Alım Tarihi"])}</td><td>{text(row["Kapanış Tarihi"])}</td><td><b>{text(row["Varlık"])}</b></td><td>{text(row["Son Alım Sinyali"])}</td><td>{text(row["Kapanış Nedeni"])}</td><td>{price(row["İlk Alım Fiyatı"])}</td><td>{price(row["Kapanış Fiyatı"])}</td><td className={pctClass(row["Kâr / Zarar %"])}>{pct(row["Kâr / Zarar %"])}</td><td>{text(row["Pozisyonda Gün"])}</td><td className={pctClass(row["Maks. Kâr %"])}>{pct(row["Maks. Kâr %"])}</td><td className={pctClass(row["Maks. Düşüş %"])}>{pct(row["Maks. Düşüş %"])}</td><td>{price(row["İlk Stop"])}</td><td>{price(row["İlk TP1"])}</td><td>{text(row.TP1)}</td><td>{text(row.TP2)}</td><td>{text(row.TP3)}</td><td>{text(row.Stop)}</td><td><button className="performance-detail-button" type="button" onClick={() => setSelectedClosedIndex(index)}>{selectedClosedIndex === index ? "Açık" : "İncele"}</button></td>

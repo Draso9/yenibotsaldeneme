@@ -381,25 +381,6 @@ button:focus-visible, input:focus-visible, a:focus-visible { outline: 2px solid 
   .brand { padding: 0 0 12px; }
   .brand-mark { width: 38px; height: 38px; }
   .nav-label, .sidebar-spacer, .sidebar-status { display: none; }
-  .sidebar nav {
-    position: fixed;
-    right: 0;
-    bottom: 0;
-    left: 0;
-    z-index: 30;
-    display: grid;
-    grid-template-columns: repeat(6, minmax(0, 1fr));
-    gap: 0;
-    padding: 7px max(8px, env(safe-area-inset-right)) calc(7px + env(safe-area-inset-bottom)) max(8px, env(safe-area-inset-left));
-    border-top: 1px solid var(--line-soft);
-    background: rgba(7, 12, 18, .96);
-    box-shadow: 0 -12px 32px rgba(0, 0, 0, .18);
-  }
-  .sidebar nav a { min-width: 0; min-height: 44px; grid-template-columns: 1fr; justify-items: center; gap: 3px; padding: 5px 3px; font-size: 9px; text-align: center; }
-  .sidebar nav a i { font-size: 15px; }
-  .sidebar nav a.active::before { display: none; }
-  .sidebar nav a em { display: none; }
-  .app-content { padding-bottom: calc(66px + env(safe-area-inset-bottom)); }
   .topbar { top: 0; min-height: 52px; padding: 0 20px; }
   .topbar-title span { display: none; }
   .command-page { padding: 30px 20px 64px; }
@@ -413,7 +394,6 @@ button:focus-visible, input:focus-visible, a:focus-visible { outline: 2px solid 
 
 @media (max-width: 600px) {
   .topbar-actions .environment-chip { display: none; }
-  .sidebar nav a span { overflow: hidden; max-width: 100%; text-overflow: ellipsis; white-space: nowrap; }
   .command-page { padding: 24px 14px 54px; }
   .scan-page { padding: 18px 14px 54px; }.scan-path { align-items: flex-start; flex-direction: column; }
   .command-hero h1 { font-size: clamp(2.55rem, 15vw, 4rem); }
