@@ -17,6 +17,7 @@ import "./usage-guide.css";
 import "./brand-scan-visibility.css";
 import "./sidebar-session.css";
 import "./auth-legal-gate.css";
+import "./responsive.css";
 import "./design-system.css";
 
 export const metadata: Metadata = {
