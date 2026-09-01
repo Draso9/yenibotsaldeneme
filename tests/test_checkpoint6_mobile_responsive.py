@@ -30,13 +30,16 @@ def test_mobile_navigation_has_five_primary_destinations_and_more_disclosure():
 
 
 def test_mobile_navigation_uses_safe_area_real_height_and_44px_targets():
-    css = _read("web/app/globals.css")
+    css = _read("web/app/responsive.css")
+    layout = _read("web/app/layout.tsx")
 
+    assert 'import "./responsive.css";' in layout
+    assert layout.rfind('import "./responsive.css";') < layout.rfind('import "./design-system.css";')
     assert "--mobile-nav-height:" in css
     assert "env(safe-area-inset-bottom)" in css
     assert "var(--mobile-nav-height)" in css
     assert re.search(r"min-height:\s*44px", css)
-    assert "repeat(6, minmax(0, 1fr))" not in css
+    assert "repeat(5, minmax(0, 1fr))" in css
 
 
 def test_detail_analysis_stays_contextual_not_mobile_primary():
