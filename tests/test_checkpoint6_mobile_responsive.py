@@ -16,8 +16,9 @@ def test_mobile_navigation_has_five_primary_destinations_and_more_disclosure():
     assert "<MobileNavigation" in shell
     assert 'aria-label="Mobil navigasyon"' in mobile_nav
 
-    for label in ("Piyasa", "Tarama", "Projeksiyon", "Performans", "Diğer"):
-        assert f">{label}<" in mobile_nav
+    for label in ("Piyasa", "Tarama", "Projeksiyon", "Performans"):
+        assert f'label: "{label}"' in mobile_nav
+    assert ">Diğer<" in mobile_nav
 
     assert mobile_nav.count('data-mobile-primary="true"') == 5
     assert "Strateji Lab" in mobile_nav
