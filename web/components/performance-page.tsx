@@ -9,6 +9,7 @@ import {
   type PerformanceScorecardResponse,
 } from "../lib/performance";
 import { useIzfinAuth } from "./auth-provider";
+import { PerformanceMobileCards } from "./performance-mobile-cards";
 import {
   PerformancePositionTrackingView,
   PerformanceScorecardView,
@@ -110,7 +111,11 @@ export function PerformancePage() {
 
     {!tracking && !trackingError && <section className="performance-panel performance-status" aria-live="polite"><strong>Pozisyon takibi hazırlanıyor</strong><span>Aktif ve kapanmış sinyal dönemleri yükleniyor.</span></section>}
     {trackingError && <section className="performance-panel performance-status" role="alert"><strong>Pozisyon takibi kullanılamıyor</strong><span>{trackingError}</span></section>}
-    {tracking && <PerformancePositionTrackingView tracking={tracking} />}
+    {tracking && <>
+      <section className="performance-mobile-section" aria-label="Mobil aktif pozisyon özeti"><p className="eyebrow">AKTİF POZİSYONLAR</p><PerformanceMobileCards rows={tracking.active} variant="active" /></section>
+      <section className="performance-mobile-section" aria-label="Mobil kapanmış pozisyon özeti"><p className="eyebrow">KAPANMIŞ POZİSYONLAR</p><PerformanceMobileCards rows={tracking.closed} variant="closed" /></section>
+      <PerformancePositionTrackingView tracking={tracking} />
+    </>}
 
     {!scorecard && !scoreError && <section className="performance-panel performance-status" aria-live="polite"><strong>Karne hazırlanıyor</strong><span>{days} günlük sinyal ölçümü hesaplanıyor.</span></section>}
     {scoreError && <section className="performance-panel performance-status" role="alert"><strong>Performans karnesi kullanılamıyor</strong><span>{scoreError}</span></section>}
