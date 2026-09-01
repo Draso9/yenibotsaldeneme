@@ -36,7 +36,7 @@ export function ScanMobileResultList({ rows, selectedTicker, onSelectTicker }: S
           <summary>Diğer göstergeler</summary>
           <dl>
             {profile !== "—" ? <><dt>Teknik Profil</dt><dd>{profile}</dd></> : null}
-            {secondaryFields.map((field) => <span key={field}><dt>{field}</dt><dd>{display(row[field])}</dd></span>)}
+            {secondaryFields.map((field) => <div key={field}><dt>{field}</dt><dd>{display(row[field])}</dd></div>)}
           </dl>
         </details>
       </article>;
