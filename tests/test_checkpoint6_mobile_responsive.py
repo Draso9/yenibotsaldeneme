@@ -49,3 +49,20 @@ def test_detail_analysis_stays_contextual_not_mobile_primary():
     assert 'pathname.startsWith("/stocks/")' in shell
     assert "Detaylı Analiz" in shell
     assert "Akıllı Tarama sonuçlarına dön" in detail
+
+
+def test_legal_documents_share_semantic_markdown_renderer():
+    renderer = _read("web/components/legal-markdown.tsx")
+    terms = _read("web/app/legal/terms/page.tsx")
+    privacy = _read("web/app/legal/privacy/page.tsx")
+
+    assert "<ul" in renderer
+    assert "<li" in renderer
+    assert "<h1" in renderer
+    assert "<h2" in renderer
+    assert "<h3" in renderer
+    assert "legal-public-list-line" not in renderer
+    assert 'import { LegalMarkdown } from "../../../components/legal-markdown";' in terms
+    assert 'import { LegalMarkdown } from "../../../components/legal-markdown";' in privacy
+    assert "function LegalMarkdown" not in terms
+    assert "function LegalMarkdown" not in privacy
