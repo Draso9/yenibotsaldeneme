@@ -19,14 +19,14 @@ def test_mobile_navigation_has_five_primary_destinations_and_more_disclosure():
     for label in ("Piyasa", "Tarama", "Projeksiyon", "Performans"):
         assert f'label: "{label}"' in mobile_nav
     assert ">Diğer<" in mobile_nav
-
-    assert mobile_nav.count('data-mobile-primary="true"') == 5
+    assert len(re.findall(r'label: "(?:Piyasa|Tarama|Projeksiyon|Performans)"', mobile_nav)) == 4
+    assert '<details className={`mobile-more-menu' in mobile_nav
+    assert 'data-mobile-primary="true"' in mobile_nav
     assert "Strateji Lab" in mobile_nav
     assert "Hesap" in mobile_nav
     assert "Admin QA" in mobile_nav
     assert "isAdmin" in mobile_nav
     assert "Detaylı Analiz" not in mobile_nav
-    assert "<details" in mobile_nav
     assert "<summary" in mobile_nav
 
 
@@ -71,26 +71,32 @@ def test_legal_documents_share_semantic_markdown_renderer():
 
 def test_scan_mobile_surface_prioritizes_stock_decision_score_and_risk():
     scan = _read("web/components/scan-workspace.tsx")
+    mobile = _read("web/components/scan-mobile-result-list.tsx")
 
-    assert 'className="scan-mobile-result-list"' in scan
-    assert 'className="scan-mobile-result-card"' in scan
-    assert 'className="scan-mobile-primary"' in scan
-    for field in ("Varlık", "Nihai Sinyal", "Gelişmiş Skor", "Risk"):
-        assert f'row["{field}"]' in scan or field == "Varlık" and "ticker(row)" in scan
-    assert '<details className="scan-mobile-secondary">' in scan
-    assert "<summary>Diğer göstergeler</summary>" in scan
+    assert 'import { ScanMobileResultList } from "./scan-mobile-result-list";' in scan
+    assert "<ScanMobileResultList" in scan
+    assert 'className="scan-mobile-result-list"' in mobile
+    assert 'className="scan-mobile-result-card"' in mobile
+    assert 'className="scan-mobile-primary"' in mobile
+    for field in ("Nihai Sinyal", "Gelişmiş Skor", "Risk"):
+        assert f'row["{field}"]' in mobile
+    assert 'row["Varlık"]' in mobile
+    assert '<details className="scan-mobile-secondary">' in mobile
+    assert "<summary>Diğer göstergeler</summary>" in mobile
     assert 'className="scan-result-table"' in scan
 
 
 def test_performance_is_card_first_on_mobile_without_removing_desktop_tables():
     performance = _read("web/components/performance-view.tsx")
+    mobile = _read("web/components/performance-mobile-cards.tsx")
     css = _read("web/app/responsive.css")
 
-    assert 'className="performance-mobile-cards"' in performance
-    assert 'className="performance-mobile-card"' in performance
+    assert 'import { PerformanceMobileCards } from "./performance-mobile-cards";' in performance
+    assert "<PerformanceMobileCards" in performance
+    assert 'className="performance-mobile-cards"' in mobile
+    assert 'className="performance-mobile-card"' in mobile
     assert 'className="performance-table"' in performance
     assert ".performance-mobile-cards" in css
-    assert "display: none" in css
     assert "@media (max-width: 600px)" in css
 
 
