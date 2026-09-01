@@ -86,6 +86,14 @@ def test_scan_mobile_surface_prioritizes_stock_decision_score_and_risk():
     assert 'className="scan-result-table"' in scan
 
 
+def test_scan_progress_overlay_is_status_not_fake_modal():
+    scan = _read("web/components/scan-workspace.tsx")
+
+    assert 'className="scan-lock-overlay" role="status" aria-live="polite"' in scan
+    assert 'className="scan-lock-overlay" role="dialog"' not in scan
+    assert 'aria-modal="true"' not in scan
+
+
 def test_performance_is_card_first_on_mobile_without_removing_desktop_tables():
     page = _read("web/components/performance-page.tsx")
     performance = _read("web/components/performance-view.tsx")
