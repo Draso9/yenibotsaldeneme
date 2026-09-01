@@ -87,12 +87,13 @@ def test_scan_mobile_surface_prioritizes_stock_decision_score_and_risk():
 
 
 def test_performance_is_card_first_on_mobile_without_removing_desktop_tables():
+    page = _read("web/components/performance-page.tsx")
     performance = _read("web/components/performance-view.tsx")
     mobile = _read("web/components/performance-mobile-cards.tsx")
     css = _read("web/app/responsive.css")
 
-    assert 'import { PerformanceMobileCards } from "./performance-mobile-cards";' in performance
-    assert "<PerformanceMobileCards" in performance
+    assert 'import { PerformanceMobileCards } from "./performance-mobile-cards";' in page
+    assert page.count("<PerformanceMobileCards") >= 2
     assert 'className="performance-mobile-cards"' in mobile
     assert 'className="performance-mobile-card"' in mobile
     assert 'className="performance-table"' in performance
