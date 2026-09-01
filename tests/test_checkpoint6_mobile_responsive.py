@@ -67,3 +67,38 @@ def test_legal_documents_share_semantic_markdown_renderer():
     assert 'import { LegalMarkdown } from "../../../components/legal-markdown";' in privacy
     assert "function LegalMarkdown" not in terms
     assert "function LegalMarkdown" not in privacy
+
+
+def test_scan_mobile_surface_prioritizes_stock_decision_score_and_risk():
+    scan = _read("web/components/scan-workspace.tsx")
+
+    assert 'className="scan-mobile-result-list"' in scan
+    assert 'className="scan-mobile-result-card"' in scan
+    assert 'className="scan-mobile-primary"' in scan
+    for field in ("Varlık", "Nihai Sinyal", "Gelişmiş Skor", "Risk"):
+        assert f'row["{field}"]' in scan or field == "Varlık" and "ticker(row)" in scan
+    assert '<details className="scan-mobile-secondary">' in scan
+    assert "<summary>Diğer göstergeler</summary>" in scan
+    assert 'className="scan-result-table"' in scan
+
+
+def test_performance_is_card_first_on_mobile_without_removing_desktop_tables():
+    performance = _read("web/components/performance-view.tsx")
+    css = _read("web/app/responsive.css")
+
+    assert 'className="performance-mobile-cards"' in performance
+    assert 'className="performance-mobile-card"' in performance
+    assert 'className="performance-table"' in performance
+    assert ".performance-mobile-cards" in css
+    assert "display: none" in css
+    assert "@media (max-width: 600px)" in css
+
+
+def test_strategy_lab_keeps_kpis_before_native_transaction_disclosure():
+    strategy = _read("web/components/strategy-lab-page.tsx")
+    disclosure = _read("web/components/strategy-disclosure.tsx")
+
+    assert strategy.index('className="strategy-primary-kpis"') < strategy.index("<StrategyDisclosure")
+    assert "<details" in disclosure
+    assert "<summary" in disclosure
+    assert "strategy-disclosure-body" in disclosure
