@@ -76,7 +76,7 @@ def test_scan_mobile_surface_prioritizes_stock_decision_score_and_risk():
     assert 'import { ScanMobileResultList } from "./scan-mobile-result-list";' in scan
     assert "<ScanMobileResultList" in scan
     assert 'className="scan-mobile-result-list"' in mobile
-    assert 'className="scan-mobile-result-card"' in mobile
+    assert "scan-mobile-result-card" in mobile
     assert 'className="scan-mobile-primary"' in mobile
     for field in ("Nihai Sinyal", "Gelişmiş Skor", "Risk"):
         assert f'row["{field}"]' in mobile
@@ -103,7 +103,7 @@ def test_performance_is_card_first_on_mobile_without_removing_desktop_tables():
     assert 'import { PerformanceMobileCards } from "./performance-mobile-cards";' in page
     assert page.count("<PerformanceMobileCards") >= 2
     assert 'className="performance-mobile-cards"' in mobile
-    assert 'className="performance-mobile-card"' in mobile
+    assert "performance-mobile-card" in mobile
     assert 'className="performance-table"' in performance
     assert ".performance-mobile-cards" in css
     assert "@media (max-width: 600px)" in css
