@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { fetchLegalDocument, legalPrivacyPath, type LegalDocumentResponse } from "../../../lib/account";
 import { IzfinBrandMark } from "../../../components/izfin-brand-mark";
+import { LegalMarkdown } from "../../../components/legal-markdown";
 
 export default function LegalPrivacyPage() {
   const [document, setDocument] = useState<LegalDocumentResponse | null>(null);
@@ -28,16 +29,4 @@ export default function LegalPrivacyPage() {
       <a className="legal-public-back" href="/auth">Giriş / kayıt ekranına dön</a>
     </article>
   </main>;
-}
-
-function LegalMarkdown({ markdown }: Readonly<{ markdown: string }>) {
-  return <div className="legal-public-copy">{markdown.split("\n").map((raw, index) => {
-    const line = raw.trim();
-    if (!line) return null;
-    if (line.startsWith("### ")) return <h3 key={index}>{line.slice(4)}</h3>;
-    if (line.startsWith("## ")) return <h2 key={index}>{line.slice(3)}</h2>;
-    if (line.startsWith("# ")) return <h1 key={index}>{line.slice(2)}</h1>;
-    if (line.startsWith("- ")) return <p className="legal-public-list-line" key={index}>• {line.slice(2)}</p>;
-    return <p key={index}>{line}</p>;
-  })}</div>;
 }
