@@ -62,13 +62,14 @@ def test_checkpoint4_detail_keeps_technical_depth_without_repeating_directional_
     ):
         assert required in detail
 
+    # Approved signal-label package adds only profile/action context to the header.
+    # Detailed gate reasoning remains exclusive to the scan decision card.
     for repeated_decision_field in (
         "decision.olumlu_metin",
         "decision.risk_metin",
         "decision.guven",
         "decision.mtf_uyum",
         "action.entry_quality",
-        "action.profile",
     ):
         assert repeated_decision_field not in detail
 

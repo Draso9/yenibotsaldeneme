@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Any
 
 import pandas as pd
+from izfin_ui.signal_labels import teknik_profil_etiketi
 
 
 BACKTEST_DETAY_ACIKLAMA = (
@@ -39,7 +40,7 @@ BACKTEST_DETAY_KOLONLARI = [
     "Teknik Profil",
     "Ön Sinyal",
     "Hibrit Skor",
-    "Güven %",
+    "Güven puanı",
     "Daily MTF %",
     "Giriş Proxy",
     "Giriş",
@@ -53,7 +54,7 @@ BACKTEST_DETAY_KOLONLARI = [
 
 BACKTEST_DETAY_FORMAT = {
     "Hibrit Skor": "{:.0f}",
-    "Güven %": "{:.0f}",
+    "Güven puanı": "{:.0f}/100",
     "Daily MTF %": "{:.0f}",
     "Giriş Proxy": "{:.0f}",
     "Giriş": "{:.2f}",
@@ -116,6 +117,12 @@ def backtest_detay_gorunumu_hazirla(bt: pd.DataFrame) -> pd.DataFrame:
     if bt is None or bt.empty:
         return pd.DataFrame(columns=BACKTEST_DETAY_KOLONLARI)
 
+    bt = bt.copy()
+    if "Güven puanı" not in bt.columns and "Güven %" in bt.columns:
+        bt = bt.rename(columns={"Güven %": "Güven puanı"})
+    for column in ("Teknik Profil", "Ön Sinyal"):
+        if column in bt.columns:
+            bt[column] = bt[column].apply(teknik_profil_etiketi)
     kolonlar = [k for k in BACKTEST_DETAY_KOLONLARI if k in bt.columns]
     detay = bt[kolonlar].copy()
     if "Tarih" in detay.columns:

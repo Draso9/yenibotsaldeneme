@@ -7,7 +7,7 @@ ROOT = Path(__file__).parents[1]
 def test_scan_signal_keeps_technical_profile_context_next_to_the_decision():
     workspace = (ROOT / "web" / "components" / "scan-workspace.tsx").read_text(encoding="utf-8")
 
-    assert 'const profile = String(row["Teknik Profil"] ?? "").trim();' in workspace
+    assert 'const profile = technicalProfile(row["Teknik Profil"]);' in workspace
     assert '<small className="scan-signal-profile">Teknik Profil: {profile}</small>' in workspace
     assert 'column === "Nihai Sinyal" && profile ? <><span>{String(row[column] ?? "—")}</span>' in workspace
 

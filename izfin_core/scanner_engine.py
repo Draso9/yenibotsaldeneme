@@ -443,7 +443,7 @@ def on_sinyal_belirle(
     if rsi <= 40 and uzun_vade_trend and fiyat <= bb_mid and fiyat <= (karma_destek + atr):
         return "KADEMELİ ALIM 🔵"
     if uzun_vade_trend and int(skor) >= 70:
-        return "UZUN VADELİ ADAY 🌟"
+        return "TREND ADAYI 🌟"
     if hacim_patlamasi_var and rsi < 50:
         return "HACİMLİ TEPKİ 🟡"
     if not uzun_vade_trend:

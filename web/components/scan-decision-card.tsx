@@ -1,5 +1,7 @@
 "use client";
 
+import { SignalExplanation } from "./signal-explanation";
+import { technicalProfile, confidenceScore, confidenceExplanation, trendExplanation } from "../lib/signal-labels";
 import { useEffect } from "react";
 import type { StockDetailResponse } from "../lib/market-center";
 import { projectionHref } from "../lib/projection";
@@ -79,12 +81,14 @@ export function ScanDecisionCard({ jobId, detail, tickers, onTickerChange }: Sca
 
     <div className="scan-decision-secondary">
       <div className="scan-decision-kpis">
-        <span><small>Algoritma güveni</small><b>%{text(decision.guven)}</b></span>
+        <span title={confidenceExplanation}><small>Algoritma güven puanı</small><b>{confidenceScore(decision.guven)}</b></span>
         <span><small>Giriş kalitesi</small><b>{text(action.entry_quality, text(detail.entry_quality))}</b></span>
         <span><small>MTF uyumu</small><b>%{text(decision.mtf_uyum)}</b></span>
         <span><small>Risk</small><b>{text(decision.risk)}</b></span>
-        <span><small>Teknik profil</small><b>{text(action.profile)}</b></span>
+        <span><small>Teknik profil</small><b>{technicalProfile(action.profile)}</b></span>
       </div>
+      <p className="scan-decision-note">{trendExplanation} {confidenceExplanation}</p>
+      <SignalExplanation value={decision.teyitler} />
       {decision.mtf_metin ? <div className="scan-decision-note"><small>ZAMAN DİLİMLERİ</small><p>{text(decision.mtf_metin)}</p></div> : null}
       <div className="scan-decision-level-heading"><span>İşlem planı seviyeleri</span><small>Destek · direnç · zarar kes · hedefler</small></div>
       <div className="scan-decision-levels">{levels.map(([label, value]) => <span key={label}><small>{label}</small><b>{text(value)}</b></span>)}</div>

@@ -52,7 +52,7 @@ def _safe_int(value, default=0):
         return int(default)
 
 
-def merkezi_karar_motoru(panel: Mapping[str, Any]) -> dict[str, Any]:
+def merkezi_karar_motoru(panel: Mapping[str, Any], *, teyit_denetimi: dict[str, Any] | None = None) -> dict[str, Any]:
     """IZFIN'in tek karar beyni; arayüzden ve veri sağlayıcısından bağımsızdır."""
     profil = str(panel.get("profil", panel.get("on_sinyal", "NÖTR")))
     profil_u = profil.upper()
@@ -84,14 +84,42 @@ def merkezi_karar_motoru(panel: Mapping[str, Any]) -> dict[str, Any]:
 
     trend_ana = fiyat > sma200 and fiyat > ema50
     trend_kisa = ema9 > ema21
-    trend_guclu = trend_ana and trend_kisa and supertrend == 1
     momentum_pozitif = macd > macd_signal and plus_di >= minus_di
-    para_akisi_pozitif = cmf >= 0
     asiri_isinmis = rsi >= 70 and np.isfinite(bb_ust) and fiyat >= bb_ust * 0.995
     momentum_bozuluyor = macd <= macd_signal or fiyat < ema9 or cmf < -0.03 or mfi < 45
     yuksek_risk = risk in {"YÜKSEK", "ÇOK YÜKSEK", "PANİK / ÇOK YÜKSEK"} or "PANİK" in vol_rejimi
     alim_profili = any(x in profil_u for x in ["ALIM", "KIRILIM", "ADAY"])
     tepki_profili = "HACİMLİ TEPKİ" in profil_u or "KURTULUŞ" in profil_u
+
+    # The decision and its optional explanation consume the same gates.  The
+    # historic decision payload stays unchanged; callers opt into the audit.
+    ortak = {
+        "profil": (alim_profili, "Alım yönünde teknik profil"),
+        "ana_trend": (trend_ana, "Fiyat SMA200 ve EMA50 üzerinde"),
+        "risk": (not yuksek_risk, "Yüksek risk / panik engeli yok"),
+        "sahte_kirilim": (not sahte_kirilim, "Sahte kırılım işareti yok"),
+        "isinma": (not asiri_isinmis, "Aşırı ısınma engeli yok: RSI ≥70 ve fiyat üst Bollinger bandının en az %99,5'i birlikte oluşmamış"),
+    }
+    seviyeler = {}
+    for ad, guven_esik, giris_esik, mtf_esik, cmf_esik in (
+        ("ERKEN_AL", 62, 55, 55, -0.05),
+        ("AL", 70, 65, 60, -0.03),
+        ("GUCLU_AL", 80, 80, 70, 0),
+    ):
+        kosullar = dict(ortak)
+        kosullar.update({
+            "guven": (guven >= guven_esik, f"Algoritma güven puanı {guven}/100; gereken ≥{guven_esik}"),
+            "giris": (giris >= giris_esik, f"Giriş kalitesi {giris}/100; gereken ≥{giris_esik}"),
+            "mtf": (mtf >= mtf_esik, f"Zaman dilimi uyumu {mtf}/100; gereken ≥{mtf_esik}"),
+            "cmf": (cmf >= cmf_esik, f"CMF {cmf}; gereken ≥{cmf_esik:g}"),
+        })
+        if ad in {"AL", "GUCLU_AL"}:
+            kosullar["supertrend"] = (supertrend == 1, "SuperTrend yukarı")
+        if ad == "GUCLU_AL":
+            kosullar["kisa_trend"] = (trend_kisa, "EMA9, EMA21 üzerinde")
+            kosullar["momentum"] = (momentum_pozitif, "MACD sinyalin üzerinde ve +DI ≥ −DI")
+        seviyeler[ad] = kosullar
+    alim_uyumu = {ad: all(gecti for gecti, _ in kosullar.values()) for ad, kosullar in seviyeler.items()}
 
     olumlu, olumsuz = [], []
     if trend_ana:
@@ -143,15 +171,11 @@ def merkezi_karar_motoru(panel: Mapping[str, Any]) -> dict[str, Any]:
         karar, aksiyon = "KÂR AL / RİSK AZALT 🟠", "KAR_AL"
     elif "MOMENTUM AŞIRI ISINDI" in profil_u and (rsi >= 68 or yuksek_risk):
         karar, aksiyon = "KÂR KORU / YENİ GİRİŞ BEKLE 🟠", "KAR_KORU"
-    elif (alim_profili and trend_guclu and momentum_pozitif and para_akisi_pozitif
-          and guven >= 80 and giris >= 80 and mtf >= 70 and not yuksek_risk
-          and not sahte_kirilim and not asiri_isinmis):
+    elif alim_uyumu["GUCLU_AL"]:
         karar, aksiyon = "GÜÇLÜ AL 🚀", "GUCLU_AL"
-    elif (alim_profili and trend_ana and supertrend == 1 and guven >= 70 and giris >= 65
-          and mtf >= 60 and cmf >= -0.03 and not yuksek_risk and not sahte_kirilim and not asiri_isinmis):
+    elif alim_uyumu["AL"]:
         karar, aksiyon = "AL 🟢", "AL"
-    elif (alim_profili and trend_ana and guven >= 62 and giris >= 55 and mtf >= 55
-          and not yuksek_risk and cmf >= -0.05 and not sahte_kirilim and not asiri_isinmis):
+    elif alim_uyumu["ERKEN_AL"]:
         karar, aksiyon = "ERKEN AL 🟢", "ERKEN_AL"
     elif alim_profili:
         karar, aksiyon = "TEYİT BEKLE 🟡", "TEYIT_BEKLE"
@@ -185,6 +209,18 @@ def merkezi_karar_motoru(panel: Mapping[str, Any]) -> dict[str, Any]:
         nedenler = olumsuz[:4] or ["Risk profili yeni pozisyon için yeterli değil"]
 
     ozet = " · ".join(nedenler) if nedenler else "Karar, mevcut teknik verilerin ortak değerlendirmesinden üretildi."
+    if teyit_denetimi is not None:
+        teyit_denetimi.update({
+            "available": True,
+            "aksiyon": aksiyon,
+            "ozet": ozet,
+            "oncelikli_karar": aksiyon in {"SAT_KACIN", "KAR_AL", "KAR_KORU"},
+            "seviyeler": {
+                ad: [{"kod": kod, "saglandi": bool(gecti), "metin": metin}
+                     for kod, (gecti, metin) in kosullar.items()]
+                for ad, kosullar in seviyeler.items()
+            },
+        })
     return {
         "karar": karar,
         "aksiyon": aksiyon,
@@ -229,7 +265,7 @@ def nihai_karar_motoru(on_sinyal, skor, tetik_puani, fiyat, ema9, ema21, ema50,
     if "KADEMELİ ALIM" in str(on_sinyal):
         return on_sinyal
     if trend_guclu and skor >= 70 and not asiri_isinmis:
-        return "UZUN VADELİ ADAY 🌟"
+        return "TREND ADAYI 🌟"
     if not trend_guclu and skor < 45:
         return "UZAK DUR! 🛑"
     return on_sinyal

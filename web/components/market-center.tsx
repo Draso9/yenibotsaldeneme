@@ -1,5 +1,7 @@
 "use client";
 
+import { confidenceScore, confidenceExplanation } from "../lib/signal-labels";
+
 import { useEffect, useState } from "react";
 import {
   fetchMarketCenter,
@@ -23,7 +25,7 @@ function numeric(value: unknown): number { const parsed = Number(value); return 
 function signedPct(value: unknown): string { const parsed = Number(value); return Number.isFinite(parsed) ? `${parsed >= 0 ? "+" : ""}${parsed.toLocaleString("tr-TR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%` : "—"; }
 function decisionCount(value: unknown): string { const parsed = Number(value); return Number.isFinite(parsed) ? String(parsed) : "0"; }
 function factorWidth(value: unknown): string { const parsed = Number(value); return `${Math.max(0, Math.min(100, Number.isFinite(parsed) ? parsed : 0))}%`; }
-const DECISION_LABELS: Record<string, string> = { karar: "Karar", guven: "Güven", mtf_uyum: "MTF uyumu", risk: "Risk", giris_puani: "Giriş" };
+const DECISION_LABELS: Record<string, string> = { karar: "Karar", guven: "Güven puanı", mtf_uyum: "MTF uyumu", risk: "Risk", giris_puani: "Giriş" };
 
 export function MarketCenterPanel({ jobId }: Readonly<{ jobId: string }>) {
   const { user, getIdToken } = useIzfinAuth();
@@ -91,12 +93,12 @@ export function MarketCenterPanel({ jobId }: Readonly<{ jobId: string }>) {
         <div className="market-signals">
           <div className="subsection-title"><span>Listende dikkat çekenler</span><b>{center.top_signals.length}</b></div>
           <div className="market-signal-table" role="table" aria-label="Listende dikkat çekenler">
-            <div className="market-signal-head" role="row"><span>Sembol</span><span>Fiyat</span><span>IZFIN kararı</span><span>Skor</span><span>Güven</span><span>MTF</span><span>Risk</span></div>
+            <div className="market-signal-head" role="row"><span>Sembol</span><span>Fiyat</span><span>IZFIN kararı</span><span>Skor</span><span title={confidenceExplanation}>Güven puanı</span><span>MTF</span><span>Risk</span></div>
             {center.top_signals.slice(0, 7).map((item, index) => {
               const ticker = tickerOf(item);
               if (!ticker) return null;
               return <a className="market-signal-row" role="row" href={stockDetailHref(jobId, ticker)} key={`${ticker}-${index}`}>
-                <strong>{ticker}</strong><span>{text(item.fiyat ?? item.price)}</span><span>{text(item.sinyal)}</span><span>{text(item.skor)}</span><span>%{text(item.guven)}</span><span>%{text(item.mtf)}</span><span>{text(item.risk)}</span>
+                <strong>{ticker}</strong><span>{text(item.fiyat ?? item.price)}</span><span>{text(item.sinyal)}</span><span>{text(item.skor)}</span><span>{confidenceScore(item.guven)}</span><span>%{text(item.mtf)}</span><span>{text(item.risk)}</span>
               </a>;
             })}
           </div>
@@ -108,9 +110,9 @@ export function MarketCenterPanel({ jobId }: Readonly<{ jobId: string }>) {
             {!detail && !detailError && <p>Detay yükleniyor…</p>}
             {detailError && <p role="alert">{detailError}</p>}
             {detail && <>
-              <div className="focus-kv"><span>IZFIN Skor<b>{text(detail.score.nihai)}</b></span><span>Güven<b>%{text(detail.decision.guven)}</b></span><span>MTF<b>%{text(detail.decision.mtf_uyum)}</b></span><span>Risk<b>{text(detail.decision.risk)}</b></span></div><p className="market-focus-signal">{text(detail.signal)}</p>
+              <div className="focus-kv"><span>IZFIN Skor<b>{text(detail.score.nihai)}</b></span><span title={confidenceExplanation}>Güven puanı<b>{confidenceScore(detail.decision.guven)}</b></span><span>MTF<b>%{text(detail.decision.mtf_uyum)}</b></span><span>Risk<b>{text(detail.decision.risk)}</b></span></div><p className="market-focus-signal">{text(detail.signal)}</p>
               <a className="detail-open" href={stockDetailHref(jobId, selectedTicker)}>Detaylı analizi aç →</a>
-              <div className="market-decision-context"><span>Karar bileşenleri</span>{Object.entries(detail.decision).filter(([key]) => DECISION_LABELS[key]).slice(0, 4).map(([key, value]) => <p key={key}>{DECISION_LABELS[key]}<b>{text(value)}</b></p>)}</div>
+              <div className="market-decision-context"><span>Karar bileşenleri</span>{Object.entries(detail.decision).filter(([key]) => DECISION_LABELS[key]).slice(0, 4).map(([key, value]) => <p key={key}>{DECISION_LABELS[key]}<b>{key === "guven" ? confidenceScore(value) : text(value)}</b></p>)}</div>
             </>}
           </> : <p>Öne çıkan hisse bulunamadı.</p>}
         </div>

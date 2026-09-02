@@ -1,5 +1,6 @@
 "use client";
 
+import { technicalProfile, trendExplanation } from "../lib/signal-labels";
 import { useEffect, useState } from "react";
 import { fetchMarketStockDetail, type StockDetailResponse } from "../lib/market-center";
 import { projectionHref } from "../lib/projection";
@@ -92,6 +93,8 @@ export function StockDetailPage({ jobId, ticker }: Readonly<{ jobId: string; tic
           <span><b>{text(detail.price)}</b> fiyat</span>
           <span><b>{text(detail.score.nihai)}</b> Gelişmiş Skor</span>
         </div>
+        <p className="detail-note"><b>Teknik profil:</b> {technicalProfile(detail.action.profile)} · <b>Merkezi karar:</b> {text(detail.decision.karar)}</p>
+        <p className="detail-note">{trendExplanation} Kararın teyit koşullarını Akıllı Tarama karar kartında inceleyebilirsin.</p>
         <a className="projection-cta" href={projectionHref(jobId, normalizedTicker)}>45G projeksiyon senaryosunu aç →</a>
         <p className="detail-note"><b>Odak</b> · Bu ekran Karar Motoru'nu tekrar etmez; işlem yönünü merkezde tutan Karar Motoru yerine skorun nedenlerini, teknik göstergeleri, trend/momentumu, seviyeleri ve teknik planı ayrıntılandırır.</p>
       </>}

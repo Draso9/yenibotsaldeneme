@@ -9,14 +9,15 @@ from typing import Iterable
 import pandas as pd
 
 from izfin_core.decision_engine import sinyal_yonu_belirle
+from izfin_ui.signal_labels import trend_adayi_mi
 
 # Bu modül bilinçli olarak Streamlit/session-state bağımlılığı taşımaz.
 
 SONUC_FILTRELERI = (
     "Tümü",
     "AL Sinyalleri",
-    "Uzun Vadeli Adaylar",
-    "Teyit Bekleyenler",
+    "Trend Adayları",
+    "İzle / Bekle",
 )
 
 
@@ -55,17 +56,14 @@ def tarama_sonuclarini_filtrele(sonuclar, sonuc_filtresi: str) -> pd.DataFrame:
             df["Nihai Sinyal"].apply(lambda value: sinyal_yonu_belirle(value) == "ALIM")
         ]
 
-    if sonuc_filtresi == "Uzun Vadeli Adaylar":
+    if sonuc_filtresi in {"Trend Adayları", "Uzun Vadeli Adaylar"}:
         if "Teknik Profil" not in df.columns:
             return df.iloc[0:0]
         return df[
-            df["Teknik Profil"]
-            .astype(str)
-            .str.upper()
-            .str.contains("UZUN VADELİ ADAY", na=False)
+            df["Teknik Profil"].apply(trend_adayi_mi)
         ]
 
-    if sonuc_filtresi == "Teyit Bekleyenler":
+    if sonuc_filtresi in {"İzle / Bekle", "Teyit Bekleyenler"}:
         if "Nihai Sinyal" not in df.columns:
             return df.iloc[0:0]
         sinyaller = df["Nihai Sinyal"].astype(str).str.upper()

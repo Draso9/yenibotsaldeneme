@@ -17,6 +17,7 @@ import { useIzfinAuth } from "./auth-provider";
 import { ScanDecisionCard } from "./scan-decision-card";
 import { ScanMobileResultList } from "./scan-mobile-result-list";
 import { ScanQuickControls } from "./scan-quick-controls";
+import { technicalProfile, confidenceScore, isTrendCandidate, trendExplanation, confidenceExplanation } from "../lib/signal-labels";
 import { ModalSurface } from "./modal-surface";
 
 type ScanResultRow = Record<string, unknown>;
@@ -27,18 +28,17 @@ type Watchlist = { tickers: string[]; recovered: boolean };
 type Profiles = { profiles: Record<string, string[]> };
 type Universe = { profil: string; tickers: string[]; chipleri_goster: boolean; secim_ozeti: { varlik_adedi: number } };
 type SymbolSuggestion = { symbol: string; name: string; exchange: string; quote_type: string };
-type ResultFilter = "Tümü" | "AL Sinyalleri" | "Uzun Vadeli Adaylar" | "Teyit Bekleyenler";
+type ResultFilter = "Tümü" | "AL Sinyalleri" | "Trend Adayları" | "İzle / Bekle";
 type SortDirection = "asc" | "desc";
 
 const resultColumns = ["Varlık", "Fiyat", "Nihai Sinyal", "Gelişmiş Skor", "Güven", "🎯 Giriş Kalitesi", "MTF Uyum", "Risk", "Para Akışı", "PEG / Değerleme", "Seans Dışı"];
-const filters: ResultFilter[] = ["Tümü", "AL Sinyalleri", "Uzun Vadeli Adaylar", "Teyit Bekleyenler"];
+const filters: ResultFilter[] = ["Tümü", "AL Sinyalleri", "Trend Adayları", "İzle / Bekle"];
 
 function normalizeTickers(values: string[]): string[] { return [...new Set(values.map((item) => item.trim().toUpperCase()).filter(Boolean))]; }
 function signal(row: ScanResultRow) { return String(row["Nihai Sinyal"] ?? "Analiz tamamlandı"); }
 function ticker(row: ScanResultRow) { return String(row.Varlık ?? row.ticker ?? "").trim().toUpperCase(); }
 function isBuy(row: ScanResultRow) { const value = signal(row).toLocaleUpperCase("tr-TR"); return value.includes("AL") && !value.includes("KÂR AL") && !value.includes("KAR AL"); }
 function isConfirmation(row: ScanResultRow) { const value = signal(row).toLocaleUpperCase("tr-TR"); return ["TEYİT", "İZLE", "BEKLE"].some((term) => value.includes(term)); }
-function isLongTerm(row: ScanResultRow) { return String(row["Teknik Profil"] ?? "").toLocaleUpperCase("tr-TR").includes("UZUN VADELİ ADAY"); }
 function sortValue(value: unknown): number | string {
   const raw = String(value ?? ""); const risk = { "ÇOK YÜKSEK": 4, YÜKSEK: 3, ORTA: 2, DÜŞÜK: 1 };
   const riskValue = Object.entries(risk).find(([label]) => raw.toLocaleUpperCase("tr-TR").includes(label)); if (riskValue) return riskValue[1];
@@ -379,7 +379,7 @@ function ScanResult({ jobId, summary, activeFilter, onFilterChange }: Readonly<{
   const [focusMode, setFocusMode] = useState(false);
   const [decisionDetail, setDecisionDetail] = useState<StockDetailResponse | null>(null);
   const [decisionError, setDecisionError] = useState("");
-  const results = useMemo(() => summary.sonuclar.filter((row) => activeFilter === "Tümü" || (activeFilter === "AL Sinyalleri" ? isBuy(row) : activeFilter === "Uzun Vadeli Adaylar" ? isLongTerm(row) : isConfirmation(row))).sort((left, right) => { const a = sortValue(left[sort.column]); const b = sortValue(right[sort.column]); const comparison = typeof a === "number" && typeof b === "number" ? a - b : String(a).localeCompare(String(b), "tr"); return sort.direction === "asc" ? comparison : -comparison; }), [activeFilter, sort, summary.sonuclar]);
+  const results = useMemo(() => summary.sonuclar.filter((row) => activeFilter === "Tümü" || (activeFilter === "AL Sinyalleri" ? isBuy(row) : activeFilter === "Trend Adayları" ? isTrendCandidate(row) : isConfirmation(row))).sort((left, right) => { const a = sortValue(left[sort.column]); const b = sortValue(right[sort.column]); const comparison = typeof a === "number" && typeof b === "number" ? a - b : String(a).localeCompare(String(b), "tr"); return sort.direction === "asc" ? comparison : -comparison; }), [activeFilter, sort, summary.sonuclar]);
   const decisionTickers = useMemo(() => normalizeTickers(summary.sonuclar.map(ticker)), [summary.sonuclar]);
   const selectedTicker = decisionTickers.includes(rememberedTicker) ? rememberedTicker : (decisionTickers[0] ?? "");
 
@@ -413,9 +413,11 @@ function ScanResult({ jobId, summary, activeFilter, onFilterChange }: Readonly<{
     <div className="result-filter" aria-label="Gösterilecek sonuçlar"><span>Gösterilecek sonuçlar</span>{filters.map((filter) => <button className={activeFilter === filter ? "active" : ""} key={filter} type="button" onClick={() => onFilterChange(filter)}>{filter}</button>)}</div>
     <p className="scan-filter-summary">{results.length} sonuç gösteriliyor · Filtre: {activeFilter}</p>
     {summary.basarisiz_taramalar.length > 0 && <p>Veri/hesaplama sorunu nedeniyle es geçilen varlıklar: {summary.basarisiz_taramalar.join(", ")}</p>}
+    <p className="scan-filter-help">Trend Adayları teknik profili; AL Sinyalleri alım kararlarını; İzle / Bekle ise teyit, nötr izleme ve yeni giriş bekleme kararlarını gösterir. Aynı varlık farklı filtrelerde yer alabilir.</p>
+    <details className="signal-explanation"><summary>Teknik profil ve merkezi karar nasıl okunur?</summary><p>{trendExplanation}</p><p>{confidenceExplanation}</p><p>Trend Adayı + Teyit Bekle birlikte görülebilir: trend yapısı olumlu olsa da giriş koşulları tamamlanmamış olabilir.</p></details>
     {summary.sonuclar.length === 0 ? <p className="scan-empty">Veriler çekilemedi. Farklı bir profil veya varlık grubu seçip tekrar deneyin.</p> : results.length === 0 ? <p className="scan-empty">Bu filtreye uyan sonuç yok. Diğer filtrelerden birini seçebilir veya taramayı daha sonra yenileyebilirsin.</p> : <>
       <ScanMobileResultList rows={results} selectedTicker={selectedTicker} onSelectTicker={setSharedSelectedTicker} />
-      <div className="scan-result-table-wrap"><table className="scan-result-table"><thead><tr>{resultColumns.map((column) => <th key={column}><button type="button" onClick={() => updateSort(column)}>{column} <span>{sort.column === column ? (sort.direction === "asc" ? "↑" : "↓") : "↕"}</span></button></th>)}</tr></thead><tbody>{results.map((row, index) => { const symbol = ticker(row); const profile = String(row["Teknik Profil"] ?? "").trim(); return <tr className={selectedTicker === symbol ? "is-selected" : ""} key={`${symbol}-${index}`}>{resultColumns.map((column) => <td key={column} className={column === "Nihai Sinyal" ? "scan-signal-cell" : ""}>{column === "Varlık" && symbol ? <button className="scan-result-symbol" type="button" onClick={() => setSharedSelectedTicker(symbol)}>{symbol}</button> : column === "Nihai Sinyal" && profile ? <><span>{String(row[column] ?? "—")}</span><small className="scan-signal-profile">Teknik Profil: {profile}</small></> : String(row[column] ?? "—")}</td>)}</tr>; })}</tbody></table></div>
+      <div className="scan-result-table-wrap"><table className="scan-result-table"><thead><tr>{resultColumns.map((column) => <th key={column}><button type="button" onClick={() => updateSort(column)}>{column === "Güven" ? "Güven puanı" : column} <span>{sort.column === column ? (sort.direction === "asc" ? "↑" : "↓") : "↕"}</span></button></th>)}</tr></thead><tbody>{results.map((row, index) => { const symbol = ticker(row); const profile = technicalProfile(row["Teknik Profil"]); return <tr className={selectedTicker === symbol ? "is-selected" : ""} key={`${symbol}-${index}`}>{resultColumns.map((column) => <td key={column} className={column === "Nihai Sinyal" ? "scan-signal-cell" : ""}>{column === "Varlık" && symbol ? <button className="scan-result-symbol" type="button" onClick={() => setSharedSelectedTicker(symbol)}>{symbol}</button> : column === "Nihai Sinyal" && profile ? <><span>{String(row[column] ?? "—")}</span><small className="scan-signal-profile">Teknik Profil: {profile}</small></> : column === "Güven" ? confidenceScore(row[column]) : String(row[column] ?? "—")}</td>)}</tr>; })}</tbody></table></div>
     </>}
     {selectedTicker && !decisionDetail && !decisionError ? <p className="scan-decision-state" aria-live="polite">{selectedTicker} karar motoru yükleniyor…</p> : null}
     {decisionError ? <p className="scan-decision-state" role="alert">{decisionError}</p> : null}
