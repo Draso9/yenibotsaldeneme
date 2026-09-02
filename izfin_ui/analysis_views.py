@@ -8,15 +8,16 @@ import numpy as np
 import pandas as pd
 
 from izfin_core.decision_engine import sinyal_yonu_belirle
+from izfin_ui.signal_labels import teknik_profil_etiketi, karar_metni_etiketi, TREND_ACIKLAMASI, GUVEN_ACIKLAMASI
 
 
 def aksiyon_rehberi_olustur(nihai_sinyal, teyit_5dk, profil=None, karar_detay=None):
     """Nihai aksiyonu ve teknik profili tek merkezi kararın diliyle açıklar."""
     sinyal_metni = str(nihai_sinyal).upper()
-    profil_metni = str(profil or 'NÖTR')
+    profil_metni = html.escape(teknik_profil_etiketi(profil))
     teyit_metni = str(teyit_5dk or '—')
     detay = karar_detay if isinstance(karar_detay, dict) else {}
-    ozet = str(detay.get('ozet', '') or '')
+    ozet = karar_metni_etiketi(detay.get('ozet'))
     olumlu = detay.get('olumlu', []) or []
     olumsuz = detay.get('olumsuz', []) or []
 
@@ -53,12 +54,27 @@ def aksiyon_rehberi_olustur(nihai_sinyal, teyit_5dk, profil=None, karar_detay=No
         gerekce = 'Riskler: ' + ', '.join(olumsuz[:3])
     gerekce_html = f'<div style="margin-top:12px"><b>Merkezi karar gerekçesi:</b> {gerekce}</div>' if gerekce else ''
 
+    audit = detay.get("teyitler") or {}
+    audit_html = ""
+    if audit.get("available"):
+        priority = "Öncelikli risk/kâr koruma kararı uygulanıyor; alım eşikleri tek başına kararı değiştirmez." if audit.get("oncelikli_karar") else "Koşullar tarama anındaki teknik veriye aittir."
+        sections = []
+        for key, title in (("ERKEN_AL", "Erken AL"), ("AL", "AL"), ("GUCLU_AL", "Güçlü AL")):
+            checks = audit.get("seviyeler", {}).get(key, [])
+            items = "".join(f"<li>{'Sağlandı' if c['saglandi'] else 'Eksik'}: {html.escape(c['metin'])}</li>" for c in checks)
+            sections.append(f"<details><summary>{title} için teyit koşulları</summary><ul>{items}</ul></details>")
+        audit_html = f"<div><h4>Neden bu karar? Hangi teyit eksik?</h4><p>{html.escape(priority)}</p>{''.join(sections)}</div>"
+    elif audit:
+        audit_html = f"<p>{html.escape(audit.get('mesaj', 'Ayrıntılı teyit verisi yok.'))}</p>"
+
     return f'''
     <div style="margin-top:18px;padding:18px;border-radius:10px;border-left:6px solid {renk};background:rgba(128,128,128,.08);color:inherit;line-height:1.65;">
       <h3 style="margin-top:0;color:{renk};">{baslik}</h3>
       <div><b>Teknik profil:</b> {profil_metni}</div>
       <p>{ana_metin}</p>
+      <p>{TREND_ACIKLAMASI}</p><small>{GUVEN_ACIKLAMASI}</small>
       {gerekce_html}
+      {audit_html}
       <div style="margin-top:12px;padding:10px;background:rgba(128,128,128,.08);border-radius:6px;"><b>Giriş motoru:</b> {teyit_metni}</div>
       <div style="margin-top:10px;font-size:12px;opacity:.72;">Profil, skor ve teyitler açıklayıcı katmanlardır; işlem aksiyonu yalnızca merkezi nihai karar motorundan gelir.</div>
     </div>
@@ -154,7 +170,7 @@ def gelismis_teknik_panel_olustur(d):
     ticker_html = html.escape(ticker)
     sinyal_html = html.escape(sinyal)
     veri_kaynagi_html = html.escape(veri_kaynagi)
-    profil_html = html.escape(profil)
+    profil_html = html.escape(teknik_profil_etiketi(profil))
 
     def durum(deger, olumlu, olumsuz):
         return ("pozitif", olumlu) if deger else ("negatif", olumsuz)
@@ -234,7 +250,7 @@ def gelismis_teknik_panel_olustur(d):
         <div class="hp-target-card"><span>TP3 — Agresif trend</span><strong>{tp3:.2f}</strong><div class="hp-stars">{yildiz(tp3_y)}</div></div>
       </div></div>
       <div class="hp-comment"><b>🧠 Algoritmik yorum:</b> Fiyat {ana_yorum}. Kısa vadede EMA 9 {kisa_yorum}, RSI {rsi:.1f} ve MACD histogramı {macd_hist:.3f}. Hacim 20 günlük ortalamanın %{hacim_oran:.0f} seviyesinde; fiyatın {s1:.2f}–{r1:.2f} karar aralığındaki davranışı yönün devamı açısından önemlidir.</div>
-      <div class="hp-decision"><div class="hp-decision-title">🧭 Nihai karar: <span class="hp-pill {karar_cls}">{sinyal_html}</span></div><div class="hp-mt-5"><b>Teknik profil:</b> {profil_html}</div><div>Hibrit skor: <b>{skor}/100</b> · Algoritma güveni: <b>%{guven}</b> · Giriş kalitesi: <b>{tetik_puani}/100</b></div><div class="hp-small hp-mt-6">Profil ve skorlar açıklayıcıdır; işlem aksiyonu merkezi karar motorundan gelir.</div></div>
+      <div class="hp-decision"><div class="hp-decision-title">🧭 Nihai karar: <span class="hp-pill {karar_cls}">{sinyal_html}</span></div><div class="hp-mt-5"><b>Teknik profil:</b> {profil_html}</div><div>Hibrit skor: <b>{skor}/100</b> · Algoritma güven puanı: <b>{guven}/100</b> · Giriş kalitesi: <b>{tetik_puani}/100</b></div><div class="hp-small hp-mt-6">Profil ve skorlar açıklayıcıdır; işlem aksiyonu merkezi karar motorundan gelir.</div></div>
     </div>
     """
 

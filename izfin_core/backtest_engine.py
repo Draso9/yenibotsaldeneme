@@ -166,7 +166,7 @@ def daily_core_backtest_hesapla(df, ticker):
         elif rsi <= 40 and uzun_vade_trend and fiyat <= float(bb_mid.iloc[i]) and fiyat <= (karma_destek + atr):
             on_sinyal = 'KADEMELİ ALIM 🔵'
         elif uzun_vade_trend and skor >= 70:
-            on_sinyal = 'UZUN VADELİ ADAY 🌟'
+            on_sinyal = 'TREND ADAYI 🌟'
         elif hacim_patlamasi and rsi < 50:
             on_sinyal = 'HACİMLİ TEPKİ 🟡'
         elif not uzun_vade_trend:

@@ -1,5 +1,6 @@
 "use client";
 
+import { confidenceScore, technicalProfile } from "../lib/signal-labels";
 import { FormEvent, useEffect, useState } from "react";
 import {
   runBacktest,
@@ -14,7 +15,7 @@ import { StrategyDisclosure } from "./strategy-disclosure";
 
 const PERIODS: BacktestPeriod[] = ["3y", "5y", "10y"];
 const SUMMARY_COLUMNS = ["Sinyal", "Örnek", "İşlem Başarı %", "Ort. İşlem %", "TP1 İlk %", "Stop İlk %", "20G Kârda %", "20G Ort. %", "45G Kârda %", "45G Ort. %"];
-const DETAIL_COLUMNS = ["Tarih", "Sinyal", "Teknik Profil", "Ön Sinyal", "Hibrit Skor", "Güven %", "Daily MTF %", "Giriş Proxy", "Giriş", "İlk Stop", "İlk TP1", "İlk Olay", "İşlem Sonucu %", "20G %", "45G %"];
+const DETAIL_COLUMNS = ["Tarih", "Sinyal", "Teknik Profil", "Ön Sinyal", "Hibrit Skor", "Güven puanı", "Daily MTF %", "Giriş Proxy", "Giriş", "İlk Stop", "İlk TP1", "İlk Olay", "İşlem Sonucu %", "20G %", "45G %"];
 
 function text(value: unknown, fallback = "—"): string {
   if (value === null || value === undefined || value === "") return fallback;
@@ -212,7 +213,7 @@ function StrategyTable({ title, eyebrow, rows, columns, formats, wide = false }:
     <div className="strategy-section-head"><div><p className="eyebrow">{eyebrow}</p><h2>{title}</h2></div><span>{rows.length} satır</span></div>
     {rows.length === 0 ? <p className="strategy-table-empty">Gösterilecek sonuç bulunamadı.</p> : <div className="strategy-table-scroll"><table className={`strategy-table${wide ? " strategy-table-wide" : ""}`}>
       <thead><tr>{columns.map((column) => <th key={column}>{column}</th>)}</tr></thead>
-      <tbody>{rows.map((row, rowIndex) => <tr key={rowIndex}>{columns.map((column) => <td className={valueClass(column, row[column])} key={column}>{column === "Sinyal" || column === "Varlık" ? <b>{formatBacktestValue(column, row[column], formats)}</b> : formatBacktestValue(column, row[column], formats)}</td>)}</tr>)}</tbody>
+      <tbody>{rows.map((row, rowIndex) => <tr key={rowIndex}>{columns.map((column) => <td className={valueClass(column, row[column])} key={column}>{column === "Sinyal" || column === "Varlık" ? <b>{formatBacktestValue(column, row[column], formats)}</b> : column === "Güven puanı" ? confidenceScore(row[column] ?? row["Güven %"]) : column === "Teknik Profil" || column === "Ön Sinyal" ? technicalProfile(row[column]) : formatBacktestValue(column, row[column], formats)}</td>)}</tr>)}</tbody>
     </table></div>}
   </section>;
 }

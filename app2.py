@@ -52,6 +52,7 @@ from izfin_core.technical_analysis import (
     _resample_ohlcv,
     _rsi_serisi,
 )
+from izfin_ui.signal_labels import guven_puani_etiketi
 from izfin_ui.detail_analysis import (
     detay_aktif_baslik_html,
     detay_analiz_paketi_hazirla,
@@ -2179,7 +2180,7 @@ if aktif_sayfa in ["🏠 Ana Sayfa", "🔎 Akıllı Tarama"]:
             st.markdown("<br>", unsafe_allow_html=True)
             sonuc_filtresi = st.radio(
                 sonuc_sayfa["filtre_label"],
-                options=["Tümü", "AL Sinyalleri", "Uzun Vadeli Adaylar", "Teyit Bekleyenler"],
+                options=["Tümü", "AL Sinyalleri", "Trend Adayları", "İzle / Bekle"],
                 horizontal=True,
                 key="sonuc_gosterim_filtresi",
                 help=sonuc_sayfa["filtre_help"],
@@ -2340,7 +2341,7 @@ if aktif_sayfa in ["🏠 Ana Sayfa", "🔎 Akıllı Tarama"]:
                         st.markdown("### 🧠 Şeffaf Karar Motoru")
                         k1,k2,k3,k4 = st.columns(4)
                         k1.metric("Karar", karar_view["karar"])
-                        k2.metric("Algoritma Güveni", f'%{karar_view["guven"]}')
+                        k2.metric("Algoritma güven puanı", guven_puani_etiketi(karar_view["guven"]))
                         k3.metric("Risk", karar_view["risk"])
                         k4.metric("MTF Uyum", f'%{karar_view["mtf_uyum"]}')
                         st.markdown(karar_view["ozet_markdown"])

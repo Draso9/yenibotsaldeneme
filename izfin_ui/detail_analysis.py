@@ -9,6 +9,8 @@ from typing import Any, Callable
 import pandas as pd
 
 from izfin_core.decision_engine import karar_motoru_ozeti
+from izfin_ui.decision_explanations import karar_teyit_aciklamasi
+from izfin_ui.signal_labels import karar_metni_etiketi
 from izfin_ui.analysis_views import (
     aksiyon_rehberi_olustur,
     gelismis_teknik_panel_olustur,
@@ -231,8 +233,8 @@ def detay_analiz_paketi_hazirla(
     olumlu = karar.get("olumlu") or []
     olumsuz = karar.get("olumsuz") or []
 
-    olumlu_metin = ", ".join(str(x) for x in olumlu) or "Yeterli teyit yok"
-    risk_metin = ", ".join(str(x) for x in olumsuz) or "Belirgin ek risk yok"
+    olumlu_metin = ", ".join(karar_metni_etiketi(x) for x in olumlu) or "Yeterli teyit yok"
+    risk_metin = ", ".join(karar_metni_etiketi(x) for x in olumsuz) or "Belirgin ek risk yok"
     mtf = panel.get("mtf_detay")
     mtf = mtf if isinstance(mtf, dict) else {}
     mtf_metin = " · ".join(
@@ -241,12 +243,13 @@ def detay_analiz_paketi_hazirla(
         if isinstance(detay, dict)
     )
 
+    teyitler = karar_teyit_aciklamasi(panel, karar)
     anlik_sinyal, anlik_teyit = _anlik_sinyal_ve_teyit(df_sonuc, ticker)
     aksiyon_html = action_builder(
         anlik_sinyal,
         anlik_teyit,
         panel.get("profil"),
-        karar,
+        {**karar, "teyitler": teyitler},
     )
 
     return {
@@ -257,7 +260,7 @@ def detay_analiz_paketi_hazirla(
         "teknik": detay_teknik_ozet_hazirla(panel),
         "karar": {
             "karar": karar.get("karar", "—"),
-            "guven": karar.get("guven", 0),
+            "guven": karar.get("guven"),
             "risk": karar.get("risk", "—"),
             "mtf_uyum": panel.get("mtf_uyum", 50),
             "olumlu_metin": olumlu_metin,
@@ -265,6 +268,7 @@ def detay_analiz_paketi_hazirla(
             "ozet_markdown": f"**Olumlu teyitler:** {olumlu_metin}  \n**Riskler:** {risk_metin}",
             "mtf_metin": mtf_metin,
             "raw": karar,
+            "teyitler": teyitler,
         },
         "anlik_sinyal": anlik_sinyal,
         "anlik_teyit": anlik_teyit,

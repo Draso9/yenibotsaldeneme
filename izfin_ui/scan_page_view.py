@@ -192,8 +192,8 @@ def tarama_sonuc_sayfa_paketi_hazirla(
         "filtre_label": "Gösterilecek sonuçlar",
         "filtre_help": (
             "AL Sinyalleri merkezi karar motorunun AL yönündeki sonuçlarını; "
-            "Uzun Vadeli Adaylar teknik profili gerçekten UZUN VADELİ ADAY olanları; "
-            "Teyit Bekleyenler ise merkezi kararı teyit/izle olanları gösterir."
+            "Trend Adayları olumlu teknik trend profillerini; "
+            "İzle / Bekle ise teyit, nötr izleme ve yeni giriş bekleme kararlarını gösterir. Trend profili finansal sağlamlık değerlendirmesi değildir."
         ),
         "tablo_baslik": "### Akıllı Tarama Sonuçları",
         "tablo_aciklama": "Ana tablo karar vermeyi kolaylaştıran temel alanları gösterir; ayrıntılı teknik panel aşağıda açılır.",

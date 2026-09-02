@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import html
 import re
+from izfin_ui.signal_labels import teknik_profil_etiketi, trend_adayi_mi, guven_puani_etiketi
 
 
 def tarama_overlay_html(yuzde=0, baslik="IZFIN tarıyor", durum="Hazırlanıyor…", detay=""):
@@ -132,13 +133,13 @@ def tarama_tablosu_html(df, paneller=None) -> str:
     columns = [column for column in DEFAULT_COLUMNS if column in df.columns]
     esc = lambda value: html.escape(str(value if value is not None else "—"))
     heads = "".join(
-        f'<th class="iz-sortable-th" data-col="{index}" data-type="{SORT_TYPES[column]}" title="Sıralamak için tıklayın">{esc(column)}<span class="iz-sort-icon">↕</span></th>'
+        f'<th class="iz-sortable-th" data-col="{index}" data-type="{SORT_TYPES[column]}" title="Sıralamak için tıklayın">{esc("Güven puanı" if column == "Güven" else column)}<span class="iz-sort-icon">↕</span></th>'
         for index, column in enumerate(columns)
     )
 
     body = []
     for _, row in df.iterrows():
-        profile = str(row.get("Teknik Profil", "") or "").strip()
+        profile = teknik_profil_etiketi(row.get("Teknik Profil", "")).strip()
         ticker = str(row.get("Varlık", "") or "")
         panel = paneller.get(ticker, {})
         cells = []
@@ -156,6 +157,7 @@ def tarama_tablosu_html(df, paneller=None) -> str:
                 css_class = "score"
                 sort_value = float(panel.get("cezali_skor", sort_num(value)) or 0)
             elif column == "Güven":
+                rendered = esc(guven_puani_etiketi(value))
                 sort_value = float(panel.get("guven_skoru", sort_num(value)) or 0)
             elif column == "🎯 Giriş Kalitesi":
                 sort_value = float(
@@ -167,7 +169,7 @@ def tarama_tablosu_html(df, paneller=None) -> str:
                 sort_value = sort_signal(value)
                 profile_html = ""
                 if profile:
-                    profile_class = "long-term" if "UZUN VADELİ ADAY" in profile.upper() else "profile"
+                    profile_class = "long-term" if trend_adayi_mi(profile) else "profile"
                     profile_html = (
                         f'<span class="iz-signal-profile {profile_class}">Profil: {esc(profile)}</span>'
                     )
@@ -234,7 +236,7 @@ def tarama_genis_ozet_html(df) -> str:
         signal = esc(raw_signal)
 
         score = esc(row.get("Gelişmiş Skor", "—"))
-        confidence = esc(row.get("Güven", "—"))
+        confidence = esc(guven_puani_etiketi(row.get("Güven")))
         mtf = esc(row.get("MTF Uyum", "—"))
         raw_entry = str(row.get("🎯 Giriş Kalitesi", "—"))
         entry = esc(raw_entry)
@@ -286,12 +288,12 @@ def tarama_genis_ozet_html(df) -> str:
             f"<td class='izw-decision' data-sort='{sort_signal_value}'>"
             f"<span class='iz-badge {badge_class(raw_signal)}'>{signal}</span>"
             "<small>Merkezi karar</small>"
-            f"<div class='izw-profile {'long-term' if 'UZUN VADELİ ADAY' in str(row.get('Teknik Profil', '')).upper() else ''}'>{esc(row.get('Teknik Profil', '—'))}</div>"
+            f"<div class='izw-profile {'long-term' if trend_adayi_mi(row.get('Teknik Profil')) else ''}'>{esc(teknik_profil_etiketi(row.get('Teknik Profil')))}</div>"
             "</td>"
             f"<td class='izw-quality' data-sort='{sort_score}'>"
             "<div class='izw-quality-top'>"
             f"<div><span>SKOR</span><b>{score}</b></div>"
-            f"<div><span>GÜVEN</span><b>{confidence}</b></div>"
+            f"<div><span>GÜVEN PUANI</span><b>{confidence}</b></div>"
             f"<div><span>MTF</span><b>{mtf}</b></div>"
             "</div>"
             "<div class='izw-entry'>"

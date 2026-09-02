@@ -50,7 +50,7 @@ const guideCopy: Record<UsageGuideSurface, GuideCopy> = {
       { step: "3 · TEYİT", title: "Artı ve eksileri karşılaştırın", body: "Neden alınabilir ve neden beklenmeli bölümlerindeki teknik teyit ve risk gerekçelerini dengeli okuyun." },
       { step: "4 · RİSK", title: "İkinci hiyerarşiyi kontrol edin", body: "Güven, giriş kalitesi, MTF uyumu, risk ve teknik seviyeleri merkezi kararın bağlamı olarak değerlendirin." },
     ],
-    rule: "Karar Motoru işlem yönünün merkezi kaynağıdır; Detaylı Analiz aynı kararı tekrar etmek yerine teknik derinlik sağlar.",
+    rule: "Trend Adayı teknik profildir; Teyit Bekle giriş koşullarının eksik olduğunu belirtir. Algoritma güven puanı başarı olasılığı değildir. Karar Motoru işlem yönünün merkezi kaynağıdır; Detaylı Analiz aynı kararı tekrar etmek yerine teknik derinlik sağlar.",
     notes: ["Karar etiketleri nasıl yorumlanır? Etiketi güven, teyit ve risk bağlamıyla birlikte okuyun.", "Sonuç tablosundaki alanları birlikte okuyun; tek bir yüksek değer diğer riskleri geçersiz kılmaz."],
   },
   detail: {

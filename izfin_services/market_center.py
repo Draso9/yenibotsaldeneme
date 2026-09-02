@@ -7,6 +7,7 @@ from typing import Any
 
 from izfin_core.decision_engine import karar_motoru_ozeti, sinyal_yonu_belirle
 import pandas as pd
+from izfin_ui.signal_labels import teknik_profil_etiketi
 
 from izfin_ui.detail_analysis import detay_analiz_paketi_hazirla
 from izfin_ui.home_dashboard import (
@@ -86,7 +87,7 @@ def hisse_detay_paketi_hazirla(
         "entry_quality": row.get("🎯 Giriş Kalitesi"),
         "score": detail_view["skor"],
         "decision": detail_view["karar"],
-        "action": {"signal": detail_view["anlik_sinyal"], "entry_quality": detail_view["anlik_teyit"], "profile": panel.get("profil", "—")},
+        "action": {"signal": detail_view["anlik_sinyal"], "entry_quality": detail_view["anlik_teyit"], "profile": teknik_profil_etiketi(panel.get("profil"))},
         "panel": panel,
         "technical": detail_view["teknik"],
     }

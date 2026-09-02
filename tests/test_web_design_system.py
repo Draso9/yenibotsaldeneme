@@ -185,8 +185,8 @@ def test_scan_workspace_uses_api_owned_profiles_and_streamlit_result_columns():
     assert '"/api/v1/scan/universe"' in workspace
     assert "Kişisel Listemi Yönet" in workspace
     assert "AL Sinyalleri" in workspace
-    assert "Uzun Vadeli Adaylar" in workspace
-    assert "Teyit Bekleyenler" in workspace
+    assert "Trend Adayları" in workspace
+    assert "İzle / Bekle" in workspace
     for column in ("Gelişmiş Skor", "🎯 Giriş Kalitesi", "MTF Uyum", "Para Akışı", "PEG / Değerleme"):
         assert column in workspace
 

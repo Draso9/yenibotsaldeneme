@@ -292,7 +292,7 @@ def home_dashboard_html_hazirla(
             '<div class="iz-featured-caption">Son taramada listenin teknik bileşiminde en fazla öne çıkan aday</div></div>'
             '<div class="iz-featured-metrics">'
             f'<div><span>IZFIN SKOR</span><strong>{int(skor)}</strong></div>'
-            f'<div><span>GÜVEN</span><strong>%{int(guven)}</strong></div>'
+            f'<div><span>GÜVEN PUANI</span><strong>{int(guven)}/100</strong></div>'
             f'<div><span>MTF</span><strong>%{int(mtf)}</strong></div>'
             f'<div><span>RİSK</span><strong>{html.escape(risk or "—")}</strong></div>'
             '</div></div>'
@@ -340,7 +340,7 @@ def home_top_signals_html(sonuclar, paneller, *, max_n=7):
             f'<td>{html.escape(str(item["fiyat"]))}</td>'
             f'<td><span class="iz-badge {badge}">{html.escape(sinyal)}</span></td>'
             f'<td><b style="color:#20e69a">{int(item["skor"])}</b></td>'
-            f'<td><div class="iz-ring" style="--g:{int(item["guven"])}"><span>{int(item["guven"])}%</span></div></td>'
+            f'<td><div class="iz-ring" style="--g:{int(item["guven"])}"><span>{int(item["guven"])}/100</span></div></td>'
             f'<td>{int(item["mtf"])}%</td><td>{html.escape(str(item["risk"]))}</td></tr>'
         )
     if not rows:
@@ -355,7 +355,7 @@ def home_top_signals_html(sonuclar, paneller, *, max_n=7):
             '<b>Henüz veri yok</b><span>Akıllı Tarama ile listenizdeki fırsatları keşfedin.</span>'
             '<div class="iz-feature-cta-slot"></div></div></div>'
         )
-    return '<div class="iz-signals"><div class="iz-card-title">LİSTENİN DİKKAT ÇEKENLERİ</div><table><thead><tr><th>VARLIK</th><th>FİYAT</th><th>IZFIN KARARI</th><th>SKOR</th><th>GÜVEN</th><th>MTF</th><th>RİSK</th></tr></thead><tbody>' + ''.join(rows) + '</tbody></table></div>'
+    return '<div class="iz-signals"><div class="iz-card-title">LİSTENİN DİKKAT ÇEKENLERİ</div><table><thead><tr><th>VARLIK</th><th>FİYAT</th><th>IZFIN KARARI</th><th>SKOR</th><th>GÜVEN PUANI</th><th>MTF</th><th>RİSK</th></tr></thead><tbody>' + ''.join(rows) + '</tbody></table></div>'
 
 
 def home_movers_html(sonuclar, paneller, *, max_n=6, compact=False):

@@ -86,13 +86,13 @@ def test_signal_direction_mapping(core):
     assert core.sinyal_yonu_belirle(None) == "NÖTR"
 
 
-def test_legacy_final_decision_long_term_candidate(core):
+def test_profile_classifier_returns_trend_candidate(core):
     result = core.nihai_karar_motoru(
         "NÖTR", 75, 40,
         120, 116, 112, 105, 95,
         60, 2.0, 1.5, 0.05, 55, 135, 28
     )
-    assert result == "UZUN VADELİ ADAY 🌟"
+    assert result == "TREND ADAYI 🌟"
 
 
 def test_volatility_regimes(core):
