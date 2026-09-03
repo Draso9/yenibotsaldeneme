@@ -77,7 +77,36 @@ TDD kanıtı:
 - Fix: focus dönüş hedefi `getClientRects().length > 0` ile görünürlük açısından doğrulanıyor; native dialog close işlemi sonrası `requestAnimationFrame` içinde geçerli opener'a, aksi halde `#main-content` fallback'ine odak veriliyor.
 - Focused regression test kalıcı olarak `tests/test_checkpoint6_modal_focus_return.py` içinde tutuluyor.
 
-Branch preview authenticated browser yeniden-kontrolü production Firebase/auth konfigürasyonu preview aliasında birebir bulunmadığı için temp QA hesabı bootstrap aşamasında kullanılamadı. Bu preview-env sınırlaması ürün regression'ı olarak değerlendirilmedi. Modal fix merge sonrası production üzerinde aynı gerçek senaryoyla tekrar doğrulanacaktır.
+Merge sonrası production re-check:
+
+- PR #142 merge SHA: `265346151af1c64350281c894014b06b462a2995`
+- production deployment: `dpl_E2nFdzXsAkVtHTk7KvKejKq6vnqg`
+- QA-only real Chromium run: **33787610230**
+- modal açılışında `isModal=true` ve focus dialog içindeydi,
+- scan tamamlandıktan sonra `inMain=true`,
+- aktif odak `DIV#main-content.app-content` oldu,
+- temp QA hesabı test sonunda başarıyla silindi (`cleanup: deleted`).
+
+Bu sonuçla modal focus regression'ı production üzerinde de kapandı.
+
+## CI / production kapanış kanıtı
+
+PR #142 final head:
+
+- CI run `33787002223` → SUCCESS
+- Python full suite → SUCCESS
+- ESLint → SUCCESS
+- Typecheck → SUCCESS
+- component behavior tests → SUCCESS
+- Next production build → SUCCESS
+
+Post-merge `develop`:
+
+- SHA `265346151af1c64350281c894014b06b462a2995`
+- CI run `33787173807` → Python + Web SUCCESS
+- Vercel production exact aynı SHA → READY
+- `/izfin-api/api/v1/health` → HTTP 200 / `status=ok`
+- `/izfin-api/api/v1/health/ready/durable` → HTTP 200 / tüm readiness alanları `true`
 
 ## Bilinçli olarak ertelenen son yayın ayarı — LEGAL
 
@@ -91,8 +120,10 @@ Bu değerler gerçek kişi/kurum bilgisi gerektirdiği için uydurulmayacak. Ür
 
 Bu nedenle durum ayrımı:
 
-- **Teknik viewport/keyboard acceptance:** tamamlanma aşamasında; modal fix merge sonrası production re-check bekliyor.
+- **Teknik viewport/keyboard/release acceptance:** COMPLETE.
 - **Public legal publication readiness:** bilinçli olarak açık; gerçek veri sorumlusu adı/ünvanı, iletişim e-postası ve başvuru adresi girilmeden final public-release etiketi verilmemeli.
+
+Aynı final legal adımında eski altyapı anlatımları (`Streamlit Secrets` / `Streamlit Cloud`) mevcut Vercel + Cloud Run mimarisine göre yeniden doğrulanmalıdır.
 
 ## Final kapanış kapıları
 
@@ -103,12 +134,14 @@ Bu nedenle durum ayrımı:
 - [x] auth invalid-submit focus + ARIA ilişkileri
 - [x] Performance dönem keyboard yolu
 - [x] scan modal regression RED reproduksiyonu
-- [ ] PR #142 final head Python + Web CI
-- [ ] PR #142 → `develop` squash merge
-- [ ] post-merge Python + Web CI
-- [ ] production Vercel exact merge SHA
-- [ ] production scan-modal focus-return re-check
-- [ ] live health/readiness smoke
+- [x] PR #142 final head Python + Web CI
+- [x] PR #142 → `develop` squash merge
+- [x] post-merge Python + Web CI
+- [x] production Vercel exact merge SHA
+- [x] production scan-modal focus-return re-check
+- [x] live health/readiness smoke
 - [ ] final public release öncesi gerçek KVKK veri sorumlusu alanları
+
+**Checkpoint 6 teknik olarak COMPLETE.**
 
 `main` değiştirilmedi. Finansal hesaplama, scan karar mantığı, projection matematiği, API response şekilleri ve auth semantics CP6 fix'i kapsamında değiştirilmedi.
