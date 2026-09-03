@@ -1,0 +1,113 @@
+.scan-controls-disclosure,
+.scan-decision-details,
+.detail-technical-disclosure {
+  border: 1px solid var(--izfin-line, rgba(148, 163, 184, 0.22));
+  border-radius: var(--izfin-card-radius, 18px);
+  background: var(--izfin-surface, rgba(15, 23, 42, 0.72));
+}
+
+.scan-controls-disclosure {
+  margin: 18px 0 22px;
+}
+
+.scan-controls-disclosure > summary,
+.scan-decision-details > summary,
+.detail-technical-disclosure > summary {
+  cursor: pointer;
+  list-style: none;
+  font-weight: 800;
+  letter-spacing: 0.01em;
+}
+
+.scan-controls-disclosure > summary::-webkit-details-marker,
+.scan-decision-details > summary::-webkit-details-marker,
+.detail-technical-disclosure > summary::-webkit-details-marker {
+  display: none;
+}
+
+.scan-controls-disclosure > summary {
+  padding: 14px 18px;
+}
+
+.scan-controls-disclosure > summary::after,
+.scan-decision-details > summary::after,
+.detail-technical-disclosure > summary::after {
+  content: "＋";
+  float: right;
+}
+
+.scan-controls-disclosure[open] > summary::after,
+.scan-decision-details[open] > summary::after,
+.detail-technical-disclosure[open] > summary::after {
+  content: "−";
+}
+
+.scan-controls-disclosure .scan-control-grid {
+  padding: 0 14px 14px;
+}
+
+.scan-decision-stop {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 4px 16px;
+  align-items: center;
+  margin-top: 14px;
+  padding: 14px 16px;
+  border: 1px solid rgba(248, 113, 113, 0.3);
+  border-radius: 14px;
+}
+
+.scan-decision-stop small,
+.scan-decision-stop span {
+  grid-column: 1;
+}
+
+.scan-decision-stop strong {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+  font-size: 20px;
+}
+
+.scan-decision-details {
+  margin-top: 14px;
+}
+
+.scan-decision-details > summary {
+  padding: 14px 16px;
+}
+
+.scan-decision-details .scan-decision-secondary {
+  padding: 0 14px 14px;
+}
+
+.detail-technical-summary {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 10px;
+  margin: 14px 0 18px;
+}
+
+.detail-technical-summary > div {
+  display: grid;
+  gap: 4px;
+  padding: 14px;
+  border: 1px solid var(--izfin-line, rgba(148, 163, 184, 0.22));
+  border-radius: 14px;
+}
+
+.detail-technical-disclosure {
+  margin-top: 10px;
+}
+
+.detail-technical-disclosure > summary {
+  padding: 14px 16px;
+}
+
+.detail-technical-disclosure > :not(summary) {
+  margin-left: 14px;
+  margin-right: 14px;
+}
+
+.detail-technical-disclosure > :last-child {
+  margin-bottom: 14px;
+}
