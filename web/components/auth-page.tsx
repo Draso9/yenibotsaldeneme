@@ -10,6 +10,7 @@ import {
   signInWithEmailAndPassword,
   signInWithPopup,
 } from "firebase/auth";
+import Link from "next/link";
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { acceptLegalConsent, bootstrapAccount } from "../lib/account";
@@ -156,7 +157,7 @@ export function AuthPage() {
   }
 
   if (!firebaseIsConfigured()) return <main className="auth-page"><section className="auth-screen-card"><p className="eyebrow">IZFIN HESABI</p><h1>Giriş yapılandırması eksik</h1><p>Güvenli giriş yapılandırması tamamlandığında hesap erişimi etkinleşecek.</p></section></main>;
-  return <main className="auth-page"><section className="auth-screen-card"><a className="auth-logo" href="/"><IzfinBrandMark priority /><span><b>IZFIN</b><small>ANALYZE · PREDICT · INVEST</small></span></a><p className="eyebrow">SIGNATURE INTELLIGENCE</p><h1>{mode === "login" ? "Hoş Geldiniz" : mode === "register" ? "IZFIN hesabını oluştur" : "Şifreni yenile"}</h1><p className="auth-screen-intro">Piyasayı analiz et, fırsatları filtrele, kararını tek merkezden yönet.</p>
+  return <main className="auth-page"><section className="auth-screen-card"><Link className="auth-logo" href="/"><IzfinBrandMark priority /><span><b>IZFIN</b><small>ANALYZE · PREDICT · INVEST</small></span></Link><p className="eyebrow">SIGNATURE INTELLIGENCE</p><h1>{mode === "login" ? "Hoş Geldiniz" : mode === "register" ? "IZFIN hesabını oluştur" : "Şifreni yenile"}</h1><p className="auth-screen-intro">Piyasayı analiz et, fırsatları filtrele, kararını tek merkezden yönet.</p>
     <div className="auth-switch" aria-label="Hesap erişimi"><button className={mode === "login" ? "active" : ""} onClick={() => switchMode("login")}>Giriş Yap</button><button className={mode === "register" ? "active" : ""} onClick={() => switchMode("register")}>Kayıt Ol</button></div>
     {deleted && <p className="auth-screen-message" role="status">Hesabın ve kullanıcı verilerin kalıcı olarak silindi.</p>}
     {message && <p className="auth-screen-message" role="status">{message}</p>}{error && <p className="auth-screen-error" id="auth-error" ref={errorRef} role="alert" tabIndex={-1}>{error}</p>}
