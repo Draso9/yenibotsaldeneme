@@ -5,11 +5,11 @@
 
 ## 1. Product Goal
 
-IZFIN is being migrated from the mature Streamlit product to a Next.js + FastAPI web application.
+IZFIN is the Next.js + FastAPI web evolution of the mature Streamlit product.
 
-**Approved direction: Streamlit Full Parity Migration.**
+**Approved direction: Streamlit Full Parity Migration, followed by controlled release polish.**
 
-The existing Streamlit implementation is the product specification. Do **not** redesign the product from scratch. The web application must systematically preserve the useful Streamlit behavior, information hierarchy, and product meaning while using the new architecture.
+The existing Streamlit implementation remains the product reference for behavior and meaning. Do **not** redesign the product from scratch. The web application should preserve useful Streamlit behavior while using the newer architecture and the decision-first hierarchy accepted during the web migration.
 
 Primary product references:
 
@@ -26,17 +26,19 @@ Do not reintroduce `Akıllı BIST Analizi`.
 ## 2. Non-Negotiable Rules
 
 - Never touch `main`.
-- Base feature work on `develop`.
+- Base feature/fix work on the latest accepted `develop`.
 - Use feature branch -> PR -> `develop`.
-- Do not merge unless both relevant Python and Web CI gates are green.
-- Keep Streamlit working in parallel until web parity is complete.
-- Use TDD RED -> GREEN for fixes/features.
+- Do not merge unless relevant Python and Web CI gates are green.
+- Verify post-merge `develop` CI and the production deployment identity for code checkpoints.
+- Keep Streamlit working in parallel until the web release is formally closed.
+- Use TDD RED -> GREEN for behavior/copy contracts where code changes are involved.
 - Do not replace real financial data with mock/decorative financial data.
-- Do not reimplement Python business calculations in React.
-- Preserve auth recovery, retry boundaries, scan recovery, durable readiness, and the same-origin API proxy.
+- Do not reimplement Python business/financial calculations in React.
+- Preserve auth recovery, retry boundaries, scan recovery, durable readiness, same-origin API proxy, and shared analysis/ticker continuity unless a real defect specifically requires a bounded fix.
 - Avoid repo-wide rescans unless genuinely necessary.
-- Group related work into meaningful checkpoint-sized packages.
+- Group related work into checkpoint-sized packages.
 - User-facing progress is checkpoint-based, not PR-by-PR narration.
+- Do not perform broad CSS architecture refactors during the final release-polish program.
 
 ## 3. Current Architecture
 
@@ -44,6 +46,7 @@ Do not reintroduce `Akıllı BIST Analizi`.
 
 - `web/` — Next.js App Router web client
 - Vercel hosts the web frontend
+- React is presentation/orchestration; financial calculations remain Python-owned
 
 ### API / Services
 
@@ -58,133 +61,245 @@ Do not reintroduce `Akıllı BIST Analizi`.
 - `app2.py` — Streamlit application remains operational
 - `izfin_ui/` — Streamlit/product presentation modules and parity reference
 
-## 4. Current Checkpoint
+## 4. Current Program
 
-# ACCOUNT / ADMIN STREAMLIT PARITY — IMPLEMENTED, LIVE ACCEPTANCE PENDING
+# FINAL PRODUCT POLISH / RELEASE CLOSURE — CP0 CANONICAL STATUS RESET
 
-The user accepted **Strategy Lab parity for continuation** on 2026-08-31 and explicitly deferred detail polish to the final comprehensive pass.
+The major web product surfaces are implemented and the latest decision-first simplification is live on `develop`.
 
-Account/Admin parity now preserves the established Streamlit account and operational boundaries:
+Current release-polish baseline:
 
-- profile identity, account creation, last-login, and legal-consent context
-- versioned legal documents, authenticated data export, and irreversible account deletion
-- safe logout and auth transition after successful deletion
-- admin-only navigation and server-side authorization
-- truthful durable readiness boundaries shown separately from static quality metrics
-- release identity and GitHub Actions as the explicit CI source-of-truth
-- removal of the unused duplicate account-center client
+- Latest product merge: **PR #135**
+- `develop` baseline before CP0: `d04705ca6b9d9632d311409f6fa4f1091a1b63aa`
+- Latest verified production deployment for that baseline: `dpl_3h6NV2Z4vMVk7Rvm3E7hhLNxVi8T`
+- PR #135 and post-merge `develop` CI both passed Python and Web quality gates
+- Production durable readiness has been verified healthy after the latest release work
 
-Do **not** call Account/Admin accepted until the user verifies the deployed `develop` journey live.
+The approved release-polish design is:
 
-## 5. User-Reported / Accepted State
+`docs/superpowers/specs/2026-09-03-final-product-polish-checkpoints-design.md`
 
-### A. Recovery — accepted for parity continuation
+Do not return to the stale parity-stage order that previously treated Account/Admin or mobile work as the next implementation milestone.
 
-Projection can recover a completed scan, expose the real ticker selector, and load selected ticker context. Refresh/deep-link/new-account variants remain part of the final Stage 5 end-to-end recheck.
+## 5. Current User-Facing Product State
 
-### B. Piyasa Merkezi responsibility cleanup — accepted
+### A. Piyasa Merkezi
 
-Piyasa Merkezi is a decision-summary page, not a scan/list/account-management page. Primary watchlist editing, universe construction, and scan configuration stay outside it.
+Purpose: last completed scan decision summary, not watchlist editing or scan configuration.
 
-### C. SMART SCAN + DETAILED ANALYSIS — live accepted 2026-08-28
+Current behavior:
 
-The user verified the deployed flow and reported it looked correct overall.
+- scan-derived market/pulse summary
+- trend, momentum, money-flow, and risk factors
+- decision-distribution KPIs
+- system comment
+- top/featured scan result
+- movers where available
+- links into stock analysis
+- authoritative readiness messaging in the global shell
 
-Accepted behaviors include:
+Known release-polish issue:
 
-- real scan flow
-- ticker selection in the decision motor
-- Detailed Analysis opening with the selected ticker/job
-- contextual Detailed Analysis route instead of Piyasa Merkezi being marked active
-- structured technical analysis sections
-- compact/collapsed score-depth section
-- explicit return to Akıllı Tarama results
-- global Streamlit-style `Nasıl Kullanılır?` guide
-- browser/product title `IZFIN | Akıllı Piyasa Kararları`
+- some copy still overstates freshness (`BUGÜNÜN ÖNE ÇIKAN HİSSESİ`, `LIVE`, `Listende dikkat çekenler`) even though the source is the latest completed scan. This is CP1 copy/semantic scope only.
 
-### D. Projection — live accepted 2026-08-28
+### B. Akıllı Tarama
 
-The user verified the deployed Projection screen and reported it appeared problem-free, then explicitly approved continuing.
+Current state: functionally mature and decision-first.
 
-Accepted checkpoint includes:
+Quick universes:
 
-- completed-scan context recovery
-- real ticker selector
-- Streamlit 45-day model hierarchy
-- ATR and historical-volatility model dimensions
-- combined and wider risk bands
-- confidence / agreement / scenario / direction context
-- explicit model-scope disclosure
+- Kendi Listem
+- BIST 30
+- BIST 100
+- ABD Büyük Teknoloji
 
-### E. Performance — live accepted 2026-08-30
+Core flow:
 
-The user reported no issues after checking the deployed Performance screen and approved continuing to Strategy Lab. The final Stage 5 journey will recheck the full flow collectively.
+- symbol/company search and personal-list editing
+- scan launch
+- progress/recovery
+- internal durable recovery; no separate visible scan-history module
+- result summary metrics
+- **Hisseye Özel Karar Motoru**
+- result filters: `Tümü / AL Sinyalleri / Trend Adayları / İzle-Bekle`
+- mobile/desktop result tables
+- continuity into Detailed Analysis and Projection
 
-### F. Strategy Lab — accepted for continuation 2026-08-31
+Canonical result hierarchy after PR #135:
 
-The user approved continuing after checking the deployed Strategy Lab and explicitly deferred detail polish to the final comprehensive pass.
+**summary metrics -> Decision Motor -> result filters -> result table**
 
-### G. Deferred low-priority scan selection behavior
+Decision Motor default-visible hierarchy:
 
-When the user leaves Akıllı Tarama and later revisits it, the decision card can still fall back to the first ticker in the result table instead of the previously selected ticker.
+- Merkezi Karar
+- Neden alınabilir?
+- Neden beklenmeli / alınmamalı?
+- STOP / ZARAR KES
 
-**User decision on 2026-08-28: do not touch this now.** The real ticker selector keeps the flow usable, so this is deferred and must not block current parity work.
+Secondary/collapsed decision details retain:
 
-## 6. Latest Relevant Merges
+- algorithm confidence score `/100`
+- entry quality
+- MTF alignment
+- risk
+- technical profile
+- explanation/confirmation context
+- support/resistance
+- TP1/TP2/TP3
 
-### PR #95 — Analysis continuity
+Known release-polish issue:
 
-Merge commit: `6892be7c8a96e9b86e9dd000534e6f38b26430c8`
+- four quick universe cards currently sit in a desktop grid originally designed for three columns, creating a visually unbalanced 3+1 layout. CP2 fixes layout only; scan behavior/hierarchy must remain unchanged.
 
-Typed scan context helpers, authenticated analysis context, scan -> shared-context publication, and Projection recovery foundations.
+Deferred low-priority behavior remains non-blocking:
 
-### PR #96 — stale cached analysis job recovery
+- revisiting Akıllı Tarama can sometimes fall back to the first ticker instead of the previously selected ticker. The user explicitly decided not to spend time on this while the real selector keeps the flow usable.
 
-Merge commit: `d9dcc62cee1a5e7aecfb13c0232f2a72962586f9`
+### C. Detaylı Analiz
 
-Validated cached active scan context against authoritative server history.
+Current state: simplified technical-depth companion to the Decision Motor.
 
-### PR #98 — Projection recovery root fix + Piyasa Merkezi cleanup
+The page intentionally does **not** duplicate the full Decision Motor.
 
-Added authoritative projectable-ticker recovery, real Projection ticker selection, and removed misplaced Piyasa Merkezi controls/modules.
+Current hierarchy:
 
-### PR #99–#102 — Smart Scan / Detailed Analysis parity
+- selected ticker + current price
+- Gelişmiş Skor summary
+- compact technical summary
+- score explanation in collapsed `Bu skor neden?` / Gelişmiş Skor detail
+- collapsed `Göstergeler`
+- collapsed `Trend ve momentum özeti`
+- collapsed `Destek, direnç ve giriş planı`
+- collapsed `Teknik hedefler ve algoritmik yorum`
+- Projection navigation
+- return/context path to Smart Scan
 
-Added the stock decision motor, decision ticker selector, focused scan responsibility, completed-scan result recovery, and Python-owned structured technical analysis.
+Canonical Gelişmiş Skor bands:
 
-### PR #103 — Smart Scan / Detail continuity close
+- `<50` — Cezalı
+- `50–69` — Nötr
+- `>=70` — Güçlü
 
-Merge commit: `907375ffd685ce6c6fc6d8ada02584e91d822007`
+A high score is not an automatic AL decision and is not a success probability.
 
-Added shared selected-ticker publication, Detail job/ticker context publication, return-to-scan continuity, and the approved product title.
+### D. Projeksiyon
 
-### PR #104 — Detail contextual UX + usage guide
+Current model is Python-owned and approximately 45 days.
 
-Merge commit: `2597f0fb77517eb1cf020fbe40a72e0f0869894e`
+Current capabilities:
 
-Made Detailed Analysis a contextual workspace route, collapsed score-depth by default, restored the Streamlit-style global `Nasıl Kullanılır?` guide, and improved return-context behavior.
+- current price
+- ATR movement
+- historical-volatility movement
+- combined movement
+- base/upside/downside bands
+- wider risk band
+- model confidence score
+- model agreement
+- volatility explanation
+- positive technical scenario
+- negative technical scenario
+- algorithmic direction summary
+- explicit model-scope / no-guarantee disclosure
 
-### PR #105 — Projection full Streamlit parity
+Known release-polish issues:
 
-Completed the Projection presentation split and restored the Streamlit 45-day model hierarchy while keeping all financial calculations Python-owned.
+1. The backend produces a heuristic `guven_skoru` on a `/100` scale, but parts of the UI still render it as `Güven %...` / `Model güveni %...`. CP1 standardizes this as **Model güven skoru X/100** and removes probability-like wording.
+2. The page remains the most information-dense user surface. CP3 applies decision-first presentation simplification without changing `izfin_core/projection_engine.py` calculations or removing model outputs.
 
-### PR #106 — Performance full Streamlit parity
+### E. Performans
 
-Merge commit: `6c6dfcdae53011166156ea220e2a32d9bd2c2c6d`
+Current capabilities:
 
-Restored the complete Streamlit closed-position surface, typed summary contract, focused presentation boundary, and existing 20G / 60G / 120G scorecard behavior.
+- active signal/position periods
+- closed-position history
+- summary KPIs
+- win rate / average / median where supported
+- median duration
+- best/worst interpretation
+- common close reasons
+- closed-position risk/target history
+- asset-level scorecard
+- signal-level measurement history
+- small-sample warnings
+- manual refresh boundary
 
-### PR #107 — truthful global system readiness
+Current web scorecard horizon selector:
 
-Merge commit: `7f38104165de6aac26dc7071021d4de83974fdb0`
+**1 / 5 / 10 / 20 / 45G**
 
-Replaced unconditional `API CANLI` / `Sistemler hazır` shell claims with the existing durable readiness endpoint. The global shell now distinguishes checking, ready, degraded, and unavailable states and only shows the green live indicator when durable readiness is actually ready.
+Known release-polish issue:
 
-### PR #110 — Strategy Lab Streamlit parity
+- an old explanatory card still says `20G / 60G / 120G`, which no longer matches the actual web selector. CP1 fixes the text only; calculation/API behavior is unchanged.
 
-Merge commit: `e7adf7a58ee952e7714118084e989e5f058cc78e`
+### F. Strateji Lab
 
-Restored Python-owned table display formats, collapsed historical disclosures, and owner-scoped last-ticker continuity.
+Current state: implemented and retained as an advanced historical-analysis surface.
+
+Current capabilities:
+
+- symbol/company discovery
+- 3Y / 5Y / 10Y test periods
+- Daily Core historical replay
+- no-future-information discipline
+- summary KPIs
+- decision-type tables
+- historical test-operation detail disclosure
+- explanation/reading notes
+- owner-scoped last-ticker continuity
+- real-data-only rendering
+
+Ordinary user-facing naming should standardize on **Strateji Lab** during CP1 while technical/internal labels may remain explicit where appropriate.
+
+### G. Hesap / Legal / Admin QA
+
+Implementation is complete and remains part of the final authenticated acceptance journey.
+
+Hesap/legal capabilities:
+
+- profile/account summary
+- versioned KVKK/privacy and terms documents
+- authenticated personal-data export
+- irreversible account deletion boundary
+- safe post-delete logout/redirect
+
+Admin QA capabilities:
+
+- admin-only navigation/access boundary
+- live durable readiness
+- static quality metrics
+- release/CI context
+- GitHub Actions as explicit CI source-of-truth
+
+Known release-polish issue:
+
+- ordinary user-facing copy still exposes some implementation terms such as FastAPI, Next.js, Firebase token/UID language. CP1 removes that product jargon while keeping Admin QA technically explicit.
+
+## 6. Recent Closing Merges
+
+### PR #132 — Mobile usage, data cards, and accessibility
+
+Merge SHA: `dd7b8a9d568639119748929e0c033b828b67143b`
+
+Added the mobile navigation structure, mobile scan/performance cards, modal/focus behavior, form accessibility improvements, responsive foundations, and real component behavior tests. Real viewport/keyboard acceptance was explicitly deferred to the final release stage.
+
+### PR #133 — Trend Adayı and explainable signals
+
+Merge SHA: `6f22c2ed0d81ce65e90d0a2a302bc758f1a3d2ff`
+
+Renamed the technical candidate profile to `Trend Adayı`, clarified profile vs central decision, aligned AL confirmation explanation with Python decision conditions, and standardized algorithm confidence as a score rather than measured success probability.
+
+### PR #134 — Decision-first UI simplification
+
+Merge SHA: `5b1833105b49035c45d820843aef2f9e0557093a`
+
+Collapsed scan configuration after completed results, moved the Decision Motor ahead of result tables, reduced the default-visible Decision Motor to verdict/reasons/stop, and simplified Detailed Analysis into compact summary plus disclosures.
+
+### PR #135 — Scan result flow, US technology profile, and guide polish
+
+Merge SHA: `d04705ca6b9d9632d311409f6fa4f1091a1b63aa`
+
+Finalized Smart Scan order as Decision Motor -> filters -> result table, restored `ABD Büyük Teknoloji` as a clickable quick profile, removed `JOB TABANLI` from Detailed Analysis, and aligned the Smart Scan usage guide with the actual decision-first flow.
 
 ## 7. Develop Preview
 
@@ -192,151 +307,91 @@ Canonical develop URL:
 
 `https://izfin-web-git-develop-adopcin-7216.vercel.app`
 
+Canonical production alias currently used for release verification:
+
+`https://izfin-web.vercel.app`
+
 Do not use one-off deployment URLs as the canonical user link unless debugging a specific deployment.
 
-## 8. Work Order
+## 8. Final Product Polish Work Order
 
 Do not change this order without an explicit user decision.
 
-1. Piyasa Merkezi functional parity — accepted for continuation
-2. Detaylı Analiz functional parity — live accepted
-3. Projeksiyon full Streamlit parity — live accepted
-4. Performans parity — live accepted
-5. Strategy Lab parity — accepted for continuation; detail polish deferred to final pass
-6. **Account/Admin parity audit — current, implementation complete; live acceptance pending**
-7. Visual parity / responsive Streamlit-to-web translation
-8. Full authenticated user journey / Stage 5 close
-9. Stage 6 Mobile only after Stage 5 is accepted
+### CP0 — Canonical Status Reset
 
-## 9. Streamlit Full Parity Target by Screen
+- update this file to post-PR-135 reality
+- record the final-polish design and work order
+- documentation only
 
-### Piyasa Merkezi
+### CP1 — Copy and Semantic Consistency
 
-Reference: `izfin_ui/home_dashboard.py`, `app2.py`
+- Performance `1 / 5 / 10 / 20 / 45G` copy alignment
+- Projection confidence `/100` terminology; remove probability-style wording
+- Piyasa Merkezi latest-scan wording; remove `LIVE`/today overclaim
+- remove ordinary-user FastAPI/Next.js/Firebase-token/UID jargon
+- standardize ordinary product naming on `Strateji Lab`
 
-Target:
+### CP2 — Smart Scan Preset Layout Polish
 
-- pulse / market state
-- trend
-- momentum
-- money flow
-- risk
-- system comment
-- top signals
-- featured security
-- movers
-- decision-oriented hierarchy
-- no primary watchlist editing or scan configuration
+- four balanced quick universe cards on desktop
+- 2 x 2 tablet layout
+- safe mobile layout
+- no scan behavior, hierarchy, universe, or decision changes
 
-### Akıllı Tarama
+### CP3 — Projection Decision-First Simplification
 
-Current state: live accepted for continuation.
+Default-visible priority:
 
-Target/current product model:
-
-- BIST 30
-- BIST 100
-- Kendi Listem
-- symbol search/add/remove
-- launch scan
-- progress/recovery
-- internal durable recovery; no separate visible history module
-- results table
-- selected-ticker decision motor below table
-- why buy / why wait
-- confidence / risk / MTF / entry quality / technical profile
-- support / resistance / stop / targets
-- continuity into Detailed Analysis / Projection
-
-### Detaylı Analiz
-
-Reference: `izfin_ui/detail_analysis.py`, `izfin_ui/analysis_views.py`
-
-Current state: live accepted for continuation.
-
-Includes:
-
-- indicator/technical sections
-- confidence and signal context
-- risk context
-- support/resistance
-- MTF entry motor
-- targets
-- algorithmic interpretation
-- Projection navigation
-- contextual route/breadcrumb
-- collapsed score detail
-
-### Projeksiyon
-
-Reference: `izfin_ui/projection_view.py`
-
-Current state: live accepted 2026-08-28.
-
-Includes:
-
-- approximately 45-day model
-- current price
-- ATR movement
-- historical volatility movement
-- combined movement
-- base / upside / downside bands
-- wider risk band
-- model confidence
-- model agreement
-- volatility explanation
-- positive technical scenario
-- negative technical scenario
+- ticker/current price
+- 45G movement band
+- Model güven skoru `/100`
 - algorithmic direction summary
-- no target-price promise / no investment-advice implication
+- positive scenario trigger/target/risk invalidation
+- negative scenario trigger/downside/invalidation
 
-### Performans
+Move secondary/repeated model detail into disclosures. Preserve all Python-owned model outputs/calculations.
 
-Reference: `izfin_ui/performance_view.py`
+### CP4 — ESLint Quality Gate
 
-Current state: live accepted 2026-08-30; final journey recheck remains.
+- make ESLint 9 / Next.js 16 flat configuration operational
+- run `pnpm --dir web lint`
+- add lint before typecheck/component-tests/build in Web CI
+- minimal fixes only; no broad refactor
 
-Includes:
+### CP5 — TestClient Deprecation Cleanup
 
-- active positions
-- closed-position history
-- summary KPIs
-- win rate / average / median where supported
-- median duration
-- best/worst interpretation
-- most common close reasons
-- full closed-position risk/target history
-- 20G / 60G / 120G scorecards
-- asset-level scorecard
-- signal-level detail history
-- small-sample warnings
+- investigate Starlette/httpx TestClient deprecation
+- migrate only if a supported behavior-preserving path is clear
+- otherwise document the debt instead of forcing a risky package change
 
-### Strategy Lab
+### CP6 — Real Viewport, Keyboard, and Release Acceptance
 
-Reference: `izfin_ui/backtest_view.py`, `izfin_ui/backtest_results.py`
+Required viewports:
 
-Target:
+- 390 x 844
+- 768 x 1024
+- 1440 x 900
 
-- symbol discovery
-- parameter workflow
-- historical strategy results
-- explanatory context
-- no fake data
+Final authenticated journey:
 
-Current state: accepted for continuation 2026-08-31; detail polish deferred to the final comprehensive pass.
+**Giriş -> Piyasa Merkezi -> Akıllı Tarama -> Tarama -> Decision Motor -> filtre -> Detaylı Analiz -> Projeksiyon -> Performans -> Strateji Lab -> Hesap**
 
-### Account / Admin
+Check:
 
-Target:
+- horizontal overflow / clipping
+- mobile navigation and `Diğer`
+- disclosure behavior
+- modal Escape/focus return
+- auth form error focus
+- Smart Scan hierarchy
+- ticker continuity into Detail/Projection
+- Performance mobile cards/period controls
+- Account export/delete surfaces without routine destructive deletion
+- Piyasa Merkezi latest-scan language
 
-- profile/legal/export/delete parity
-- safe post-delete transition
-- admin-only System Health / CI / release / readiness
-- common product visual language
+Any real bug found here should be fixed in a narrow `fix/final-acceptance-*` PR.
 
-Current state: implementation complete; user live acceptance pending.
-
-## 10. Technical Debt Snapshot
+## 9. Technical Debt Snapshot
 
 ### Strong / relatively mature
 
@@ -344,77 +399,92 @@ Current state: implementation complete; user live acceptance pending.
 - auth recovery
 - 401 refresh/retry semantics
 - 403 handling
-- API retry/error boundaries
 - same-origin API proxy
-- scan job recovery foundations
-- production readiness checks
-- Firestore/durable readiness behavior
-- CI gates
+- scan job recovery
+- durable readiness
+- Firestore-backed scan persistence boundary
+- Python/Web CI gates
 - Vercel/Cloud Run split
+- decision-first Smart Scan hierarchy
+- Detailed Analysis decomposition
+- mobile navigation and component behavior coverage
 
-### Remaining web product debt
+### Open release-polish debt
 
-- Account/Admin live acceptance still pending
-- final visual parity and responsive convergence pass remains
-- generic/stacked CSS convergence layers
-- final authenticated journey still needs one comprehensive acceptance pass
-- some route/context coupling remains until all analysis surfaces use the same shared context consistently
-- deferred scan decision-card selected-ticker revisit behavior noted above
-
-### Debt reduced by completed Performance and current Strategy Lab checkpoints
-
-- separated Performance auth/data orchestration from presentation
-- replaced the loose frontend closed-summary shape with a typed presentation contract
-- restored Streamlit information without duplicating Python financial calculations
-- preserved real-data-only rendering
-- kept scorecard and position-history responsibilities clearly separated
-- made global API/system health messaging authoritative instead of static
-- restored Python-owned Strategy Lab display formats instead of rendering raw table numbers
-- restored Streamlit disclosure hierarchy and owner-scoped last-ticker continuity
-- restored account profile history without exposing raw user identifiers
-- separated real runtime readiness from static quality metrics in the admin-only surface
-- removed the unused duplicate account-center client
+- CP1 copy/semantic consistency
+- CP2 four-card Smart Scan preset layout
+- CP3 Projection information-density cleanup
+- CP4 ESLint flat configuration and CI lint gate
+- CP5 Starlette/httpx TestClient deprecation warning
+- CP6 real viewport/keyboard/final authenticated acceptance
+- generic/stacked CSS layers remain maintenance debt but are **not** release-polish scope
+- deferred Smart Scan revisit ticker-reset behavior remains non-blocking
 
 ### Technical debt policy
 
-- no unnecessary decorative features before functional parity
-- no broad CSS polish before functional parity
+- no new decorative/product features before CP6 closes
+- no broad CSS refactor before release acceptance
 - remove duplicate responsibilities instead of layering more UI
 - prefer authoritative server state over browser-only state
 - keep business calculations in Python
-- each checkpoint should reduce, not increase, product-layer debt
+- each checkpoint must reduce or leave flat, never knowingly increase, release debt
+
+## 10. CI / Release Verification Rules
+
+For code checkpoints:
+
+1. TDD RED -> GREEN for the bounded change.
+2. Relevant local/source-contract tests.
+3. GitHub PR into `develop`.
+4. Both IZFIN Python and Web quality gates green where applicable.
+5. Merge only after green gates.
+6. Verify post-merge `develop` CI.
+7. Verify production Vercel deployment exact SHA when the checkpoint affects deployed web code.
+8. Verify same-origin health/readiness for final release closure.
+
+Current Web CI before CP4 runs:
+
+- Next.js typecheck
+- component behavior tests
+- Next.js production build
+
+CP4 will add lint as a first-class Web quality gate.
 
 ## 11. Working Style / Communication
 
-At checkpoint end, report only:
+At checkpoint end, report:
 
 - **What works** — concrete verified behavior
-- **What is missing** — remaining product gaps
-- **What the user should test live** — exact Vercel actions
+- **What changed** — only the checkpoint scope
+- **What is missing** — remaining checkpoints/debt
+- **What the user should test live** — only where live acceptance is meaningful
 - **Technical debt trend** — increased / decreased / flat and why
 
-Internally, PRs/tests/commits remain required, but they are not the user-facing progress model.
+Internally, branches/PRs/tests/commits remain required, but user-facing progress stays checkpoint-based.
 
 ## 12. Codex Efficiency Rules
 
+- Start from this file plus the current checkpoint spec/plan.
 - Do not repeatedly scan the whole repository.
-- Start from this file, the approved parity spec, and files directly relevant to the current checkpoint.
-- Work checkpoint-by-checkpoint.
+- Keep each Codex task to a narrow 2–4 related changes where practical.
+- Target only relevant files/tests.
+- Use a new Codex session after a major checkpoint when that reduces context noise.
 - Trace real data flow before applying fixes.
-- If a fix fails repeatedly, reassess architecture instead of stacking workarounds.
-- Preserve the explicit user decision not to spend time on the low-priority scan selection reset yet.
+- If a fix fails repeatedly, reassess the boundary instead of stacking workarounds.
+- Preserve the explicit user decision not to prioritize the low-value Smart Scan revisit ticker reset.
 
 ## 13. Canonical Next Action
 
-**Live-verify Account/Admin parity on Vercel `develop`.**
+After CP0 is reviewed and merged, begin:
 
-Acceptance journey:
+# CP1 — Copy and Semantic Consistency
 
-1. Sign in and open **Hesap** from the application navigation.
-2. Confirm the account summary shows the authenticated email plus available creation and last-login history without exposing a raw UID.
-3. Confirm KVKK and Usage Terms load with their current version labels.
-4. Download the authenticated JSON export and confirm the file is created; do not execute account deletion during routine acceptance.
-5. With a regular user, confirm **Admin QA** is absent from navigation and direct access is denied.
-6. With the configured admin account, open **Admin QA** and confirm live readiness boundaries, release identity, static quality metrics, and the GitHub Actions source-of-truth link appear.
+Bounded scope only:
 
-If the user accepts this journey, mark Account/Admin complete and begin the **visual parity / responsive Streamlit-to-web translation**. If live behavior differs, treat it as an Account/Admin checkpoint defect and fix it before advancing.
+1. Align Performance explanatory copy with the actual `1 / 5 / 10 / 20 / 45G` selector.
+2. Present Projection confidence consistently as **Model güven skoru X/100**, not `%` probability-like language.
+3. Replace Piyasa Merkezi `BUGÜNÜN ÖNE ÇIKAN HİSSESİ` / `LIVE` / `Listende dikkat çekenler` language with truthful latest-completed-scan wording.
+4. Remove FastAPI/Next.js/Firebase token/UID jargon from ordinary user-facing surfaces while retaining technical detail in Admin QA.
+5. Standardize ordinary product navigation/copy on `Strateji Lab`.
+
+Do **not** change financial calculations, central decision rules, scan universes, API payloads, auth/recovery, ticker continuity, or Projection mathematics in CP1.
