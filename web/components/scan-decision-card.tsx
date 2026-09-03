@@ -30,13 +30,6 @@ export function ScanDecisionCard({ jobId, detail, tickers, onTickerChange }: Sca
   const selectorTicker = sharedSelectedTicker && tickers.includes(sharedSelectedTicker)
     ? sharedSelectedTicker
     : detail.ticker;
-  const levels: Array<[string, unknown]> = [
-    ["Destek", panel.destek],
-    ["Direnç", panel.direnc],
-    ["TP1", panel.tp1],
-    ["TP2", panel.tp2],
-    ["TP3", panel.tp3],
-  ];
 
   useEffect(() => {
     const returningFromDetail = lastVisitedAnalysisRoute.startsWith("/stocks/");
@@ -93,7 +86,13 @@ export function ScanDecisionCard({ jobId, detail, tickers, onTickerChange }: Sca
         <SignalExplanation value={decision.teyitler} />
         {decision.mtf_metin ? <div className="scan-decision-note"><small>ZAMAN DİLİMLERİ</small><p>{text(decision.mtf_metin)}</p></div> : null}
         <div className="scan-decision-level-heading"><span>İşlem planı seviyeleri</span><small>Destek · direnç · hedefler</small></div>
-        <div className="scan-decision-levels">{levels.map(([label, value]) => <span key={label}><small>{label}</small><b>{text(value)}</b></span>)}</div>
+        <div className="scan-decision-levels">{([
+          ["Destek", panel.destek],
+          ["Direnç", panel.direnc],
+          ["TP1", panel.tp1],
+          ["TP2", panel.tp2],
+          ["TP3", panel.tp3],
+        ] as Array<[string, unknown]>).map(([label, value]) => <span key={label}><small>{label}</small><b>{text(value)}</b></span>)}</div>
       </div>
     </details>
 
