@@ -1,0 +1,43 @@
+name: IZFIN CP6 Production Focus Verification
+
+on:
+  push:
+    branches:
+      - qa/cp6-production-focus-verification
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  production-focus:
+    name: CP6 Production Modal Focus
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+
+      - name: Install Chromium acceptance runtime
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install playwright==1.55.0
+          python -m playwright install --with-deps chromium
+
+      - name: Verify production modal focus return
+        run: python scripts/qa_cp6_production_focus.py
+
+      - name: Upload release evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cp6-production-focus
+          path: cp6-production-focus-artifacts
+          if-no-files-found: warn
+          retention-days: 7
