@@ -68,6 +68,7 @@ export function ScanWorkspace() {
   const [error, setError] = useState("");
   const [activeFilter, setActiveFilter] = useState<ResultFilter>("Tümü");
   const [guideDismissed, setGuideDismissed] = useState(false);
+  const [controlsOpen, setControlsOpen] = useState(true);
   const [scanStarting, setScanStarting] = useState(false);
   const [retryableError, setRetryableError] = useState(false);
   const [pollFailureCount, setPollFailureCount] = useState(0);
@@ -176,6 +177,7 @@ export function ScanWorkspace() {
   }, [loadRecoveryJobs, recoveryDiscoveryFailures, user]);
   useEffect(() => { if (user) setGuideDismissed(window.localStorage.getItem(`izfin:first-scan-guide:${user.uid}`) === "done"); }, [user]);
   useEffect(() => { jobRef.current = job; }, [job]);
+  useEffect(() => { if (job?.status === "completed") setControlsOpen(false); }, [job?.job_id, job?.status]);
   useEffect(() => { void loadUniverse(); }, [loadUniverse]);
   useEffect(() => {
     if (scanStarting || !job || !["queued", "running"].includes(job.status) || !canRetryRecovery(pollFailureCount)) return;
@@ -242,8 +244,8 @@ export function ScanWorkspace() {
   }
 
   function dismissGuide() { if (user) window.localStorage.setItem(`izfin:first-scan-guide:${user.uid}`, "done"); setGuideDismissed(true); }
-  function chooseProfile(profile: string) { setActiveUniverseProfile(profile); scanControlRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }); }
-  function focusListManager() { scanControlRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }); symbolSearchInputRef.current?.focus(); }
+  function chooseProfile(profile: string) { setControlsOpen(true); setActiveUniverseProfile(profile); scanControlRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }); }
+  function focusListManager() { setControlsOpen(true); scanControlRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }); window.setTimeout(() => symbolSearchInputRef.current?.focus(), 0); }
 
   if (!user) return null;
   const running = scanStarting || job?.status === "queued" || job?.status === "running";
@@ -254,7 +256,7 @@ export function ScanWorkspace() {
       <div className="section-heading"><div><p className="eyebrow">IZFIN SCANNER</p><h2>Akıllı Tarama Merkezi</h2></div><span className="section-index">SIGNATURE SCAN</span></div>
       <p className="scan-intro">Varlık evrenini seç, merkezi karar motorunu çalıştır ve sonuçları skor · güven · giriş kalitesi · MTF · risk ekseninde karşılaştır.</p>
       {!guideDismissed && !job && watchlist && <FirstScanGuide tickerCount={watchlist.tickers.length} onDismiss={dismissGuide} />}
-      <details className="scan-controls-disclosure" defaultOpen={!job}>
+      <details className="scan-controls-disclosure" open={controlsOpen} onToggle={(event) => setControlsOpen(event.currentTarget.open)}>
         <summary>Tarama ayarları ve listeler</summary>
         <div id="scan-control" ref={scanControlRef} className="scan-control-grid">
           <section className="scan-control-card">
