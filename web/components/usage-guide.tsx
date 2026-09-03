@@ -42,16 +42,16 @@ const guideCopy: Record<UsageGuideSurface, GuideCopy> = {
   scan: {
     title: "Akıllı Tarama nasıl kullanılır?",
     eyebrow: "AKILLI TARAMA REHBERİ",
-    intro: "Evreni seçin, taramayı çalıştırın; merkezi kararı önce okuyup teyitleri ve riskleri birlikte değerlendirin.",
+    intro: "Önce tarama evrenini seçin, sonra Karar Motoru'nu okuyun; sonuç tablosunu ancak karar bağlamını gördükten sonra filtreleyip karşılaştırın.",
     badge: "KARAR ODAĞI",
     cards: [
-      { step: "1 · EVREN", title: "Doğru evreni seçin", body: "BIST 30, BIST 100 veya Kendi Listenizden uygun evreni seçin; sonuçlar yalnızca taranan varlıkları karşılaştırır." },
-      { step: "2 · KARAR", title: "Merkezi kararı önce okuyun", body: "İşlem yönünün merkezi kaynağı Karar Motoru'dur; tek bir skor veya indikatör üzerinden karar vermeyin." },
-      { step: "3 · TEYİT", title: "Artı ve eksileri karşılaştırın", body: "Neden alınabilir ve neden beklenmeli bölümlerindeki teknik teyit ve risk gerekçelerini dengeli okuyun." },
-      { step: "4 · RİSK", title: "İkinci hiyerarşiyi kontrol edin", body: "Güven, giriş kalitesi, MTF uyumu, risk ve teknik seviyeleri merkezi kararın bağlamı olarak değerlendirin." },
+      { step: "1 · EVREN", title: "Doğru evreni seçin", body: "Kendi Listem, BIST 30, BIST 100 veya ABD Büyük Teknoloji kartlarından birini seçin. Kişisel listenizi değiştirmek için Hisse / şirket ekle kontrolünü açabilirsiniz." },
+      { step: "2 · KARAR", title: "Karar Motoru'nu önce okuyun", body: "Tarama tamamlandığında ilk odak seçili hissenin Merkezi Kararı, olumlu gerekçesi, bekleme/risk gerekçesi ve stop seviyesidir." },
+      { step: "3 · FİLTRE", title: "Sonuç tablosunu filtreleyin", body: "Kararı okuduktan sonra Tümü, AL Sinyalleri, Trend Adayları veya İzle / Bekle seçenekleriyle aşağıdaki sonuç tablosunu daraltın." },
+      { step: "4 · DERİNLİK", title: "İkincil ayrıntıları açın", body: "Güven, giriş kalitesi, MTF, teknik profil ve teknik seviyeleri açılır karar ayrıntısında; daha derin teknik yapıyı Detaylı Analiz'de inceleyin." },
     ],
-    rule: "Trend Adayı teknik profildir; Teyit Bekle giriş koşullarının eksik olduğunu belirtir. Algoritma güven puanı başarı olasılığı değildir. Karar Motoru işlem yönünün merkezi kaynağıdır; Detaylı Analiz aynı kararı tekrar etmek yerine teknik derinlik sağlar.",
-    notes: ["Karar etiketleri nasıl yorumlanır? Etiketi güven, teyit ve risk bağlamıyla birlikte okuyun.", "Sonuç tablosundaki alanları birlikte okuyun; tek bir yüksek değer diğer riskleri geçersiz kılmaz."],
+    rule: "Trend Adayı teknik profildir; AL Sinyalleri merkezi alım kararlarını filtreler. Teyit Bekle giriş koşullarının eksik olduğunu belirtir. Algoritma güven puanı başarı olasılığı değildir; işlem yönünün merkezi kaynağı Karar Motoru'dur.",
+    notes: ["Karar etiketleri nasıl yorumlanır? Etiketi güven, teyit ve risk bağlamıyla birlikte okuyun; filtreler Karar Motoru'nun kararını değiştirmez, yalnızca sonuç tablosunda hangi hisselerin gösterileceğini belirler.", "Tek bir yüksek skor, güçlü güven puanı veya teknik profil stop ve risk gerekçelerini geçersiz kılmaz."],
   },
   detail: {
     title: "Detaylı Analiz nasıl kullanılır?",
