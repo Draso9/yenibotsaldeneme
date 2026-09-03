@@ -1,6 +1,6 @@
 "use client";
 
-const primaryProfiles = ["Kendi Listem", "BIST 30", "BIST 100"] as const;
+const primaryProfiles = ["Kendi Listem", "BIST 30", "BIST 100", "ABD Büyük Teknoloji"] as const;
 
 type ScanQuickControlsProps = {
   activeProfile: string;
@@ -9,6 +9,13 @@ type ScanQuickControlsProps = {
   onFocusListManager: () => void;
   onLaunchScan: () => void;
 };
+
+function profileDescription(profile: (typeof primaryProfiles)[number]): string {
+  if (profile === "Kendi Listem") return "Kaydettiğin hisseler";
+  if (profile === "BIST 30") return "BIST'in en büyük 30 hissesi";
+  if (profile === "BIST 100") return "Geniş BIST 100 evreni";
+  return "ABD büyük teknoloji hisseleri";
+}
 
 export function ScanQuickControls({
   activeProfile,
@@ -22,7 +29,7 @@ export function ScanQuickControls({
       <div className="scan-command-copy">
         <p className="eyebrow">TARAMA EVRENİ</p>
         <h1>Ne taramak istiyorsun?</h1>
-        <p>Hazır BIST evrenlerinden birini seç veya kişisel listenle devam et. Seçimin aşağıdaki çalışma alanına anında uygulanır.</p>
+        <p>Hazır BIST ve ABD teknoloji evrenlerinden birini seç veya kişisel listenle devam et. Seçimin aşağıdaki çalışma alanına anında uygulanır.</p>
       </div>
       <div className="scan-universe-presets" aria-label="Hızlı tarama evrenleri">
         {primaryProfiles.map((profile) => (
@@ -33,7 +40,7 @@ export function ScanQuickControls({
             onClick={() => onChooseProfile(profile)}
           >
             <strong>{profile}</strong>
-            <span>{profile === "Kendi Listem" ? "Kaydettiğin hisseler" : profile === "BIST 30" ? "BIST'in en büyük 30 hissesi" : "Geniş BIST 100 evreni"}</span>
+            <span>{profileDescription(profile)}</span>
           </button>
         ))}
       </div>
