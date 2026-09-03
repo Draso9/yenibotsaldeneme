@@ -102,7 +102,7 @@ def test_market_center_prioritizes_personal_signals_and_daily_movers():
     source = _read("web/components/market-center.tsx")
     css = _read("web/app/market-center.css")
 
-    assert "Listende dikkat çekenler" in source
+    assert "Son taramada dikkat çekenler" in source
     assert "IZFIN kararı" in source
     assert "Günlük Büyük Hareketler" in source
     assert "ALIM TARAFI" in source
@@ -325,5 +325,5 @@ def test_account_keeps_sensitive_actions_and_legal_states_explicit():
 
     assert "account-path" in account
     assert "account-status" in account
-    assert "Hesap işlemleri Firebase ID token ile doğrulanır" in account
+    assert "Hesap işlemleri güvenli kimlik doğrulamayla korunur" in account
     assert "account-status" in css

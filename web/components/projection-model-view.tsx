@@ -132,7 +132,7 @@ export function ProjectionModelView({ projection, ticker, availableTickers, onTi
 
     <section className="projection-workspace">
       <article className="projection-panel projection-range-card">
-        <div className="projection-section-head"><div><p className="eyebrow">45G KARMA BANT</p><h2>{projection.horizon_days} günlük karma model</h2></div><span className="projection-confidence">Güven %{text(projection.model.guven_skoru)}</span></div>
+        <div className="projection-section-head"><div><p className="eyebrow">45G KARMA BANT</p><h2>{projection.horizon_days} günlük karma model</h2></div><span className="projection-confidence">Model güven skoru {text(projection.model.guven_skoru)}/100</span></div>
         <div className="projection-range-labels"><span>{price(projection.model.alt_2s)}</span><span>{price(projection.model.fiyat)}</span><span>{price(projection.model.ust_2s)}</span></div>
         <div className="projection-range-track">
           <div className="projection-range-fill" style={{ width: rangeStyle.width }} />
@@ -147,12 +147,12 @@ export function ProjectionModelView({ projection, ticker, availableTickers, onTi
         <strong className="projection-direction-title">{text(projection.scenario.yon_title)}</strong>
         <p>{text(projection.scenario.model_yorumu)}</p>
         <div className="projection-confidence-track"><span style={{ width: `${Math.max(0, Math.min(100, projection.metrics.guven_ilerleme * 100))}%` }} /></div>
-        <small>Mevcut sistem sinyali: {text(projection.scenario.sinyal)} · Model güveni %{text(projection.model.guven_skoru)} · Model uyumu %{Math.round(number(projection.model.model_uyumu) * 100)}</small>
+        <small>Mevcut sistem sinyali: {text(projection.scenario.sinyal)} · Model güven skoru {text(projection.model.guven_skoru)}/100 · Model uyumu %{Math.round(number(projection.model.model_uyumu) * 100)}</small>
       </article>
     </section>
 
     <section className="projection-panel projection-range-card" aria-labelledby="projection-scenario-title">
-      <div className="projection-section-head"><div><p className="eyebrow">OLUMLU / OLUMSUZ OLASILIKLAR</p><h2 id="projection-scenario-title">Teknik Senaryolar</h2></div><span className="projection-mini-badge">Koşullu tetik · risk iptali</span></div>
+      <div className="projection-section-head"><div><p className="eyebrow">OLUMLU / OLUMSUZ SENARYOLAR</p><h2 id="projection-scenario-title">Teknik Senaryolar</h2></div><span className="projection-mini-badge">Koşullu tetik · risk iptali</span></div>
       <div className="projection-scenario-grid" aria-label="Teknik senaryolar">
         <article className="projection-panel projection-scenario-card projection-scenario-up">
           <div className="projection-scenario-head"><div><p className="eyebrow">POZİTİF SENARYO</p><h2>{projection.technical_scenarios.up.title}</h2></div><span>YUKARI</span></div>

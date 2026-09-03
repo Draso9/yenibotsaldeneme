@@ -29,9 +29,9 @@ def test_market_center_renders_only_streamlit_decision_surface():
         ("PARA AKIŞI", "center.metrics.flow"),
         ("RİSK", "center.metrics.risk"),
         ("SİSTEM YORUMU", "center.decision.yorum"),
-        ("Listende dikkat çekenler", "center.top_signals"),
+        ("Son taramada dikkat çekenler", "center.top_signals"),
         ("Günlük Büyük Hareketler", "center.movers"),
-        ("BUGÜNÜN ÖNE ÇIKAN HİSSESİ", "selectedTicker"),
+        ("SON TARAMADA ÖNE ÇIKAN", "selectedTicker"),
     ):
         assert streamlit_label in populated
         assert streamlit_field in populated

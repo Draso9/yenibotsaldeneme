@@ -79,7 +79,7 @@ const guideCopy: Record<UsageGuideSurface, GuideCopy> = {
       { step: "4 · KARŞILAŞTIR", title: "Kararla bağlam kurun", body: "Projeksiyon karar üretmez; Akıllı Tarama ve Detaylı Analiz bağlamını tamamlar." },
     ],
     rule: "Projeksiyon fiyat garantisi değildir; yeni veri geldikçe teknik senaryo ve bantlar değişebilir.",
-    notes: ["Olasılık, merkez yol ve bantları birlikte değerlendirin.", "Haber, bilanço ve gap hareketleri teknik projeksiyonu hızlı biçimde geçersiz kılabilir."],
+    notes: ["Merkez yol, üst/alt bantlar ve koşullu senaryoları birlikte değerlendirin.", "Haber, bilanço ve gap hareketleri teknik projeksiyonu hızlı biçimde geçersiz kılabilir."],
   },
   performance: {
     title: "Performans nasıl kullanılır?",

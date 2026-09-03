@@ -96,7 +96,7 @@ export function AppShell({ children }: Readonly<{ children: React.ReactNode }>) 
       : pathname.startsWith("/performance")
         ? "Performans"
         : pathname.startsWith("/strategy-lab")
-          ? "Strateji Laboratuvarı"
+          ? "Strateji Lab"
           : pathname.startsWith("/account")
             ? "Gizlilik & Hesap"
             : pathname.startsWith("/admin/quality")
@@ -144,7 +144,7 @@ export function AppShell({ children }: Readonly<{ children: React.ReactNode }>) 
         <div className="sidebar-spacer" />
         <div className="sidebar-status">
           <div className="system-line" aria-live="polite">{systemState === "ready" ? <span className="live-dot" /> : <span aria-hidden="true">○</span>}<strong>{statusCopy.system}</strong></div>
-          <span className="sidebar-meta">FastAPI · Next.js · güvenli oturum</span>
+          <span className="sidebar-meta">Güvenli oturum · sistem bağlantısı</span>
           <span className="sidebar-user">{user?.email ?? "Oturum bekleniyor"}</span>
           {user ? <button className="sidebar-logout" disabled={logoutBusy} onClick={() => void handleLogout()} type="button">
             <span aria-hidden="true">↪</span>{logoutBusy ? "Çıkış yapılıyor…" : "Çıkış Yap"}

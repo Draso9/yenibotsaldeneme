@@ -22,7 +22,7 @@ def test_market_center_hides_internal_migration_copy_and_uses_shell_navigation()
         "Piyasa Merkezi",
         "Projeksiyon",
         "Performans",
-        "Strateji Laboratuvarı",
+        "Strateji Lab",
     ):
         assert product_surface in shell
 
