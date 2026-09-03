@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { confidenceScore, technicalProfile } from "../lib/signal-labels";
 import { FormEvent, useEffect, useState } from "react";
 import {
@@ -124,10 +125,10 @@ export function StrategyLabPage() {
   }
 
   if (authLoading) return <main className="strategy-page"><section className="strategy-panel strategy-status" aria-live="polite"><strong>Güvenli oturum hazırlanıyor</strong><span>Backtest çalışma alanın hesabınla eşleştiriliyor.</span></section></main>;
-  if (!user) return <main className="strategy-page"><section className="strategy-panel strategy-auth"><p className="eyebrow">STRATEJİ LAB</p><h1>Daily Core Backtest</h1><p>Geçmiş IZFIN kararlarını test etmek için hesabınla giriş yap.</p><a href="/">Ana sayfaya dön →</a></section></main>;
+  if (!user) return <main className="strategy-page"><section className="strategy-panel strategy-auth"><p className="eyebrow">STRATEJİ LAB</p><h1>Daily Core Backtest</h1><p>Geçmiş IZFIN kararlarını test etmek için hesabınla giriş yap.</p><Link href="/">Ana sayfaya dön →</Link></section></main>;
 
   return <main className="strategy-page" aria-label="IZFIN Strateji Lab">
-    <div className="strategy-path"><a href="/">← Piyasa Merkezi</a><span>Analiz araçları / Strateji Lab</span></div>
+    <div className="strategy-path"><Link href="/">← Piyasa Merkezi</Link><span>Analiz araçları / Strateji Lab</span></div>
     <section className="strategy-hero">
       <div>
         <p className="eyebrow">STRATEJİ LAB</p>
@@ -142,6 +143,7 @@ export function StrategyLabPage() {
         <label htmlFor="strategy-ticker">SEMBOL / ŞİRKET ARA</label>
         <input
           id="strategy-ticker"
+          role="combobox"
           value={ticker}
           onChange={(event) => {
             setTicker(event.target.value.toUpperCase());
@@ -151,12 +153,13 @@ export function StrategyLabPage() {
           autoComplete="off"
           aria-describedby="strategy-symbol-note"
           aria-autocomplete="list"
+          aria-controls="strategy-symbol-results"
           aria-expanded={suggestions.length > 0}
         />
         <small id="strategy-symbol-note">Sembol veya şirket adı yaz. Önerilerden seçim yapabilir; havuzda görünmeyen geçerli Yahoo sembolünü de doğrudan test edebilirsin.</small>
         {searching && <div className="strategy-symbol-search-state">Semboller aranıyor…</div>}
         {!searching && ticker.trim() && suggestions.length === 0 && !selectedSymbol && <div className="strategy-symbol-search-state">Eşleşme yoksa yazdığın sembol doğrudan backtest edilecek.</div>}
-        {suggestions.length > 0 && <div className="strategy-symbol-results" role="listbox" aria-label="Sembol önerileri">
+        {suggestions.length > 0 && <div id="strategy-symbol-results" className="strategy-symbol-results" role="listbox" aria-label="Sembol önerileri">
           {suggestions.map((suggestion) => <button type="button" role="option" aria-selected={false} key={`${suggestion.symbol}-${suggestion.exchange}`} onClick={() => selectSuggestion(suggestion)}>
             <span><b>{suggestion.symbol}</b>{suggestion.name && <small>{suggestion.name}</small>}</span>
             <em>{suggestion.exchange || suggestion.quote_type || "Piyasa"}</em>

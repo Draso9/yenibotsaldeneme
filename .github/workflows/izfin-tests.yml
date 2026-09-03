@@ -42,6 +42,9 @@ jobs:
       - name: Install web dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Lint Next.js web client
+        run: pnpm --dir web lint
+
       - name: Typecheck Next.js web client
         run: pnpm --dir web typecheck
 

@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import { fetchProjection, type ProjectionResponse } from "../lib/projection";
 import { fetchScanJobContext, resolveTicker, resultTickers } from "../lib/scan-context";
@@ -142,31 +143,31 @@ export function ProjectionPage({ jobId, ticker }: Readonly<{ jobId: string; tick
   }
 
   if (loading || contextLoading) {
-    return <main className="projection-page"><a className="projection-back" href="/">← Piyasa Merkezi</a><section className="projection-panel projection-status" aria-live="polite"><strong>Analiz bağlamı hazırlanıyor</strong><span>Son tamamlanan taraman ve seçili varlık geri yükleniyor.</span></section></main>;
+    return <main className="projection-page"><Link className="projection-back" href="/">← Piyasa Merkezi</Link><section className="projection-panel projection-status" aria-live="polite"><strong>Analiz bağlamı hazırlanıyor</strong><span>Son tamamlanan taraman ve seçili varlık geri yükleniyor.</span></section></main>;
   }
 
   if (!user) {
-    return <main className="projection-page"><a className="projection-back" href="/">← Ana sayfa</a><section className="projection-panel"><p className="eyebrow">PROJEKSİYON</p><h1>Projeksiyon Merkezi</h1><p>Tarama sonuçlarındaki model bantlarını görmek için IZFIN hesabınla giriş yap.</p></section></main>;
+    return <main className="projection-page"><Link className="projection-back" href="/">← Ana sayfa</Link><section className="projection-panel"><p className="eyebrow">PROJEKSİYON</p><h1>Projeksiyon Merkezi</h1><p>Tarama sonuçlarındaki model bantlarını görmek için IZFIN hesabınla giriş yap.</p></section></main>;
   }
 
   if (!resolvedJobId && !error) {
-    return <main className="projection-page"><a className="projection-back" href="/">← Piyasa Merkezi</a><section className="projection-panel projection-empty"><p className="eyebrow">PROJEKSİYON</p><h1>Henüz tamamlanmış bir taraman yok</h1><p>45 günlük senaryo analizi, Akıllı Tarama sonucundaki gerçek teknik panel verisini kullanır.</p><a href="/scan">Akıllı Tarama'yı aç →</a></section></main>;
+    return <main className="projection-page"><Link className="projection-back" href="/">← Piyasa Merkezi</Link><section className="projection-panel projection-empty"><p className="eyebrow">PROJEKSİYON</p><h1>Henüz tamamlanmış bir taraman yok</h1><p>45 günlük senaryo analizi, Akıllı Tarama sonucundaki gerçek teknik panel verisini kullanır.</p><Link href="/scan">Akıllı Tarama’yı aç →</Link></section></main>;
   }
 
   if (resolvedJobId && availableTickers.length > 1 && !resolvedTicker) {
-    return <main className="projection-page"><a className="projection-back" href="/">← Piyasa Merkezi</a><section className="projection-panel projection-ticker-selector"><p className="eyebrow">SON TAMAMLANAN TARAMA</p><h1>Projeksiyon için hisse seç</h1><p>Son tamamlanan taramandaki varlıklardan birini seç.</p><select value={resolvedTicker} onChange={(event) => chooseTicker(event.target.value)}><option value="">Hisse seç…</option>{availableTickers.map((value) => <option value={value} key={value}>{value}</option>)}</select></section></main>;
+    return <main className="projection-page"><Link className="projection-back" href="/">← Piyasa Merkezi</Link><section className="projection-panel projection-ticker-selector"><p className="eyebrow">SON TAMAMLANAN TARAMA</p><h1>Projeksiyon için hisse seç</h1><p>Son tamamlanan taramandaki varlıklardan birini seç.</p><select value={resolvedTicker} onChange={(event) => chooseTicker(event.target.value)}><option value="">Hisse seç…</option>{availableTickers.map((value) => <option value={value} key={value}>{value}</option>)}</select></section></main>;
   }
 
   if (!resolvedJobId || !resolvedTicker) {
-    return <main className="projection-page"><a className="projection-back" href="/">← Piyasa Merkezi</a><section className="projection-panel projection-status" role="alert"><strong>Projeksiyon bağlamı kullanılamıyor</strong><span>{error || "Tamamlanmış taramadan bir varlık seçilemedi."}</span><a href="/scan">Akıllı Tarama'yı aç →</a></section></main>;
+    return <main className="projection-page"><Link className="projection-back" href="/">← Piyasa Merkezi</Link><section className="projection-panel projection-status" role="alert"><strong>Projeksiyon bağlamı kullanılamıyor</strong><span>{error || "Tamamlanmış taramadan bir varlık seçilemedi."}</span><Link href="/scan">Akıllı Tarama’yı aç →</Link></section></main>;
   }
 
   if (!projection && !error) {
-    return <main className="projection-page"><div className="projection-path"><a className="projection-back" href={backHref}>← Detaylı Analiz</a><span>Tarama sonucu / {resolvedTicker} / Projeksiyon</span></div><section className="projection-panel projection-status" aria-live="polite"><strong>Model hazırlanıyor</strong><span>Tarama verisindeki teknik panel, ATR ve volatilite bantları işleniyor.</span></section></main>;
+    return <main className="projection-page"><div className="projection-path"><Link className="projection-back" href={backHref}>← Detaylı Analiz</Link><span>Tarama sonucu / {resolvedTicker} / Projeksiyon</span></div><section className="projection-panel projection-status" aria-live="polite"><strong>Model hazırlanıyor</strong><span>Tarama verisindeki teknik panel, ATR ve volatilite bantları işleniyor.</span></section></main>;
   }
 
   if (error || !projection) {
-    return <main className="projection-page"><div className="projection-path"><a className="projection-back" href={backHref}>← Detaylı Analiz</a><span>Tarama sonucu / {resolvedTicker} / Projeksiyon</span></div><section className="projection-panel projection-status" role="alert"><strong>Projeksiyon kullanılamıyor</strong><span>{error || "Model verisi alınamadı."}</span></section></main>;
+    return <main className="projection-page"><div className="projection-path"><Link className="projection-back" href={backHref}>← Detaylı Analiz</Link><span>Tarama sonucu / {resolvedTicker} / Projeksiyon</span></div><section className="projection-panel projection-status" role="alert"><strong>Projeksiyon kullanılamıyor</strong><span>{error || "Model verisi alınamadı."}</span></section></main>;
   }
 
   return <ProjectionModelView

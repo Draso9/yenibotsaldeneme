@@ -96,7 +96,7 @@ export function StockDetailPage({ jobId, ticker }: Readonly<{ jobId: string; tic
         <p className="detail-note"><b>Teknik profil:</b> {technicalProfile(detail.action.profile)} · <b>Merkezi karar:</b> {text(detail.decision.karar)}</p>
         <p className="detail-note">{trendExplanation} Kararın teyit koşullarını Akıllı Tarama karar kartında inceleyebilirsin.</p>
         <a className="projection-cta" href={projectionHref(jobId, normalizedTicker)}>45G projeksiyon senaryosunu aç →</a>
-        <p className="detail-note"><b>Odak</b> · Bu ekran Karar Motoru'nu tekrar etmez; skorun nedenlerini ve teknik planı gerektiğinde açılan ayrıntılarla gösterir.</p>
+        <p className="detail-note"><b>Odak</b> · Bu ekran Karar Motoru’nu tekrar etmez; skorun nedenlerini ve teknik planı gerektiğinde açılan ayrıntılarla gösterir.</p>
       </>}
     </div>
 
@@ -122,7 +122,7 @@ function ScoreBreakdown({ score }: Readonly<{ score: Record<string, unknown> }>)
     <div className="detail-score-explanation">
       <h3>Gelişmiş Skor ne anlatıyor?</h3>
       <p><b>{scoreValue}/100 · {interpretation.label}</b> — {interpretation.meaning}</p>
-      <small>Bu skor otomatik AL değildir ve başarı olasılığı anlamına gelmez. Risk, giriş koşulları ve Akıllı Tarama'daki merkezi Karar Motoru güçlü bir skoru dahi sınırlayabilir.</small>
+      <small>Bu skor otomatik AL değildir ve başarı olasılığı anlamına gelmez. Risk, giriş koşulları ve Akıllı Tarama’daki merkezi Karar Motoru güçlü bir skoru dahi sınırlayabilir.</small>
     </div>
     <div className="detail-score-metrics">
       <span><b>{text(score.eski)}</b>eski / temel teknik skor</span>
@@ -144,7 +144,7 @@ function ScoreBreakdown({ score }: Readonly<{ score: Record<string, unknown> }>)
       <strong>Skorun temel teknik kalemleri</strong>
       {baseItems.length ? <ul>{baseItems.map((item, index) => <li key={index}>{text(item.metin)}</li>)}</ul> : <p>Ek temel skor kalemi oluşmadı.</p>}
     </div>
-    <div className="detail-score-reading"><b>{interpretation.label} ne demek?</b><p>{interpretation.meaning} İşlem yönünün merkezi kaynağı Akıllı Tarama'daki Hisseye Özel Karar Motoru olarak kalır.</p></div>
+    <div className="detail-score-reading"><b>{interpretation.label} ne demek?</b><p>{interpretation.meaning} İşlem yönünün merkezi kaynağı Akıllı Tarama’daki Hisseye Özel Karar Motoru olarak kalır.</p></div>
   </details>;
 }
 

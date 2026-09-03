@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
@@ -131,7 +132,7 @@ export function AccountPage() {
   );
 
   return <main className="account-page" aria-label="Gizlilik ve hesap merkezi">
-    <div className="account-path"><a href="/">← Piyasa Merkezi</a><span>Hesap / Gizlilik ve güvenlik</span></div>
+    <div className="account-path"><Link href="/">← Piyasa Merkezi</Link><span>Hesap / Gizlilik ve güvenlik</span></div>
     <section className="account-page-hero">
       <div><p className="eyebrow">GÜVEN & ŞEFFAFLIK</p><h1>Gizlilik & Hesap</h1><p className="account-muted">Yasal metinleri incele, sürümlü onayını yönet, verilerini indir veya hesabını kalıcı olarak sil.</p></div>
       <div className="account-identity-card">
