@@ -31,8 +31,10 @@ h11==0.16.0
 h2==4.4.1
 hpack==4.2.0
 httpcore==1.0.9
+httpcore2==2.12.0
 httptools==0.8.0
 httpx==0.28.1
+httpx2==2.12.0
 hyperframe==6.1.0
 idna==3.19
 iniconfig==2.3.0
@@ -77,6 +79,7 @@ soupsieve==2.9.2
 starlette==1.6.0
 streamlit==1.62.0
 toml==0.10.2
+truststore==0.10.4
 typing-extensions==4.16.0
 typing-inspection==0.4.4
 urllib3==2.7.0
