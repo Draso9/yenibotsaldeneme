@@ -153,12 +153,13 @@ export function StrategyLabPage() {
           autoComplete="off"
           aria-describedby="strategy-symbol-note"
           aria-autocomplete="list"
+          aria-controls="strategy-symbol-results"
           aria-expanded={suggestions.length > 0}
         />
         <small id="strategy-symbol-note">Sembol veya şirket adı yaz. Önerilerden seçim yapabilir; havuzda görünmeyen geçerli Yahoo sembolünü de doğrudan test edebilirsin.</small>
         {searching && <div className="strategy-symbol-search-state">Semboller aranıyor…</div>}
         {!searching && ticker.trim() && suggestions.length === 0 && !selectedSymbol && <div className="strategy-symbol-search-state">Eşleşme yoksa yazdığın sembol doğrudan backtest edilecek.</div>}
-        {suggestions.length > 0 && <div className="strategy-symbol-results" role="listbox" aria-label="Sembol önerileri">
+        {suggestions.length > 0 && <div id="strategy-symbol-results" className="strategy-symbol-results" role="listbox" aria-label="Sembol önerileri">
           {suggestions.map((suggestion) => <button type="button" role="option" aria-selected={false} key={`${suggestion.symbol}-${suggestion.exchange}`} onClick={() => selectSuggestion(suggestion)}>
             <span><b>{suggestion.symbol}</b>{suggestion.name && <small>{suggestion.name}</small>}</span>
             <em>{suggestion.exchange || suggestion.quote_type || "Piyasa"}</em>
