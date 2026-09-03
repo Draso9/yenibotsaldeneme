@@ -40,7 +40,7 @@
 
 .scan-universe-presets {
   display: grid;
-  grid-template-columns: repeat(3, minmax(145px, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 10px;
 }
 
@@ -375,6 +375,7 @@
 
 @media (max-width: 1180px) {
   .scan-command-deck { grid-template-columns: 1fr; }
+  .scan-universe-presets { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .scan-command-actions { grid-template-columns: 1fr 1fr; }
   .scan-control-grid { grid-template-columns: 1fr; }
   .scan-decision-kpis { grid-template-columns: repeat(3, minmax(0, 1fr)); }
