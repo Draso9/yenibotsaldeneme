@@ -14,3 +14,7 @@ def test_modal_focus_return_rejects_hidden_opener_and_runs_after_dialog_close():
     assert "getClientRects().length > 0" in source
     assert "requestAnimationFrame" in source
     assert 'document.getElementById("main-content")' in source
+
+
+if __name__ == "__main__":
+    test_modal_focus_return_rejects_hidden_opener_and_runs_after_dialog_close()
