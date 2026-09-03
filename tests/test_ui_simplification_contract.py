@@ -18,8 +18,12 @@ def test_scan_results_put_the_stock_decision_motor_before_result_tables():
 def test_scan_controls_are_progressively_disclosed_without_hiding_first_use():
     workspace = (ROOT / "web" / "components" / "scan-workspace.tsx").read_text(encoding="utf-8")
 
-    assert '<details className="scan-controls-disclosure"' in workspace
-    assert "defaultOpen={!job}" in workspace
+    assert 'const [controlsOpen, setControlsOpen] = useState(true);' in workspace
+    assert 'job?.status === "completed"' in workspace
+    assert "setControlsOpen(false)" in workspace
+    assert '<details className="scan-controls-disclosure" open={controlsOpen}' in workspace
+    assert "onToggle={(event) => setControlsOpen(event.currentTarget.open)}" in workspace
+    assert "setControlsOpen(true)" in workspace
     assert "Tarama ayarları ve listeler" in workspace
     assert '<div id="scan-control" ref={scanControlRef} className="scan-control-grid">' in workspace
 
