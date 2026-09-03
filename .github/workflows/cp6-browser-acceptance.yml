@@ -38,7 +38,7 @@ jobs:
         env:
           IZFIN_CP6_BASE_URL: https://izfin-web.vercel.app
           IZFIN_CP6_ARTIFACT_DIR: cp6-browser-artifacts
-        run: python scripts/cp6_browser_acceptance.py
+        run: python scripts/cp6_browser_acceptance_v2.py
 
       - name: Upload browser acceptance artifacts
         if: always()
