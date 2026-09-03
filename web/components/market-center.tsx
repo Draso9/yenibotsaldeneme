@@ -91,8 +91,8 @@ export function MarketCenterPanel({ jobId }: Readonly<{ jobId: string }>) {
       <div className="market-system-comment"><span>SİSTEM YORUMU</span><p>{text(center.decision.yorum)}</p></div>
       <div className="market-columns">
         <div className="market-signals">
-          <div className="subsection-title"><span>Listende dikkat çekenler</span><b>{center.top_signals.length}</b></div>
-          <div className="market-signal-table" role="table" aria-label="Listende dikkat çekenler">
+          <div className="subsection-title"><span>Son taramada dikkat çekenler</span><b>{center.top_signals.length}</b></div>
+          <div className="market-signal-table" role="table" aria-label="Son taramada dikkat çekenler">
             <div className="market-signal-head" role="row"><span>Sembol</span><span>Fiyat</span><span>IZFIN kararı</span><span>Skor</span><span title={confidenceExplanation}>Güven puanı</span><span>MTF</span><span>Risk</span></div>
             {center.top_signals.slice(0, 7).map((item, index) => {
               const ticker = tickerOf(item);
@@ -104,7 +104,7 @@ export function MarketCenterPanel({ jobId }: Readonly<{ jobId: string }>) {
           </div>
         </div>
         <div className="market-focus-card">
-          <div className="subsection-title"><span>BUGÜNÜN ÖNE ÇIKAN HİSSESİ</span><b>LIVE</b></div>
+          <div className="subsection-title"><span>SON TARAMADA ÖNE ÇIKAN</span><b>SON TARAMA</b></div>
           {selectedTicker ? <>
             <h3>{selectedTicker}</h3>
             {!detail && !detailError && <p>Detay yükleniyor…</p>}
