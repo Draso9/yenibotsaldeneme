@@ -124,13 +124,13 @@ export function StrategyLabPage() {
   }
 
   if (authLoading) return <main className="strategy-page"><section className="strategy-panel strategy-status" aria-live="polite"><strong>Güvenli oturum hazırlanıyor</strong><span>Backtest çalışma alanın hesabınla eşleştiriliyor.</span></section></main>;
-  if (!user) return <main className="strategy-page"><section className="strategy-panel strategy-auth"><p className="eyebrow">STRATEJİ LABORATUVARI</p><h1>Daily Core Backtest</h1><p>Geçmiş IZFIN kararlarını test etmek için hesabınla giriş yap.</p><a href="/">Ana sayfaya dön →</a></section></main>;
+  if (!user) return <main className="strategy-page"><section className="strategy-panel strategy-auth"><p className="eyebrow">STRATEJİ LAB</p><h1>Daily Core Backtest</h1><p>Geçmiş IZFIN kararlarını test etmek için hesabınla giriş yap.</p><a href="/">Ana sayfaya dön →</a></section></main>;
 
-  return <main className="strategy-page" aria-label="IZFIN Strateji Laboratuvarı">
+  return <main className="strategy-page" aria-label="IZFIN Strateji Lab">
     <div className="strategy-path"><a href="/">← Piyasa Merkezi</a><span>Analiz araçları / Strateji Lab</span></div>
     <section className="strategy-hero">
       <div>
-        <p className="eyebrow">STRATEJİ LABORATUVARI</p>
+        <p className="eyebrow">STRATEJİ LAB</p>
         <h1>Daily Core Backtest</h1>
         <p className="strategy-muted">Geçmiş her günü yalnızca o güne kadar bilinen verilerle yeniden oynat; merkezi IZFIN kararlarının sonrasını ölç.</p>
       </div>
