@@ -51,7 +51,7 @@ const guideCopy: Record<UsageGuideSurface, GuideCopy> = {
       { step: "4 · DERİNLİK", title: "İkincil ayrıntıları açın", body: "Güven, giriş kalitesi, MTF, teknik profil ve teknik seviyeleri açılır karar ayrıntısında; daha derin teknik yapıyı Detaylı Analiz'de inceleyin." },
     ],
     rule: "Trend Adayı teknik profildir; AL Sinyalleri merkezi alım kararlarını filtreler. Teyit Bekle giriş koşullarının eksik olduğunu belirtir. Algoritma güven puanı başarı olasılığı değildir; işlem yönünün merkezi kaynağı Karar Motoru'dur.",
-    notes: ["Filtreler Karar Motoru'nun kararını değiştirmez; yalnızca sonuç tablosunda hangi hisselerin gösterileceğini belirler.", "Tek bir yüksek skor, güçlü güven puanı veya teknik profil stop ve risk gerekçelerini geçersiz kılmaz."],
+    notes: ["Karar etiketleri nasıl yorumlanır? Etiketi güven, teyit ve risk bağlamıyla birlikte okuyun; filtreler Karar Motoru'nun kararını değiştirmez, yalnızca sonuç tablosunda hangi hisselerin gösterileceğini belirler.", "Tek bir yüksek skor, güçlü güven puanı veya teknik profil stop ve risk gerekçelerini geçersiz kılmaz."],
   },
   detail: {
     title: "Detaylı Analiz nasıl kullanılır?",
