@@ -34,11 +34,11 @@ jobs:
           python -m pip install playwright==1.55.0
           python -m playwright install --with-deps chromium
 
-      - name: Run production browser acceptance
+      - name: Run remaining production browser acceptance
         env:
           IZFIN_CP6_BASE_URL: https://izfin-web.vercel.app
           IZFIN_CP6_ARTIFACT_DIR: cp6-browser-artifacts
-        run: python scripts/cp6_browser_acceptance_v2.py
+        run: python scripts/cp6_browser_acceptance_v3.py
 
       - name: Upload browser acceptance artifacts
         if: always()
