@@ -160,15 +160,15 @@ export function AuthAccessGate({ children }: Readonly<{ children: React.ReactNod
   }
 
   if (state === "consent") {
-    return <GateFrame title="Güncel yasal onay gerekli" text="Devam etmeden önce güncel Kullanım Koşulları ve KVKK Aydınlatma Metni'ni açıkça inceleyip onaylamalısın.">
+    return <GateFrame title="Güncel yasal onay gerekli" text="Devam etmeden önce güncel Kullanım Koşulları ve KVKK Aydınlatma Metni’ni açıkça inceleyip onaylamalısın.">
       <div className="auth-gate-legal-links">
         <a href="/legal/terms" target="_blank" rel="noreferrer">Kullanım Koşullarını Aç</a>
         <a href="/legal/privacy" target="_blank" rel="noreferrer">KVKK Metnini Aç</a>
       </div>
-      <label className="auth-gate-check"><input checked={termsAccepted} onChange={(event) => setTermsAccepted(event.target.checked)} type="checkbox" /><span>Güncel Kullanım Koşulları'nı okudum ve kabul ediyorum.</span></label>
+      <label className="auth-gate-check"><input checked={termsAccepted} onChange={(event) => setTermsAccepted(event.target.checked)} type="checkbox" /><span>Güncel Kullanım Koşulları’nı okudum ve kabul ediyorum.</span></label>
       <label className="auth-gate-check"><input checked={privacySeen} onChange={(event) => setPrivacySeen(event.target.checked)} type="checkbox" /><span>Güncel KVKK Aydınlatma Metni tarafıma sunuldu.</span></label>
       <div className="auth-gate-actions">
-        <button disabled={busy || !termsAccepted || !privacySeen} onClick={() => void recordConsent()} type="button">Onayla ve IZFIN'e Devam Et</button>
+        <button disabled={busy || !termsAccepted || !privacySeen} onClick={() => void recordConsent()} type="button">Onayla ve IZFIN’e Devam Et</button>
         <button className="text" disabled={busy} onClick={() => void handleLogout()} type="button">Çıkış Yap</button>
       </div>
     </GateFrame>;
