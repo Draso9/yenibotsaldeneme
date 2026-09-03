@@ -56,29 +56,31 @@ Primary references:
 
 The approved CP0 → CP6 final-polish program is **technically complete**.
 
-Current accepted `develop` SHA:
+Technical product-release code SHA (PR #142):
 
 **`265346151af1c64350281c894014b06b462a2995`**
 
-Current production deployment:
+> Documentation-only closure commits may make the current `develop` head newer than this SHA. For the literal current branch head, read GitHub directly. The SHA above identifies the verified deployed product-code release produced by CP6.
+
+Verified production deployment for that code release:
 
 **`dpl_E2nFdzXsAkVtHTk7KvKejKq6vnqg`**
 
-Production state:
+Verified production state for the product-code release:
 
 - target: `production`
 - git ref: `develop`
-- exact SHA: `265346151af1c64350281c894014b06b462a2995`
+- exact product-code SHA: `265346151af1c64350281c894014b06b462a2995`
 - state: `READY`
 
-Post-merge CI:
+Post-product-merge CI:
 
 - run **33787173807**
 - IZFIN Quality Gate: SUCCESS
 - IZFIN Web Quality Gate: SUCCESS
 - Web sequence: ESLint → typecheck → component behavior tests → production build
 
-Live smoke after the merge:
+Live smoke after the product merge:
 
 - `/izfin-api/api/v1/health` → HTTP 200, `status=ok`
 - `/izfin-api/api/v1/health/ready/durable` → HTTP 200
