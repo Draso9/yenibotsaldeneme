@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import {
   fetchPerformancePositions,
@@ -96,11 +97,11 @@ export function PerformancePage() {
   }
 
   if (!user) {
-    return <main className="performance-page"><section className="performance-panel performance-empty"><p className="eyebrow">TAKİP & PERFORMANS</p><h1>Performans Merkezi</h1><p>Bu ekranı görmek için IZFIN hesabınla giriş yap.</p><a href="/">Ana sayfaya dön →</a></section></main>;
+    return <main className="performance-page"><section className="performance-panel performance-empty"><p className="eyebrow">TAKİP & PERFORMANS</p><h1>Performans Merkezi</h1><p>Bu ekranı görmek için IZFIN hesabınla giriş yap.</p><Link href="/">Ana sayfaya dön →</Link></section></main>;
   }
 
   return <main className="performance-page" aria-label="IZFIN takip ve performans merkezi">
-    <div className="performance-path"><a href="/">← Piyasa Merkezi</a><span>Hesap verileri / Performans</span></div>
+    <div className="performance-path"><Link href="/">← Piyasa Merkezi</Link><span>Hesap verileri / Performans</span></div>
     <section className="performance-hero">
       <div><p className="eyebrow">TAKİP & PERFORMANS</p><h1>Performans Merkezi</h1><p className="performance-muted">Aktif alım dönemlerini, kapanmış pozisyon geçmişini ve IZFIN sinyal karnesini tek ekranda izle.</p></div>
       <div className="performance-hero-actions"><div className="performance-period" aria-label="Ölçüm dönemi">{PERIODS.map((period) => <button className={days === period ? "active" : ""} key={period} onClick={() => setDays(period)}>{period}G</button>)}</div><button className="performance-refresh" type="button" disabled={refreshing} onClick={handleRefresh}>{refreshing ? "↻ Yenileniyor…" : "↻ Verileri yenile"}</button></div>
