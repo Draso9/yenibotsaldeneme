@@ -1,40 +1,114 @@
 # Checkpoint 6 — kapanış kontrolü
 
-PR: #131 — `feat/checkpoint6-mobile-responsive` → `develop`.
+Bu belge, PR #132 ile başlayan mobil/accessibility kapsamının final gerçek-tarayıcı release kabul kaydıdır.
 
-Base: `e91d7bad8b70f7d0468ecfa2f529ff2a29e622b5`.
-Bu oturumun başlangıç head'i: `cd0d4419f114f25d215ce49210160f707e420dbe`.
+## Tamamlanan temel yapı
 
-## Tamamlanan ek düzeltmeler
+- Giriş, kayıt ve reset hataları ilgili inputlara `aria-invalid` / `aria-describedby` ile bağlandı; hata özeti klavye akışında odak alıyor.
+- Mobil navigasyon, safe-area boşluğu ve mobil veri kartları uygulanmış durumda.
+- Tarama ilerleme kilidi native `<dialog>` tabanlı modal kullanıyor.
+- CP6 component davranış testleri Web CI içinde çalışıyor.
+- CP4 sonrasında Web gate sırası ESLint → typecheck → component tests → production build şeklinde çalışıyor.
+- CP5 sonrasında Starlette/TestClient deprecation warning'i temizlendi.
 
-- Giriş, kayıt ve reset hataları ilgili inputlara `aria-invalid` / `aria-describedby` ile bağlandı. Parola gereksinimi ilişkilendirildi; tekrarlanan hatalı gönderimde de hata özeti odaklanır.
-- Eski altı sütunlu mobil sidebar kuralları kaldırıldı. Tek alt menü yüksekliği ve safe-area boşluğu korunur. Mobil veri etiketleri okunabilir boyuta getirildi; ana telefon/tablet kontrolleri en az 44px yüksekliğindedir.
-- Mobil Performans kartları masaüstü görünümüyle aynı seçili kapanmış pozisyon state'ini kullanır. İkincil tablo alanları açılır detayda korunur; eksik K/Z sıfır olarak gösterilmez.
-- Tarama ilerleme kilidi gerçek native modal içinde canlı durum alanı kullanır. Geniş sonuç görünümü aynı DOM alt ağacını koruyarak modal olur; Escape/çıkış ve önceki odağa dönüş sağlanır. İlerleme kilidi tarama bitince kapanır.
-- CP6 bileşen davranış testleri mevcut web CI kapısında çalıştırılır. Finansal hesaplama/API/veri servisi taşınmadı; yeni finansal veri üretilmedi.
+## Gerçek Chromium viewport kabulü — 3 Eylül 2026
 
-## Yerel doğrulama
+Production `https://izfin-web.vercel.app` üzerinde Playwright/Chromium ile gerçek viewport kontrolü yapıldı.
 
-- TDD RED: form ilişkileri, eski sidebar, mobil okunabilirlik, kart detay bağlantısı, modal focus ve tekrar gönderim testleri uygulama öncesinde başarısız oldu.
-- Node regresyonu: boş K/Z değerinin `0%` görünmesi gerçek React render'ıyla RED → GREEN doğrulandı.
-- Python full: **575 passed**, mevcut Starlette/httpx deprecation uyarısı var.
-- Node CP6: **4 passed**.
-- Next.js typecheck: **PASS**.
-- Next.js production build: **PASS**.
-- `git diff --check`: **PASS**.
-- `pnpm lint`: mevcut ESLint 9 flat config eksikliği nedeniyle çalışmıyor. Bu yapılandırma canonical Checkpoint 7 kapsamındadır; CP6 içinde değiştirilmedi.
+### 390×844 — mobil
 
-## Açık kabul / release kapıları
+Kritik authenticated/public route matrisi çalıştırıldı:
 
-Bu belge **Checkpoint 6 COMPLETE** kaydı değildir.
+- `/auth`
+- `/legal/terms`
+- `/legal/privacy`
+- `/`
+- `/scan`
+- `/projection`
+- `/performance`
+- `/strategy-lab`
+- `/account`
 
-Tarayıcı servisi sayfa açma, tanılama ve yeniden başlatma sırasında transport/zaman aşımı hatası verdi. Bu nedenle aşağıdaki gerçek tarayıcı kontrolleri henüz yapılmış sayılmaz:
+Kontroller:
 
-- 390×844, 768×1024, 1440×900: taşma, kesilme, menünün içeriği örtmemesi.
-- Mobil Diğer menüsü, kart açılır detayları, Performans dönem inceleme yolu.
-- Klavyeyle modal açma/kapama, Escape, arka plan izolasyonu ve odağın geri dönmesi.
-- Form hatalarının ekran okuyucu/focus davranışı; rehber ve yasal metinlerin görsel kabulü.
+- yatay overflow / kesilen interaktif kontrol bulunmadı,
+- mobil navigasyon görünür, desktop navigasyon gizli,
+- içerik alt padding'i sabit mobil navigasyonu temizliyor,
+- `Diğer` menüsü viewport dışında taşmıyor,
+- route bazlı kullanım rehberi klavyeyle açılıp kapanabiliyor.
 
-Devam sırası: final PR head'inde iki GitHub CI kapısı → gerçek viewport kabulü → #131'in `develop`a merge edilmesi → exact merge SHA → post-merge CI → production Vercel exact SHA ve canlı smoke kontrolü.
+### 768×1024 — tablet
 
-`main` değiştirilmedi. Kullanıcının merge/yayın onayı geçerlidir; yalnız eksik kontroller tamamlanmadan merge yapılmaz.
+Aynı kritik workspace/public yüzeyleri kontrol edildi.
+
+- yatay overflow / kesilen birincil kontrol bulunmadı,
+- responsive navigasyon geçişi doğru,
+- kart ve panel yapıları viewport içinde kaldı,
+- kullanım rehberi ve legal yüzeyler erişilebilir kaldı.
+
+### 1440×900 — desktop
+
+Kritik desktop workspace yüzeyleri kontrol edildi.
+
+- sidebar/topbar/content geometrisinde blocker bulunmadı,
+- Piyasa Merkezi, Akıllı Tarama ve Projeksiyon kontrol edildi,
+- ayrı hedefli turda Performans, Strateji Lab ve Hesap yüzeyleri de geçti,
+- Performans dönem kontrolü klavyeyle `1G` → `45G` yolunda çalıştı.
+
+## Klavye / focus kabulü
+
+### Auth formu
+
+Gerçek Chromium'da invalid submit sonrası:
+
+- hata özeti focus aldı,
+- e-posta ve parola inputları `aria-invalid=true` taşıdı,
+- `aria-describedby` hata özetiyle bağlantılı kaldı.
+
+### Scan modal
+
+Gerçek tarama sırasında modalın native `:modal` olduğu ve focus'un dialog içine taşındığı doğrulandı.
+
+Acceptance turu bir gerçek regression yakaladı: tarama tamamlandıktan sonra eski launch butonu kapatılmış/hidden ayar alanında kaldığında `ModalSurface` onu bağlı (`isConnected`) sanıyor, `.focus()` etkisiz kalıyor ve odak `BODY`'ye düşüyordu.
+
+TDD kanıtı:
+
+- RED run `33780810313`: yeni focused contract mevcut `ModalSurface` kodunda hidden opener görünürlük kontrolü ve deferred focus restoration olmadığı için kırıldı.
+- Fix: focus dönüş hedefi `getClientRects().length > 0` ile görünürlük açısından doğrulanıyor; native dialog close işlemi sonrası `requestAnimationFrame` içinde geçerli opener'a, aksi halde `#main-content` fallback'ine odak veriliyor.
+- Focused regression test kalıcı olarak `tests/test_checkpoint6_modal_focus_return.py` içinde tutuluyor.
+
+Branch preview authenticated browser yeniden-kontrolü production Firebase/auth konfigürasyonu preview aliasında birebir bulunmadığı için temp QA hesabı bootstrap aşamasında kullanılamadı. Bu preview-env sınırlaması ürün regression'ı olarak değerlendirilmedi. Modal fix merge sonrası production üzerinde aynı gerçek senaryoyla tekrar doğrulanacaktır.
+
+## Bilinçli olarak ertelenen son yayın ayarı — LEGAL
+
+Production `/api/v1/legal/privacy` şu anda aşağıdaki üç deployment değerinin boş olduğunu açıkça gösteriyor:
+
+- `IZFIN_DATA_CONTROLLER_NAME`
+- `IZFIN_CONTACT_EMAIL`
+- `IZFIN_DATA_CONTROLLER_ADDRESS`
+
+Bu değerler gerçek kişi/kurum bilgisi gerektirdiği için uydurulmayacak. Ürün sahibi bu üç alanı gerçek halka açık yayın öncesindeki son legal-config adımına erteledi.
+
+Bu nedenle durum ayrımı:
+
+- **Teknik viewport/keyboard acceptance:** tamamlanma aşamasında; modal fix merge sonrası production re-check bekliyor.
+- **Public legal publication readiness:** bilinçli olarak açık; gerçek veri sorumlusu adı/ünvanı, iletişim e-postası ve başvuru adresi girilmeden final public-release etiketi verilmemeli.
+
+## Final kapanış kapıları
+
+- [x] 390×844 gerçek viewport kabulü
+- [x] 768×1024 gerçek viewport kabulü
+- [x] 1440×900 gerçek viewport kabulü
+- [x] mobil `Diğer` / usage-guide keyboard kontrolü
+- [x] auth invalid-submit focus + ARIA ilişkileri
+- [x] Performance dönem keyboard yolu
+- [x] scan modal regression RED reproduksiyonu
+- [ ] PR #142 final head Python + Web CI
+- [ ] PR #142 → `develop` squash merge
+- [ ] post-merge Python + Web CI
+- [ ] production Vercel exact merge SHA
+- [ ] production scan-modal focus-return re-check
+- [ ] live health/readiness smoke
+- [ ] final public release öncesi gerçek KVKK veri sorumlusu alanları
+
+`main` değiştirilmedi. Finansal hesaplama, scan karar mantığı, projection matematiği, API response şekilleri ve auth semantics CP6 fix'i kapsamında değiştirilmedi.
