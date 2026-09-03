@@ -70,24 +70,16 @@ export function ProjectionModelView({ projection, ticker, availableTickers, onTi
   return <main className="projection-page" aria-label={`${ticker} projeksiyon senaryo analizi`}>
     <div className="projection-path"><a className="projection-back" href={backHref}>← Detaylı Analiz</a><span>Akıllı Tarama → Detaylı Analiz → Projeksiyon → {ticker}</span></div>
 
-    <section className="projection-lab-intro projection-hero projection-panel">
+    <section className="projection-primary-hero projection-hero projection-panel">
       <div className="projection-lab-copy">
-        <p className="eyebrow">IZFIN PROJECTION LAB</p>
-        <h1>Projeksiyon & Senaryo Analizi</h1>
-        <p className="projection-muted">Seçilen varlık için yaklaşık {projection.horizon_days} günlük hareket bandını, model uyumunu ve yukarı/aşağı teknik senaryoları tek ekranda inceleyin.</p>
-      </div>
-      <div className="projection-model-note projection-panel projection-direction-card">
-        <span className="projection-mini-badge">45G MODEL</span>
-        <h2>ATR + Tarihsel Volatilite</h2>
-        <p>45 günlük karma fiyat hareket bandı</p>
-      </div>
-    </section>
-
-    <section className="projection-hero projection-panel">
-      <div>
-        <div className="projection-title-line"><span className="projection-symbol-dot" /><p className="eyebrow">SEÇİLİ VARLIK</p></div>
+        <div className="projection-title-line"><span className="projection-symbol-dot" /><p className="eyebrow">IZFIN PROJECTION LAB</p></div>
         <h1>{ticker}</h1>
-        <p className="projection-muted">Mevcut tamamlanmış taramadaki teknik panelden üretilen gerçek ATR + tarihsel volatilite model çıktısı.</p>
+        <p className="projection-muted"><b>Projeksiyon & Senaryo Analizi</b> · Seçilen varlık için yaklaşık {projection.horizon_days} günlük hareket bandı ve koşullu teknik senaryolar.</p>
+        <div className="projection-model-inline" aria-label="Projeksiyon model kapsamı">
+          <span className="projection-mini-badge">45G MODEL</span>
+          <strong>ATR + Tarihsel Volatilite</strong>
+          <span>45 günlük karma fiyat hareket bandı</span>
+        </div>
         {availableTickers.length > 1 && <label className="projection-symbol-switcher">
           <span>TARAMADAKİ VARLIK</span>
           <select value={ticker} onChange={(event) => onTickerChange(event.target.value)}>
@@ -102,56 +94,27 @@ export function ProjectionModelView({ projection, ticker, availableTickers, onTi
       </div>
     </section>
 
-    <section className="projection-model-comparison projection-panel projection-range-card" aria-label="Model Karşılaştırması">
-      <div className="projection-section-head">
-        <div><p className="eyebrow">MODEL KARŞILAŞTIRMASI</p><h2>Model Karşılaştırması</h2><p className="projection-muted">ATR, tarihsel volatilite ve karma model aynı 45G senaryo çerçevesinde karşılaştırılır.</p></div>
-        <span className="projection-mini-badge">{projection.horizon_days}G</span>
-      </div>
-      <div className="projection-secondary-metrics" aria-label="Projeksiyon model boyutları">
-        {projectionModelDimensions.map((label) => <div key={label}><span>{label}</span></div>)}
-      </div>
-      <div className="projection-metric-list">
-        {projection.metrics.birincil.map((item, index) => <div key={`${text(item.label)}-${index}`}><span>{text(item.label)}</span><strong>{metricValue(item)}</strong></div>)}
-      </div>
-      <div className="projection-secondary-metrics">
-        {projection.metrics.ikincil.map((item, index) => <div key={`${text(item.label)}-${index}`}><span>{text(item.label)}</span><strong>{metricValue(item)}</strong></div>)}
-      </div>
-      <p className="projection-volatility">{projection.metrics.volatilite_aciklamasi}</p>
-    </section>
-
-    <section className="projection-panel projection-range-card" aria-labelledby="projection-band-title">
-      <div className="projection-section-head"><div><p className="eyebrow">45G FİYAT BANTLARI</p><h2 id="projection-band-title">Olası hareket alanı</h2></div><span className="projection-mini-badge">Model bandı · hedef fiyat vaadi değil</span></div>
-      <div className="projection-band-grid" aria-label="Model bantları">
-        {projection.bands.map((band) => <article className={`projection-band-card ${bandTone(band)}`} key={band.kind}>
-          <div className="projection-band-head"><span>{band.label}</span><b>{pct(band.change_pct)}</b></div>
-          <strong className="projection-target">{price(band.target)}</strong>
-          <div className="projection-band-meta"><span>{band.kind === "base" ? "Referans fiyat" : "1σ hedef"}</span><span>{band.kind === "base" ? `${projection.horizon_days}G baz` : `Geniş uç ${price(band.extreme)}`}</span></div>
-        </article>)}
-      </div>
-    </section>
-
-    <section className="projection-workspace">
-      <article className="projection-panel projection-range-card">
-        <div className="projection-section-head"><div><p className="eyebrow">45G KARMA BANT</p><h2>{projection.horizon_days} günlük karma model</h2></div><span className="projection-confidence">Model güven skoru {text(projection.model.guven_skoru)}/100</span></div>
+    <section className="projection-workspace projection-primary-workspace">
+      <article className="projection-primary-range projection-panel projection-range-card" aria-labelledby="projection-primary-range-title">
+        <div className="projection-section-head"><div><p className="eyebrow">45G KARMA BANT</p><h2 id="projection-primary-range-title">{projection.horizon_days} günlük hareket bandı</h2></div><span className="projection-mini-badge">Model bandı · hedef fiyat vaadi değil</span></div>
         <div className="projection-range-labels"><span>{price(projection.model.alt_2s)}</span><span>{price(projection.model.fiyat)}</span><span>{price(projection.model.ust_2s)}</span></div>
         <div className="projection-range-track">
           <div className="projection-range-fill" style={{ width: rangeStyle.width }} />
           <i className="projection-range-current" style={{ left: rangeStyle.left }} />
         </div>
         <div className="projection-range-zones"><span>Geniş aşağı risk</span><span>Mevcut fiyat</span><span>Geniş yukarı alan</span></div>
-        <p className="projection-volatility">{projection.metrics.volatilite_aciklamasi}</p>
       </article>
 
-      <article className="projection-panel projection-direction-card">
+      <article className="projection-primary-direction projection-panel projection-direction-card">
         <div className="projection-section-head"><div><p className="eyebrow">ALGORİTMİK YÖN ÖZETİ</p><h2>Algoritmik Yön Özeti</h2></div><span className={`projection-direction projection-direction-${text(projection.scenario.yon_class, "neutral")}`}>{text(projection.scenario.yon)}</span></div>
         <strong className="projection-direction-title">{text(projection.scenario.yon_title)}</strong>
         <p>{text(projection.scenario.model_yorumu)}</p>
         <div className="projection-confidence-track"><span style={{ width: `${Math.max(0, Math.min(100, projection.metrics.guven_ilerleme * 100))}%` }} /></div>
-        <small>Mevcut sistem sinyali: {text(projection.scenario.sinyal)} · Model güven skoru {text(projection.model.guven_skoru)}/100 · Model uyumu %{Math.round(number(projection.model.model_uyumu) * 100)}</small>
+        <small>Mevcut sistem sinyali: {text(projection.scenario.sinyal)} · Model güven skoru {text(projection.model.guven_skoru)}/100</small>
       </article>
     </section>
 
-    <section className="projection-panel projection-range-card" aria-labelledby="projection-scenario-title">
+    <section className="projection-primary-scenarios projection-panel projection-range-card" aria-labelledby="projection-scenario-title">
       <div className="projection-section-head"><div><p className="eyebrow">OLUMLU / OLUMSUZ SENARYOLAR</p><h2 id="projection-scenario-title">Teknik Senaryolar</h2></div><span className="projection-mini-badge">Koşullu tetik · risk iptali</span></div>
       <div className="projection-scenario-grid" aria-label="Teknik senaryolar">
         <article className="projection-panel projection-scenario-card projection-scenario-up">
@@ -171,17 +134,62 @@ export function ProjectionModelView({ projection, ticker, availableTickers, onTi
       </div>
     </section>
 
-    <section className="projection-panel projection-range-card">
-      <div className="projection-section-head"><div><p className="eyebrow">TEKNİK SEVİYELER</p><h2>Seviyeler ve risk iptali</h2></div><span className="projection-mini-badge">{text(projection.scenario.sinyal)}</span></div>
-      <div className="projection-level-grid">
-        <div><span>Destek</span><strong>{price(projection.scenario.destek)}</strong></div>
-        <div><span>Direnç</span><strong>{price(projection.scenario.direnc)}</strong></div>
-        <div><span>Stop</span><strong>{price(projection.scenario.stop)}</strong></div>
-        <div><span>TP1</span><strong>{price(projection.scenario.tp1)}</strong></div>
-        <div><span>TP2</span><strong>{price(projection.scenario.tp2)}</strong></div>
-        <div><span>Model farkı</span><strong>{pct(projection.scenario.model_farki)}</strong></div>
+    <details className="projection-disclosure projection-panel projection-model-details">
+      <summary>
+        <span>Model karşılaştırması ve fiyat bantları</span>
+        <small>ATR, volatilite, tüm model bantları ve model uyumu</small>
+      </summary>
+      <div className="projection-disclosure-body">
+        <section className="projection-model-comparison projection-range-card" aria-label="Model Karşılaştırması">
+          <div className="projection-section-head">
+            <div><p className="eyebrow">MODEL KARŞILAŞTIRMASI</p><h2>Model Karşılaştırması</h2><p className="projection-muted">ATR, tarihsel volatilite ve karma model aynı 45G senaryo çerçevesinde karşılaştırılır.</p></div>
+            <span className="projection-mini-badge">{projection.horizon_days}G</span>
+          </div>
+          <div className="projection-secondary-metrics" aria-label="Projeksiyon model boyutları">
+            {projectionModelDimensions.map((label) => <div key={label}><span>{label}</span></div>)}
+          </div>
+          <div className="projection-metric-list">
+            {projection.metrics.birincil.map((item, index) => <div key={`${text(item.label)}-${index}`}><span>{text(item.label)}</span><strong>{metricValue(item)}</strong></div>)}
+          </div>
+          <div className="projection-secondary-metrics">
+            {projection.metrics.ikincil.map((item, index) => <div key={`${text(item.label)}-${index}`}><span>{text(item.label)}</span><strong>{metricValue(item)}</strong></div>)}
+            <div><span>Model uyumu</span><strong>%{Math.round(number(projection.model.model_uyumu) * 100)}</strong></div>
+          </div>
+          <p className="projection-volatility">{projection.metrics.volatilite_aciklamasi}</p>
+        </section>
+
+        <section className="projection-range-card" aria-labelledby="projection-band-title">
+          <div className="projection-section-head"><div><p className="eyebrow">45G FİYAT BANTLARI</p><h2 id="projection-band-title">Olası hareket alanı</h2></div><span className="projection-mini-badge">Model bandı · hedef fiyat vaadi değil</span></div>
+          <div className="projection-band-grid" aria-label="Model bantları">
+            {projection.bands.map((band) => <article className={`projection-band-card ${bandTone(band)}`} key={band.kind}>
+              <div className="projection-band-head"><span>{band.label}</span><b>{pct(band.change_pct)}</b></div>
+              <strong className="projection-target">{price(band.target)}</strong>
+              <div className="projection-band-meta"><span>{band.kind === "base" ? "Referans fiyat" : "1σ hedef"}</span><span>{band.kind === "base" ? `${projection.horizon_days}G baz` : `Geniş uç ${price(band.extreme)}`}</span></div>
+            </article>)}
+          </div>
+        </section>
       </div>
-    </section>
+    </details>
+
+    <details className="projection-disclosure projection-panel projection-level-details">
+      <summary>
+        <span>Teknik seviyeler ve model ayrıntıları</span>
+        <small>Destek, direnç, stop ve hedef seviyeleri</small>
+      </summary>
+      <div className="projection-disclosure-body">
+        <section className="projection-range-card">
+          <div className="projection-section-head"><div><p className="eyebrow">TEKNİK SEVİYELER</p><h2>Seviyeler ve risk iptali</h2></div><span className="projection-mini-badge">{text(projection.scenario.sinyal)}</span></div>
+          <div className="projection-level-grid">
+            <div><span>Destek</span><strong>{price(projection.scenario.destek)}</strong></div>
+            <div><span>Direnç</span><strong>{price(projection.scenario.direnc)}</strong></div>
+            <div><span>Stop</span><strong>{price(projection.scenario.stop)}</strong></div>
+            <div><span>TP1</span><strong>{price(projection.scenario.tp1)}</strong></div>
+            <div><span>TP2</span><strong>{price(projection.scenario.tp2)}</strong></div>
+            <div><span>Model farkı</span><strong>{pct(projection.scenario.model_farki)}</strong></div>
+          </div>
+        </section>
+      </div>
+    </details>
 
     <section className="projection-disclaimer">
       <span>MODEL KAPSAMI</span>
