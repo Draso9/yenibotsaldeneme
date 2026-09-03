@@ -96,7 +96,7 @@ export function StockDetailPage({ jobId, ticker }: Readonly<{ jobId: string; tic
         <p className="detail-note"><b>Teknik profil:</b> {technicalProfile(detail.action.profile)} · <b>Merkezi karar:</b> {text(detail.decision.karar)}</p>
         <p className="detail-note">{trendExplanation} Kararın teyit koşullarını Akıllı Tarama karar kartında inceleyebilirsin.</p>
         <a className="projection-cta" href={projectionHref(jobId, normalizedTicker)}>45G projeksiyon senaryosunu aç →</a>
-        <p className="detail-note"><b>Odak</b> · Bu ekran Karar Motoru'nu tekrar etmez; işlem yönünü merkezde tutan Karar Motoru yerine skorun nedenlerini, teknik göstergeleri, trend/momentumu, seviyeleri ve teknik planı ayrıntılandırır.</p>
+        <p className="detail-note"><b>Odak</b> · Bu ekran Karar Motoru'nu tekrar etmez; skorun nedenlerini ve teknik planı gerektiğinde açılan ayrıntılarla gösterir.</p>
       </>}
     </div>
 
@@ -167,15 +167,16 @@ function TechnicalOverview({ technical, fallback }: Readonly<{ technical?: impor
   if (!technical || metrics.length === 0) return <DetailSection title="Teknik panel" values={fallback} wide />;
 
   return <article className="detail-section detail-wide detail-technical">
-    <div className="detail-technical-heading"><div><p className="eyebrow">TEKNİK ANALİZ HARİTASI</p><h2>Göstergeler, seviyeler ve işlem planı</h2></div><span>Veri kaynağı · {text(technical.source)}</span></div>
-    <div className="detail-technical-metrics">{metrics.map((item, index) => <div className={`is-${technicalTone(item.tone)}`} key={`${text(item.label)}-${index}`}><small>{text(item.label)}</small><strong>{text(item.value)}</strong><span>{text(item.note)}</span></div>)}</div>
-    <div className="detail-technical-sections">
-      <section><h3>Trend ve momentum özeti</h3><div className="detail-technical-rows">{trend.map((item, index) => <div key={`${text(item.label)}-${index}`}><span>{text(item.label)}</span><b className={`is-${technicalTone(item.tone)}`}>{text(item.value)}</b></div>)}</div></section>
-      <section><h3>Destek ve direnç bölgeleri</h3><div className="detail-technical-rows">{levels.map((item, index) => <div key={`${text(item.label)}-${index}`}><span>{text(item.label)}</span><b className={`is-${technicalTone(item.tone)}`}>{text(item.value)}</b></div>)}</div></section>
-      <section><h3>Çok zaman dilimli giriş motoru</h3><div className="detail-entry-score"><strong>{text(entry.score, "0")}/100</strong><span>{text(entry.level)}</span></div>{entryDetails.length ? <ul>{entryDetails.map((item, index) => <li key={index}>{text(item)}</li>)}</ul> : <p>Henüz yeterli çok zaman dilimli giriş teyidi bulunmuyor.</p>}</section>
-    </div>
-    <section className="detail-target-section"><h3>Teknik kâr hedefleri</h3><div className="detail-targets">{targets.map((item, index) => <div key={`${text(item.label)}-${index}`}><span>{text(item.label)}</span><strong>{text(item.value)}</strong><small>{"★".repeat(Math.max(1, Math.min(5, Number(item.confidence) || 1)))}</small></div>)}</div></section>
-    <div className="detail-algorithm-comment"><b>Algoritmik yorum</b><p>{text(technical.algorithmic_comment)}</p></div>
+    <div className="detail-technical-heading"><div><p className="eyebrow">TEKNİK ANALİZ HARİTASI</p><h2>Teknik özet</h2></div><span>Veri kaynağı · {text(technical.source)}</span></div>
+    <div className="detail-technical-summary">{metrics.slice(0, 4).map((item, index) => <div className={`is-${technicalTone(item.tone)}`} key={`${text(item.label)}-${index}`}><small>{text(item.label)}</small><strong>{text(item.value)}</strong><span>{text(item.note)}</span></div>)}</div>
+
+    <details className="detail-technical-disclosure"><summary>Göstergeler</summary><div className="detail-technical-metrics">{metrics.map((item, index) => <div className={`is-${technicalTone(item.tone)}`} key={`${text(item.label)}-${index}`}><small>{text(item.label)}</small><strong>{text(item.value)}</strong><span>{text(item.note)}</span></div>)}</div></details>
+
+    <details className="detail-technical-disclosure"><summary>Trend ve momentum özeti</summary><div className="detail-technical-rows">{trend.map((item, index) => <div key={`${text(item.label)}-${index}`}><span>{text(item.label)}</span><b className={`is-${technicalTone(item.tone)}`}>{text(item.value)}</b></div>)}</div></details>
+
+    <details className="detail-technical-disclosure"><summary>Destek, direnç ve giriş planı</summary><div className="detail-technical-sections"><section><h3>Destek ve direnç bölgeleri</h3><div className="detail-technical-rows">{levels.map((item, index) => <div key={`${text(item.label)}-${index}`}><span>{text(item.label)}</span><b className={`is-${technicalTone(item.tone)}`}>{text(item.value)}</b></div>)}</div></section><section><h3>Çok zaman dilimli giriş motoru</h3><div className="detail-entry-score"><strong>{text(entry.score, "0")}/100</strong><span>{text(entry.level)}</span></div>{entryDetails.length ? <ul>{entryDetails.map((item, index) => <li key={index}>{text(item)}</li>)}</ul> : <p>Henüz yeterli çok zaman dilimli giriş teyidi bulunmuyor.</p>}</section></div></details>
+
+    <details className="detail-technical-disclosure"><summary>Teknik hedefler ve algoritmik yorum</summary><section className="detail-target-section"><h3>Teknik kâr hedefleri</h3><div className="detail-targets">{targets.map((item, index) => <div key={`${text(item.label)}-${index}`}><span>{text(item.label)}</span><strong>{text(item.value)}</strong><small>{"★".repeat(Math.max(1, Math.min(5, Number(item.confidence) || 1)))}</small></div>)}</div></section><div className="detail-algorithm-comment"><b>Algoritmik yorum</b><p>{text(technical.algorithmic_comment)}</p></div></details>
   </article>;
 }
 
