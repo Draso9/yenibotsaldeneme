@@ -38,7 +38,7 @@ def test_detail_score_explains_band_contributors_and_penalties_without_expanding
 def test_market_attention_list_starts_directly_with_the_table_without_sort_controls():
     market_center = (ROOT / "web" / "components" / "market-center.tsx").read_text(encoding="utf-8")
 
-    assert "Listende dikkat çekenler" in market_center
+    assert "Son taramada dikkat çekenler" in market_center
     assert 'className="market-sort"' not in market_center
     assert "Sonuç sırası" not in market_center
     assert "setSortBy" not in market_center
