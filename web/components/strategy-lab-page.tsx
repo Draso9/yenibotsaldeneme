@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { confidenceScore, technicalProfile } from "../lib/signal-labels";
 import { FormEvent, useEffect, useState } from "react";
 import {
@@ -124,10 +125,10 @@ export function StrategyLabPage() {
   }
 
   if (authLoading) return <main className="strategy-page"><section className="strategy-panel strategy-status" aria-live="polite"><strong>Güvenli oturum hazırlanıyor</strong><span>Backtest çalışma alanın hesabınla eşleştiriliyor.</span></section></main>;
-  if (!user) return <main className="strategy-page"><section className="strategy-panel strategy-auth"><p className="eyebrow">STRATEJİ LAB</p><h1>Daily Core Backtest</h1><p>Geçmiş IZFIN kararlarını test etmek için hesabınla giriş yap.</p><a href="/">Ana sayfaya dön →</a></section></main>;
+  if (!user) return <main className="strategy-page"><section className="strategy-panel strategy-auth"><p className="eyebrow">STRATEJİ LAB</p><h1>Daily Core Backtest</h1><p>Geçmiş IZFIN kararlarını test etmek için hesabınla giriş yap.</p><Link href="/">Ana sayfaya dön →</Link></section></main>;
 
   return <main className="strategy-page" aria-label="IZFIN Strateji Lab">
-    <div className="strategy-path"><a href="/">← Piyasa Merkezi</a><span>Analiz araçları / Strateji Lab</span></div>
+    <div className="strategy-path"><Link href="/">← Piyasa Merkezi</Link><span>Analiz araçları / Strateji Lab</span></div>
     <section className="strategy-hero">
       <div>
         <p className="eyebrow">STRATEJİ LAB</p>
@@ -142,6 +143,7 @@ export function StrategyLabPage() {
         <label htmlFor="strategy-ticker">SEMBOL / ŞİRKET ARA</label>
         <input
           id="strategy-ticker"
+          role="combobox"
           value={ticker}
           onChange={(event) => {
             setTicker(event.target.value.toUpperCase());
