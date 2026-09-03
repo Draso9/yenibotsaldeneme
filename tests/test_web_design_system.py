@@ -158,7 +158,7 @@ def test_scan_and_detail_share_explicit_states_and_detail_handoff():
     assert "detail-status" in detail
     assert "ScoreBreakdown" in detail
     assert "ŞEFFAF KARAR MOTORU" not in detail
-    assert "Karar Motoru'nu tekrar etmez" in detail
+    assert "Karar Motoru’nu tekrar etmez" in detail
     assert "Veri kaynağı" in detail
     assert "scan-result-header" in scan_css
     assert "detail-status" in detail_css
