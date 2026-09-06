@@ -366,7 +366,8 @@ Do not restart completed migration/polish work from older roadmap documents.
 ### First package: legal document rendering
 
 - Local branch: `fix/legal-markdown-parity`, based on the accepted develop head.
-- Implementation commit: `2a3ca77` (`fix(legal): preserve Streamlit document formatting`).
+- Published implementation commit: `3c10dc62adc84d572adaea7e5fa25dafbe91045e`.
+  The initial local implementation was `2a3ca77`; the published tree preserves it.
 - Production browser reproduction: privacy rendered 33 paragraphs rather than 7,
   zero `strong`/`code` elements, and visible Markdown markers.
 - Root cause: `web/components/legal-markdown.tsx` treated source wrapping as paragraph
@@ -381,15 +382,25 @@ Do not restart completed migration/polish work from older roadmap documents.
   authorized publishing this feature branch and opening a develop-targeted draft PR
   on 2026-09-05 after the initial automatic approval block. Shell git has no GitHub
   credentials; the authenticated GitHub connector publishes the reviewed file tree.
-- Feature-branch CI and preview acceptance are pending; check the draft PR for the
-  current remote commit identity and evidence before any merge decision.
-- The cloud browser could not open the local preview (`ERR_BLOCKED_BY_CLIENT`).
-  Post-fix browser QA and CI at this feature branch SHA remain pending.
+- Acceptance recorded 2026-09-06: draft PR #145 targets `develop`:
+  https://github.com/Draso9/yenibotsaldeneme/pull/145
+- Both Python and Web Quality Gates passed for published implementation SHA
+  `3c10dc62adc84d572adaea7e5fa25dafbe91045e` in run `34021076785`.
+- READY preview `dpl_ETpNcTr8JmrRAoA6mCTs17TZ1C3R` was verified against that SHA.
+  Real desktop browser QA passed on both public legal pages: privacy has 8 headings,
+  7 paragraphs, 5 bold elements and 1 inline-code element with no raw bold markers;
+  terms has 7 headings and 7 paragraphs. Neither page overflowed horizontally at
+  1348px. Both back links reached `/auth`; the login heading was visible.
+- Formatting parity is accepted for the current shared legal documents. This is a
+  bounded Markdown renderer, not a general CommonMark implementation. Mobile and
+  authenticated journeys were not reverified in this package.
+- Local browser access was blocked, so post-fix acceptance used the matching Vercel
+  preview. Production and develop remain unchanged; this PR is still a draft.
 
 ### Next bounded package and preserved deferrals
 
-1. Open the authorized draft PR targeting `develop`, verify its CI and
-   exact preview SHA, and inspect both legal pages in the browser before merge review.
+1. Review draft PR #145 after confirming checks for its latest HEAD. Implementation
+   CI and desktop preview acceptance are complete; no merge is authorized by this record.
 2. Detailed Analysis context continuity: `AppShell` uses `href={pathname}` for its
    contextual detail link, dropping `job_id`; the detail route/page has no missing-job
    context recovery. Confirm the authenticated journey, preserve explicit deep links,
