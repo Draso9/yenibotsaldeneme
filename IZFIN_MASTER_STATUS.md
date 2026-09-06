@@ -350,3 +350,62 @@ At the end of future checkpoints report:
 - remaining real blockers/debt.
 
 Do not reopen completed CP0–CP6 work unless a reproduced regression or explicit user request requires it.
+
+## 11. Continuation Audit — 2026-09-05 (Not a New Release)
+
+Verified accepted `develop` head: `5ef3ca33094b8dc8686e4ce5a5b7ec5af3eaac2a`.
+Its Python and Web Quality Gates succeeded in run `33788416722`.
+The current production alias resolves to READY deployment
+`dpl_HUbWms2qL7jK4BLG3ZwdAStZtCZZ` at that exact SHA, with `develop` as its ref.
+Live health and durable readiness both returned HTTP 200 with all readiness flags true.
+This updates deployment identity; the CP6 product-code acceptance above remains historical evidence.
+
+The user requested an evidence-based parity audit and bounded completion packages.
+Do not restart completed migration/polish work from older roadmap documents.
+
+### First package: legal document rendering
+
+- Local branch: `fix/legal-markdown-parity`, based on the accepted develop head.
+- Implementation commit: `2a3ca77` (`fix(legal): preserve Streamlit document formatting`).
+- Production browser reproduction: privacy rendered 33 paragraphs rather than 7,
+  zero `strong`/`code` elements, and visible Markdown markers.
+- Root cause: `web/components/legal-markdown.tsx` treated source wrapping as paragraph
+  boundaries and omitted the inline formatting used by the shared Python presenter.
+- Fix: preserve paragraphs/headings/lists and render bold/inline code as escaped React nodes.
+- Permanent regression coverage: `web/tests/legal-markdown.test.cjs`, 5 cases.
+- Local evidence: 15 web behavior tests; 16 related Python tests; 2 one-off real
+  public-API-to-React checks; 60 existing parity checks. Lint has 0 errors / 26 existing
+  warnings; typecheck, production build and `git diff --check` passed.
+- No API/legal wording/version/consent/auth/financial calculation changes.
+- This is NOT merged into develop or deployed to production. The user explicitly
+  authorized publishing this feature branch and opening a develop-targeted draft PR
+  on 2026-09-05 after the initial automatic approval block. Shell git has no GitHub
+  credentials; the authenticated GitHub connector publishes the reviewed file tree.
+- Feature-branch CI and preview acceptance are pending; check the draft PR for the
+  current remote commit identity and evidence before any merge decision.
+- The cloud browser could not open the local preview (`ERR_BLOCKED_BY_CLIENT`).
+  Post-fix browser QA and CI at this feature branch SHA remain pending.
+
+### Next bounded package and preserved deferrals
+
+1. Open the authorized draft PR targeting `develop`, verify its CI and
+   exact preview SHA, and inspect both legal pages in the browser before merge review.
+2. Detailed Analysis context continuity: `AppShell` uses `href={pathname}` for its
+   contextual detail link, dropping `job_id`; the detail route/page has no missing-job
+   context recovery. Confirm the authenticated journey, preserve explicit deep links,
+   and use only owner-validated completed scan data. This is a code-confirmed gap,
+   not a newly completed authenticated browser reproduction.
+3. Smart Scan selected-ticker restoration remains a documented, previously deferred
+   item. Do not broaden the detail fix into scan/auth recovery refactoring.
+4. KVKK real controller/contact/address and infrastructure/cookie wording remain the
+   final publication package. Formatting repair does not close that deferral.
+5. Old open PR #43 is conflicted; HTTP-boundary code is already present on develop.
+   Reconcile its unique diff separately rather than merging the stale branch.
+6. README still describes already-migrated workflows as future work. Reconcile it
+   with this canonical status in a separate documentation package; keep old plans
+   identifiable as historical. Broad CSS/lint cleanup remains deferred.
+
+Protected live journeys were not repeated in this audit because the browser had no
+signed-in IZFIN session. Current evidence combines source review, local tests, live
+public pages/health, and the previous CP6 authenticated acceptance record. Do not
+describe every protected flow as newly browser-verified.
