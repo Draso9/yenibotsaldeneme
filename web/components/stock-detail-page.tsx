@@ -1,7 +1,10 @@
 "use client";
 
 import { technicalProfile, trendExplanation } from "../lib/signal-labels";
-import { useEffect, useState } from "react";
+import { useEffect, useEffectEvent, useState } from "react";
+import { useRouter } from "next/navigation";
+import { fetchScanHistory, latestCompletedScan } from "../lib/scan-context";
+import { stockDetailHref } from "../lib/stock-detail-route";
 import { fetchMarketStockDetail, type StockDetailResponse } from "../lib/market-center";
 import { projectionHref } from "../lib/projection";
 import { useAnalysisContext } from "./analysis-context-provider";
@@ -39,39 +42,60 @@ function scoreInterpretation(value: unknown): { label: string; tone: string; mea
 
 export function StockDetailPage({ jobId, ticker }: Readonly<{ jobId: string; ticker: string }>) {
   const { loading, user, getIdToken } = useIzfinAuth();
-  const { setActiveScan, setSelectedTicker, setLastVisitedAnalysisRoute } = useAnalysisContext();
-  const [detail, setDetail] = useState<StockDetailResponse | null>(null);
-  const [error, setError] = useState("");
+  const { contextReady, activeScanJobId, setActiveScan, setSelectedTicker, setLastVisitedAnalysisRoute } = useAnalysisContext();
+  const router = useRouter();
   const normalizedTicker = String(ticker || "").trim().toUpperCase();
-
-  useEffect(() => {
-    if (loading || !user || !jobId || !normalizedTicker) return;
-    setActiveScan(jobId);
+  const explicitJobId = String(jobId || "").trim();
+  const requestKey = JSON.stringify([user?.uid, explicitJobId, normalizedTicker]);
+  // Capture once per route attempt; background scan refreshes must not retarget it.
+  const readRememberedJobId = useEffectEvent(() => activeScanJobId);
+  const [result, setResult] = useState<{
+    key: string; jobId: string; detail: StockDetailResponse | null; error: string;
+  } | null>(null);
+  // Publish only after the owner-scoped endpoint has accepted this exact stock.
+  // Effect Event reads current context setters without re-fetching on unrelated selection changes.
+  const rememberDetail = useEffectEvent((resolvedJobId: string) => {
+    setActiveScan(resolvedJobId);
     setSelectedTicker(normalizedTicker);
-    setLastVisitedAnalysisRoute(`/stocks/${normalizedTicker}`);
-  }, [jobId, loading, normalizedTicker, setActiveScan, setLastVisitedAnalysisRoute, setSelectedTicker, user]);
+    setLastVisitedAnalysisRoute(stockDetailHref(resolvedJobId, normalizedTicker));
+    if (!explicitJobId) router.replace(stockDetailHref(resolvedJobId, normalizedTicker), { scroll: false });
+  });
 
   useEffect(() => {
-    if (loading || !user || !jobId || !normalizedTicker) return;
+    if (loading || !user || !contextReady || !normalizedTicker) return;
     let active = true;
-    setDetail(null);
-    setError("");
+    const rememberedJobId = readRememberedJobId();
     void (async () => {
       try {
         const token = await getIdToken();
-        if (!token) return;
-        const result = await fetchMarketStockDetail(jobId, normalizedTicker, token);
-        if (active) setDetail(result);
+        if (!token) throw new Error("Oturum anahtarı alınamadı.");
+        let resolvedJobId = explicitJobId;
+        if (!resolvedJobId) {
+          const history = await fetchScanHistory(token);
+          const remembered = history.find((item) => item.job_id === rememberedJobId && item.status === "completed");
+          resolvedJobId = (remembered ?? latestCompletedScan(history))?.job_id ?? "";
+        }
+        if (!active) return;
+        if (!resolvedJobId) {
+          setResult({ key: requestKey, jobId: "", detail: null, error: "" });
+          return;
+        }
+        const detail = await fetchMarketStockDetail(resolvedJobId, normalizedTicker, token);
+        if (!active) return;
+        setResult({ key: requestKey, jobId: resolvedJobId, detail, error: "" });
+        rememberDetail(resolvedJobId);
       } catch {
-        if (active) setError("Detaylı analiz bu tarama için yüklenemedi.");
+        if (active) setResult({ key: requestKey, jobId: "", detail: null, error: "Bu hisse için detaylı analiz yüklenemedi. Akıllı Tarama sonuçlarından hisseyi yeniden seçebilirsin." });
       }
     })();
     return () => { active = false; };
-  }, [getIdToken, jobId, loading, normalizedTicker, user]);
+  }, [contextReady, explicitJobId, getIdToken, loading, normalizedTicker, requestKey, user]);
 
-  if (!jobId || !normalizedTicker) {
-    return <section className="detail-page"><a className="detail-back" href="/scan#scan-result">← Akıllı Tarama sonuçlarına dön</a><div className="detail-section"><h1>Detaylı Analiz</h1><p>Bu ekran bir tamamlanmış tarama ve sembol bilgisiyle açılmalıdır.</p></div></section>;
-  }
+  // A previous user's or route's result must never flash during navigation.
+  const current = contextReady && result?.key === requestKey ? result : null;
+  const detail = current?.detail ?? null;
+  const error = current?.error ?? "";
+  const resolvedJobId = current?.jobId ?? "";
 
   if (loading) {
     return <section className="detail-page"><a className="detail-back" href="/scan#scan-result">← Akıllı Tarama sonuçlarına dön</a><p>Güvenli oturum hazırlanıyor…</p></section>;
@@ -79,6 +103,10 @@ export function StockDetailPage({ jobId, ticker }: Readonly<{ jobId: string; tic
 
   if (!user) {
     return <section className="detail-page"><a className="detail-back" href="/scan#scan-result">← Akıllı Tarama sonuçlarına dön</a><div className="detail-section"><p className="eyebrow">DETAYLI ANALİZ</p><h1>{normalizedTicker}</h1><p>Bu taramaya ait analizi görmek için IZFIN hesabınla giriş yap.</p></div></section>;
+  }
+
+  if (!normalizedTicker || (current && !resolvedJobId && !error)) {
+    return <section className="detail-page"><a className="detail-back" href="/scan#scan-result">← Akıllı Tarama sonuçlarına dön</a><div className="detail-section"><h1>Detaylı Analiz</h1><p>Detaylı analiz için henüz tamamlanmış bir tarama bulunmuyor. Akıllı Tarama’yı açıp sonuçlardan bir hisse seçebilirsin.</p></div></section>;
   }
 
   return <section className="detail-page" aria-label={`${normalizedTicker} detaylı analiz`}>
@@ -95,7 +123,7 @@ export function StockDetailPage({ jobId, ticker }: Readonly<{ jobId: string; tic
         </div>
         <p className="detail-note"><b>Teknik profil:</b> {technicalProfile(detail.action.profile)} · <b>Merkezi karar:</b> {text(detail.decision.karar)}</p>
         <p className="detail-note">{trendExplanation} Kararın teyit koşullarını Akıllı Tarama karar kartında inceleyebilirsin.</p>
-        <a className="projection-cta" href={projectionHref(jobId, normalizedTicker)}>45G projeksiyon senaryosunu aç →</a>
+        <a className="projection-cta" href={projectionHref(resolvedJobId, normalizedTicker)}>45G projeksiyon senaryosunu aç →</a>
         <p className="detail-note"><b>Odak</b> · Bu ekran Karar Motoru’nu tekrar etmez; skorun nedenlerini ve teknik planı gerektiğinde açılan ayrıntılarla gösterir.</p>
       </>}
     </div>

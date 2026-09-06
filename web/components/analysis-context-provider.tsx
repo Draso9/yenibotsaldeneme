@@ -12,6 +12,7 @@ type CachedAnalysisContext = {
 };
 
 export type AnalysisContextValue = {
+  contextReady: boolean;
   latestCompletedScanJobId: string;
   activeScanJobId: string;
   selectedTicker: string;
@@ -101,6 +102,7 @@ export function AnalysisContextProvider({ children }: Readonly<{ children: React
   }, [activeScanJobId, activeUniverseProfile, hydratedUserId, lastVisitedAnalysisRoute, selectedTicker, user]);
 
   const value = useMemo<AnalysisContextValue>(() => ({
+    contextReady: !loading && Boolean(user) && hydratedUserId === user?.uid,
     latestCompletedScanJobId,
     activeScanJobId,
     selectedTicker,
@@ -111,7 +113,7 @@ export function AnalysisContextProvider({ children }: Readonly<{ children: React
     setActiveUniverseProfile: (profile: string) => setActiveUniverseProfileState(profile.trim() || "Kendi Listem"),
     setLastVisitedAnalysisRoute: (route: string) => setLastVisitedAnalysisRouteState(route.trim()),
     refreshLatestCompletedScan,
-  }), [activeScanJobId, activeUniverseProfile, lastVisitedAnalysisRoute, latestCompletedScanJobId, refreshLatestCompletedScan, selectedTicker]);
+  }), [activeScanJobId, activeUniverseProfile, hydratedUserId, lastVisitedAnalysisRoute, latestCompletedScanJobId, loading, refreshLatestCompletedScan, selectedTicker, user]);
 
   return <AnalysisContext.Provider value={value}>{children}</AnalysisContext.Provider>;
 }

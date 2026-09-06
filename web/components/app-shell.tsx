@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { fetchAdminQuality } from "../lib/admin-quality";
 import { fetchSystemReadiness } from "../lib/system-health";
@@ -9,6 +9,7 @@ import { useIzfinAuth } from "./auth-provider";
 import { IzfinBrandMark } from "./izfin-brand-mark";
 import { MobileNavigation } from "./mobile-navigation";
 import { UsageGuide } from "./usage-guide";
+import { StockDetailNavLink } from "./stock-detail-nav-link";
 
 const navItems = [
   { icon: "⌂", label: "Piyasa Merkezi", href: "/", adminOnly: false },
@@ -137,9 +138,7 @@ export function AppShell({ children }: Readonly<{ children: React.ReactNode }>) 
               <i aria-hidden="true">{item.icon}</i><span>{item.label}</span>
             </a>;
           })}
-          {pathname.startsWith("/stocks/") ? <a aria-current="page" className="active contextual-nav-item" href={pathname}>
-            <i aria-hidden="true">◎</i><span>Detaylı Analiz</span><em>BAĞLAM</em>
-          </a> : null}
+          {pathname.startsWith("/stocks/") ? <Suspense fallback={null}><StockDetailNavLink /></Suspense> : null}
         </nav>
         <div className="sidebar-spacer" />
         <div className="sidebar-status">
