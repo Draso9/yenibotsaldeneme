@@ -25,7 +25,8 @@ def test_recovered_scan_completion_publishes_analysis_context_without_visible_hi
     assert 'if (updated.status === "completed")' in source
     assert "await publishCompletedScan(updated)" in source
     assert "setActiveScan(completed.job_id)" in source
-    assert "resultTickers({ ...completed, tickers: completed.tickers ?? fallbackTickers })" in source
+    # Selection persistence is exercised through the real provider and workspace
+    # in web/tests/scan-selection.test.cjs, including partial projection data.
     assert "await refreshLatestCompletedScan().catch(() => undefined)" in source
 
 
