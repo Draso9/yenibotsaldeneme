@@ -3,6 +3,50 @@
 > Canonical project handoff/status file for ChatGPT, Codex, and cross-device continuation.
 > Read this file before making new changes.
 
+## Latest verified handoff — 2026-09-07
+
+This section supersedes pending/open status statements in the historical sections
+and checkpoint files below. Verify GitHub again before starting another package.
+
+Current verified `develop`: **`05f940d40d6ac567c0b74bd8849caf9c50b750d8`**.
+Python and Web Quality Gates and the Cloud Run deployment check are successful for
+this commit. The current Vercel production alias was not independently rechecked
+in this documentation package; CI success is not proof of full live acceptance.
+
+| Package | Verified integration state |
+| --- | --- |
+| #145 legal Markdown rendering | Merged into develop; paragraph and inline-formatting parity accepted. |
+| #146 detail context continuity | Merged into develop; explicit job/ticker and validated context recovery preserved. |
+| #147 scan selection continuity | Merged, merge SHA `8fc5cddc0e42b3e193d34ea397488d3a6cd73440`. |
+| #148 missing technical data message | Merged, current develop SHA above; distinguishes 404 from other errors. |
+
+PR #147 records authenticated Chromium acceptance in Actions run
+[34096750329](https://github.com/Draso9/yenibotsaldeneme/actions/runs/34096750329):
+non-first AMZN selection, refresh, detail, projection, scan return and refresh
+preserved the same stock/job. This used the branch production build with live
+Firebase/API. It does not establish every protected journey on the latest deployed
+alias. Final cleanup head passed run 34097056582. PR #148 records 34 web tests,
+Python CI, lint/typecheck/build and a READY exact-head preview in run 34106425237;
+that preview readiness is not an additional authenticated browser acceptance.
+
+Only old PR #43 remains open at this check; do not merge its conflicted branch or
+reimplement its existing HTTP boundary without reviewing its unique changes.
+
+### Next work and preserved release dependencies
+
+- User has sent the Matriks data-service inquiry and is waiting for a response.
+  No provider contract, price, entitlement or integration is accepted by this note.
+- Keep the current accepted application stable. Do not repeat #145–#148 or CP0–CP6.
+- Once provider terms are available, verify coverage, application usage rights,
+  history/intraday semantics and quotas against the existing data boundary before
+  choosing an implementation. No speculative provider switch or new provider code.
+- Final public controller/contact/address and infrastructure/cookie wording remain
+  deferred until real publication details are available; do not invent them.
+- Release-load verification and a bounded closed beta remain planned, not completed
+  by passing unit tests. Size the load scenario using intended usage and provider
+  limits. No unbounded production traffic test.
+- Do not report a completion percentage or launch date as established evidence.
+
 ## 1. Product Direction
 
 IZFIN is the Next.js + FastAPI web evolution of the mature Streamlit product.

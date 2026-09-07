@@ -1,5 +1,10 @@
 # Smart Scan selection continuity — 2026-09-07
 
+> Integration update — 2026-09-07: PR #147 has merged into develop as `8fc5cddc0e42b3e193d34ea397488d3a6cd73440`.
+> The open-draft handoff below is historical; authenticated acceptance is recorded
+> in this file. PR #148 subsequently merged the missing-detail-data message fix.
+> See `IZFIN_MASTER_STATUS.md`, Latest verified handoff, for current next work.
+
 Base: develop 3cd7d1bea2dbed8bebca3973e28cd671d89abb34.
 Branch: fix/scan-selection-continuity. Main untouched.
 
