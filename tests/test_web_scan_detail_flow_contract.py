@@ -102,7 +102,7 @@ def test_scan_and_detail_keep_the_selected_job_ticker_in_shared_analysis_context
     assert "selectedTicker: sharedSelectedTicker" in decision_card
     assert "setSelectedTicker(detail.ticker)" not in decision_card
     assert "useAnalysisContext" in detail_page
-    assert "setActiveScan(jobId)" in detail_page
+    # Resolved job persistence is exercised by web/tests/detail-context.test.cjs.
     assert "setSelectedTicker(normalizedTicker)" in detail_page
     assert 'href="/scan#scan-result"' in detail_page
 
@@ -123,7 +123,7 @@ def test_returning_from_detail_restores_the_last_selected_scan_ticker_once():
     assert "tickers.includes(sharedSelectedTicker)" in decision_card
     assert "onTickerChange(sharedSelectedTicker)" in decision_card
     assert 'setLastVisitedAnalysisRoute("")' in decision_card
-    assert "setLastVisitedAnalysisRoute(`/stocks/${normalizedTicker}`)" in detail_page
+    # The runtime test covers the canonical route, including its job query.
 
 
 def test_stock_detail_is_a_contextual_screen_not_an_active_market_center_route():
@@ -133,7 +133,7 @@ def test_stock_detail_is_a_contextual_screen_not_an_active_market_center_route()
     assert 'item.label === "Piyasa Merkezi"' in shell
     assert 'pathname === "/"' in shell
     assert 'pathname.startsWith("/stocks/")' in shell
-    assert "contextual-nav-item" in shell
+    # Sidebar href and active state are checked through the rendered AppShell.
     assert "Detaylı Analiz" in shell
     assert "Akıllı Tarama → Detaylı Analiz" in detail_page
     assert "Akıllı Tarama sonuçlarına dön" in detail_page

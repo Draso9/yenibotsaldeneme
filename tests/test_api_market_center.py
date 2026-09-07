@@ -1,3 +1,5 @@
+import pytest
+
 from fastapi.testclient import TestClient
 
 from izfin_api.app import create_app
@@ -150,3 +152,36 @@ def test_market_stock_detail_exposes_structured_technical_analysis_without_html(
     assert isinstance(technical["entry"], dict)
     assert technical["algorithmic_comment"]
     assert "html" not in technical
+
+
+@pytest.mark.parametrize("token,job_id", [("beta-token", "job-1"), ("alpha-token", "missing")])
+def test_stock_detail_recovery_cannot_read_foreign_or_missing_job(token, job_id):
+    response = _job_client().get(
+        f"/api/v1/market/jobs/{job_id}/stocks/THYAO.IS",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert response.status_code == 404
+    assert "score" not in response.json()
+
+
+@pytest.mark.parametrize("status", ["queued", "running", "failed"])
+def test_stock_detail_recovery_requires_completed_job(status):
+    response = _job_client(status=status).get(
+        "/api/v1/market/jobs/job-1/stocks/THYAO.IS",
+        headers={"Authorization": "Bearer alpha-token"},
+    )
+    assert response.status_code == 409
+    assert "score" not in response.json()
+
+
+def test_stock_detail_recovery_never_substitutes_another_ticker():
+    response = _job_client().get(
+        "/api/v1/market/jobs/job-1/stocks/MISSING",
+        headers={"Authorization": "Bearer alpha-token"},
+    )
+    assert response.status_code == 404
+    assert "ticker" not in response.json()
+
+
+def test_stock_detail_recovery_requires_authentication():
+    assert _job_client().get("/api/v1/market/jobs/job-1/stocks/THYAO.IS").status_code == 401
