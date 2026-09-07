@@ -23,6 +23,49 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v6
 
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11.19.0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: "24"
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+
+      - name: Install web dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build exact branch web client for QA
+        env:
+          # Firebase web config is public client configuration already shipped in the production JS bundle.
+          NEXT_PUBLIC_FIREBASE_API_KEY: AIzaSyBJz3akm1atG8eDN1lCcZwRrZRkZFDEbhU
+          NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN: borsasal.firebaseapp.com
+          NEXT_PUBLIC_FIREBASE_PROJECT_ID: borsasal
+          NEXT_PUBLIC_FIREBASE_APP_ID: 1:469145462773:web:8cab38db1e13bd99f6e2bc
+        run: pnpm --dir web build
+
+      - name: Start exact branch web client
+        env:
+          NEXT_PUBLIC_FIREBASE_API_KEY: AIzaSyBJz3akm1atG8eDN1lCcZwRrZRkZFDEbhU
+          NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN: borsasal.firebaseapp.com
+          NEXT_PUBLIC_FIREBASE_PROJECT_ID: borsasal
+          NEXT_PUBLIC_FIREBASE_APP_ID: 1:469145462773:web:8cab38db1e13bd99f6e2bc
+        run: |
+          pnpm --dir web start --hostname 0.0.0.0 --port 3000 > /tmp/izfin-web.log 2>&1 &
+          echo $! > /tmp/izfin-web.pid
+          for attempt in $(seq 1 60); do
+            if curl --fail --silent --show-error http://localhost:3000/auth > /dev/null; then
+              echo "Local IZFIN web client is ready."
+              exit 0
+            fi
+            sleep 1
+          done
+          cat /tmp/izfin-web.log
+          exit 1
+
       - name: Set up Python
         uses: actions/setup-python@v7
         with:
@@ -36,9 +79,13 @@ jobs:
 
       - name: Run scan selection browser acceptance
         env:
-          IZFIN_SCAN_QA_BASE_URL: https://izfin-web-git-fix-scan-selection-continuity-adopcin-7216.vercel.app
+          IZFIN_SCAN_QA_BASE_URL: http://localhost:3000
           IZFIN_SCAN_QA_ARTIFACT_DIR: scan-selection-browser-artifacts
         run: python scripts/scan_selection_browser_acceptance.py
+
+      - name: Print local web log on failure
+        if: failure()
+        run: cat /tmp/izfin-web.log || true
 
       - name: Upload browser acceptance artifacts
         if: always()
