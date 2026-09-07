@@ -3,7 +3,7 @@
 import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { IzfinApiError, isRetryableApiError, izfinApiFetch, izfinApiStream } from "../lib/api";
 import { fetchMarketStockDetail, type StockDetailResponse } from "../lib/market-center";
-import { fetchScanJobContext, resultTickers, type ScanJobContext } from "../lib/scan-context";
+import { fetchScanJobContext, type ScanJobContext } from "../lib/scan-context";
 import {
   canRetryRecovery,
   normalizeRecoveredScanJob,
@@ -51,7 +51,6 @@ export function ScanWorkspace() {
     activeScanJobId,
     activeUniverseProfile,
     setActiveScan,
-    setSelectedTicker,
     setActiveUniverseProfile,
     refreshLatestCompletedScan,
   } = useAnalysisContext();
@@ -77,12 +76,12 @@ export function ScanWorkspace() {
   const scanControlRef = useRef<HTMLDivElement | null>(null);
   const symbolSearchInputRef = useRef<HTMLInputElement | null>(null);
 
-  const publishCompletedScan = useCallback(async (completed: ScanJob, fallbackTickers: string[] = []) => {
+  const publishCompletedScan = useCallback(async (completed: ScanJob) => {
     setActiveScan(completed.job_id);
-    const completedTickers = resultTickers({ ...completed, tickers: completed.tickers ?? fallbackTickers });
-    if (completedTickers.length === 1) setSelectedTicker(completedTickers[0]);
+    // ScanResult preserves a valid selection using actual result rows.
+    // Projection availability must not override the selected stock.
     await refreshLatestCompletedScan().catch(() => undefined);
-  }, [refreshLatestCompletedScan, setActiveScan, setSelectedTicker]);
+  }, [refreshLatestCompletedScan, setActiveScan]);
 
   const recoverActiveJob = useCallback((items: ScanRecoveryItem[]) => {
     const activeJob = items.find((item) => item.status === "queued" || item.status === "running");
@@ -235,7 +234,7 @@ export function ScanWorkspace() {
       const token = await getIdToken(); if (!token) return;
       const completed = await izfinApiStream<ScanJob>("/api/v1/scan/jobs/stream", token, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ tickers: universe.tickers }) }, setJob);
       setJob(completed);
-      if (completed.status === "completed") await publishCompletedScan(completed, universe.tickers);
+      if (completed.status === "completed") await publishCompletedScan(completed);
     } catch (caught) {
       if (caught instanceof IzfinApiError && isRetryableApiError(caught)) { setError(caught.message); setRetryableError(true); }
       else { setError("Canlı tarama bağlantısı kesildi. Devam eden iş sunucu durumundan geri yükleniyor…"); }
