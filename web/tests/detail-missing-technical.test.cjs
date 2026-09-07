@@ -23,31 +23,24 @@ for (const extension of ['.ts', '.tsx']) {
 }
 
 const selected = [];
+const auth = {
+  loading: false,
+  user: { uid: 'owner', email: 'owner@example.test', emailVerified: true },
+  getIdToken: async () => 'test-token',
+};
+const analysisContext = {
+  contextReady: true,
+  activeScanJobId: 'job-1',
+  setActiveScan: () => {},
+  setSelectedTicker: (ticker) => selected.push(ticker),
+  setLastVisitedAnalysisRoute: () => {},
+};
+const router = { replace: () => {} };
 const originalLoad = Module._load;
 Module._load = function (id, parent, isMain) {
-  if (id === './auth-provider') {
-    return {
-      useIzfinAuth: () => ({
-        loading: false,
-        user: { uid: 'owner', email: 'owner@example.test', emailVerified: true },
-        getIdToken: async () => 'test-token',
-      }),
-    };
-  }
-  if (id === './analysis-context-provider') {
-    return {
-      useAnalysisContext: () => ({
-        contextReady: true,
-        activeScanJobId: 'job-1',
-        setActiveScan: () => {},
-        setSelectedTicker: (ticker) => selected.push(ticker),
-        setLastVisitedAnalysisRoute: () => {},
-      }),
-    };
-  }
-  if (id === 'next/navigation') {
-    return { useRouter: () => ({ replace: () => {} }) };
-  }
+  if (id === './auth-provider') return { useIzfinAuth: () => auth };
+  if (id === './analysis-context-provider') return { useAnalysisContext: () => analysisContext };
+  if (id === 'next/navigation') return { useRouter: () => router };
   return originalLoad.call(this, id, parent, isMain);
 };
 const { StockDetailPage } = require('../components/stock-detail-page.tsx');
@@ -88,5 +81,6 @@ test('missing technical panel explains the data gap without asking the user to r
     delete global.window;
     delete global.document;
     delete global.IS_REACT_ACT_ENVIRONMENT;
+    delete global.fetch;
   }
 });
