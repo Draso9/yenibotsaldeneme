@@ -1,4 +1,9 @@
-# yenibotsaldeneme
+# IZFIN
+
+Güncel durum ve sıradaki işler için önce [IZFIN_MASTER_STATUS.md](IZFIN_MASTER_STATUS.md)
+dosyasındaki **Latest verified handoff** bölümünü okuyun. Eski planlar ve checkpoint
+kanıtları tarihsel kayıtlardır; güncel branch/PR durumunu GitHub üzerinden doğrulayın.
+Geliştirme `develop` tabanlı ayrı branch ve PR üzerinden yürür; `main` değiştirilmez.
 
 ## API
 
@@ -35,7 +40,10 @@ pnpm --dir web dev
 ```
 
 İstemci varsayılan olarak Cloud Run'daki canlı IZFIN API adresini kullanır.
-Giriş, watchlist ve tarama ekranları aşamalı olarak bu istemciye taşınacaktır.
+Giriş, kişisel liste, Akıllı Tarama, Detaylı Analiz, Projeksiyon, Performans ve
+Strateji Lab ekranları bu istemcide bulunur. Streamlit davranış ve tasarım
+referansıdır. Tamamlanan geçiş işleri, kabul kanıtları ve yayın öncesi açık işler
+ana durum dosyasında ayrıştırılır.
 
 ### Container ile çalıştırma
 
@@ -49,6 +57,5 @@ docker run --rm -p 8000:8000 --env-file .env izfin-api
 `FIREBASE_SERVICE_ACCOUNT_JSON` sağlandığında scan-job durumları Firestore'daki
 `izfin_scan_jobs` koleksiyonunda saklanır. Tamamlanmış işler uygulama yeniden
 başlasa da sorgulanabilir; yeniden başlatma sırasında çalışan bir iş güvenli
-biçimde `failed/interrupted` durumuna alınır. Bu ilk deploy hazırlığı bir
-platform seçmez; Cloud Run, Render veya benzeri bir ASGI container platformuna
-aynı giriş noktasıyla taşınabilir.
+biçimde `failed/interrupted` durumuna alınır. Mevcut backend Cloud Run üzerinde çalışır; container giriş noktası başka bir
+ASGI container platformunda da kullanılabilir.

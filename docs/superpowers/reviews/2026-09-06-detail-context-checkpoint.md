@@ -1,5 +1,9 @@
 # Detailed Analysis context continuity — 2026-09-06
 
+> Integration update — 2026-09-07: PR #146 has merged into develop. Its original pending steps below are historical,
+> not instructions to reopen this package.
+> See `IZFIN_MASTER_STATUS.md`, Latest verified handoff, for current next work.
+
 Status: implementation and local verification complete; draft PR, exact-HEAD CI and authenticated preview acceptance must be checked before merge review. This is not a release or full browser acceptance.
 
 ## Scope and branch
