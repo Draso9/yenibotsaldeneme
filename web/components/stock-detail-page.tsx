@@ -3,6 +3,7 @@
 import { technicalProfile, trendExplanation } from "../lib/signal-labels";
 import { useEffect, useEffectEvent, useState } from "react";
 import { useRouter } from "next/navigation";
+import { IzfinApiError } from "../lib/api";
 import { fetchScanHistory, latestCompletedScan } from "../lib/scan-context";
 import { stockDetailHref } from "../lib/stock-detail-route";
 import { fetchMarketStockDetail, type StockDetailResponse } from "../lib/market-center";
@@ -84,8 +85,12 @@ export function StockDetailPage({ jobId, ticker }: Readonly<{ jobId: string; tic
         if (!active) return;
         setResult({ key: requestKey, jobId: resolvedJobId, detail, error: "" });
         rememberDetail(resolvedJobId);
-      } catch {
-        if (active) setResult({ key: requestKey, jobId: "", detail: null, error: "Bu hisse için detaylı analiz yüklenemedi. Akıllı Tarama sonuçlarından hisseyi yeniden seçebilirsin." });
+      } catch (caught) {
+        if (!active) return;
+        const error = caught instanceof IzfinApiError && caught.status === 404
+          ? "Bu hisse için bu taramaya ait detaylı teknik veri hazır değil. Akıllı Tarama sonuçlarına dönebilir veya daha sonra tekrar deneyebilirsin."
+          : "Bu hisse için detaylı analiz yüklenemedi. Akıllı Tarama sonuçlarından hisseyi yeniden seçebilirsin.";
+        setResult({ key: requestKey, jobId: "", detail: null, error });
       }
     })();
     return () => { active = false; };
