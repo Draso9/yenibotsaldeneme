@@ -383,6 +383,23 @@ class FakeJobRepository:
     def upsert_job(self, job_id, data):
         self.jobs.setdefault(job_id, {}).update(dict(data))
 
+    def save_owned_job(self, job_id, data):
+        current = self.get_job(job_id)
+        if current and (current.get("worker_id") != data.get("worker_id")
+                        or current.get("status") in {"completed", "failed"}):
+            return current
+        self.upsert_job(job_id, data)
+        return self.get_job(job_id)
+
+    def interrupt_expired_job(self, job_id, owner_uid, *, now):
+        current = self.get_job(job_id)
+        if (current.get("owner_uid") == owner_uid and current.get("worker_id")
+                and current.get("status") in {"queued", "running"}
+                and current.get("lease_expires_at", 0) <= now):
+            self.upsert_job(job_id, {"status": "failed", "stage": "interrupted",
+                                    "error": "Tarama çalışanıyla bağlantı kesildiği için işlem tamamlanamadı."})
+        return self.get_job(job_id)
+
     def list_jobs_for_owner(self, owner_uid, *, limit=20):
         records = [
             dict(data)
@@ -515,6 +532,8 @@ def test_interrupted_persisted_job_is_never_reported_as_still_running_after_rest
             "owner_uid": "uid-1",
             "tickers": ["THYAO.IS"],
             "status": "running",
+            "worker_id": "dead-worker",
+            "lease_expires_at": 1,
             "stage": "ticker",
             "completed": 1,
         },
@@ -524,7 +543,7 @@ def test_interrupted_persisted_job_is_never_reported_as_still_running_after_rest
 
     assert restored.status == "failed"
     assert restored.stage == "interrupted"
-    assert "yeniden başlatıldığı" in restored.error
+    assert "bağlantı kesildiği" in restored.error
     assert repository.jobs["job-1"]["status"] == "failed"
 
 

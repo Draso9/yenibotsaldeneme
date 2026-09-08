@@ -22,6 +22,52 @@ class ScanJobRepository:
     def upsert_job(self, job_id, data):
         self.db.collection(self.COLLECTION).document(str(job_id)).set(dict(data), merge=True)
 
+    def save_owned_job(self, job_id, data):
+        """Fence stale writers using Firestore's document update precondition."""
+        from google.api_core.exceptions import AlreadyExists, FailedPrecondition, Conflict
+        from google.cloud.firestore_v1 import LastUpdateOption
+
+        ref = self.db.collection(self.COLLECTION).document(str(job_id))
+        snapshot = ref.get()
+        current = (snapshot.to_dict() or {}) if snapshot.exists else {}
+        if snapshot.exists and (
+            current.get("worker_id") != data.get("worker_id")
+            or current.get("status") in {"completed", "failed"}
+        ):
+            return current
+        try:
+            if snapshot.exists:
+                ref.update(dict(data), option=LastUpdateOption(snapshot.update_time))
+            else:
+                ref.create(dict(data))
+            return dict(data)
+        except (AlreadyExists, FailedPrecondition, Conflict):
+            return self.get_job(job_id)
+
+    def interrupt_expired_job(self, job_id, owner_uid, *, now):
+        """Only expire the exact version read; a concurrent heartbeat wins safely."""
+        from google.api_core.exceptions import FailedPrecondition, Conflict
+        from google.cloud.firestore_v1 import LastUpdateOption
+
+        ref = self.db.collection(self.COLLECTION).document(str(job_id))
+        snapshot = ref.get()
+        current = (snapshot.to_dict() or {}) if snapshot.exists else {}
+        if (current.get("owner_uid") != owner_uid
+                or current.get("status") not in {"queued", "running"}
+                or float(current.get("lease_expires_at") or 0) > now):
+            return current
+        # Legacy records have no worker lease. They require an explicit migration
+        # decision, not an assumption that a different process means a restart.
+        if not current.get("worker_id"):
+            return current
+        update = {"status": "failed", "stage": "interrupted",
+                  "error": "Tarama çalışanıyla bağlantı kesildiği için işlem tamamlanamadı."}
+        try:
+            ref.update(update, option=LastUpdateOption(snapshot.update_time))
+            return {**current, **update}
+        except (FailedPrecondition, Conflict):
+            return self.get_job(job_id)
+
     def list_jobs_for_owner(self, owner_uid, *, limit=20):
         query = (
             self.db.collection(self.COLLECTION)
