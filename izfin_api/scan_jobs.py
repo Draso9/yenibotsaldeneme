@@ -8,7 +8,8 @@ from datetime import datetime, timezone
 from inspect import Parameter, signature
 import json
 import logging
-from threading import RLock, Thread
+from threading import Event, RLock, Thread
+from time import time
 from typing import Any
 from uuid import uuid4
 
@@ -51,6 +52,9 @@ class _ScanJobRecord:
     created_at: str | None = None
     current_ticker: str | None = None
 
+    worker_id: str | None = None
+    lease_expires_at: float = 0
+
     def snapshot(self) -> ScanJobSnapshot:
         return ScanJobSnapshot(
             job_id=self.job_id,
@@ -75,9 +79,19 @@ class ScanJobStore:
         max_active_jobs: int = 2,
         max_records: int = 100,
         job_repository: Any = None,
+        lease_seconds: float = 90,
+        heartbeat_seconds: float = 15,
+        clock: Callable[[], float] = time,
     ) -> None:
         if max_active_jobs < 1 or max_records < 1:
             raise ValueError("Job limits must be positive.")
+        if not 0 < heartbeat_seconds < lease_seconds:
+            raise ValueError("Heartbeat must be shorter than the lease.")
+        self._worker_id = str(uuid4())
+        self._lease_seconds = lease_seconds
+        self._heartbeat_seconds = heartbeat_seconds
+        self._clock = clock
+        self._executing: set[str] = set()
         self._lock = RLock()
         self._records: dict[str, _ScanJobRecord] = {}
         self._max_active_jobs = max_active_jobs
@@ -94,21 +108,23 @@ class ScanJobStore:
         record = _ScanJobRecord(
             job_id=str(uuid4()),
             owner_uid=str(owner_uid),
+            worker_id=self._worker_id,
             tickers=normalized_tickers,
             created_at=datetime.now(timezone.utc).isoformat(),
         )
         with self._lock:
             self._prune_terminal_records()
             active_jobs = sum(
-                existing.status in {"queued", "running"} for existing in self._records.values()
+                existing.status in {"queued", "running"} or existing.job_id in self._executing for existing in self._records.values()
             )
             if active_jobs >= self._max_active_jobs or len(self._records) >= self._max_records:
                 raise ScanJobCapacityError("Tarama kuyruğu şu anda dolu.")
             self._records[record.job_id] = record
+            self._executing.add(record.job_id)
             self._persist(record)
             created = record.snapshot()
         Thread(
-            target=self._execute,
+            target=self._execute_with_heartbeat,
             args=(record.job_id, runner),
             daemon=True,
             name=f"izfin-scan-{record.job_id}",
@@ -118,22 +134,23 @@ class ScanJobStore:
     def submit_inline(self, owner_uid: str, tickers: Sequence[str], runner: Callable[..., Mapping[str, Any]]) -> ScanJobSnapshot:
         """Run while the HTTP request owns CPU (request-based Cloud Run safety)."""
         normalized = tuple(str(ticker).strip().upper() for ticker in tickers if str(ticker).strip())
-        record = _ScanJobRecord(job_id=str(uuid4()), owner_uid=str(owner_uid), tickers=normalized, created_at=datetime.now(timezone.utc).isoformat())
+        record = _ScanJobRecord(job_id=str(uuid4()), owner_uid=str(owner_uid), worker_id=self._worker_id, tickers=normalized, created_at=datetime.now(timezone.utc).isoformat())
         with self._lock:
             self._prune_terminal_records()
-            active = sum(item.status in {"queued", "running"} for item in self._records.values())
+            active = sum(item.status in {"queued", "running"} or item.job_id in self._executing for item in self._records.values())
             if active >= self._max_active_jobs or len(self._records) >= self._max_records:
                 raise ScanJobCapacityError("Tarama kuyruğu şu anda dolu.")
             self._records[record.job_id] = record
+            self._executing.add(record.job_id)
             self._persist(record)
-        self._execute(record.job_id, runner)
+        self._execute_with_heartbeat(record.job_id, runner)
         return self.get_for_owner(record.job_id, owner_uid) or record.snapshot()
 
     def get_for_owner(self, job_id: str, owner_uid: str) -> ScanJobSnapshot | None:
         with self._lock:
             record = self._records.get(str(job_id))
             if record is None:
-                record = self._restore_terminal_record(str(job_id))
+                record = self._restore_terminal_record(str(job_id), str(owner_uid))
             if record is None or record.owner_uid != str(owner_uid):
                 return None
             return record.snapshot()
@@ -156,9 +173,7 @@ class ScanJobStore:
                         continue
                     record = self._record_from_data(job_id, data)
                     if record.owner_uid == normalized_owner:
-                        self._mark_interrupted(record)
-                        self._records[record.job_id] = record
-                        records[record.job_id] = record
+                        records[record.job_id] = self._resolve_remote_record(record)
             ordered = sorted(
                 records.values(),
                 key=lambda record: record.created_at or "",
@@ -166,12 +181,35 @@ class ScanJobStore:
             )
             return [record.snapshot() for record in ordered[:bounded_limit]]
 
+    def _execute_with_heartbeat(self, job_id, runner):
+        stopped = Event()
+
+        def heartbeat():
+            while not stopped.wait(self._heartbeat_seconds):
+                with self._lock:
+                    record = self._records[job_id]
+                    if record.status not in {"queued", "running"}:
+                        return
+                    self._persist(record)
+
+        thread = Thread(target=heartbeat, daemon=True, name=f"izfin-lease-{job_id}")
+        thread.start()
+        try:
+            self._execute(job_id, runner)
+        finally:
+            stopped.set()
+            thread.join()
+            with self._lock:
+                self._executing.discard(job_id)
+
     def _execute(self, job_id: str, runner: Callable[..., Mapping[str, Any]]) -> None:
         def progress(event: Mapping[str, Any]) -> None:
             self._apply_progress(job_id, event)
 
         with self._lock:
             record = self._records[job_id]
+            if record.status not in {"queued", "running"}:
+                return
             record.status = "running"
             record.stage = "starting"
             tickers = record.tickers
@@ -182,6 +220,8 @@ class ScanJobStore:
         except Exception:
             with self._lock:
                 record = self._records[job_id]
+                if record.status not in {"queued", "running"}:
+                    return
                 record.status = "failed"
                 record.stage = "failed"
                 record.error = _UNEXPECTED_SCAN_ERROR
@@ -191,6 +231,8 @@ class ScanJobStore:
         presented = tarama_sonuc_durumu_hazirla(raw_result)
         with self._lock:
             record = self._records[job_id]
+            if record.status not in {"queued", "running"}:
+                return
             record.status = "completed"
             record.stage = "complete"
             record.completed = len(record.tickers)
@@ -229,7 +271,7 @@ class ScanJobStore:
                 (
                     job_id
                     for job_id, record in self._records.items()
-                    if record.status in {"completed", "failed"}
+                    if record.status in {"completed", "failed"} and job_id not in self._executing
                 ),
                 None,
             )
@@ -241,6 +283,8 @@ class ScanJobStore:
         stage = str(event.get("stage") or "running")
         with self._lock:
             record = self._records[job_id]
+            if record.status not in {"queued", "running"}:
+                return
             previous_completed = record.completed
             record.status = "running"
             record.stage = stage
@@ -265,7 +309,11 @@ class ScanJobStore:
         repository = self._job_repository
         if not getattr(repository, "available", False):
             return
+        if record.status in {"queued", "running"}:
+            record.lease_expires_at = self._clock() + self._lease_seconds
         payload = {
+            "worker_id": record.worker_id,
+            "lease_expires_at": record.lease_expires_at,
             "job_id": record.job_id,
             "owner_uid": record.owner_uid,
             "tickers": list(record.tickers),
@@ -285,13 +333,16 @@ class ScanJobStore:
             "current_ticker": record.current_ticker,
         }
         try:
-            repository.upsert_job(record.job_id, payload)
+            saved = repository.save_owned_job(record.job_id, payload)
+            if saved and (saved.get("worker_id") != record.worker_id
+                          or saved.get("status") in {"completed", "failed"}):
+                self._records[record.job_id] = self._record_from_data(record.job_id, saved)
         except Exception:
             # Persistence is durability, not the scan computation itself. Keep
             # the completed in-memory result available to the active request.
             _LOGGER.exception("scan_job_persistence_failed", extra={"scan_job_id": record.job_id})
 
-    def _restore_terminal_record(self, job_id: str) -> _ScanJobRecord | None:
+    def _restore_terminal_record(self, job_id: str, owner_uid: str) -> _ScanJobRecord | None:
         repository = self._job_repository
         if not getattr(repository, "available", False):
             return None
@@ -299,9 +350,9 @@ class ScanJobStore:
         if not data:
             return None
         record = self._record_from_data(job_id, data)
-        self._mark_interrupted(record)
-        self._records[record.job_id] = record
-        return record
+        if record.owner_uid != owner_uid:
+            return None
+        return self._resolve_remote_record(record)
 
     @staticmethod
     def _record_from_data(job_id: str, data: Mapping[str, Any]) -> _ScanJobRecord:
@@ -314,6 +365,8 @@ class ScanJobStore:
             except (TypeError, ValueError):
                 result = None
         return _ScanJobRecord(
+            worker_id=data.get("worker_id"),
+            lease_expires_at=float(data.get("lease_expires_at") or 0),
             job_id=str(data.get("job_id") or job_id),
             owner_uid=str(data.get("owner_uid") or ""),
             tickers=tuple(str(item) for item in data.get("tickers") or ()),
@@ -326,10 +379,13 @@ class ScanJobStore:
             current_ticker=str(data.get("current_ticker") or "") or None,
         )
 
-    def _mark_interrupted(self, record: _ScanJobRecord) -> None:
-        if record.status in {"queued", "running"}:
-            record.status = "failed"
-            record.stage = "interrupted"
-            record.error = "Tarama işlemi uygulama yeniden başlatıldığı için tamamlanamadı."
-            self._persist(record)
-
+    def _resolve_remote_record(self, record: _ScanJobRecord) -> _ScanJobRecord:
+        if (record.status in {"queued", "running"} and record.worker_id
+                and record.lease_expires_at <= self._clock()):
+            data = self._job_repository.interrupt_expired_job(
+                record.job_id, record.owner_uid, now=self._clock())
+            if data:
+                return self._record_from_data(record.job_id, data)
+        # Remote snapshots must be reread on every request, including terminal
+        # records: local cache ownership belongs only to jobs submitted here.
+        return record
